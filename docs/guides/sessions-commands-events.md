@@ -1,84 +1,12 @@
 # Sessions, commands, and events
 
-A [`GameSession`][osrlib.crawl.session.GameSession] is a running game. It contains every piece of mutable state (the party, the dungeon map as explored so far, the RNG streams, the clock, the live monster registry, the mode), and exactly one public API call changes any of it: [`execute`][osrlib.crawl.session.GameSession.execute], which takes a command and returns a [`CommandResult`][osrlib.crawl.commands.CommandResult]. [The complete program](#the-complete-program) at the end of the page is self-contained, and every snippet along the way comes from it.
+[`GameSession`][osrlib.crawl.session.GameSession] manages the mutable state of a running game: the party, the explored dungeon map, the RNG streams, the clock, live monsters, and the session mode. You advance play through [`GameSession.execute`][osrlib.crawl.session.GameSession.execute], which accepts a typed [`Command`][osrlib.crawl.commands.Command] and returns a [`CommandResult`][osrlib.crawl.commands.CommandResult].
 
-## The command loop
+## Execute commands and read events
 
-[`GameSession.new`][osrlib.crawl.session.GameSession.new] validates the adventure, assigns each party member a session id, and returns a session in town at round 0. From there, every turn is the same: build a [`Command`][osrlib.crawl.commands.Command], pass it to `execute`, read the result.
+Call [`GameSession.new`][osrlib.crawl.session.GameSession.new] to validate the adventure, assign each party member a session ID, and start the party in `town` at round 0. On each turn, construct a [`Command`][osrlib.crawl.commands.Command], pass it to `session.execute`, and inspect the returned `CommandResult`.
 
-`execute` runs two phases. First, a mode check: if the session's current mode isn't one of the command's declared `allowed_modes`, `execute` rejects the command immediately and does no further work. Otherwise the command's handler runs. Every handler checks every precondition before drawing a single die or changing a single field. If the handler finds a problem, it returns rejections and nothing changes: no command-log entry, no event-log entries, no RNG draws, no clock time. Only a command that passes every check changes anything. The session appends the command to the command log and its events to the event log. Then it runs any registered listeners in registration order. Each listener sees the events so far and appends its reactions to both the result and the log. An accepted command's `CommandResult` contains the *complete* chain: the handler's events and every listener's events, in the order they happened.
-
-That includes commands a listener executes in response. Those commands log their events, and `execute` adds the events to the result, each event exactly once, in log order. One `MoveParty` can come back with the move, the portcullis a trigger opened in response, and the journal entry that recorded the opening. Your front end renders all of it from one result without reading `session.event_log`.
-
-Listeners are how your game adds rules that react to events (a quest tracker, an achievement log) without changing the kernel. For the extension point, see [Listeners and flags](listeners-and-flags.md).
-
-Every command also has an optional `source` that identifies the authored object (a trigger or quest id) or the game system on whose behalf the command was issued. The session never reads `source` when it executes a command, so a command with a source does exactly what the same command without one does. The source goes into the log with the command and survives a save, a load, and a replay. The log records not just *who* acted but *on whose behalf*, so "why did the party get that item?" is answerable from the log alone:
-
-```{.python .no-run}
-# The source stamp annotates the log and changes nothing about execution.
-session.execute(AddJournalEntry(text="The lever grinds.", source="trigger:lever-east"))
-assert session.command_log[-1].source == "trigger:lever-east"
-assert session.view(Visibility.PLAYER).journal[-1].text == "The lever grinds."
-```
-
-The library's [`Interpreter`][osrlib.crawl.interpreter.Interpreter] stamps every command it issues this way: `trigger:{id}` for a trigger's firing, `quest:{id}` for everything a quest causes (see [Gates, triggers, and quests](gates-triggers-quests.md) for authoring triggers and quests). A log of play driven by authored content then reads as a transcript with attributions: this grant came from `trigger:idol-lifted`, that door opened for `trigger:portcullis-rises`, the coins came from `quest:the-idol`, and the `record_note` beside them records which consequence was dropped and why.
-
-## Session modes and mode gating
-
-[`SessionMode`][osrlib.crawl.commands.SessionMode] is a small, closed set: `town`, `exploring`, `encounter`, `battle`, `game_over`, and `victory`. Every [`Command`][osrlib.crawl.commands.Command] subclass declares which of these modes it's legal in as an `allowed_modes` class attribute. It's data, so you can inspect it directly:
-
-```{.python .no-run}
-# Each command declares its legal modes as data - MoveParty works only while exploring.
-assert MoveParty.allowed_modes == frozenset({SessionMode.EXPLORING})
-```
-
-Most dungeon-movement commands ([`MoveParty`][osrlib.crawl.commands.MoveParty], `TurnParty`, `OpenDoor`, `Search`, and the rest) are legal only while `exploring`. Commands that make sense both at rest and on the move (`ReorderParty`, `LightSource`, `Rest`, `CastSpell`) are legal in `town` or `exploring`. Encounter-only commands (`Parley`, `Evade`, `EngageBattle`, `Wait`, `TurnUndead`) require `encounter`, and `ResolveBattleRound` requires `battle`. Some commands, like `DropItems`, span two modes: dropping treasure to distract pursuers works whether exploring or already in an encounter. `GiveItems` spans three: a member can hand items to another in `town`, while `exploring`, and in an `encounter`, where it takes the encounter round. In `battle`, a member hands over an item as their declaration for the round instead, a [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] with `action="give_item"`.
-
-Referee commands (`GrantItem`, `SetFlag`, `AwardXP`, `AdvanceTime`, the [lifecycle commands](#the-lifecycle-commands), and the other referee commands) are legal in every mode, the two terminal ones included. Three referee commands are the exception. Each would resume play in a session that's over, and each works in only some of the modes of a game in progress:
-
-- `SpawnMonsters` and `SpawnNpcParty` open an encounter, so they're illegal in both terminal modes, `game_over` and `victory`. An encounter needs the party on a dungeon cell, so neither is legal in `town`. `SpawnMonsters` is legal in `exploring`, `encounter`, and `battle`, and in the last two it adds a group to the open fight. `SpawnNpcParty` is legal only in `exploring`.
-- [`PlaceParty`][osrlib.crawl.commands.PlaceParty] teleports the party into `exploring` or `town`. It can't move the party out of an open encounter, so it's illegal in `encounter` and `battle`. It's illegal in `victory`, and stays legal in `game_over`, because carrying the fallen party to town is the first step of the documented revival flow: `PlaceParty(town)` then [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] with `service="raise_dead"`. The clock keeps running during those steps, and *raise dead* works only within a limited number of days after the death.
-
-[`EndEncounter`][osrlib.crawl.commands.EndEncounter] is limited for a different reason. It closes an open encounter, so it's legal only in `encounter` and `battle`.
-
-[`EnterDungeon`][osrlib.crawl.commands.EnterDungeon] moves the party from `town` to the dungeon entrance and switches the session to `exploring`. Stepping into a keyed area's cells, a wandering-monster check, or a referee's `SpawnMonsters` or `SpawnNpcParty` opens an encounter and switches to `encounter`. A `SpawnMonsters` during an encounter or a battle leaves the mode as it is and adds a group to that fight. `EngageBattle` opens full combat and switches to `battle`. A battle ends back in `encounter` (the party broke off and a pursuit begins), in `exploring` (the monsters are beaten, the encounter closes, and play continues), or, if the whole party falls, in the terminal `game_over`.
-
-When the party talks its way past or walks away, send the referee command `EndEncounter`. It closes the encounter, and the battle if one is open, and the session switches to `exploring`. Set its `resolve_area` to `True` when a keyed area's monsters shouldn't be there the next time the party walks in. `TravelToTown` is the return trip, switching `exploring` back to `town`.
-
-A lost battle is not the only way a session ends. Any command whose events leave the party with nobody standing switches the session to `game_over` and reports it with the same [`GameOverEvent`][osrlib.crawl.events.GameOverEvent], whether the cause is a save-or-die trap sprung by a step into the wrong room, a fall, starvation on a long delve, or a poison that resolves under a referee's `AdvanceTime`. `victory` is the other terminal mode, and only one command switches a session to it: [`CompleteQuest`](#the-lifecycle-commands) on a quest authored `concludes_adventure=True`. That's how the interpreter ends the adventure (see [the completion rule and the ending](gates-triggers-quests.md#the-completion-rule-and-the-ending)). To check whether a session has ended in either terminal mode, read [`SessionMode.terminal`][osrlib.crawl.commands.SessionMode].
-
-## The lifecycle commands
-
-Authored content records its progress with a family of referee commands. Three of them record triggers, journal entries, and notes: [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired], [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry], and [`RecordNote`][osrlib.crawl.commands.RecordNote]. The other four advance quest state:
-
-- [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest] puts a quest in play.
-- [`RevealObjective`][osrlib.crawl.commands.RevealObjective] shows the players a hidden objective.
-- [`CompleteObjective`][osrlib.crawl.commands.CompleteObjective] marks an objective done and reveals it.
-- [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] finishes the quest, and on a quest marked as concluding the adventure, ends the session in `victory`.
-
-They're ordinary commands: legal in every mode, logged, replayed, and stamped like any other. What they write (per-quest status and per-objective flags in `session.quests`) is session state that the engine manages, not listener state, so a replay with no listeners registered rebuilds it by re-executing the log.
-
-The lifecycle commands differ in how they treat ids. `MarkTriggerFired.trigger_id` is an **open domain**. A mark records that something fired and doesn't need an authored trigger, so your game can use ids from its other systems. The four quest commands work the other way. They resolve `quest_id` and `objective_id` against the adventure's [`QuestSpec`][osrlib.crawl.quests.QuestSpec]s, a **closed domain**, and reject an id that matches no spec (`session.command.unknown_quest`, `session.command.unknown_objective`). The player view shows the state they advance, and an id with no spec behind it has no name, no offer, and no objective list to show. A command that contradicts the state it finds (activating a quest already active, completing an objective already complete) is rejected with `session.command.quest_state`, which gives the quest and the state the handler found.
-
-`CompleteQuest` requires the quest to be active and does *not* check its completion rule: ruling a quest done is the referee's call, and the interpreter checks the rule before issuing the command. The command grants no rewards. Whoever completes a quest issues the rewards afterwards.
-
-## Rejections versus exceptions
-
-Validation runs before the command changes anything: it never draws randomness, never advances the clock, never mutates anything, and a rejected command never enters the command log. [`Rejection`][osrlib.core.validation.Rejection] is a small structured model (a dotted snake_case `code` plus `params`) that contains the facts your front end needs to render the refusal, never baked English prose. Moving into a wall, trying to pick a lock without thieves' tools, casting a spell in the wrong mode: these are all rejections, and they appear in `CommandResult.rejections`.
-
-One family of rejections includes text the author wrote for the player, on top of its code. A gate refusal (`exploration.door.gate_refused`, `exploration.transition.gate_refused`) puts the author's `refusal` text in its `params`. The text is content data in a structured field, not English the engine wrote. A front end that renders rejections should show that line to the player. [Gates, triggers, and quests](gates-triggers-quests.md) shows how you author that refusal on a gate.
-
-```{.python .no-run}
-# The party starts in town: MoveParty is out of mode and comes back rejected, not raised.
-result = session.execute(MoveParty(direction=Direction.EAST))
-assert result.accepted is False
-assert result.rejections[0].code == "session.command.wrong_mode"
-assert session.mode is SessionMode.TOWN
-assert session.clock.rounds == 0
-assert session.event_log == []
-```
-
-Once the mode is right, the same command changes the session and reports what happened as [`Event`][osrlib.core.events.Event] instances, never English text:
+When a command is legal, `execute` updates session state, appends the command to `session.command_log`, appends the resulting [`Event`][osrlib.core.events.Event] instances to `session.event_log`, and runs registered listeners in registration order. Events contain structured fields and a message code rather than rendered English prose. Pass each event to [`format_message`][osrlib.messages.format_message] when you want a default English line:
 
 ```{.python .no-run}
 # EnterDungeon switches the session to exploring; the same move is now legal and mutates.
@@ -90,19 +18,72 @@ lines = [format_message(event) for event in result.events]
 assert lines  # every accepted command's events format to a default English line
 ```
 
-A raised exception means something different: you broke the API contract, or the content you handed the library is malformed. The `osrlib.errors` hierarchy, rooted at [`OsrlibError`][osrlib.errors.OsrlibError], covers exactly that. [`ContentValidationError`][osrlib.errors.ContentValidationError] is malformed content (an adventure with a dangling monster id, a serialized command or event whose *known* type doesn't match its payload). [`SaveVersionError`][osrlib.errors.SaveVersionError] is a save written by a newer library than the one loading it, and [`ReplayVersionError`][osrlib.errors.ReplayVersionError] is replaying a command log under a different engine version than the one that recorded it. Plain `ValueError` and `TypeError` cover a third case: ordinary programmer misuse, like a bad argument type or an out-of-range seed.
+`result.events` contains the full reaction chain for that turn in log order: the command handler's events first, followed by any events produced by listeners (including nested `session.execute` calls) without duplicates. For example, a single `MoveParty` result can include the movement event, a portcullis opening from a trigger, and the journal entry recording that change. You can render the entire turn from `result.events` without reading `session.event_log`. To write listeners that react to events, see [Listeners and flags](listeners-and-flags.md).
 
-The three categories stay separate at the command boundary. A referee command that refers to an unknown character or item id (`GrantItem` with a stale `character_id`, say) doesn't raise. The handler turns the lookup failure into an ordinary rejection (`session.command.unknown_member`, `session.command.unknown_item`). A front end that serves osrlib over a network needs to make the same three-way split where requests come in. See [the FastAPI pattern](../front-ends/fastapi-pattern.md) for one example of that split.
+Every event includes a `code` and a `visibility`. Event codes use dot-separated `snake_case` segments grouped by subsystem, such as `exploration.party.moved` or `combat.attack.hit`. `format_message` dispatches on `event.code` and returns the code string itself if it encounters an unfamiliar code from a newer engine release, so formatting never raises an exception. See [Views and visibility](views-and-visibility.md) for event visibility filtering, [the events reference](../reference/events/index.md) for event payloads, and [the message code reference](../reference/message-codes.md) for default message templates.
 
-## The event log and message codes
+## Handle rejections and exceptions
 
-The session appends every accepted command's events to `session.event_log`, in the order they happened: the handler's events first, then each registered listener's, in registration order. Every event has a `code` and a `visibility`. The code is two or more dot-separated snake_case segments namespaced by subsystem, like `exploration.party.moved` or `combat.attack.hit`, and [Views and visibility](views-and-visibility.md) covers the visibility field. [`format_message`][osrlib.messages.format_message] turns any event into a default English line by dispatching on its code. It never raises: an event whose code it doesn't recognize (from a newer engine version) still formats to something printable, the code string itself.
+`execute` validates the session mode and all command preconditions before rolling dice, advancing the clock, or mutating state. When a game rule blocks an action (such as walking into a wall, picking a lock without thieves' tools, or issuing an exploration command while in town), `execute` returns `CommandResult(accepted=False)` with structured [`Rejection`][osrlib.core.validation.Rejection] entries in `result.rejections` instead of raising an exception. Rejected commands leave `session.command_log` and `session.event_log` untouched:
 
-The full catalog of event classes and message codes lives in [the events reference](../reference/events/index.md) and [the message code reference](../reference/message-codes.md). Every rejection code the engine can emit is in [the rejection code reference](../reference/rejection-codes.md).
+```{.python .no-run}
+# The party starts in town: MoveParty is out of mode and comes back rejected, not raised.
+result = session.execute(MoveParty(direction=Direction.EAST))
+assert result.accepted is False
+assert result.rejections[0].code == "session.command.wrong_mode"
+assert session.mode is SessionMode.TOWN
+assert session.clock.rounds == 0
+assert session.event_log == []
+```
 
-## The wire discriminators
+Each `Rejection` specifies a dotted `code` and a `params` dict so your front end can format player feedback (see [the rejection code reference](../reference/rejection-codes.md)). Gate refusals (`exploration.door.gate_refused` and `exploration.transition.gate_refused`) also include the adventure author's `refusal` string in `params`, which your front end should display to the player (see [Gates, triggers, and quests](gates-triggers-quests.md)).
 
-Commands and events use the same discriminated-union structure: a frozen pydantic model with `extra="ignore"` and a single-valued string field that identifies its concrete class on the wire (`command_type` on `Command`, `event_type` on `Event`). [`parse_command`][osrlib.crawl.commands.parse_command] and [`parse_any_event`][osrlib.crawl.events.parse_any_event] parse a dumped payload back into the right concrete type, and both tolerate *unknown* types: a `command_type` or `event_type` this version of the library doesn't define parses to `None` instead of raising. `parse_any_event` also returns `None` for an event whose type it defines but whose `code` it doesn't, as long as the code is well formed. A save or network payload from a newer engine version can contain command and event kinds, and event codes, that an older consumer has never seen. The consumer skips them instead of crashing.
+Exceptions signal broken API contracts or invalid data rather than illegal player moves:
+
+- [`ContentValidationError`][osrlib.errors.ContentValidationError] (a subclass of [`OsrlibError`][osrlib.errors.OsrlibError]): invalid adventure content (such as an unknown monster ID) or a serialized command or event with a recognized type whose fields fail validation.
+- [`SaveVersionError`][osrlib.errors.SaveVersionError]: a save document written by a newer `schema_version` than the installed library supports.
+- [`ReplayVersionError`][osrlib.errors.ReplayVersionError]: a command log replayed under an engine version different from the recorded version.
+- `ValueError` and `TypeError`: invalid Python arguments, such as an unrecognized command class or an out-of-range RNG seed.
+
+Lookup failures inside referee commands (for example, `GrantItem` with a stale `character_id` or unknown `item_id`) return rejections (`session.command.unknown_member` or `session.command.unknown_item`) instead of raising exceptions. If you expose `GameSession` over HTTP, map rejections and exception classes to separate status codes, as shown in [the FastAPI pattern](../front-ends/fastapi-pattern.md).
+
+## Session modes and allowed commands
+
+[`SessionMode`][osrlib.crawl.commands.SessionMode] defines the game phases: `town`, `exploring`, `encounter`, `battle`, `game_over`, and `victory`. Every [`Command`][osrlib.crawl.commands.Command] subclass declares the modes in which it is legal on its `allowed_modes` class attribute, which you can inspect directly:
+
+```{.python .no-run}
+# Each command declares its legal modes as data - MoveParty works only while exploring.
+assert MoveParty.allowed_modes == frozenset({SessionMode.EXPLORING})
+```
+
+Play commands follow the party's current phase:
+
+- **Dungeon exploration** (`MoveParty`, `TurnParty`, `OpenDoor`, `Search`, and related exploration actions): legal in `exploring`.
+- **Camp and preparation** (`ReorderParty`, `LightSource`, `Rest`, `CastSpell`): legal in both `town` and `exploring`.
+- **Encounter actions** (`Parley`, `Evade`, `EngageBattle`, `Wait`, `TurnUndead`): legal in `encounter`.
+- **Combat rounds** (`ResolveBattleRound`): legal in `battle`.
+- **Item transfers**: `DropItems` works in `exploring` and `encounter` (allowing a fleeing party to drop treasure to distract pursuers). `GiveItems` works in `town`, `exploring`, and `encounter` (where handing over an item consumes the encounter round), whereas in `battle` a character transfers an item by submitting a [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] with `action="give_item"`.
+
+Commands move the session between modes as play progresses:
+
+- [`EnterDungeon`][osrlib.crawl.commands.EnterDungeon] moves the party from `town` to the dungeon entrance (`exploring`), and `TravelToTown` returns the party from `exploring` to `town`.
+- Stepping into an area with a keyed encounter, rolling a wandering monster, or executing `SpawnMonsters` or `SpawnNpcParty` from `exploring` starts an `encounter`. Executing `SpawnMonsters` during an active `encounter` or `battle` adds a monster group without changing the mode.
+- `EngageBattle` transitions from `encounter` to `battle`. When combat ends, the session transitions to `encounter` (if the party retreats into pursuit), `exploring` (if all foes are defeated), or `game_over` (if the entire party is incapacitated).
+- [`EndEncounter`][osrlib.crawl.commands.EndEncounter] closes an active `encounter` or `battle` and returns the session to `exploring` (for example, after a successful parley). Pass `resolve_area=True` if a keyed area's monsters should not reappear when the party re-enters.
+- Any accepted command that leaves every party member dead or petrified (whether from combat, a trap, a fall, starvation, or poison ticking under `AdvanceTime`) switches the session to `game_over` and emits [`GameOverEvent`][osrlib.crawl.events.GameOverEvent].
+- [`CompleteQuest`](#attribution-stamps-and-lifecycle-commands) on a quest configured with `concludes_adventure=True` switches the session to `victory` (see [the completion rule and the ending](gates-triggers-quests.md#the-completion-rule-and-the-ending)). Check [`SessionMode.terminal`][osrlib.crawl.commands.SessionMode] to test whether the session has reached either `game_over` or `victory`.
+
+Most referee commands (such as `GrantItem`, `SetFlag`, `AwardXP`, `AdvanceTime`, and the [lifecycle commands](#attribution-stamps-and-lifecycle-commands)) work in every mode, including `game_over` and `victory`. A few referee commands are restricted because they depend on an active encounter or move the party between locations:
+
+- `EndEncounter` is legal only in `encounter` and `battle`.
+- `SpawnMonsters` is legal in `exploring`, `encounter`, and `battle`, whereas `SpawnNpcParty` is legal only in `exploring`. Neither works in `town`, `game_over`, or `victory`.
+- [`PlaceParty`][osrlib.crawl.commands.PlaceParty] is legal in `town`, `exploring`, and `game_over`, but not in `encounter`, `battle`, or `victory`. Keeping `PlaceParty` legal in `game_over` supports party recovery: you can move the fallen party to `town` and execute [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] with `service="raise_dead"` while the dead characters are still within the spell's day limit.
+
+## Parse commands and events from JSON
+
+Commands and events are frozen Pydantic models configured with `extra="ignore"` and discriminated by `command_type` (on `Command`) or `event_type` (on `Event`). Use [`parse_command`][osrlib.crawl.commands.parse_command] and [`parse_any_event`][osrlib.crawl.events.parse_any_event] to deserialize JSON dicts back into concrete models.
+
+Both parsers return `None` when given a `command_type` or `event_type` not defined in the installed version of osrlib, and `parse_any_event` also returns `None` when a known event class receives a well-formed `code` it doesn't list. That behavior lets older clients and tools skip unfamiliar records from newer engine versions without crashing:
 
 ```{.python .no-run}
 # Commands and events round-trip through their wire discriminator; unknown types parse to None.
@@ -115,7 +96,7 @@ assert parse_any_event(event_payload) == result.events[0]
 assert parse_any_event({"event_type": "some_future_event", "code": "x.y"}) is None
 ```
 
-The tolerance extends **only** to types the parser doesn't recognize. A payload whose `command_type` or `event_type` *is* recognized but whose fields don't validate (a required field missing, a value of the wrong type) is malformed data, not a forward compatibility case, and raises `ContentValidationError` instead of returning `None`:
+If `command_type` or `event_type` (and event `code`) matches a known class, but required fields are missing or have invalid types, the parser raises [`ContentValidationError`][osrlib.errors.ContentValidationError]:
 
 ```{.python .no-run}
 # A malformed payload of a *known* type is a broken API contract: it raises, never rejects.
@@ -127,7 +108,25 @@ else:
     raise AssertionError("expected ContentValidationError")
 ```
 
-`osrlib.core.events` has the narrower [`parse_event`][osrlib.core.events.parse_event], which recognizes only the kernel event classes. `parse_any_event` covers kernel and crawl events together, and it's what [`load_game`][osrlib.persistence.load_game] uses to read a save's event log.
+`parse_any_event` handles both kernel and crawl events (and [`load_game`][osrlib.persistence.load_game] uses it when reading saved event logs). If your code uses only `osrlib.core`, call [`parse_event`][osrlib.core.events.parse_event] to parse kernel events.
+
+## Attribution stamps and lifecycle commands
+
+Every command accepts an optional `source` string that records which trigger, quest, or game subsystem issued it. `session.execute` ignores `source` during execution, but preserves it on the command in `session.command_log` across saves and replays so you can audit why a state change happened:
+
+```{.python .no-run}
+# The source stamp annotates the log and changes nothing about execution.
+session.execute(AddJournalEntry(text="The lever grinds.", source="trigger:lever-east"))
+assert session.command_log[-1].source == "trigger:lever-east"
+assert session.view(Visibility.PLAYER).journal[-1].text == "The lever grinds."
+```
+
+The built-in [`Interpreter`][osrlib.crawl.interpreter.Interpreter] sets `source="trigger:{id}"` or `source="quest:{id}"` on every referee command it executes (see [Gates, triggers, and quests](gates-triggers-quests.md)), and records a referee note when a consequence is dropped.
+
+Authored content and custom listeners also use referee lifecycle commands to record trigger firings, journal entries, notes, and quest state in `GameSession` (so [`replay_game`][osrlib.persistence.replay_game] can rebuild that state from `command_log` without running listeners):
+
+- [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired], [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry], and [`RecordNote`][osrlib.crawl.commands.RecordNote]: record fired trigger IDs, player-visible journal entries, and referee notes. `MarkTriggerFired.trigger_id` accepts any string ID, even if no authored trigger uses it.
+- [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest], [`RevealObjective`][osrlib.crawl.commands.RevealObjective], [`CompleteObjective`][osrlib.crawl.commands.CompleteObjective], and [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest]: advance quest progress in `session.quests`. Because [`PlayerView`][osrlib.crawl.views.PlayerView] reads display names and offer text from the adventure's [`QuestSpec`][osrlib.crawl.quests.QuestSpec] definitions, these commands validate `quest_id` and `objective_id` against the adventure (`session.command.unknown_quest`, `session.command.unknown_objective`) and reject out-of-order state transitions (`session.command.quest_state`). `CompleteQuest` requires the quest to be active, but does not verify the quest's completion rule or issue quest rewards. The caller (such as `Interpreter`) checks the completion rule first and issues reward commands afterward.
 
 ## The complete program
 
@@ -218,7 +217,7 @@ else:
 
 ## Where next
 
-- [Views and visibility](views-and-visibility.md) - the projections that hide what B/X hides, built from this same session state.
-- [Listeners and flags](listeners-and-flags.md) - the extension point `execute` runs after every command.
-- [Determinism, saves, and replay](determinism-saves-replay.md) - how the command log becomes a save and a replay.
-- [The FastAPI pattern](../front-ends/fastapi-pattern.md) - turning rejections and the `osrlib.errors` hierarchy into HTTP responses at a service boundary.
+- [Views and visibility](views-and-visibility.md) - player and referee snapshots built from session state.
+- [Listeners and flags](listeners-and-flags.md) - registering listeners that run after accepted commands.
+- [Determinism, saves, and replay](determinism-saves-replay.md) - saving sessions and replaying `command_log` from a master seed.
+- [The FastAPI pattern](../front-ends/fastapi-pattern.md) - mapping rejections and `osrlib.errors` exceptions to HTTP responses.

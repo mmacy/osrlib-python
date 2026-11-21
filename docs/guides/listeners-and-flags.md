@@ -1,82 +1,39 @@
 # Listeners and flags
 
-Command handlers implement the SRD's rules: movement, combat, searching, spellcasting, and everything else a [`GameSession`][osrlib.crawl.session.GameSession] resolves by itself. They have no rule for a fetch quest, for a lever in a guard room, or for your game's win condition. That logic belongs to your game, not the engine, and two mechanisms let you add it without forking the library: **listeners**, which watch every command's events and react by executing more commands, and **flags**, a small piece of session state your game reads and writes directly.
+[`GameSession`][osrlib.crawl.session.GameSession] resolves B/X movement, combat, exploration, and spellcasting rules, while leaving game-specific mechanics (such as custom quest trackers, puzzle switches, or achievement counters) to your application. You extend session behavior through two mechanisms: **listeners**, which inspect events after each accepted command and execute follow-up commands, and **flags**, which store referee-only key-value pairs in `session.flags`.
 
-If you'd like to jump right to the code, [the complete program](#the-complete-program) at the end is self-contained and runnable, and every snippet along the way comes from it.
+## Register a listener and react to events
 
-## Listeners: reacting to committed events
-
-A listener satisfies the [`Listener`][osrlib.crawl.session.Listener] protocol: a `key` string that identifies its entry in the session's state, and a `handle` method with this signature:
+Implement the [`Listener`][osrlib.crawl.session.Listener] protocol by defining a unique `key` string and a `handle` method:
 
 ```{.python .no-run}
 def handle(self, events: Sequence[Event], state: dict) -> tuple[list[Event], dict]:
     ...
 ```
 
-Register an instance with [`GameSession.register_listener`][osrlib.crawl.session.GameSession.register_listener]:
+Register each listener instance with [`GameSession.register_listener`][osrlib.crawl.session.GameSession.register_listener]:
 
 ```{.python .no-run}
 session.register_listener(MoveCounter())
 ```
 
-[`GameSession.execute`][osrlib.crawl.session.GameSession.execute] runs every registered listener, in registration order, immediately after a command is accepted, applied, and logged. A rejected command never reaches a listener at all, because rejection mutates nothing and appends nothing to the log. Each listener's `handle` receives two things:
+[`GameSession.execute`][osrlib.crawl.session.GameSession.execute] invokes registered listeners in registration order after accepting, applying, and logging a command. Rejected commands never invoke listeners. On each call, `handle` receives two arguments:
 
-- `events` - the accumulated events for that one command: the command handler's events, plus whatever any earlier-registered listener already returned. A listener registered second sees a first listener's authored events alongside the handler's.
-- `state` - the dict the session has saved under the listener's key: the state that listener returned the last time `handle` ran, or `{}` the first time (and after a fresh registration). The session never reads what's in this dict. It's the listener's private bookkeeping.
+- `events`: the events produced so far for the current command, starting with the command handler's events and followed by any events returned directly by earlier-registered listeners.
+- `state`: the JSON-compatible dict stored under `listener.key` in `session.listener_state` (initialized to `{}` on registration). `GameSession` stores this dict without interpreting its contents.
 
-`handle` returns a pair: a list of events to append to the command's result and to the session's event log, and the state to keep for next time.
+`handle` returns `(emitted_events, new_state)`:
 
-That returned-events list is for events a listener **authors** directly. A listener that reacts by executing commands must return an empty list. A nested `session.execute(...)` call already appends that command's events to the session's event log. Returning them again from `handle` would log the same event twice.
+- **Returning vs. executing events**: Use `emitted_events` only for standalone annotation events that your listener instantiates directly. Whenever your listener reacts by calling `session.execute(...)`, return `[]` for `emitted_events`. Nested `execute` calls already append their events to `session.event_log`, and the outer `execute` call automatically collects every nested event into `CommandResult.events` in log order without duplicates.
+- **Re-entrant state updates**: Calling `session.execute(...)` inside `handle` re-enters the full dispatch loop, running all registered listeners (including the current listener) against the nested command's events with the same `state` dict stored under `listener.key`. If your listener calls `execute`, mutate `state` **in place** *before* calling `execute` and return that same `state` dict so inner calls observe your guard flag and don't trigger a loop. If a re-entered listener returns a different dict instance from its outer call, `execute` raises `RuntimeError` rather than overwriting inner updates. Listeners that never call `execute` (such as `MoveCounter` below) may construct and return a new dict.
 
-Returning an empty list hides nothing from the caller. `execute` notes where the event log ends before it calls each listener, then adds everything logged while that listener ran to the result it returns. That's the nested commands' events, however deeply they nest, each exactly once and in log order, followed by whatever the listener authored. So the `CommandResult` from a player's `MoveParty` includes the events for the portcullis opening and the journal entry that recorded the opening, and your front end renders the whole chain from one result.
+### Persist and re-register listeners across saves
 
-The nested `execute` call has a second effect: it re-enters the entire dispatch pipeline, listener loop included. If a listener issues a command from inside `handle`, every registered listener, itself included, runs again against *that* command's events. The inner call gets the same `state` dict as the outer call, because the session saves the dict under the listener's key before the outer call starts. So a listener that executes commands updates `state` in place and returns it. Each call then sees what the calls before it wrote, and the session saves every update. Write what the reaction depends on before you execute the command, so the inner call sees it and doesn't react again.
+`register_listener` reserves `session.listener_state[listener.key]` and raises `ValueError` if another listener already uses that key. [`save_game`][osrlib.persistence.save_game] and [`load_game`][osrlib.persistence.load_game] serialize and restore `listener_state` as JSON data, but never serialize listener Python objects. After calling `load_game`, call `register_listener` again for each listener in the same registration order before executing new commands (see [Determinism, saves, and replay](determinism-saves-replay.md)).
 
-If an inner call returns a new dict instead, the session saves that one. Once a listener has been called again inside its own call, the outer call has to return the dict the session has saved under its key. Any other dict, like a copy the outer call made before it executed the command, would overwrite what the inner call saved. `execute` raises `RuntimeError` rather than lose the update, and the message gives the listener's key. A listener that executes no commands, like the move counter in the complete program, may build and return a new dict. The fetch quest below updates its state in place.
+## Example: track a custom fetch quest
 
-## listener_state: what survives, what doesn't
-
-A listener's state dict is the only part of it a save file contains. `register_listener` reserves an empty entry for the listener's key on registration, and it raises `ValueError` for a key that another registered listener already has. Every save and load round-trips `listener_state` verbatim as plain JSON-compatible data. osrlib never serializes the listener *object*, because it's code and not data, so after loading a saved game you must call `register_listener` again, with the same listeners in the same order, before any of them will see another event. For more information about how loading and replay work, see [Determinism, saves, and replay](determinism-saves-replay.md).
-
-## Flags: referee-only session state
-
-Flags solve a smaller version of the same problem: content setup that isn't a rule the engine enforces, like "pulling the lever in the guard room opens the portcullis in the crypt." A flag is one string key mapped to a `str`, `int`, or `bool` value. The referee command [`SetFlag`][osrlib.crawl.commands.SetFlag] sets one:
-
-```{.python .no-run}
-session.execute(SetFlag(key="crypt.lever_pulled", value=True))
-```
-
-`SetFlag` is accepted in every session mode and always succeeds. Its handler writes the value into `session.flags` and emits a [`FlagSetEvent`][osrlib.crawl.events.FlagSetEvent] with the key and the value. Flags are referee-only state: like listener state, they round-trip through saves (under `session.flags`), but neither flags nor listener state appear in the [`PlayerView`][osrlib.crawl.views.PlayerView] that a player-facing front end reads. For more information, see [Views and visibility](views-and-visibility.md). A front end that needs a flag's value back (to decide whether to narrate the portcullis creaking open, for example) reads `session.flags` directly when it has the session, or `session.view(Visibility.REFEREE).flags` when it works from views alone.
-
-## Lifecycle commands: fired-marks, the journal, and notes
-
-Flags are one way a listener records what happened. Three more referee commands cover the records that authored triggers and quests need, and all three behave exactly like `SetFlag`: legal in every mode, never rejected, issued through `execute`, and logged and replayed like any other command.
-
-- [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired] records that an authored trigger has fired, appending its id to `session.fired_triggers`. Once-only triggers depend on that list. Marking a trigger that has already fired is accepted, appends nothing, and still emits its [`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent], so every firing of a repeatable trigger shows up in the log while the state stays a list of ids in first-fired order.
-- [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry] appends an entry to `session.journal`, with the clock position when it was added. The journal is the only one of these records the players see: the [`PlayerView`][osrlib.crawl.views.PlayerView] includes it verbatim, and its [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] is player-visible.
-- [`RecordNote`][osrlib.crawl.commands.RecordNote] records an annotation with no state effect at all. It's the mechanism for machine-issued records (a consequence that was dropped, a cascade cut short) and for a referee's margin notes alike. Its event is referee-visibility, like the event from `MarkTriggerFired`.
-
-`session.fired_triggers` and `session.journal` are both session state that the engine manages. They persist in saves, and because only commands write them, a replay rebuilds them exactly by re-executing the log, even though a replay runs with no listeners registered. That's also why a listener must act by issuing commands instead of changing session state directly.
-
-The optional `source` stamp (see [Sessions, commands, and events](sessions-commands-events.md)) ties these records together. A listener that stamps the commands it issues with its quest or trigger id leaves a log that shows *why* every entry is there. The library's interpreter is built on these same commands, and a listener you write uses them the same way.
-
-## The interpreter
-
-[`Interpreter`][osrlib.crawl.interpreter.Interpreter] is a listener like any other, and it's a complete example of everything above. Register one, once, after the session exists, and again after loading a save, because listeners are code and a save contains only data:
-
-```{.python .no-run}
-session.register_listener(Interpreter(session))
-```
-
-From then on it watches every command's events, matches them against the adventure's authored [triggers](gates-triggers-quests.md#scripting-the-dungeon-with-triggers) and its [`QuestSpec`][osrlib.crawl.quests.QuestSpec]s, and reacts the only way a listener may: by executing referee commands, each stamped `source="trigger:{id}"` or `source="quest:{id}"`. Three properties are worth copying into your own listeners:
-
-- **It returns no events.** Each event it causes comes from a command it executed, and `execute` adds those to the result from the log. `handle` returns `[], state` unconditionally.
-- **It keeps no state.** Its `listener_state` entry exists, because `register_listener` creates one, and stays the empty dict for the life of the session. Trigger marks live in `session.fired_triggers`, journal entries in `session.journal`, and everything else in the world state the commands changed. That's what makes a triggered game replay exactly: a replay runs with no listeners at all, and re-executing the log rebuilds all of that state.
-- **It records before it acts.** The interpreter marks a trigger fired *before* running its consequences, so the trigger is already marked when one of its consequences matches it again. The fetch quest below does the same with its state: it records the quest complete before it executes the rewards. When a consequence's events re-enter the interpreter, they can fire the next trigger, and a limit on depth stops a cascade. For more information, see [When a consequence fails](gates-triggers-quests.md#when-a-consequence-fails).
-
-## A fetch quest, worked
-
-Most fetch quests belong in the adventure document, where [`QuestSpec`][osrlib.crawl.quests.QuestSpec] defines what to fetch and the interpreter above runs it. [Gates, triggers, and quests](gates-triggers-quests.md#authoring-a-quest) covers that, and the TUI crawler's Jade Idol is authored that way (see [the complete front end](../front-ends/tui-crawler.md)). The same errand also works as an example of logic that belongs to your game, because it needs nothing beyond this page: a listener that watches events, keeps its objective state, and acts through commands. The [complete program](#the-complete-program) below includes this listener whole and runs it.
+When a quest belongs to a specific adventure, author it as a [`QuestSpec`][osrlib.crawl.quests.QuestSpec] and let [`Interpreter`][osrlib.crawl.interpreter.Interpreter] run it (see [Gates, triggers, and quests](gates-triggers-quests.md#authoring-a-quest) and [The TUI crawler](../front-ends/tui-crawler.md)). When you want game-wide logic that lives in code rather than adventure data, write a custom listener that tracks progress in `state` and applies rewards through referee commands:
 
 ```{.python .no-run}
 class FetchQuestListener:
@@ -106,18 +63,47 @@ class FetchQuestListener:
         return [], state
 ```
 
-A few points about the listener above:
+Notice how `FetchQuestListener` follows the re-entrancy and determinism rules:
 
-- `state["recovered"]` and `state["completed"]` track the quest's objectives, and they live entirely inside `session.listener_state["fetch_quest"]`. The session never interprets these keys. It stores whatever dict `handle` returns.
-- `handle` updates the `state` dict it receives in place, as the previous section describes for a listener that executes commands. It sets `state["completed"]` before it executes the flag and the awards. Each of those commands calls `handle` again with the same dict, and those calls find the quest already complete, so they do nothing.
-- The `handle` method returns `[], state` unconditionally. Every event this listener causes goes through `self._session.execute(...)`, which already logs it, so there's nothing left for the returned-events list to contain.
-- Nothing here reaches into party state to *change* it. The flag and the XP both arrive as ordinary commands, which is why a save, a load, and a replay all agree about what happened.
+- It mutates `state` in place and sets `state["completed"] = True` *before* calling `self._session.execute(...)`, preventing the nested `SetFlag` and `AwardXP` calls from triggering the completion block again.
+- It returns `[], state` because `self._session.execute(...)` already logs the `SetFlag` and `AwardXP` events.
+- It modifies party XP and flags exclusively through commands (`SetFlag` and `AwardXP`) rather than mutating `session.party` or `session.flags` directly, ensuring saves, loads, and replays stay consistent.
 
-The interpreter does all of this for you when the quest is adventure data instead: the objective state lives in `session.quests`, the reward commands are stamped `source="quest:{id}"`, and the listener's state entry stays empty. Use a listener like the one above when your game's systems track the objective, and [`QuestSpec`][osrlib.crawl.quests.QuestSpec] when the adventure defines it.
+## Store referee-only state in flags
+
+Use [`SetFlag`][osrlib.crawl.commands.SetFlag] to store a `str`, `int`, or `bool` value under a string key in `session.flags` (for example, recording that the party pulled a lever):
+
+```{.python .no-run}
+session.execute(SetFlag(key="crypt.lever_pulled", value=True))
+```
+
+`SetFlag` is legal in every `SessionMode`, updates `session.flags`, and emits [`FlagSetEvent`][osrlib.crawl.events.FlagSetEvent]. Flags persist in saves and rebuild during replays, but remain hidden from [`PlayerView`][osrlib.crawl.views.PlayerView] (see [Views and visibility](views-and-visibility.md)). Read flag values from `session.flags` directly or from `session.view(Visibility.REFEREE).flags`.
+
+## Lifecycle commands: fired-marks, the journal, and notes
+
+Alongside `SetFlag`, listeners and authored content use referee lifecycle commands that work in every mode, record to `command_log`, and rebuild state automatically during [`replay_game`][osrlib.persistence.replay_game] even though replay runs without listeners:
+
+- [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired]: appends `trigger_id` to `session.fired_triggers` so once-only triggers don't fire again. Marking an already-recorded ID leaves `session.fired_triggers` unchanged (preserving first-fired order) while still emitting [`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent] for repeatable triggers.
+- [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry]: appends a player-visible entry with the current clock round to `session.journal`, exposes it on `PlayerView.journal`, and emits [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent].
+- [`RecordNote`][osrlib.crawl.commands.RecordNote]: logs a referee-only [`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent] without changing session state, useful for referee annotations or recording skipped trigger consequences.
+
+Pass `source` on commands issued by a listener (such as `source="trigger:crypt.lever"`) to record which trigger, quest, or subsystem caused each log entry (see [Sessions, commands, and events](sessions-commands-events.md)).
+
+## Run authored triggers and quests with `Interpreter`
+
+Register [`Interpreter`][osrlib.crawl.interpreter.Interpreter] after creating a session (and again after `load_game`) to evaluate an adventure's authored [triggers](gates-triggers-quests.md#scripting-the-dungeon-with-triggers) and [`QuestSpec`][osrlib.crawl.quests.QuestSpec] definitions:
+
+```{.python .no-run}
+session.register_listener(Interpreter(session))
+```
+
+`Interpreter` implements the same `Listener` protocol as custom listeners:
+
+- **Returns `[], state`**: Every state change goes through referee commands stamped `source="trigger:{id}"` or `source="quest:{id}"`.
+- **Stores nothing in `listener_state`**: `session.listener_state["osrlib.interpreter"]` remains `{}` because trigger marks, quest progress, and journal entries live in engine-managed fields (`fired_triggers`, `quests`, and `journal`) that replay rebuilds from `command_log`.
+- **Marks before acting**: `Interpreter` executes `MarkTriggerFired` before running a trigger's consequences so nested events cannot re-fire a once-only trigger, and enforces a maximum reaction depth to halt loops (see [When a consequence fails](gates-triggers-quests.md#when-a-consequence-fails)).
 
 ## The complete program
-
-Three listeners on one small session: the move counter from the top of the page, the fetch quest worked above (run end to end, from acquiring the idol through the walk home, where the flag and the XP arrive as commands), and the library's interpreter, registered beside them. Registering the interpreter is allowed but has no effect here, because this adventure has no triggers or quests. The program also sets a flag and reads it back two ways, and it runs the lifecycle commands:
 
 ```python
 from collections.abc import Sequence
@@ -258,7 +244,7 @@ assert hero.xp > 0  # the award applied, prime-requisite modifier and all
 
 ## Where next
 
-- [The TUI crawler](../front-ends/tui-crawler.md) - the fetch quest in its full adventure context, alongside a custom wandering table and a two-level barrow.
-- [Ruleset options](ruleset-options.md) - the flags the engine reads, as opposed to the ones you define.
-- [Determinism, saves, and replay](determinism-saves-replay.md) - what a save file contains and what it doesn't.
-- [Views and visibility](views-and-visibility.md) - the player and referee projections, and why only the referee view contains flags.
+- [The TUI crawler](../front-ends/tui-crawler.md) - an adventure-authored fetch quest alongside a custom wandering-monster table in a two-level barrow.
+- [Ruleset options](ruleset-options.md) - engine rule toggles on `Ruleset`, as distinct from game-defined `session.flags`.
+- [Determinism, saves, and replay](determinism-saves-replay.md) - how `save_game`, `load_game`, and `replay_game` handle `listener_state`.
+- [Views and visibility](views-and-visibility.md) - why `RefereeView` exposes flags while `PlayerView` omits them.

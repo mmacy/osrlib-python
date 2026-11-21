@@ -1,64 +1,10 @@
 # Ruleset options
 
-osrlib plays OSE B/X rules-as-written by default. The only place a game can choose rules other than the baseline is [`Ruleset`][osrlib.core.ruleset.Ruleset], a frozen model of named `bool` and enum flags that a session reads when it resolves an action. You build one when you create a session, or you use the default `Ruleset()`. It stays fixed for the life of the session, and saves and replays contain it exactly as you built it. The model rejects any field it doesn't recognize, so a mistyped flag name raises a `ValidationError` instead of doing nothing.
+Configure optional B/X rules and referee adaptations by constructing a [`Ruleset`][osrlib.core.ruleset.Ruleset] and passing it to [`GameSession.new`][osrlib.crawl.session.GameSession.new] or to standalone `osrlib.core` functions. `Ruleset` is frozen (`extra="forbid"`), persists in saves and replays, and raises Pydantic's `ValidationError` if you pass an unrecognized flag name.
 
-Every flag belongs to one of two families. Some are OSE's optional rules: printed alternatives the SRD offers alongside its default procedure, like rolling initiative individually instead of by side. The rest are documented adaptations: defaults osrlib supplies where the tabletop game leaves a decision to a human referee, and a program running the rules with no referee needs a fixed answer. Each adaptation has a full entry in [the adaptations register](../adaptations.md), which is the authority for the reasoning behind its default and for the behavior it turns on.
+## Construct a `Ruleset`
 
-## Quick reference
-
-| Flag | Type, default | What it governs |
-| --- | --- | --- |
-| `hp_reroll_at_first_level` | `bool`, `False` | Reroll a first-level hit die that shows 1-2. |
-| `encumbrance` | `EncumbranceMode`, `BASIC` | Which system tracks carried weight and sets movement rate. |
-| `variable_weapon_damage` | `bool`, `True` | Each weapon and gear facet rolls the damage die listed for it instead of a flat 1d6. |
-| `individual_initiative` | `bool`, `False` | Roll initiative per participant instead of per side. |
-| `thac0_arithmetic` | `bool`, `False` | Compute attack rolls by subtraction instead of matrix lookup. |
-| `weapon_reload` | `bool`, `False` | A reload-quality weapon can't fire in two consecutive rounds. |
-| `hd5_counts_as_magical` | `bool`, `False` | Monsters of 5 or more HD, or that only silver or magic weapons can harm, count as magical. |
-| `magic_item_death_save` | `bool`, `True` | A dead character's magic items get a save against destruction. |
-| `xp_award_timing` | `XpAwardTiming`, `ON_RETURN` | XP pays out on return to town, or immediately as it's earned. |
-| `deprivation_penalties` | `bool`, `False` | Attach mechanical penalties to hunger and thirst. |
-| `aoe_friendly_fire` | `bool`, `True` | An area effect at melee range can catch the party's front rank. |
-| `formation_width_limit` | `bool`, `True` | Cap the party's front rank, and each monster group's, at how many fit side by side in the space where the party fights. |
-| `failed_trap_removal_springs` | `bool`, `True` | A thief's failed attempt to remove a treasure trap springs it. |
-
-## SRD optional rules
-
-Each of these mirrors an alternative procedure OSE prints alongside its default. osrlib uses the book's default for each, off or on, and implements both sides of the switch.
-
-**`hp_reroll_at_first_level`**: off, a first-level character's starting hit-point roll stands as rolled. On, osrlib rerolls the die while the raw result (before the CON modifier) is 1 or 2.
-
-**`variable_weapon_damage`**: on by default, every weapon and every gear item with a combat use (a torch, a flask of holy water) rolls the damage die listed for it. Off switches to the alternate combat system's flat 1d6 for every weapon and gear facet. Unarmed strikes still roll 1d2, and the flag doesn't affect monster damage.
-
-**`individual_initiative`**: off, one initiative roll resolves an entire side for the round. On, each participant rolls 1d6. A character adds their DEX modifier, and a halfling adds their initiative bonus on top. Monsters take a modifier the caller supplies.
-
-**`thac0_arithmetic`**: off, an attack's target number comes from the printed THAC0-vs-AC matrix. On, it comes from subtracting the defender's AC from the attacker's THAC0 directly, with no clamping. The two presentations agree everywhere the matrix's upper and lower bounds line up with plain subtraction, and differ only once modifiers push a result past those bounds.
-
-**`weapon_reload`**: off, any weapon can fire every round. On, the attack validator rejects a shot from a reload-quality weapon (mainly crossbows) when the caller's combat context records that the weapon fired last round.
-
-**`hd5_counts_as_magical`**: off, only weapons and effects explicitly flagged magical can harm a monster that only silver or magic weapons can harm. On, an attacking monster of 5 or more Hit Dice also counts as magical for that purpose, and so does an attacking monster that only silver or magic weapons can harm.
-
-**`encumbrance`** sits partway between the two families. It isn't a toggle. It chooses *which* printed system applies, as an [`EncumbranceMode`][osrlib.core.ruleset.EncumbranceMode]. `NONE` tracks nothing, and every character moves at the base 120'/turn. `BASIC` (the default) sets movement rate from worn-armor category (unarmored, light, or heavy), reduced further when the character carries a significant amount of treasure. Your game decides that for each character by setting its [`carrying_treasure`][osrlib.core.character.Character.carrying_treasure] flag. `DETAILED` instead totals tracked coin-weight (armor, gear, and treasure) and sets movement rate from banded weight thresholds. `BASIC` and `DETAILED` share the same maximum-load cap: a character whose tracked weight goes above it can't move at all.
-
-## Documented adaptations
-
-These flags exist because OSE leaves each of these rules to the referee's judgment, and a session running without a referee needs a fixed answer. For the reasoning behind each default, see [the adaptations register](../adaptations.md).
-
-**`magic_item_death_save`** (default on): when a character's death also destroys equipment (lightning, disintegration, and similar sources), osrlib rolls a saving throw for each of that character's magic items instead of destroying it with its owner. The save value is the dead owner's for the source's category, improved by the item's best combat bonus. Items that survive end up in a drop pile at the character's cell. Off restores OSE's default, where a character's magic items are destroyed along with their owner.
-
-**`xp_award_timing`** (an [`XpAwardTiming`][osrlib.core.ruleset.XpAwardTiming], default `on_return`): rules-as-written, monster XP and treasure XP both pay out only once the party gets back to town, and the treasure share comes from the change in the party's carried valuation since departure. Set it to `immediate` for the continuous-play alternative: monster XP pays out the moment an encounter ends, and treasure XP pays out at each acquisition. The return to town then pays out nothing further, and treasure lost afterward never reduces an award that already happened.
-
-**`deprivation_penalties`** (default off): osrlib tracks food and water consumption whether the flag is on or off. The flag adds the mechanical penalties OSE leaves to referee discretion. On, a full day without food or water applies an attack penalty and doubles how often fatigue sets in. A second day also halves movement. From the third day on, the character loses hit points every day. Hunger and thirst never stack against each other: whichever track is worse is the one that applies.
-
-**`aoe_friendly_fire`** (default on): an area effect (a fireball, a dragon's breath) that lands on a monster group already fighting the party at melee range can catch the party's engaged front rank in the blast, alongside the monsters. Off, area effects never include party members among their targets.
-
-**`formation_width_limit`** (default on): caps how many combatants can fight in the same rank at once, at what actually fits in the space the party stands in. OSE gives one number and leaves the rest to the referee: at most 2-3 fit side by side in a 10-foot passage. osrlib takes the conservative end of that, five feet of frontage each, and measures the widest square of unbroken floor around the party. Two fit in a one-cell passage however far it runs, four in a room two cells square, and eight in a room four cells across. Each monster group fights in a front rank of the same width, its first living monsters, and only they make melee attacks, so six skeletons in a one-cell passage strike with two. The cap also bounds how much of an area effect's footprint a formation absorbs. Off removes the cap: every member at the same distance from a group stands in one rank, so every member within 5 feet of a group can fight it, every living monster of a group can attack, and formation width no longer bounds an area effect's footprint.
-
-**`failed_trap_removal_springs`** (default on): a thief who fails to remove a treasure trap with [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap] springs it, and it resolves against the thief at once. OSE allows one try per trap and doesn't say what a failure does. Off, a failure leaves the trap armed and found, and the session reports it with the `exploration.trap.removal_failed` code of [`TrapEvent`][osrlib.crawl.events.TrapEvent]. The thief who failed can't try again, and the trap still gets its 2-in-6 chance to spring when someone takes the treasure.
-
-## Constructing a `Ruleset`
-
-To build one, construct the model with the flags you want to change. Every field you omit uses OSE's default. The encumbrance flag has an effect you can see: switching it changes a character's [`movement_rate`][osrlib.core.character.Character.movement_rate] directly, and nothing else in play has to change.
+Call `Ruleset()` with no arguments for the default B/X configuration, or override specific flags such as [`EncumbranceMode`][osrlib.core.ruleset.EncumbranceMode] to change how functions such as [`Character.movement_rate`][osrlib.core.character.Character.movement_rate] behave:
 
 ```python
 from pydantic import ValidationError
@@ -104,9 +50,52 @@ else:
     raise AssertionError("Ruleset should reject an unknown flag")
 ```
 
+## Quick reference
+
+Every `Ruleset` field falls into one of two categories: optional rules printed in the OSE SRD alongside standard B/X procedures, or documented adaptations that supply a deterministic rule where tabletop B/X leaves a judgment call to a human referee (see [the adaptations register](../adaptations.md)):
+
+| Flag | Type and default | Effect |
+| --- | --- | --- |
+| `hp_reroll_at_first_level` | `bool`, `False` | Reroll a 1st-level Hit Die when the raw roll is 1 or 2. |
+| `encumbrance` | `EncumbranceMode`, `BASIC` | Select which encumbrance rule tracks carried weight and movement rate. |
+| `variable_weapon_damage` | `bool`, `True` | Roll each weapon or combat-gear item's listed damage die instead of a flat `1d6`. |
+| `individual_initiative` | `bool`, `False` | Roll `1d6` initiative per combatant instead of once per side. |
+| `thac0_arithmetic` | `bool`, `False` | Compute target numbers as `THAC0 - AC` instead of looking up the attack matrix. |
+| `weapon_reload` | `bool`, `False` | Prevent `reload`-quality weapons from firing in two consecutive rounds. |
+| `hd5_counts_as_magical` | `bool`, `False` | Allow monsters of 5+ HD (or with silver/magic immunity) to harm silver/magic-immune targets. |
+| `magic_item_death_save` | `bool`, `True` | Roll saving throws for a dead character's magic items against equipment-destroying deaths. |
+| `xp_award_timing` | `XpAwardTiming`, `ON_RETURN` | Award XP upon returning to town (`ON_RETURN`) or immediately when earned (`IMMEDIATE`). |
+| `deprivation_penalties` | `bool`, `False` | Apply attack, fatigue, movement, and hit-point penalties for going without food or water. |
+| `aoe_friendly_fire` | `bool`, `True` | Include engaged front-rank party members in area effects targeted at melee range. |
+| `formation_width_limit` | `bool`, `True` | Limit melee front-rank width for both sides based on room or corridor frontage. |
+| `failed_trap_removal_springs` | `bool`, `True` | Spring a treasure trap immediately when a thief fails [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap]. |
+
+## Optional B/X rules
+
+These options toggle between standard and optional procedures printed in the OSE SRD:
+
+- **`hp_reroll_at_first_level`** (`False` by default): When `False`, a 1st-level character's initial Hit Die roll stands as rolled. When `True`, osrlib rerolls the raw die (before adding the CON modifier) until it shows 3 or higher.
+- **`encumbrance`** ([`EncumbranceMode.BASIC`][osrlib.core.ruleset.EncumbranceMode] by default): Selects how carried items affect movement rate. `NONE` disables tracking so characters move at the base 120'/turn regardless of load. `BASIC` sets movement rate from worn armour category (unarmoured, light, or heavy), stepped down when [`Character.carrying_treasure`][osrlib.core.character.Character.carrying_treasure] is `True`. `DETAILED` sums the coin weight of armour, gear, and treasure and sets movement rate from weight bands. Both `BASIC` and `DETAILED` enforce the same maximum coin-weight cap, immobilizing characters who exceed it.
+- **`variable_weapon_damage`** (`True` by default): When `True`, weapons and combat-usable gear (such as torches or holy water) roll their listed damage dice. When `False`, weapons and combat gear deal `1d6` (while unarmed strikes still deal `1d2` and monsters still roll their listed damage).
+- **`individual_initiative`** (`False` by default): When `False`, each side rolls `1d6` once per round. When `True`, each combatant rolls `1d6` individually, adding DEX modifiers for characters, the class initiative bonus for halflings, and any caller-supplied modifier for monsters.
+- **`thac0_arithmetic`** (`False` by default): When `False`, attack target numbers come from the printed B/X attack matrix. When `True`, target numbers equal `THAC0 - AC` without clamping, differing from the matrix only when modifiers push `THAC0 - AC` outside the matrix's `2-20` bounds.
+- **`weapon_reload`** (`False` by default): When `False`, missile weapons can fire every round. When `True`, attack validation rejects firing a `reload`-quality weapon (such as a crossbow) if the combat context records that it fired on the previous round.
+- **`hd5_counts_as_magical`** (`False` by default): When `False`, only magic or silver weapons and effects harm creatures immune to mundane weapons. When `True`, attacking monsters with 5 or more remaining Hit Dice (or monsters that themselves require silver or magic weapons to harm) can also hit targets protected by silver/magic immunity.
+
+## Documented adaptations
+
+These options govern rules where tabletop B/X leaves the outcome to referee judgment (see [the adaptations register](../adaptations.md) for the rationale behind each default):
+
+- **`magic_item_death_save`** (`True` by default): When `True` and a character dies to an equipment-destroying effect (such as lightning or disintegration), each carried magic item rolls a saving throw using the owner's save target for that category improved by the item's best combat bonus. Surviving items drop into a pile on the character's cell. When `False`, destructive deaths destroy all carried magic items automatically.
+- **`xp_award_timing`** ([`XpAwardTiming.ON_RETURN`][osrlib.core.ruleset.XpAwardTiming] by default): With `ON_RETURN`, monster and treasure XP are awarded only when survivors return to town, calculated from defeated monsters and net recovered treasure value. With `IMMEDIATE` (designed for continuous delves without town trips), monster XP pays out when an encounter ends and treasure XP pays out on acquisition. Returning to town awards nothing extra, and losing treasure later does not revoke earned XP.
+- **`deprivation_penalties`** (`False` by default): osrlib tracks daily food and water consumption regardless of this setting. When `True`, going one full day without food or water applies `-1` to attack rolls and halves the rest interval before fatigue sets in (from 6 turns to 3). A second day also halves movement rate, and from the third day onward, the character also loses `1d4` hit points per day. Hunger and thirst do not stack, so only the further-advanced track applies.
+- **`aoe_friendly_fire`** (`True` by default): When `True`, an area effect (such as *fireball* or dragon breath) aimed at a monster group engaged in melee with the party can also hit party members in that group's front rank. When `False`, area effects aimed at monsters never target party members.
+- **`formation_width_limit`** (`True` by default): When `True`, osrlib caps front-rank width at 5 feet per combatant across the widest unbroken square of floor around the party (2 abreast in a 10-foot corridor, 4 in a `2x2`-cell room, 8 in a `4x4`-cell room). Only a monster group's front rank (up to `min(count, formation_width)`) can make melee attacks, and formation width bounds how much of an area effect's footprint hits a rank. When `False`, all party members within 5 feet of a group and all living monsters in that group can fight in melee simultaneously.
+- **`failed_trap_removal_springs`** (`True` by default): When `True`, a thief who fails [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap] immediately springs the trap on themselves. When `False`, a failed attempt emits [`TrapEvent`][osrlib.crawl.events.TrapEvent] (`exploration.trap.removal_failed`) and leaves the discovered trap armed: that thief cannot retry, another thief may try, and taking the treasure still has a 2-in-6 chance to spring the trap.
+
 ## Where next
 
-- [The adaptations register](../adaptations.md) - the reasoning and rule text behind every documented adaptation, plus the settled readings of ambiguous SRD text that apply regardless of any flag.
-- [Listeners and flags](listeners-and-flags.md) - session flags and the listeners your game defines, the game-defined state a `Ruleset` doesn't cover.
-- [Gates, triggers, and quests](gates-triggers-quests.md) - authored triggers and quests, the behavior an adventure document defines.
-- [Sessions, commands, and events](sessions-commands-events.md) - how a `Ruleset` reaches a running session and stays fixed for its lifetime.
+- [The adaptations register](../adaptations.md) - rule citations and design rationale for each documented adaptation and settled SRD ambiguity.
+- [Listeners and flags](listeners-and-flags.md) - custom game state in `session.flags` and event listeners.
+- [Gates, triggers, and quests](gates-triggers-quests.md) - adventure-authored behavior on doors, transitions, triggers, and quests.
+- [Sessions, commands, and events](sessions-commands-events.md) - passing a `Ruleset` into `GameSession.new`.
