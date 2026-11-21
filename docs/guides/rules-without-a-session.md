@@ -1,6 +1,6 @@
 # Using the rules without a session
 
-Use `osrlib.core` directly when you want to roll dice, resolve combat, generate treasure, or query B/X tables from a script, combat simulator, or content validator without creating an adventure or a [`GameSession`][osrlib.crawl.session.GameSession]. `osrlib.core` never imports `osrlib.crawl`, so standalone code can call the rules kernel directly over frozen data models.
+Use `osrlib.core` directly when you want to roll dice, resolve combat, generate treasure, or query B/X tables from a script, combat simulator, or content validator without creating an adventure or a [`GameSession`][osrlib.crawl.session.GameSession]. `osrlib.core` never imports `osrlib.crawl`. Catalogs, templates (`MonsterTemplate`, `ClassDefinition`, `SpellTemplate`), and `Ruleset` are frozen models, whereas spawned combatants (`Character` and `MonsterInstance`) are mutable instances that combat and advancement functions update in place.
 
 Outside a session, create an [`RngStreams`][osrlib.core.rng.RngStreams] instance from a master seed and pass an explicit stream to each function that rolls dice. [The RNG streams reference](../reference/rng-streams.md) lists the stream names `GameSession` uses by convention, though standalone scripts can pass any stream name: a given master seed and stream name always produce the same sequence of draws.
 
@@ -26,7 +26,7 @@ assert rolled.total == (sum(rolled.rolls) + 1) * 10
 
 Call [`create_character`][osrlib.core.character.create_character] with a [`Ruleset`][osrlib.core.ruleset.Ruleset] and a stream to roll a character, and call [`spawn_monster`][osrlib.core.monsters.spawn_monster] with a [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate] from [`load_monsters`][osrlib.data.load_monsters] (see [the monster id index][monsters-index]) and a unique ID from [`IdAllocator`][osrlib.core.monsters.IdAllocator] to instantiate a monster.
 
-Pass both combatants and an [`AttackContext`][osrlib.core.combat.AttackContext] to [`resolve_attack`][osrlib.core.combat.resolve_attack] to run the attack roll, weapon-immunity check, and damage roll. Pass `attack=None` for an unarmed strike:
+Pass both combatants and an [`AttackContext`][osrlib.core.combat.AttackContext] to [`resolve_attack`][osrlib.core.combat.resolve_attack] (`attack=None` resolves an unarmed strike). `resolve_attack` runs the attack roll, weapon-immunity check, and damage roll, and deducts any damage from `defender.current_hp` in place, so do not subtract `attack.damage` a second time:
 
 ```{.python .no-run}
 rules = Ruleset()
@@ -44,18 +44,21 @@ hero = create_character(
 allocator = IdAllocator()
 goblin_template = load_monsters().get("goblin")
 goblin = spawn_monster(goblin_template, id=allocator.allocate("monster"), stream=streams.get(MONSTER_SPAWN_STREAM))
+hp_before = goblin.current_hp
 attack = resolve_attack(hero, goblin, None, context=AttackContext(), ruleset=rules, stream=streams.get(COMBAT_STREAM))
 if attack.attack_roll.hit:
     assert attack.damage is not None and attack.damage >= 1
+    assert goblin.current_hp == hp_before - attack.damage
 else:
     assert attack.damage is None
+    assert goblin.current_hp == hp_before
 ```
 
 `resolve_attack` returns an [`AttackResult`][osrlib.core.combat.AttackResult] whose `events` field contains typed kernel events. Inspect them directly or pass them to [`format_message`][osrlib.messages.format_message].
 
 ## Generate treasure by type
 
-Call [`generate_treasure`][osrlib.core.treasure.generate_treasure] with a B/X treasure-type letter (see [the treasure type index][treasure-types-index]), a `tier` (`"basic"` or `"expert"` for magic-item subtables, which `GameSession` derives from the highest living party level), an RNG stream, and an `IdAllocator`:
+Call [`generate_treasure`][osrlib.core.treasure.generate_treasure] with a B/X treasure-type letter selecting a hoard table (see [the treasure type index][treasure-types-index]), a `tier` (`"basic"` or `"expert"` for magic-item subtables, which `GameSession` derives from the highest living party level), an RNG stream, and an `IdAllocator`:
 
 ```{.python .no-run}
 # Roll a treasure type letter's contents directly -- no dungeon, no keyed area.
@@ -63,11 +66,11 @@ treasure = generate_treasure("A", tier="basic", stream=streams.get(TREASURE_STRE
 assert treasure.coins.value_cp >= 0
 ```
 
-`generate_treasure` rolls coins, gems, jewellery, and magic items in table order and returns a [`GeneratedTreasure`][osrlib.core.items.GeneratedTreasure] (`coins`, `valuables`, and `magic_items`) with distinct IDs assigned from `allocator`.
+`generate_treasure` rolls coins, gems, jewellery, and magic items in table order and returns a [`GeneratedTreasure`][osrlib.core.items.GeneratedTreasure] (`coins`, with `value_cp` giving total coin value in copper pieces, `valuables`, and `magic_items`) with distinct IDs assigned from `allocator`.
 
 ## Look up combat tables
 
-Functions in [`osrlib.core.tables`][osrlib.core.tables] perform pure table lookups without touching an RNG stream, so you can roll dice separately or feed fixed totals in tests. For example, [`reaction_result`][osrlib.core.tables.reaction_result] resolves a 2d6 total against [`ReactionTable`][osrlib.core.tables.ReactionTable] from [`load_combat_tables`][osrlib.data.load_combat_tables]:
+Functions in [`osrlib.core.tables`][osrlib.core.tables] perform pure table lookups without touching an RNG stream, so you can roll dice separately or feed fixed totals in tests. For example, [`reaction_result`][osrlib.core.tables.reaction_result] resolves a 2d6 total against [`ReactionTable`][osrlib.core.tables.ReactionTable] from [`load_combat_tables`][osrlib.data.load_combat_tables] into a [`ReactionResult`][osrlib.core.tables.ReactionResult] (such as `HOSTILE` or `FRIENDLY`):
 
 ```{.python .no-run}
 # A reaction roll composed from two lower-level kernel pieces: 2d6, then the table.
@@ -118,11 +121,14 @@ hero = create_character(
 allocator = IdAllocator()
 goblin_template = load_monsters().get("goblin")
 goblin = spawn_monster(goblin_template, id=allocator.allocate("monster"), stream=streams.get(MONSTER_SPAWN_STREAM))
+hp_before = goblin.current_hp
 attack = resolve_attack(hero, goblin, None, context=AttackContext(), ruleset=rules, stream=streams.get(COMBAT_STREAM))
 if attack.attack_roll.hit:
     assert attack.damage is not None and attack.damage >= 1
+    assert goblin.current_hp == hp_before - attack.damage
 else:
     assert attack.damage is None
+    assert goblin.current_hp == hp_before
 
 # Roll a treasure type letter's contents directly -- no dungeon, no keyed area.
 treasure = generate_treasure("A", tier="basic", stream=streams.get(TREASURE_STREAM), allocator=allocator)

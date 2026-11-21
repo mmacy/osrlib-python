@@ -14,9 +14,13 @@ from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
 from osrlib.core.items import ItemInstance, equip
 from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import EncumbranceMode, Ruleset, XpAwardTiming
+from osrlib.crawl.adventure import Adventure, TownSpec
+from osrlib.crawl.dungeon import DungeonSpec, LevelSpec
+from osrlib.crawl.party import Party
+from osrlib.crawl.session import GameSession
 from osrlib.data import load_equipment
 
-# Rules-as-written by default: nothing here is a documented adaptation.
+# Default configuration: standard B/X options plus osrlib's default adaptations.
 default_rules = Ruleset()
 assert default_rules.encumbrance is EncumbranceMode.BASIC
 assert default_rules.variable_weapon_damage is True
@@ -37,9 +41,14 @@ equip(fighter.inventory, fighter.definition, fighter.inventory.items[-1])
 # Heavy armor caps basic-encumbrance movement at 60 feet per turn.
 assert fighter.movement_rate(default_rules) == 60
 
-# `none` turns encumbrance tracking off outright: movement is always the base rate.
+# `none` disables encumbrance tracking, and passing `ruleset` fixes it for a session.
 unencumbered_rules = Ruleset(encumbrance=EncumbranceMode.NONE)
 assert fighter.movement_rate(unencumbered_rules) == 120
+
+crypt = DungeonSpec(id="crypt", name="The Crypt", levels=(LevelSpec(number=1, width=1, height=1, entrance=(0, 0)),))
+adventure = Adventure(name="A Delve", town=TownSpec(name="Threshold"), dungeons=(crypt,))
+session = GameSession.new(Party(members=[fighter]), adventure, seed=3, ruleset=unencumbered_rules)
+assert session.ruleset is unencumbered_rules
 
 # The model is frozen and rejects unknown flags outright.
 try:
@@ -54,21 +63,21 @@ else:
 
 Every `Ruleset` field falls into one of two categories: optional rules printed in the OSE SRD alongside standard B/X procedures, or documented adaptations that supply a deterministic rule where tabletop B/X leaves a judgment call to a human referee (see [the adaptations register](../adaptations.md)):
 
-| Flag | Type and default | Effect |
-| --- | --- | --- |
-| `hp_reroll_at_first_level` | `bool`, `False` | Reroll a 1st-level Hit Die when the raw roll is 1 or 2. |
-| `encumbrance` | `EncumbranceMode`, `BASIC` | Select which encumbrance rule tracks carried weight and movement rate. |
-| `variable_weapon_damage` | `bool`, `True` | Roll each weapon or combat-gear item's listed damage die instead of a flat `1d6`. |
-| `individual_initiative` | `bool`, `False` | Roll `1d6` initiative per combatant instead of once per side. |
-| `thac0_arithmetic` | `bool`, `False` | Compute target numbers as `THAC0 - AC` instead of looking up the attack matrix. |
-| `weapon_reload` | `bool`, `False` | Prevent `reload`-quality weapons from firing in two consecutive rounds. |
-| `hd5_counts_as_magical` | `bool`, `False` | Allow monsters of 5+ HD (or with silver/magic immunity) to harm silver/magic-immune targets. |
-| `magic_item_death_save` | `bool`, `True` | Roll saving throws for a dead character's magic items against equipment-destroying deaths. |
-| `xp_award_timing` | `XpAwardTiming`, `ON_RETURN` | Award XP upon returning to town (`ON_RETURN`) or immediately when earned (`IMMEDIATE`). |
-| `deprivation_penalties` | `bool`, `False` | Apply attack, fatigue, movement, and hit-point penalties for going without food or water. |
-| `aoe_friendly_fire` | `bool`, `True` | Include engaged front-rank party members in area effects targeted at melee range. |
-| `formation_width_limit` | `bool`, `True` | Limit melee front-rank width for both sides based on room or corridor frontage. |
-| `failed_trap_removal_springs` | `bool`, `True` | Spring a treasure trap immediately when a thief fails [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap]. |
+| Flag | Kind | Type and default | Effect |
+| --- | --- | --- | --- |
+| `hp_reroll_at_first_level` | Optional rule | `bool`, `False` | Reroll a 1st-level Hit Die when the raw roll is 1 or 2. |
+| `encumbrance` | Optional rule | `EncumbranceMode`, `BASIC` | Select which encumbrance rule tracks carried weight and movement rate. |
+| `variable_weapon_damage` | Optional rule | `bool`, `True` | Roll each weapon or combat-gear item's listed damage die instead of a flat `1d6`. |
+| `individual_initiative` | Optional rule | `bool`, `False` | Roll `1d6` initiative per combatant instead of once per side. |
+| `thac0_arithmetic` | Optional rule | `bool`, `False` | Compute target numbers as `THAC0 - AC` instead of looking up the attack matrix. |
+| `weapon_reload` | Optional rule | `bool`, `False` | Prevent `reload`-quality weapons from firing in two consecutive rounds. |
+| `hd5_counts_as_magical` | Optional rule | `bool`, `False` | Allow monsters of 5+ HD (or with silver/magic immunity) to harm silver/magic-immune targets. |
+| `magic_item_death_save` | Adaptation | `bool`, `True` | Roll saving throws for a dead character's magic items against equipment-destroying deaths. |
+| `xp_award_timing` | Adaptation | `XpAwardTiming`, `ON_RETURN` | Award XP upon returning to town (`ON_RETURN`) or immediately when earned (`IMMEDIATE`). |
+| `deprivation_penalties` | Adaptation | `bool`, `False` | Apply attack, fatigue, movement, and hit-point penalties for going without food or water. |
+| `aoe_friendly_fire` | Adaptation | `bool`, `True` | Include engaged front-rank party members in area effects targeted at melee range. |
+| `formation_width_limit` | Adaptation | `bool`, `True` | Limit melee front-rank width for both sides based on room or corridor frontage. |
+| `failed_trap_removal_springs` | Adaptation | `bool`, `True` | Spring a treasure trap immediately when a thief fails [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap]. |
 
 ## Optional B/X rules
 

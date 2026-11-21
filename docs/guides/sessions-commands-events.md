@@ -4,36 +4,39 @@
 
 ## Execute commands and read events
 
-Call [`GameSession.new`][osrlib.crawl.session.GameSession.new] to validate the adventure, assign each party member a session ID, and start the party in `town` at round 0. On each turn, construct a [`Command`][osrlib.crawl.commands.Command], pass it to `session.execute`, and inspect the returned `CommandResult`.
+Call [`GameSession.new`][osrlib.crawl.session.GameSession.new] to validate the adventure, assign each party member a session ID, and start the party in `town` at round 0. Each player or referee action is one `session.execute(command)` call (movement, searches, and combat rounds advance the game clock, whereas town or inspection actions consume no in-game time).
 
-When a command is legal, `execute` updates session state, appends the command to `session.command_log`, appends the resulting [`Event`][osrlib.core.events.Event] instances to `session.event_log`, and runs registered listeners in registration order. Events contain structured fields and a message code rather than rendered English prose. Pass each event to [`format_message`][osrlib.messages.format_message] when you want a default English line:
+When a command is legal, `execute` updates session state, appends the command to `session.command_log`, appends the resulting [`Event`][osrlib.core.events.Event] instances to `session.event_log`, and runs registered listeners in registration order. Events contain structured fields, a `visibility`, and a message code rather than rendered English prose. Filter to `Visibility.PLAYER` before rendering output for players, and pass each event to [`format_message`][osrlib.messages.format_message] when you want a default English line:
 
 ```{.python .no-run}
-# EnterDungeon switches the session to exploring; the same move is now legal and mutates.
+session = GameSession.new(party, adventure, seed=7)
 session.execute(EnterDungeon(dungeon_id="crypt"))
 assert session.mode is SessionMode.EXPLORING
-result = session.execute(MoveParty(direction=Direction.EAST))
-assert result.accepted
-lines = [format_message(event) for event in result.events]
-assert lines  # every accepted command's events format to a default English line
+
+moved = session.execute(MoveParty(direction=Direction.EAST))
+assert moved.accepted
+assert moved.events[0].code == "exploration.party.moved"
+lines = [format_message(event) for event in moved.events if event.visibility is Visibility.PLAYER]
+assert lines == ["The party moves to (1, 0), facing east."]
 ```
 
-`result.events` contains the full reaction chain for that turn in log order: the command handler's events first, followed by any events produced by listeners (including nested `session.execute` calls) without duplicates. For example, a single `MoveParty` result can include the movement event, a portcullis opening from a trigger, and the journal entry recording that change. You can render the entire turn from `result.events` without reading `session.event_log`. To write listeners that react to events, see [Listeners and flags](listeners-and-flags.md).
+`moved.events` contains the full reaction chain for that `execute` call in log order: the command handler's events first, followed by any events produced by listeners (including nested `session.execute` calls) without duplicates. For example, a single `MoveParty` result can include the movement event, a portcullis opening from a trigger, and the journal entry recording that change. You can render the entire chain from `CommandResult.events` without reading `session.event_log`. To write listeners that react to events, see [Listeners and flags](listeners-and-flags.md).
 
 Every event includes a `code` and a `visibility`. Event codes use dot-separated `snake_case` segments grouped by subsystem, such as `exploration.party.moved` or `combat.attack.hit`. `format_message` dispatches on `event.code` and returns the code string itself if it encounters an unfamiliar code from a newer engine release, so formatting never raises an exception. See [Views and visibility](views-and-visibility.md) for event visibility filtering, [the events reference](../reference/events/index.md) for event payloads, and [the message code reference](../reference/message-codes.md) for default message templates.
 
 ## Handle rejections and exceptions
 
-`execute` validates the session mode and all command preconditions before rolling dice, advancing the clock, or mutating state. When a game rule blocks an action (such as walking into a wall, picking a lock without thieves' tools, or issuing an exploration command while in town), `execute` returns `CommandResult(accepted=False)` with structured [`Rejection`][osrlib.core.validation.Rejection] entries in `result.rejections` instead of raising an exception. Rejected commands leave `session.command_log` and `session.event_log` untouched:
+`execute` validates the session mode and all command preconditions before rolling dice, advancing the clock, or mutating state. When a game rule blocks an action (such as walking into a wall, picking a lock without thieves' tools, or calling `EnterDungeon` when the party is already inside), `execute` returns `CommandResult(accepted=False)` with structured [`Rejection`][osrlib.core.validation.Rejection] entries in `result.rejections` instead of raising an exception. Rejected commands leave the clock, `session.command_log`, and `session.event_log` unchanged:
 
 ```{.python .no-run}
-# The party starts in town: MoveParty is out of mode and comes back rejected, not raised.
-result = session.execute(MoveParty(direction=Direction.EAST))
-assert result.accepted is False
-assert result.rejections[0].code == "session.command.wrong_mode"
-assert session.mode is SessionMode.TOWN
-assert session.clock.rounds == 0
-assert session.event_log == []
+rounds_before = session.clock.rounds
+log_len = len(session.event_log)
+
+blocked = session.execute(EnterDungeon(dungeon_id="crypt"))  # already exploring
+assert blocked.accepted is False
+assert blocked.rejections[0].code == "session.command.wrong_mode"
+assert session.clock.rounds == rounds_before
+assert len(session.event_log) == log_len
 ```
 
 Each `Rejection` specifies a dotted `code` and a `params` dict so your front end can format player feedback (see [the rejection code reference](../reference/rejection-codes.md)). Gate refusals (`exploration.door.gate_refused` and `exploration.transition.gate_refused`) also include the adventure author's `refusal` string in `params`, which your front end should display to the player (see [Gates, triggers, and quests](gates-triggers-quests.md)).
@@ -73,7 +76,7 @@ Commands move the session between modes as play progresses:
 - Any accepted command that leaves every party member dead or petrified (whether from combat, a trap, a fall, starvation, or poison ticking under `AdvanceTime`) switches the session to `game_over` and emits [`GameOverEvent`][osrlib.crawl.events.GameOverEvent].
 - [`CompleteQuest`](#attribution-stamps-and-lifecycle-commands) on a quest configured with `concludes_adventure=True` switches the session to `victory` (see [the completion rule and the ending](gates-triggers-quests.md#the-completion-rule-and-the-ending)). Check [`SessionMode.terminal`][osrlib.crawl.commands.SessionMode] to test whether the session has reached either `game_over` or `victory`.
 
-Most referee commands (such as `GrantItem`, `SetFlag`, `AwardXP`, `AdvanceTime`, and the [lifecycle commands](#attribution-stamps-and-lifecycle-commands)) work in every mode, including `game_over` and `victory`. A few referee commands are restricted because they depend on an active encounter or move the party between locations:
+Most referee commands (such as `GrantItem`, `SetFlag`, `AwardXP`, `AdvanceTime`, and the [lifecycle commands](#attribution-stamps-and-lifecycle-commands)) declare every mode in `allowed_modes`, including `game_over` and `victory`. `allowed_modes` checks only game-phase legality, not caller permissions, so a networked server must restrict player requests to player command classes rather than accepting arbitrary referee commands from clients. A few referee commands restrict `allowed_modes` because they depend on an active encounter or move the party between locations:
 
 - `EndEncounter` is legal only in `encounter` and `battle`.
 - `SpawnMonsters` is legal in `exploring`, `encounter`, and `battle`, whereas `SpawnNpcParty` is legal only in `exploring`. Neither works in `town`, `game_over`, or `victory`.
@@ -91,8 +94,8 @@ move_payload = MoveParty(direction=Direction.EAST).model_dump(mode="json")
 assert parse_command(move_payload) == MoveParty(direction=Direction.EAST)
 assert parse_command({"command_type": "some_future_command"}) is None
 
-event_payload = result.events[0].model_dump(mode="json")
-assert parse_any_event(event_payload) == result.events[0]
+event_payload = moved.events[0].model_dump(mode="json")
+assert parse_any_event(event_payload) == moved.events[0]
 assert parse_any_event({"event_type": "some_future_event", "code": "x.y"}) is None
 ```
 
@@ -145,9 +148,6 @@ from osrlib.crawl.session import GameSession
 from osrlib.errors import ContentValidationError
 from osrlib.messages import format_message
 
-# Each command declares its legal modes as data - MoveParty works only while exploring.
-assert MoveParty.allowed_modes == frozenset({SessionMode.EXPLORING})
-
 rules = Ruleset()
 creation = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
 hero = create_character(
@@ -174,36 +174,36 @@ crypt = DungeonSpec(
 )
 town = TownSpec(name="Threshold", travel_turns={"crypt": 1})
 adventure = Adventure(name="A First Delve", town=town, dungeons=(crypt,))
+
 session = GameSession.new(party, adventure, seed=7)
-
-# The party starts in town: MoveParty is out of mode and comes back rejected, not raised.
-result = session.execute(MoveParty(direction=Direction.EAST))
-assert result.accepted is False
-assert result.rejections[0].code == "session.command.wrong_mode"
-assert session.mode is SessionMode.TOWN
-assert session.clock.rounds == 0
-assert session.event_log == []
-
-# EnterDungeon switches the session to exploring; the same move is now legal and mutates.
 session.execute(EnterDungeon(dungeon_id="crypt"))
 assert session.mode is SessionMode.EXPLORING
-result = session.execute(MoveParty(direction=Direction.EAST))
-assert result.accepted
-lines = [format_message(event) for event in result.events]
-assert lines  # every accepted command's events format to a default English line
 
-# The source stamp annotates the log and changes nothing about execution.
-session.execute(AddJournalEntry(text="The lever grinds.", source="trigger:lever-east"))
-assert session.command_log[-1].source == "trigger:lever-east"
-assert session.view(Visibility.PLAYER).journal[-1].text == "The lever grinds."
+moved = session.execute(MoveParty(direction=Direction.EAST))
+assert moved.accepted
+assert moved.events[0].code == "exploration.party.moved"
+lines = [format_message(event) for event in moved.events if event.visibility is Visibility.PLAYER]
+assert lines == ["The party moves to (1, 0), facing east."]
+
+rounds_before = session.clock.rounds
+log_len = len(session.event_log)
+
+blocked = session.execute(EnterDungeon(dungeon_id="crypt"))  # already exploring
+assert blocked.accepted is False
+assert blocked.rejections[0].code == "session.command.wrong_mode"
+assert session.clock.rounds == rounds_before
+assert len(session.event_log) == log_len
+
+# Each command declares its legal modes as data - MoveParty works only while exploring.
+assert MoveParty.allowed_modes == frozenset({SessionMode.EXPLORING})
 
 # Commands and events round-trip through their wire discriminator; unknown types parse to None.
 move_payload = MoveParty(direction=Direction.EAST).model_dump(mode="json")
 assert parse_command(move_payload) == MoveParty(direction=Direction.EAST)
 assert parse_command({"command_type": "some_future_command"}) is None
 
-event_payload = result.events[0].model_dump(mode="json")
-assert parse_any_event(event_payload) == result.events[0]
+event_payload = moved.events[0].model_dump(mode="json")
+assert parse_any_event(event_payload) == moved.events[0]
 assert parse_any_event({"event_type": "some_future_event", "code": "x.y"}) is None
 
 # A malformed payload of a *known* type is a broken API contract: it raises, never rejects.
@@ -213,6 +213,11 @@ except ContentValidationError:
     pass
 else:
     raise AssertionError("expected ContentValidationError")
+
+# The source stamp annotates the log and changes nothing about execution.
+session.execute(AddJournalEntry(text="The lever grinds.", source="trigger:lever-east"))
+assert session.command_log[-1].source == "trigger:lever-east"
+assert session.view(Visibility.PLAYER).journal[-1].text == "The lever grinds."
 ```
 
 ## Where next

@@ -4,16 +4,19 @@
 
 ## Register a listener and react to events
 
-Implement the [`Listener`][osrlib.crawl.session.Listener] protocol by defining a unique `key` string and a `handle` method:
+Implement the [`Listener`][osrlib.crawl.session.Listener] protocol by defining a unique `key` string and a `handle(events, state)` method, then register an instance with [`GameSession.register_listener`][osrlib.crawl.session.GameSession.register_listener]:
 
 ```{.python .no-run}
-def handle(self, events: Sequence[Event], state: dict) -> tuple[list[Event], dict]:
-    ...
-```
+class MoveCounter:
+    key = "move_counter"
 
-Register each listener instance with [`GameSession.register_listener`][osrlib.crawl.session.GameSession.register_listener]:
+    def handle(self, events: Sequence[Event], state: dict) -> tuple[list[Event], dict]:
+        state = dict(state)
+        moved = sum(1 for event in events if isinstance(event, PartyMovedEvent))
+        state["moves"] = state.get("moves", 0) + moved
+        return [], state
 
-```{.python .no-run}
+
 session.register_listener(MoveCounter())
 ```
 
@@ -22,14 +25,14 @@ session.register_listener(MoveCounter())
 - `events`: the events produced so far for the current command, starting with the command handler's events and followed by any events returned directly by earlier-registered listeners.
 - `state`: the JSON-compatible dict stored under `listener.key` in `session.listener_state` (initialized to `{}` on registration). `GameSession` stores this dict without interpreting its contents.
 
-`handle` returns `(emitted_events, new_state)`:
+`handle` returns `(emitted_events, new_state)`. Follow the pattern that matches whether your listener calls `session.execute`:
 
-- **Returning vs. executing events**: Use `emitted_events` only for standalone annotation events that your listener instantiates directly. Whenever your listener reacts by calling `session.execute(...)`, return `[]` for `emitted_events`. Nested `execute` calls already append their events to `session.event_log`, and the outer `execute` call automatically collects every nested event into `CommandResult.events` in log order without duplicates.
-- **Re-entrant state updates**: Calling `session.execute(...)` inside `handle` re-enters the full dispatch loop, running all registered listeners (including the current listener) against the nested command's events with the same `state` dict stored under `listener.key`. If your listener calls `execute`, mutate `state` **in place** *before* calling `execute` and return that same `state` dict so inner calls observe your guard flag and don't trigger a loop. If a re-entered listener returns a different dict instance from its outer call, `execute` raises `RuntimeError` rather than overwriting inner updates. Listeners that never call `execute` (such as `MoveCounter` below) may construct and return a new dict.
+- **Observer listeners** (such as `MoveCounter` above, which never call `session.execute`): may construct and return a new `state` dict, and may return standalone annotation events in `emitted_events`.
+- **Command-issuing listeners** (listeners that react by calling `session.execute(...)`): calling `session.execute(...)` inside `handle` re-enters the full dispatch loop, running all registered listeners (including the current listener) against the nested command's events with the same `state` dict stored under `listener.key`. Mutate `state` **in place** *before* calling `execute` and return that same `state` dict so inner calls observe your guard flag and don't trigger a loop (returning a different dict instance after a nested call raises `RuntimeError` so `execute` never overwrites inner updates). Return `[]` for `emitted_events`, because nested `execute` calls already append their events to `session.event_log` and the outer `execute` call collects them into `CommandResult.events` in log order without duplicates.
 
 ### Persist and re-register listeners across saves
 
-`register_listener` reserves `session.listener_state[listener.key]` and raises `ValueError` if another listener already uses that key. [`save_game`][osrlib.persistence.save_game] and [`load_game`][osrlib.persistence.load_game] serialize and restore `listener_state` as JSON data, but never serialize listener Python objects. After calling `load_game`, call `register_listener` again for each listener in the same registration order before executing new commands (see [Determinism, saves, and replay](determinism-saves-replay.md)).
+`register_listener` checks `session.listeners` and raises `ValueError` if an active listener instance with the same `key` is already registered on that session. [`save_game`][osrlib.persistence.save_game] and [`load_game`][osrlib.persistence.load_game] serialize and restore `session.listener_state` as JSON data while leaving `session.listeners` empty on the loaded session. Calling `register_listener` again in the same order after `load_game` succeeds and reconnects each listener to its restored `listener_state[listener.key]` dict (see [Determinism, saves, and replay](determinism-saves-replay.md)).
 
 ## Example: track a custom fetch quest
 
@@ -37,7 +40,7 @@ When a quest belongs to a specific adventure, author it as a [`QuestSpec`][osrli
 
 ```{.python .no-run}
 class FetchQuestListener:
-    """Recover an item and bring it home — a quest tracker as a listener."""
+    """Recover an item and bring it home - a quest tracker as a listener."""
 
     key = "fetch_quest"
 
@@ -55,7 +58,7 @@ class FetchQuestListener:
         if acquired and not state.get("recovered") and self._carrier() is not None:
             state["recovered"] = True
         home = any(isinstance(event, LocationEnteredEvent) and event.location_kind == "town" for event in events)
-        if home and state.get("recovered") and not state.get("completed"):
+        if home and state.get("recovered") and not state.get("completed") and self._carrier() is not None:
             state["completed"] = True
             self._session.execute(SetFlag(key="quest.idol", value="recovered"))
             for member in self._session.party.living_members():
@@ -65,6 +68,7 @@ class FetchQuestListener:
 
 Notice how `FetchQuestListener` follows the re-entrancy and determinism rules:
 
+- It re-checks `self._carrier() is not None` when the party enters `town`, so dropping the idol in the dungeon and returning empty-handed does not complete the quest.
 - It mutates `state` in place and sets `state["completed"] = True` *before* calling `self._session.execute(...)`, preventing the nested `SetFlag` and `AwardXP` calls from triggering the completion block again.
 - It returns `[], state` because `self._session.execute(...)` already logs the `SetFlag` and `AwardXP` events.
 - It modifies party XP and flags exclusively through commands (`SetFlag` and `AwardXP`) rather than mutating `session.party` or `session.flags` directly, ensuring saves, loads, and replays stay consistent.
@@ -164,7 +168,7 @@ class FetchQuestListener:
         if acquired and not state.get("recovered") and self._carrier() is not None:
             state["recovered"] = True
         home = any(isinstance(event, LocationEnteredEvent) and event.location_kind == "town" for event in events)
-        if home and state.get("recovered") and not state.get("completed"):
+        if home and state.get("recovered") and not state.get("completed") and self._carrier() is not None:
             state["completed"] = True
             self._session.execute(SetFlag(key="quest.idol", value="recovered"))
             for member in self._session.party.living_members():

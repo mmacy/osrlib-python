@@ -1,26 +1,36 @@
 # Determinism, saves, and replay
 
-Every random draw in osrlib comes from an explicit, named [`RngStream`][osrlib.core.rng.RngStream] forked from a session's master seed rather than from Python's `random` module or global state. Given the same master seed, the same accepted command sequence, and the same engine version, osrlib produces an identical game state every time (see [RNG streams](../reference/rng-streams.md) for the stream list):
+Every random draw in osrlib comes from an explicit, named [`RngStream`][osrlib.core.rng.RngStream] forked from a session's master seed rather than from Python's `random` module or global state (see [RNG streams](../reference/rng-streams.md)). Given the same master seed, starting party, adventure, `Ruleset`, accepted command sequence, and engine version, osrlib produces an identical game state every time:
 
 ```{.python .no-run}
-# Same seed, same commands: two independently built sessions save identically.
-session_a = play(seed=7)
-session_b = play(seed=7)
+def play(seed: int) -> tuple[dict, GameSession]:
+    party = new_party(seed)
+    pre_session_party = party_to_document(party.members)  # capture before GameSession.new assigns IDs
+    session = GameSession.new(party, build_adventure(), seed=seed)
+    session.execute(EnterDungeon(dungeon_id="crypt"))
+    session.execute(MoveParty(direction=Direction.EAST))
+    return pre_session_party, session
+
+
+pre_session_party, session_a = play(seed=7)
+_, session_b = play(seed=7)
 assert save_game(session_a) == save_game(session_b)
 ```
 
-Because sessions are deterministic, bug reports need only a seed and a command log to reproduce a failure, tests can assert against exact state, and you can restore a game either by loading a save document or by replaying its command log from scratch.
+osrlib provides two ways to restore a game:
+
+- **Load a save** ([`load_game`][osrlib.persistence.load_game]) to resume play from a serialized save document, restoring exact RNG stream positions, `listener_state`, and `event_log` across engine versions.
+- **Replay commands** ([`replay_game`][osrlib.persistence.replay_game]) to reconstruct command-driven session state from scratch for bug reports, audits, or golden tests, using the master seed, pre-session party document, adventure, `Ruleset`, and `command_log` under the same `engine_version`.
 
 ## Saves
 
 Call [`save_game`][osrlib.persistence.save_game] to serialize a running [`GameSession`][osrlib.crawl.session.GameSession] to a JSON-compatible dict. The save includes the party, the embedded adventure, dungeon exploration state, the clock, the master seed, every RNG stream's current position, referee and authored progress (`flags`, `listener_state`, `fired_triggers`, `journal`, and `quests`), `command_log`, and `event_log` (see [Listeners and flags](listeners-and-flags.md) and [Gates, triggers, and quests](gates-triggers-quests.md)).
 
-Call [`load_game`][osrlib.persistence.load_game] to restore a `GameSession` from that dict, including its exact RNG stream positions, so play continues drawing from where it stopped:
+Call [`load_game`][osrlib.persistence.load_game] to restore a `GameSession` from that dict (or decoded JSON), including its exact RNG stream positions, so play continues drawing from where it stopped:
 
 ```{.python .no-run}
-# The whole session round-trips through JSON: save -> load -> save is the identity.
 document = save_game(session_a)
-restored = load_game(document)
+restored = load_game(json.loads(json.dumps(document)))
 assert save_game(restored) == document
 ```
 
@@ -28,13 +38,9 @@ assert save_game(restored) == document
 
 ## Replay from a seed and command log
 
-Call [`replay_game`][osrlib.persistence.replay_game] with the master seed, the pre-session party document, the adventure, the `Ruleset`, and the recorded `command_log` to rebuild a session from scratch without a save file. Pass the party document created by [`party_to_document`][osrlib.core.character.party_to_document] *before* the party joined the original session, because [`GameSession.new`][osrlib.crawl.session.GameSession.new] assigns session-scoped member IDs in party order when play begins:
+Call [`replay_game`][osrlib.persistence.replay_game] with the master seed, the pre-session party document, the adventure, the `Ruleset`, and the recorded `command_log` to rebuild a session from scratch without a save file. Capture `pre_session_party = party_to_document(party.members)` ([`party_to_document`][osrlib.core.character.party_to_document]) *before* passing `party` to [`GameSession.new`][osrlib.crawl.session.GameSession.new], because `GameSession.new` assigns session-scoped member IDs in party order when play begins:
 
 ```{.python .no-run}
-# load(save) and replay(seed, commands) are two different paths to the identical state:
-# the party document must be the *pre-session* party, the same starting point the
-# original session assigned ids from.
-pre_session_party = party_to_document(new_party(seed=7).members)
 replayed = replay_game(
     seed=7,
     party_document=pre_session_party,
@@ -88,6 +94,8 @@ assert migrated.npcs == {}
 ## The complete program
 
 ```python
+import json
+
 from osrlib.core.alignment import Alignment
 from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character, party_to_document
 from osrlib.core.rng import RngStreams
@@ -119,29 +127,28 @@ def new_party(seed: int) -> Party:
     return Party(members=[fighter.character])
 
 
-def play(seed: int) -> GameSession:
-    session = GameSession.new(new_party(seed), build_adventure(), seed=seed)
+def play(seed: int) -> tuple[dict, GameSession]:
+    party = new_party(seed)
+    pre_session_party = party_to_document(party.members)  # capture before GameSession.new assigns IDs
+    session = GameSession.new(party, build_adventure(), seed=seed)
     session.execute(EnterDungeon(dungeon_id="crypt"))
     session.execute(MoveParty(direction=Direction.EAST))
-    return session
+    return pre_session_party, session
 
 
 # Same seed, same commands: two independently built sessions save identically.
-session_a = play(seed=7)
-session_b = play(seed=7)
+pre_session_party, session_a = play(seed=7)
+_, session_b = play(seed=7)
 assert save_game(session_a) == save_game(session_b)
 
 # The whole session round-trips through JSON: save -> load -> save is the identity.
 document = save_game(session_a)
-restored = load_game(document)
+restored = load_game(json.loads(json.dumps(document)))
 assert save_game(restored) == document
 assert document["schema_version"] == SCHEMA_VERSION
 assert document["engine_version"] == engine_version()
 
-# load(save) and replay(seed, commands) are two different paths to the identical state:
-# the party document must be the *pre-session* party, the same starting point the
-# original session assigned ids from.
-pre_session_party = party_to_document(new_party(seed=7).members)
+# load(save) and replay(seed, commands) reach identical state from the pre-session party document.
 replayed = replay_game(
     seed=7,
     party_document=pre_session_party,

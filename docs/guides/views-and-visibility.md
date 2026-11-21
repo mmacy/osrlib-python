@@ -4,9 +4,11 @@ B/X hides monster hit points, morale and reaction rolls, undiscovered secret doo
 
 ## Build player and referee views
 
-Pass `Visibility.PLAYER` or `Visibility.REFEREE` to [`GameSession.view`][osrlib.crawl.session.GameSession.view] to build a frozen snapshot for that audience:
+Pass `Visibility.PLAYER` or `Visibility.REFEREE` to [`GameSession.view`][osrlib.crawl.session.GameSession.view] after any state change to build a frozen snapshot for that audience:
 
 ```{.python .no-run}
+session.execute(SpawnMonsters(template_id="goblin", count_fixed=1, distance_feet=30))
+
 player_view = session.view(Visibility.PLAYER)
 referee_view = session.view(Visibility.REFEREE)
 ```
@@ -46,7 +48,7 @@ During an active encounter or battle, `PlayerView.encounter` provides an [`Encou
 
 - **Group identity and status**: Each group includes its ID, living `count`, distance, visible conditions with counts, and whether it has fled, without exposing hit points. Display [`label`][osrlib.crawl.views.EncounterGroupView.label] for one creature (such as `"goblin"`) and [`label_plural`][osrlib.crawl.views.EncounterGroupView.label_plural] for multiple creatures (`"goblins"`). Because custom encounters can set arbitrary display labels, branch on [`family_id`][osrlib.crawl.views.EncounterGroupView.family_id] (for example, `"hellhound"` across Hit Dice variants) and [`categories`][osrlib.crawl.views.EncounterGroupView.categories] (for example, `"undead"`) in code rather than matching display text.
 - **Round eligibility**: `EncounterView` lists which party members must submit declarations (`declarers`), which members cannot move (`immobile`), and which members are reloading (`reloading`). [`party_free_round`][osrlib.crawl.views.EncounterView.party_free_round] indicates whether a thief's back-stab is allowed on the current round.
-- **Range track and melee reach**: [`advance_feet`][osrlib.crawl.views.EncounterView.advance_feet] reports each member's distance forward of the starting party line. Two members must be within 5 feet of each other to hand over items, administer a potion, or use a touch spell or staff of healing. On each group, [`member_distance_feet`][osrlib.crawl.views.EncounterGroupView.member_distance_feet] gives every member's distance to that group, and [`front_rank`][osrlib.crawl.views.EncounterGroupView.front_rank] lists the members currently in melee reach of that group without moving (use the group's `front_rank` rather than `EncounterView.front_rank`, which only tracks the leading row toward the nearest group regardless of range).
+- **Melee reach and range track**: Check [`EncounterGroupView.front_rank`][osrlib.crawl.views.EncounterGroupView.front_rank] to see which party members can melee that group on the current round without moving (do not use `EncounterView.front_rank` for melee eligibility, because `EncounterView.front_rank` lists the party's leading row toward the nearest group regardless of distance). On each group, [`member_distance_feet`][osrlib.crawl.views.EncounterGroupView.member_distance_feet] gives every member's distance to that group, while [`EncounterView.advance_feet`][osrlib.crawl.views.EncounterView.advance_feet] gives each member's distance forward of the starting party line. Two members must be within 5 feet of each other on `advance_feet` to hand over items, administer a potion, or use a touch spell or staff of healing.
 - **Movement, frontage, and sight**: A member can close in and make a melee attack in the same round when their distance to the group is at most [`MemberView.encounter_rate_feet`][osrlib.crawl.views.MemberView.encounter_rate_feet] plus 5 feet. [`formation_width`][osrlib.crawl.views.EncounterView.formation_width] caps how many combatants fit side by side in a front rank (limiting a monster group's melee attackers to the smaller of `count` and `formation_width`). Each group's [`lit`][osrlib.crawl.views.EncounterGroupView.lit] and [`seen_by`][osrlib.crawl.views.EncounterGroupView.seen_by] fields report whether the party's light reaches the group and which members can see it.
 
 To validate battle choices interactively as a player builds a round's orders, pass the declarations chosen so far to [`preview_battle_round`][osrlib.crawl.battle.preview_battle_round]. It runs the same checks as [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] without advancing combat, returning per-declaration rejections, projected member positions, and updated `front_rank` lists so your UI can disable invalid actions.
@@ -60,7 +62,14 @@ Authored triggers, notes, and quests follow the same visibility boundary:
 - **Journal vs. triggers and notes**: [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent] uses `Visibility.PLAYER` and appends to `PlayerView.journal` ([`JournalEntry`][osrlib.crawl.session.JournalEntry] items ordered by discovery with their clock timestamps). [`TriggerFiredEvent`][osrlib.crawl.events.TriggerFiredEvent], [`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent], and flag updates use `Visibility.REFEREE` and appear only on `RefereeView`:
 
 ```{.python .no-run}
-# The beat is for the table; the trigger that produced it is referee-only setup.
+session.execute(MarkTriggerFired(trigger_id="lever-east"))
+session.execute(AddJournalEntry(text="The lever grinds.", source="trigger:lever-east"))
+session.execute(RecordNote(text="The east lever is the only one that answers."))
+
+# Views are frozen snapshots, so call view() again to read the updated state.
+journal_view = session.view(Visibility.PLAYER)
+referee_after = session.view(Visibility.REFEREE)
+
 assert [entry.text for entry in journal_view.journal][-1] == "The lever grinds."
 assert "lever-east" not in journal_view.model_dump_json()
 assert referee_after.fired_triggers == ("lever-east",)
@@ -71,11 +80,11 @@ assert referee_after.fired_triggers == ("lever-east",)
 
 ```{.python .no-run}
 # Active quests only, revealed objectives only, and none of the setup behind them.
-quest_view = player_view.quests[0]
+quest_view = journal_view.quests[0]
 assert (quest_view.id, quest_view.speaker) == ("the-lamps", "Sister Halda")
 assert [entry.id for entry in quest_view.objectives] == ["find-the-lever"]
-assert quest_view.objectives[0].name == "Find the lever"  # the authored name, or the id when unauthored
-assert "name-the-dead" not in player_view.model_dump_json()
+assert quest_view.objectives[0].name == "Find the lever"  # falls back to id when name is omitted
+assert "name-the-dead" not in journal_view.model_dump_json()
 ```
 
 When a quest activates, reveals an objective, completes an objective, or finishes, the session appends that beat to `session.journal` and reports it on the quest lifecycle event without emitting a separate [`JournalEntryAddedEvent`][osrlib.crawl.events.JournalEntryAddedEvent]. If you update a journal panel incrementally from events, watch `session.journal.entry_added`, `session.quest.activated`, `session.quest.objective_revealed`, `session.quest.objective_completed`, and `session.quest.completed`. Otherwise, render `PlayerView.journal` directly after each command.
@@ -134,6 +143,7 @@ errand = QuestSpec(
     objectives=(
         ObjectiveSpec(
             id="find-the-lever",
+            name="Find the lever",
             when=TriggerClause(pattern=FlagSetPattern(key="crypt.lever")),
             narrative=NarrativeBlock(progress="The lamps come up one by one."),
         ),
@@ -188,7 +198,9 @@ assert quest_view.speaker == "Sister Halda"
 assert journal_view.journal[0].text == quest_view.narrative
 
 # Only the revealed objective is projected, and none of the setup behind it.
-assert [(entry.id, entry.state) for entry in quest_view.objectives] == [("find-the-lever", "incomplete")]
+assert [(entry.id, entry.name, entry.state) for entry in quest_view.objectives] == [
+    ("find-the-lever", "Find the lever", "incomplete")
+]
 blob = journal_view.model_dump_json()
 assert "name-the-dead" not in blob  # a hidden objective has no view at all
 assert "pattern_type" not in blob and "crypt.lever" not in blob

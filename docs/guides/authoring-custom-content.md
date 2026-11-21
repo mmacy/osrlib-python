@@ -1,10 +1,17 @@
 # Authoring custom classes, spells, monsters, and items
 
-osrlib compiles its built-in classes, spells, monsters, and equipment from the OSE SRD into frozen package data. Rather than mutating those cached catalogs, you define custom [`ClassDefinition`][osrlib.core.classes.ClassDefinition], [`SpellTemplate`][osrlib.core.spells.SpellTemplate], [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate], and item templates in code, validate them with the same Pydantic models as the built-in data, and pass them to kernel functions or bundle them on an [`Adventure`][osrlib.crawl.adventure.Adventure] (`Adventure.spells`, `Adventure.monsters`, and `Adventure.items`). Both `ClassDefinition.race` and `SpellTemplate.spell_list` accept open slug strings rather than restricting you to built-in names (for authored gates, triggers, and quests, see [Gates, triggers, and quests](gates-triggers-quests.md)).
+osrlib compiles its built-in classes, spells, monsters, and equipment from the OSE SRD into frozen package data. Rather than mutating those cached catalogs, you define custom models in code, validate them with the same Pydantic models as the built-in data, and attach them where the engine looks them up (for authored gates, triggers, and quests, see [Gates, triggers, and quests](gates-triggers-quests.md)):
+
+| Custom content | Model | Where to pass or bundle it |
+| --- | --- | --- |
+| Character class | [`ClassDefinition`][osrlib.core.classes.ClassDefinition] | `Character.custom_class` / `create_character(..., custom_class=...)` (or pass directly to kernel functions) |
+| Spell | [`SpellTemplate`][osrlib.core.spells.SpellTemplate] | `Adventure.spells` for sessions, or `SpellCatalog` for `create_character` and standalone calls |
+| Monster | [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate] | [Bundle on `Adventure.monsters`](#bundling-custom-monsters-with-an-adventure) or pass directly to `spawn_monster` |
+| Equipment | `WeaponTemplate`, `ArmourTemplate`, `GearTemplate`, `AmmunitionTemplate` | [Bundle on `Adventure.items`](#bundling-custom-items-with-an-adventure) |
 
 ## Define a custom class
 
-Construct a [`ClassDefinition`][osrlib.core.classes.ClassDefinition] with `model_validate`:
+Construct a [`ClassDefinition`][osrlib.core.classes.ClassDefinition] with `model_validate` (`race` accepts any valid slug string rather than restricting you to built-in races):
 
 ```{.python .no-run}
 WARDEN = ClassDefinition.model_validate(
@@ -24,20 +31,6 @@ WARDEN = ClassDefinition.model_validate(
         "weapons": {"kind": "allowed", "weapon_ids": ("mace", "sling", "staff")},
         "languages": ("common",),
         "may_not_lower": ("wis",),
-```
-
-Each field controls a step of character creation, equipment validation, or XP calculation:
-
-- **`requirements` and `prime_requisites`**: `requirements` sets minimum ability scores checked during class selection. `prime_requisites` lists abilities that cannot be lowered during ability-score adjustment. [`xp_modifier_pct`][osrlib.core.classes.xp_modifier_pct] evaluates `xp_tiers` directly in best-first order, returning the first matching `modifier_pct` (or `0` when none match, which is why multi-prime-requisite classes omit penalty tiers).
-- **`may_not_lower`**: protects additional ability scores from being lowered during score adjustment (matching how the built-in thief protects STR).
-- **`armour` and `weapons`**: [`ArmourPolicy`][osrlib.core.classes.ArmourPolicy] sets `kind` (`"any"`, `"leather_only"`, or `"none"`) and `shields_allowed`. [`WeaponPolicy`][osrlib.core.classes.WeaponPolicy] sets `kind` to `"any"` (with no `weapon_ids`) or `"allowed"` / `"forbidden"` (with an explicit `weapon_ids` tuple), plus optional `manual_notes` for stature restrictions the engine does not automate.
-- **`hit_die`, `max_level`, and `languages`**: set the class's base Hit Die size, level cap, and starting language IDs.
-
-### Configure class abilities and level progression
-
-Add [`ClassAbility`][osrlib.core.classes.ClassAbility] entries (`tag`, `name`, `prose`, and a `params` dict stored as a read-only [`FrozenMap`][osrlib.core.frozen.FrozenMap]) on `abilities`, followed by `level_titles` and `progression`:
-
-```{.python .no-run}
         "abilities": (
             {
                 "tag": "divine_magic",
@@ -57,9 +50,39 @@ Add [`ClassAbility`][osrlib.core.classes.ClassAbility] entries (`tag`, `name`, `
                 "saves": {"death": 10, "wands": 11, "paralysis": 13, "breath": 15, "spells": 14},
                 "spell_slots": (1,),
             },
+            {
+                "level": 2,
+                "xp": 2000,
+                "hit_dice": {"count": 2, "die": 6},
+                "thac0": 19,
+                "attack_bonus": 0,
+                "saves": {"death": 10, "wands": 11, "paralysis": 13, "breath": 15, "spells": 14},
+                "spell_slots": (2,),
+            },
+            {
+                "level": 3,
+                "xp": 4000,
+                "hit_dice": {"count": 3, "die": 6},
+                "thac0": 17,
+                "attack_bonus": 2,
+                "saves": {"death": 8, "wands": 9, "paralysis": 11, "breath": 13, "spells": 12},
+                "spell_slots": (2, 1),
+            },
+        ),
+    }
+)
 ```
 
-Built-in rules inspect known ability tags by name while ignoring custom tags (which your front end can still display):
+Each field controls a step of character creation, equipment validation, or XP calculation:
+
+- **`requirements` and `prime_requisites`**: `requirements` sets minimum ability scores checked during class selection. `prime_requisites` lists abilities that cannot be lowered during ability-score adjustment. [`xp_modifier_pct`][osrlib.core.classes.xp_modifier_pct] evaluates `xp_tiers` directly in best-first order, returning the first matching `modifier_pct` (or `0` when none match, which is why multi-prime-requisite classes omit penalty tiers).
+- **`may_not_lower`**: protects additional ability scores from being lowered during score adjustment (matching how the built-in thief protects STR).
+- **`armour` and `weapons`**: [`ArmourPolicy`][osrlib.core.classes.ArmourPolicy] sets `kind` (`"any"`, `"leather_only"`, or `"none"`) and `shields_allowed`. [`WeaponPolicy`][osrlib.core.classes.WeaponPolicy] sets `kind` to `"any"` (with no `weapon_ids`) or `"allowed"` / `"forbidden"` (with an explicit `weapon_ids` tuple), plus optional `manual_notes` for stature restrictions the engine does not automate.
+- **`hit_die`, `max_level`, and `languages`**: set the class's base Hit Die size, level cap, and starting language IDs.
+
+### Configure class abilities and level progression
+
+On `abilities`, each [`ClassAbility`][osrlib.core.classes.ClassAbility] entry specifies `tag`, `name`, `prose`, and a `params` dict (stored as a read-only [`FrozenMap`][osrlib.core.frozen.FrozenMap]). Built-in rules inspect known ability tags by name while ignoring custom tags (which your front end can still display):
 
 - **Detection skills**: [`detection_chance`][osrlib.core.classes.detection_chance] reads `listening_at_doors`, `detect_secret_doors`, `detect_room_traps`, and `detect_construction_tricks`, each expecting a `chance_in_six` integer in `params`.
 - **Spellcasting**: [`caster_profile`][osrlib.core.spells.caster_profile] reads `divine_magic` and `arcane_magic` (both require a `spell_list` string in `params`) and returns a [`CasterProfile`][osrlib.core.spells.CasterProfile]. Divine casters choose between normal and reversed forms when casting, whereas arcane casters choose when memorizing spells from their spell book.
@@ -159,7 +182,7 @@ oswin = create_character(
 assert oswin.definition is WARDEN
 ```
 
-Outside a session, pass `WARDEN` and your extended `SpellCatalog` to [`level_up`][osrlib.core.classes.level_up], [`memorize_spells`][osrlib.core.spells.memorize_spells], and [`cast_spell`][osrlib.core.spells.cast_spell] (along with an [`EffectsLedger`][osrlib.core.effects.EffectsLedger], [`GameClock`][osrlib.core.clock.GameClock], `IdAllocator`, and target registry):
+Outside a session, pass `WARDEN` and your extended `SpellCatalog` to [`level_up`][osrlib.core.classes.level_up], [`memorize_spells`][osrlib.core.spells.memorize_spells], and [`cast_spell`][osrlib.core.spells.cast_spell]. `cast_spell` takes candidate creatures in `targets` and a dict of all live combatants by ID in `registry` (used when resolving effects that touch creatures beyond `targets`), along with an [`EffectsLedger`][osrlib.core.effects.EffectsLedger], [`GameClock`][osrlib.core.clock.GameClock], and `IdAllocator`:
 
 ```{.python .no-run}
 level_up(warden, WARDEN, streams.get("advancement"))
@@ -168,9 +191,19 @@ assert WARDEN.row(warden.level).spell_slots == (2,)
 
 memorized = memorize_spells(warden, WARDEN, spells, (MemorizedSpell(spell_id="mend_wounds"),))
 assert memorized.accepted
-```
 
-```{.python .no-run}
+wounded = Character(
+    id="pc-wounded",
+    name="Tam",
+    class_id="fighter",
+    race="human",
+    level=1,
+    xp=0,
+    scores={ability: 11 for ability in AbilityScore},
+    alignment=Alignment.LAWFUL,
+    max_hp=8,
+    current_hp=2,
+)
 cast_result = cast_spell(
     warden,
     spells.get("mend_wounds"),
@@ -511,7 +544,7 @@ from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import Ruleset
 from osrlib.core.tables import monster_save_band_label, monster_xp, thac0_for_hd
 from osrlib.crawl.adventure import Adventure, TownSpec, validate_adventure
-from osrlib.crawl.dungeon import AreaSpec, DungeonSpec, KeyedEncounter, KeyedMonster, LevelSpec
+from osrlib.crawl.dungeon import AreaSpec, DungeonSpec, Edge, EdgeKind, KeyedEncounter, KeyedMonster, LevelSpec
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession
 from osrlib.data import load_combat_tables, load_equipment, load_monsters
@@ -554,6 +587,7 @@ level = LevelSpec(
     width=2,
     height=1,
     entrance=(0, 0),
+    edges={"1,0:west": Edge(kind=EdgeKind.OPEN)},
     areas=(
         AreaSpec(
             id="ossuary",
@@ -633,7 +667,7 @@ from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.adventure import Adventure, TownSpec, validate_adventure
 from osrlib.crawl.commands import GrantItem, PurchaseEquipment
-from osrlib.crawl.dungeon import AreaSpec, DungeonSpec, FeatureSpec, LevelSpec
+from osrlib.crawl.dungeon import AreaSpec, DungeonSpec, Edge, EdgeKind, FeatureSpec, LevelSpec
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession
 from osrlib.data import load_equipment, load_monsters
@@ -678,6 +712,7 @@ level = LevelSpec(
     width=2,
     height=1,
     entrance=(0, 0),
+    edges={"1,0:west": Edge(kind=EdgeKind.OPEN)},
     areas=(
         AreaSpec(
             id="shrine",

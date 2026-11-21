@@ -20,11 +20,12 @@ sentinel = GateSpec(
         success="The brass key turns in the sentinel's palm and the door swings wide.",
     ),
 )
+gated_door = Edge(kind=EdgeKind.DOOR, door=DoorSpec(requires=sentinel))
 ```
 
-The engine evaluates `GateSpec.condition` against live session state each time the party attempts to open the door or cross the transition. If the party drops or sells a required key, the gate blocks them again on their next attempt. Each gate uses one of these condition types:
+The engine evaluates `GateSpec.condition` against live session state each time the party attempts to open a closed door (`OpenDoor`) or cross a transition. If the party drops or sells a required key, the gate blocks them again the next time the door is closed and opened. Each gate uses one of these condition types:
 
-- [`HasItemCondition`][osrlib.crawl.gates.HasItemCondition]: checks whether any party member carries or equips an item matching `item_id` (resolved against the equipment catalog, bundled `Adventure.items`, or the magic-item catalog, see [authoring custom content](authoring-custom-content.md)). Setting `consumes=True` turns the gate into a toll: each successful crossing removes one matching item from the first carrying member in marching order and emits [`ItemConsumedEvent`][osrlib.crawl.events.ItemConsumedEvent] before the door or arrival event (if the door closes, opening it again consumes another item). Because coins are not catalog items, represent a coin toll with a bundled token item instead.
+- [`HasItemCondition`][osrlib.crawl.gates.HasItemCondition]: checks whether any party member carries or equips an item matching `item_id` (resolved against the equipment catalog, bundled `Adventure.items`, or the magic-item catalog, see [authoring custom content](authoring-custom-content.md)). Setting `consumes=True` turns the gate into a toll: each time `OpenDoor` opens the closed door (or the party crosses the gated transition), the engine removes one matching item from the first carrying member in marching order and emits [`ItemConsumedEvent`][osrlib.crawl.events.ItemConsumedEvent] before the door or arrival event (walking through an already-open door consumes nothing, whereas closing and reopening the door consumes another item). Because coins are not catalog items, represent a coin toll with a bundled token item instead.
 - [`FlagEqualsCondition`][osrlib.crawl.gates.FlagEqualsCondition]: checks whether `session.flags[key]` strictly equals `value` (set via [`SetFlag`][osrlib.crawl.commands.SetFlag]). Missing keys never match `False`, and `True` does not match `1`.
 - [`EffectActiveCondition`][osrlib.crawl.gates.EffectActiveCondition]: checks whether any party member currently has an active effect of the specified kind (useful when an item or spell must be active rather than in a pack).
 
@@ -255,8 +256,8 @@ recover_the_key = QuestSpec(
     ),
     rewards=(SetFlag(key="barrow.errand", value="done"),),
     narrative=NarrativeBlock(
-        offer="Bring the brass key back up, and the sentinel's door is somebody else's problem.",
-        completion="The key is out of the barrow. The errand is closed.",
+        offer="Find the brass key lost in the barrow to get past the bronze sentinel.",
+        completion="The brass key is in hand. The errand is closed.",
     ),
 )
 
@@ -283,7 +284,7 @@ session.register_listener(Interpreter(session))
 session.execute(EnterDungeon(dungeon_id="barrow"))
 # Crossing the threshold activated the quest, and its offer opened the journal.
 assert session.quests["the-key"].status == "active"
-assert session.journal[0].text.startswith("Bring the brass key back up")
+assert session.journal[0].text.startswith("Find the brass key")
 
 session.execute(MoveParty(direction=Direction.EAST))
 session.execute(MoveParty(direction=Direction.EAST))
