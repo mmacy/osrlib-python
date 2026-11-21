@@ -80,12 +80,12 @@ from pydantic import ConfigDict, Field, PrivateAttr, field_validator, model_vali
 from osrlib.core._descriptions import _StrEnum
 from osrlib.core.alignment import Alignment
 from osrlib.core.clock import TimeUnit
-from osrlib.core.dice import parse
+from osrlib.core.dice import _highest_total, parse
 from osrlib.core.effects import Condition
 from osrlib.core.frozen import FrozenMap, _Model
 from osrlib.core.items import Coins, MagicItemInstance, ValuableInstance
 from osrlib.core.spells import SaveSpec
-from osrlib.core.tables import EncounterTable, ReactionResult
+from osrlib.core.tables import _SPAWN_LIMIT, EncounterTable, ReactionResult, _spawn_count_dice
 from osrlib.crawl.gates import GateSpec
 
 __all__ = [
@@ -1065,7 +1065,8 @@ class KeyedMonster(_Model):
 
     A [`KeyedEncounter`][osrlib.crawl.dungeon.KeyedEncounter] has a tuple of these, so a room with
     four orcs and their ogre bodyguard has two lines. Give each line either a fixed count or count
-    dice, not both.
+    dice, not both. A line creates at most 100 monsters, the limit a
+    [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] command has.
 
     Attributes:
         template_id: Which monster.
@@ -1074,7 +1075,8 @@ class KeyedMonster(_Model):
 
     Raises:
         ContentValidationError: If `count_dice` is not a valid dice expression.
-        ValueError: If both `count_dice` and `count_fixed` are given, or neither.
+        ValueError: If both `count_dice` and `count_fixed` are given, or neither, if `count_fixed`
+            is outside 1 to 100, or if `count_dice` can roll more than 100.
 
     Examples:
         ```python
@@ -1096,18 +1098,17 @@ class KeyedMonster(_Model):
     """How many appear, as a dice expression like `"2d4"`. The session rolls it on the
     [`WANDERING_STREAM`][osrlib.crawl.session.WANDERING_STREAM] when the monsters spawn, and a roll
     below 1 counts as 1. Set this or `count_fixed`, not both. The model checks the expression when
-    you construct it, so a malformed one fails then, not during play."""
-    count_fixed: int | None = None
-    """How many appear, as a fixed number. Set this or `count_dice`, not both. A printed adventure
-    usually gives a fixed number, and so does [`stock_area`][osrlib.crawl.stocking.stock_area] when
-    it rolls a room for you."""
+    you construct it, so a malformed one fails then, not during play, and so does an expression that
+    can roll more than 100, like `"1d100+1"` or `"11d10"`."""
+    count_fixed: int | None = Field(default=None, ge=1, le=100)
+    """How many appear, as a fixed number from 1 to 100. Set this or `count_dice`, not both. A
+    printed adventure usually gives a fixed number, and so does
+    [`stock_area`][osrlib.crawl.stocking.stock_area] when it rolls a room for you."""
 
     @field_validator("count_dice")
     @classmethod
     def _dice_must_parse(cls, value: str | None) -> str | None:
-        if value is not None:
-            parse(value)
-        return value
+        return value if value is None else _spawn_count_dice(value)
 
     @model_validator(mode="after")
     def _dice_or_fixed(self) -> KeyedMonster:
@@ -1132,6 +1133,10 @@ class KeyedEncounter(_Model):
         stance: A fixed reaction, instead of a reaction roll.
         hoard: Whether the monsters have their lair treasure.
 
+    Raises:
+        ValueError: If the lines can create more than 100 monsters together, counting each line at
+            its `count_fixed` or at the highest total its `count_dice` can roll.
+
     Examples:
         ```python
         from osrlib.core.tables import ReactionResult
@@ -1151,7 +1156,10 @@ class KeyedEncounter(_Model):
 
     monsters: tuple[KeyedMonster, ...] = Field(min_length=1)
     """The monster lines in the encounter, at least one. See
-    [`KeyedMonster`][osrlib.crawl.dungeon.KeyedMonster]."""
+    [`KeyedMonster`][osrlib.crawl.dungeon.KeyedMonster]. The lines create at most 100 monsters
+    together, counting each line at its `count_fixed` or at the highest total its `count_dice` can
+    roll, so a line of 60 goblins and a line of `"2d20"` hobgoblins is legal, and 60 goblins with
+    `"1d6x7"` hobgoblins isn't."""
     alignment: Alignment | None = None
     """The alignment every spawned monster takes, for a template that allows more than one. With
     `None`, the default, the session rolls it as usual. It has to be an alignment that each line's template allows, and
@@ -1171,6 +1179,21 @@ class KeyedEncounter(_Model):
     doesn't roll the hoard again. Set it `False` for a monster room with no treasure. Stocking a
     dungeon by the B/X rules often produces such a room, because only some monster rooms get treasure
     on the stocking roll."""
+
+    @model_validator(mode="after")
+    def _monsters_within_limit(self) -> KeyedEncounter:
+        most = 0
+        for line in self.monsters:
+            if line.count_fixed is not None:
+                most += line.count_fixed
+            elif line.count_dice is not None:
+                # A roll below 1 counts as 1, so every line creates at least one monster.
+                most += max(1, _highest_total(parse(line.count_dice)))
+        if most > _SPAWN_LIMIT:
+            raise ValueError(
+                f"the encounter's lines can create {most} monsters, and a spawn creates at most {_SPAWN_LIMIT}"
+            )
+        return self
 
 
 class AreaSpec(_Model):

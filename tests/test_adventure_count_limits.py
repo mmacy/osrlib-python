@@ -24,8 +24,6 @@ from osrlib.crawl.commands import SpawnMonsters
 from osrlib.crawl.dungeon import KeyedEncounter, KeyedMonster
 from osrlib.data import load_encounter_tables
 
-CHUNK = pytest.mark.xfail(reason="chunk: adventure-count-limits")
-
 LIMIT = 100
 GOBLINS = MonsterEncounterEntry(monster_ids=("goblin",))
 
@@ -42,7 +40,6 @@ def test_keyed_monster_accepts_a_fixed_count_in_range(count: int) -> None:
     assert KeyedMonster(template_id="goblin", count_fixed=count).count_fixed == count
 
 
-@CHUNK
 @pytest.mark.parametrize("count", [LIMIT + 1, 100_000, 0, -3])
 def test_keyed_monster_refuses_a_fixed_count_out_of_range(count: int) -> None:
     with pytest.raises(ValidationError):
@@ -54,14 +51,12 @@ def test_keyed_monster_accepts_dice_that_reach_the_limit(dice: str) -> None:
     assert KeyedMonster(template_id="goblin", count_dice=dice).count_dice == dice
 
 
-@CHUNK
 @pytest.mark.parametrize("dice", ["999d100", "1d6x999999", "2d6+89", "1d100+1", "11d10", "d%+1"])
 def test_keyed_monster_refuses_dice_that_can_roll_past_the_limit(dice: str) -> None:
     with pytest.raises(ValidationError):
         KeyedMonster(template_id="goblin", count_dice=dice)
 
 
-@CHUNK
 def test_keyed_monster_schema_states_the_limits() -> None:
     count_fixed = KeyedMonster.model_json_schema()["properties"]["count_fixed"]
     branches = count_fixed.get("anyOf", [count_fixed])
@@ -81,7 +76,6 @@ def test_keyed_encounter_accepts_lines_that_total_the_limit() -> None:
     assert len(encounter.monsters) == 2
 
 
-@CHUNK
 def test_keyed_encounter_refuses_fixed_lines_that_total_past_the_limit() -> None:
     with pytest.raises(ValidationError):
         KeyedEncounter(
@@ -92,7 +86,6 @@ def test_keyed_encounter_refuses_fixed_lines_that_total_past_the_limit() -> None
         )
 
 
-@CHUNK
 def test_keyed_encounter_counts_each_dice_line_at_its_highest_total() -> None:
     with pytest.raises(ValidationError):
         KeyedEncounter(
@@ -103,13 +96,11 @@ def test_keyed_encounter_counts_each_dice_line_at_its_highest_total() -> None:
         )
 
 
-@CHUNK
 def test_keyed_encounter_refuses_many_lines_under_the_line_limit() -> None:
     with pytest.raises(ValidationError):
         KeyedEncounter(monsters=tuple(KeyedMonster(template_id="goblin", count_fixed=LIMIT) for _ in range(1_000)))
 
 
-@CHUNK
 def test_an_adventure_document_with_an_over_limit_line_fails_to_load() -> None:
     document = {"monsters": [{"template_id": "goblin", "count_fixed": 100_000}]}
     with pytest.raises(ValidationError):
@@ -124,7 +115,6 @@ def test_table_row_accepts_counts_in_range(count: dict) -> None:
     assert row(**count).roll == 1
 
 
-@CHUNK
 @pytest.mark.parametrize(
     "count",
     [{"count_fixed": LIMIT + 1}, {"count_fixed": 0}, {"count_dice": "999d100"}, {"count_dice": "1d100+1"}],
@@ -134,7 +124,6 @@ def test_table_row_refuses_counts_out_of_range(count: dict) -> None:
         row(**count)
 
 
-@CHUNK
 def test_npc_party_row_refuses_dice_that_can_roll_past_the_limit() -> None:
     with pytest.raises(ValidationError):
         EncounterTableRow(
