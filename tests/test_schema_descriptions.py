@@ -34,8 +34,6 @@ from osrlib.crawl.commands import AnyCommand
 from osrlib.crawl.events import AnyEvent
 from osrlib.crawl.views import PlayerView, RefereeView
 
-pytestmark = pytest.mark.xfail(reason="chunk: adjacent-code-spans")
-
 # A fenced code block or a span in two or more backticks. Markdown reads nothing inside one as a link, so
 # `inventory["purse"]["gp"]` in an example stays as it is.
 _LITERAL = re.compile(r"(```.*?```|~~~.*?~~~|``.+?``)", re.DOTALL)
