@@ -382,11 +382,12 @@ class Command(_Model):
 
     command_type: str
     """The name that identifies the command class in serialized data. Each command class fixes
-    it to a distinct snake_case string, like `"move_party"` or `"open_door"`, and constructing
-    the class sets it, so you never pass it yourself.
+    it to a distinct snake_case string, like `"move_party"` or `"open_door"`. In Python,
+    constructing the class sets it, so you don't pass it.
     [`parse_command`][osrlib.crawl.commands.parse_command] and the
     [`AnyCommand`][osrlib.crawl.commands.AnyCommand] union use it to rebuild the right class
-    from a serialized mapping. A class's value never changes between releases."""
+    from a serialized mapping, so a mapping you pass to either one has to include it, like
+    the JSON body of a request. A class's value never changes between releases."""
     source: str | None = Field(default=None, min_length=1)
     """Who or what issued the command on whose behalf: an authored trigger or quest id, or the
     name of one of your game's systems. The engine never reads it, so a command with a
