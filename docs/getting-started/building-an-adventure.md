@@ -36,6 +36,8 @@ Set `entrance` to the cell where [`EnterDungeon`][osrlib.crawl.commands.EnterDun
 
 To give a room a name, description, and content, define an [`AreaSpec`][osrlib.crawl.dungeon.AreaSpec] over its cells. This is a *keyed area*, corresponding to a numbered room or cave in an adventure module. Cells outside all areas are corridors.
 
+Listing cells in an area groups their content but doesn't connect them. Open their shared edges to let the party walk between them.
+
 Add the guard post to the level's `areas`. It occupies the final cell and contains an encounter with two goblins:
 
 ```{.python .no-run}
@@ -160,15 +162,20 @@ creation = RngStreams(master_seed=11).get(CHARACTER_CREATION_STREAM)
 hero = create_character(name="Brakka", class_id="dwarf", alignment=Alignment.LAWFUL, ruleset=rules, stream=creation)
 session = GameSession.new(Party(members=[hero.character]), adventure, seed=11)
 
-session.execute(EnterDungeon(dungeon_id="barrow"))
-session.execute(MoveParty(direction=Direction.EAST))
-session.execute(MoveParty(direction=Direction.EAST))
-
-opened = session.execute(OpenDoor(direction=Direction.EAST))
-assert opened.accepted
+entered = session.execute(EnterDungeon(dungeon_id="barrow"))
+assert entered.accepted, entered.rejections
 
 result = session.execute(MoveParty(direction=Direction.EAST))
-assert result.accepted
+assert result.accepted, result.rejections
+
+result = session.execute(MoveParty(direction=Direction.EAST))
+assert result.accepted, result.rejections
+
+opened = session.execute(OpenDoor(direction=Direction.EAST))
+assert opened.accepted, opened.rejections
+
+result = session.execute(MoveParty(direction=Direction.EAST))
+assert result.accepted, result.rejections
 
 # Stepping into the keyed area creates the goblins and starts an encounter.
 assert session.mode is SessionMode.ENCOUNTER
@@ -187,7 +194,7 @@ If you installed with pip, run it with that environment's Python:
 python adventure.py
 ```
 
-The program should exit without output. Its assertions check that opening the door and moving into the room succeed, that the session enters encounter mode, and that the encounter contains two monsters.
+The program should exit without output. Each command has an assertion that reports its rejections if it fails. The final assertions check that the session enters encounter mode and the encounter contains two monsters.
 
 ## Where next
 

@@ -65,7 +65,7 @@ session.execute(EnterDungeon(dungeon_id="crypt"))
 assert session.mode is SessionMode.EXPLORING
 ```
 
-Call `session.execute` for each action. It validates the command and returns a result with an `accepted` flag, any rejections, and the events the action caused. Move east into the second cell and format the events:
+Call `session.execute` for each action. It validates the command and returns a result with an `accepted` flag, any rejections, and the events the action caused. Move east into the second cell and format all returned events for inspection:
 
 ```{.python .no-run}
 # Commands in, events out: every rules resolution is a typed event with a message code.
@@ -77,7 +77,9 @@ assert lines  # every event formats to a default English line
 
 Check `result.accepted` before treating an action as successful. A rejected command consumes no random draws or game time and changes no state. Read `result.rejections` to find out why it was refused.
 
-Each event describes what happened through typed fields and a message code. [`format_message`][osrlib.messages.format_message] turns those fields into a default English message. Your interface can use that message or render different text from the same event. This example stores the messages in `lines` without printing them.
+Each event describes what happened through typed fields and a message code. [`format_message`][osrlib.messages.format_message] turns those fields into a default English message, or you can render different text from the same event. This example stores the messages in `lines` without printing them.
+
+`lines` is unfiltered output for inspection, not player-facing text. Commands can return referee-only events. Before displaying events to players, filter on `event.visibility == Visibility.PLAYER`. See [Views and visibility](../guides/views-and-visibility.md#filter-events-quests-and-the-journal) for the player/referee distinction.
 
 ## Save and load
 
