@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [2.5.1] - 2026-11-21
+
 ### Fixed
 
 - Four referee commands now refuse a count larger than any game needs, so one command can't run for minutes or add hundreds of megabytes to the save (#272). A count over its limit fails validation with pydantic's `ValidationError` when the command is constructed, so the session never sees it. [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] and [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] create at most 100, whether the count is `count_fixed` or the largest total `count_dice` can roll, so `"1d100"` is legal and `"1d100+1"` isn't. [`GrantItem.quantity`][osrlib.crawl.commands.GrantItem.quantity] is at most 1,000. [`AdvanceTime`][osrlib.crawl.commands.AdvanceTime] advances at most 28 days: 28 days, 4,032 turns, or 241,920 rounds. The commands' JSON Schemas state the maximum of `count_fixed` and `quantity`. For more, send the command again. A save whose command log holds an over-limit command, which only a referee could have sent, now fails to load with [`ContentValidationError`][osrlib.errors.ContentValidationError]. Before, `AdvanceTime(n=100_000, unit="turn")` took about 5 seconds, and `SpawnMonsters` with `count_fixed=100_000` made a save of about 296 MB.
@@ -634,7 +636,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The documentation site: quickstart, guides, front-end walk-throughs, and a full reference for every command, event, rejection code, message code, RNG stream, and content id.
 - The typed surface: complete type hints under `py.typed`, checked in CI.
 
-[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v2.5.0...HEAD
+[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v2.5.1...HEAD
+[2.5.1]: https://github.com/mmacy/osrlib-python/compare/v2.5.0...v2.5.1
 [2.5.0]: https://github.com/mmacy/osrlib-python/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/mmacy/osrlib-python/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/mmacy/osrlib-python/compare/v2.2.0...v2.3.0
