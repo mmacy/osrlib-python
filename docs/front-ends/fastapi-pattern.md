@@ -24,7 +24,7 @@ Every server snippet on this page is included from `examples/fastapi_crawler/app
 With the server running on `http://localhost:8000`, serialize a party with [`party_to_document`][osrlib.core.character.party_to_document], create a session, and execute `enter_dungeon`:
 
 ```{.python .no-run}
-import httpx
+import httpx2
 
 from osrlib.core.alignment import Alignment
 from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character, party_to_document
@@ -35,7 +35,7 @@ stream = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
 hero = create_character(name="Hild", class_id="fighter", alignment=Alignment.LAWFUL, ruleset=Ruleset(), stream=stream)
 party_doc = party_to_document([hero.character])
 
-with httpx.Client(base_url="http://localhost:8000") as client:
+with httpx2.Client(base_url="http://localhost:8000") as client:
     created = client.post("/sessions", json={"party_document": party_doc}).json()
     session_id = created["session_id"]
 
