@@ -1,12 +1,12 @@
 # LLM referees
 
-osrlib is designed to work with an LLM-driven referee (a model that reads the game and decides what happens next). The engine fits an agent loop: the agent sends typed commands, reads typed events, and observes a full-knowledge view, and the deterministic core makes every run reproducible. The library includes everything such an agent uses: the schemas, the referee commands and view, authored content, and the determinism guarantee. [The complete program](#the-complete-program) at the end runs as written, and every snippet along the way comes from it.
+You can connect a language model to [`GameSession`][osrlib.crawl.session.GameSession] as an in-process referee or narrator: expose the command JSON Schema as the model's tool definition, pass [`RefereeView`][osrlib.crawl.views.RefereeView] and unfiltered [`Event`][osrlib.core.events.Event] payloads as observations, execute the JSON commands the model returns, and replay recorded command sequences from the same master seed to evaluate changes deterministically. To run every snippet on this page together with imports and session setup included, copy [the complete program](#the-complete-program).
 
-## The schemas are the tool definitions
+## Define tools from the JSON Schemas
 
-The reference section includes two raw schema files beside its pages: [commands.json](../reference/commands/commands.json) and [events.json](../reference/events/events.json). Each is a JSON Schema for a discriminated union. The command schema uses `command_type` as its discriminator, and the event schema uses `event_type`. The docs build generates both from the same registries the engine uses, so they always match what a session accepts and emits. [The command schema reference](../reference/commands/index.md) and [the event schema reference](../reference/events/index.md) render the same schemas page by page for human readers.
+The documentation build publishes discriminated-union JSON Schemas for the full command and event registries at [commands.json](../reference/commands/commands.json) (discriminated on `command_type`) and [events.json](../reference/events/events.json) (discriminated on `event_type`), alongside the human-readable [command schema reference](../reference/commands/index.md) and [event schema reference](../reference/events/index.md).
 
-The same unions are importable as [`AnyCommand`][osrlib.crawl.commands.AnyCommand] and [`AnyEvent`][osrlib.crawl.events.AnyEvent], so a Python agent can build its tool definitions in-process instead of copying files:
+In Python, you can generate those identical JSON Schemas directly from [`AnyCommand`][osrlib.crawl.commands.AnyCommand] and [`AnyEvent`][osrlib.crawl.events.AnyEvent] using Pydantic's [`TypeAdapter`][pydantic.type_adapter.TypeAdapter]:
 
 ```{.python .no-run}
 # The whole command surface as one discriminated union: a ready-made tool definition.
@@ -21,9 +21,9 @@ assert len(observations["oneOf"]) == len(ALL_EVENT_CLASSES)
 assert json.loads(json.dumps(tools)) == tools  # plain JSON Schema, ready for a tool registry
 ```
 
-Each property in these schemas has a `description`, which is the docstring of its field, so the LLM reads what each field means in the schema. A mkdocstrings cross-reference in a docstring, like ``[`MoveParty`][osrlib.crawl.commands.MoveParty]``, appears in the description as its label alone, `` `MoveParty` ``. `commands.json` and `events.json` contain the same schemas that `TypeAdapter(AnyCommand).json_schema()` and `TypeAdapter(AnyEvent).json_schema()` return.
+Every model property in `tools` and `observations` includes a `description` generated from its attribute docstring (with mkdocstrings cross-references such as ``[`MoveParty`][osrlib.crawl.commands.MoveParty]`` reduced to plain `` `MoveParty` `` labels), so an LLM reading the tool schema sees what each parameter controls.
 
-The whole command surface and the whole event surface have one discriminator field each. An agent framework that accepts JSON Schema tool definitions can load the command union as-is and let the model emit any command in the game, and [`parse_command`][osrlib.crawl.commands.parse_command] validates each one. The loop such an agent runs is short (this is a sketch, not a framework):
+Pass `tools` to your agent framework's tool registry, read [`RefereeView`][osrlib.crawl.views.RefereeView] on each turn until [`SessionMode.terminal`][osrlib.crawl.commands.SessionMode] becomes `True` (`game_over` or `victory`), and validate each JSON tool call with [`parse_command`][osrlib.crawl.commands.parse_command]:
 
 ```{.python .no-run}
 # Sketch: the agent loop, framework left to the reader.
@@ -34,9 +34,41 @@ while not session.mode.terminal:  # the party fell, or the adventure is won
     result = session.execute(command)  # rejected? that's feedback — the model reads why and retries
 ```
 
-## The referee sees everything
+In production code, check `parse_command(payload)` before calling `session.execute(command)`: `parse_command` returns `None` for an unknown `command_type` and raises [`ContentValidationError`][osrlib.errors.ContentValidationError] when a known command has invalid or missing fields, so feed either validation failure back to the model for correction. Once `command` parses, `session.execute(command)` checks game-rule preconditions and returns `CommandResult(accepted=False)` with machine-readable [`Rejection`][osrlib.core.validation.Rejection] codes (see [the rejection code reference](../reference/rejection-codes.md)) without consuming RNG draws, advancing the clock, or mutating state.
 
-The observation side is [`GameSession.view`][osrlib.crawl.session.GameSession.view] with [`Visibility.REFEREE`][osrlib.core.events.Visibility], which returns a [`RefereeView`][osrlib.crawl.views.RefereeView]. The referee view contains the full session state (party internals, monster hit points, session flags, door states, the complete event log), except the RNG internals and the master seed. Only the save document contains those two. Each group is a separate field, typed with the model the session uses, so an agent reads `view.monsters[0].current_hp` and `view.flags["key"]` off it and serializes the whole observation with `view.model_dump(mode="json")`. The player view works the opposite way: it's an enumerated whitelist. [Views and visibility](../guides/views-and-visibility.md) describes exactly what each view includes.
+## Modify the world with referee commands
+
+Player commands resolve the party's actions, whereas referee commands let your agent adjudicate rulings, spawn encounters, grant or remove items, and update world state. Both belong to `AnyCommand` and return the same [`CommandResult`][osrlib.crawl.commands.CommandResult] envelope:
+
+- **Flags and seeded rolls**: [`SetFlag`][osrlib.crawl.commands.SetFlag] writes a `str`, `int`, or `bool` entry to `session.flags` for gates, triggers, quests, or later prompts to inspect (see [Listeners and flags](../guides/listeners-and-flags.md)). [`RollDice`][osrlib.crawl.commands.RollDice] rolls a dice expression (such as `"1d20"` or `"3d6+2"`) on [`ADJUDICATION_STREAM`][osrlib.crawl.session.ADJUDICATION_STREAM] so ad-hoc referee rulings stay deterministic, logged, and isolated from combat and exploration RNG streams.
+- **Encounters**: [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] and [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] start an encounter at `distance_feet` by fixed count or dice expression (up to 100 creatures). Executing `SpawnMonsters` during an active `encounter` or `battle` adds a monster group to the ongoing fight instead (for example, reinforcements summoned mid-battle). [`EndEncounter`][osrlib.crawl.commands.EndEncounter] closes an `encounter` or `battle` with `outcome="parley"` or `outcome="departed"` and returns to `exploring`; pass `resolve_area=True` so a keyed area's monsters do not respawn on re-entry.
+- **Rewards, tolls, and identification**: [`GrantItem`][osrlib.crawl.commands.GrantItem], [`GrantCoins`][osrlib.crawl.commands.GrantCoins], and [`AwardXP`][osrlib.crawl.commands.AwardXP] grant mundane or magic items, coins, or XP to a party member. [`RemoveItem`][osrlib.crawl.commands.RemoveItem] and [`RemoveCoins`][osrlib.crawl.commands.RemoveCoins] deduct items or coins (such as for a bribe or custom toll). [`IdentifyItem`][osrlib.crawl.commands.IdentifyItem] reveals a carried magic item's true identity (and any curse) without requiring the character to use it.
+- **Party roster**: [`AddMember`][osrlib.crawl.commands.AddMember] appends a fresh character (`id=None`, with no active conditions, magic items, or valuables) to the back of the marching order in `town` or `exploring` and reports the assigned `character-NNNN` ID on [`MemberAddedEvent`][osrlib.crawl.events.MemberAddedEvent]. [`RemoveMember`][osrlib.crawl.commands.RemoveMember] permanently retires a member's ID in `town` or `exploring` (at least one standing member must remain). Pass another active member in `give_to` to transfer carried gear and coins; omitting `give_to` rejects with `party.remove.carries_quest_item` whenever the departing member carries an item referenced by an uncompleted quest, unfired trigger, or gate.
+- **Doors, movement, and time**: [`SetDoorState`][osrlib.crawl.commands.SetDoorState] updates a door's `open`, `wedged`, `discovered`, or `unlocked` state anywhere in the adventure. [`PlaceParty`][osrlib.crawl.commands.PlaceParty] teleports the party to town or a dungeon cell without triggering entry checks (legal in `town`, `exploring`, and `game_over`). [`AdvanceTime`][osrlib.crawl.commands.AdvanceTime] advances the clock by rounds, turns, or days (up to 28 days per command), expiring timed effects and charging daily provisions without rolling wandering checks.
+- **Journal, notes, and triggers**: [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry] appends player-visible story text to `PlayerView.journal`, [`RecordNote`][osrlib.crawl.commands.RecordNote] logs a referee-only [`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent], and [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired] records a trigger ID in `session.fired_triggers`.
+- **Quest state**: [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest], [`RevealObjective`][osrlib.crawl.commands.RevealObjective], [`CompleteObjective`][osrlib.crawl.commands.CompleteObjective], and [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] advance quests defined on `Adventure.quests`. `CompleteQuest` marks an active quest completed (and enters `victory` if `concludes_adventure=True`), but never issues `QuestSpec.rewards`; if your agent completes a quest manually rather than through [`Interpreter`][osrlib.crawl.interpreter.Interpreter], issue reward commands separately.
+
+After starting `session = new_session(seed=7)` and entering `"crypt"` (see [the complete program](#the-complete-program)), execute `SetFlag` and `SpawnMonsters` to record a flag and start an ambush:
+
+```{.python .no-run}
+# Referee commands are the authorial surface: record a fact, then spring an ambush.
+session.execute(SetFlag(key="ambush_sprung", value=True))
+result = session.execute(SpawnMonsters(template_id="goblin", count_fixed=2, distance_feet=30))
+assert result.accepted
+```
+
+## Observe full state and hidden rolls
+
+[`GameSession.execute`][osrlib.crawl.session.GameSession.execute] returns all emitted events in `result.events` without filtering by [`Visibility`][osrlib.core.events.Visibility]. Unlike a player-facing server (which strips `Visibility.REFEREE` events as shown in [the FastAPI pattern](fastapi-pattern.md)), an in-process referee agent reads the full stream, including hidden surprise, reaction, morale, and secret-door detection rolls:
+
+```{.python .no-run}
+# The unfiltered event stream is the observation: referee events carry the hidden rolls.
+codes = [event.code for event in result.events]
+assert "session.monsters.spawned" in codes
+assert any(event.visibility is Visibility.REFEREE for event in result.events)
+```
+
+To inspect current session state between commands, call [`session.view(Visibility.REFEREE)`][osrlib.crawl.session.GameSession.view]. The returned [`RefereeView`][osrlib.crawl.views.RefereeView] exposes typed fields for the full party, `monsters` (including `current_hp`), `npcs`, `flags`, `fired_triggers`, `quests` (including inactive quests and hidden objectives), `dungeon_state`, `ledger`, `command_log`, and `event_log`, omitting only `master_seed` and `rng_streams` (which appear only in save documents). Serialize the snapshot for a prompt with `view.model_dump(mode="json")` (see [Views and visibility](../guides/views-and-visibility.md)):
 
 ```{.python .no-run}
 # The referee view is full state — flags, monster internals — minus RNG state and the seed.
@@ -47,43 +79,11 @@ dumped = view.model_dump()
 assert "master_seed" not in dumped and "rng_streams" not in dumped
 ```
 
-[`GameSession.execute`][osrlib.crawl.session.GameSession.execute] returns its events unfiltered too, and each event has a visibility. Referee-visibility events include the hidden rolls (surprise, reaction, secret-door detection) that a player-facing front end must remove before it sends events to the player, as [the FastAPI pattern](fastapi-pattern.md) does. An in-process referee agent reads them all, because they show the agent what the dice just did.
+## Narrate from event codes
 
-```{.python .no-run}
-# The unfiltered event stream is the observation: referee events carry the hidden rolls.
-codes = [event.code for event in result.events]
-assert "session.monsters.spawned" in codes
-assert any(event.visibility is Visibility.REFEREE for event in result.events)
-```
+Events never contain engine-generated English prose. Instead, every event provides a dotted message `code` (such as `session.monsters.spawned` or `encounter.surprise.rolled`) and typed fields (see [the event schema reference](../reference/events/index.md) and [the message code reference](../reference/message-codes.md)). Pass the serialized events to a narrator model as structured facts so the model can write prose without parsing English strings first.
 
-## The authorial surface
-
-Player commands let the model drive the party's turn. Referee commands let it *run the table*. They use the same result envelope and the same rejection rules as player commands. They aren't a separate API, only more entries in the union:
-
-- [`SetFlag`][osrlib.crawl.commands.SetFlag] - record a durable fact (the lever was pulled, the alarm was raised) that listeners and later narration can react to. See [Listeners and flags](../guides/listeners-and-flags.md)
-- [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] and [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty] - open an encounter at a chosen distance, by fixed count or dice. During an encounter or a battle, `SpawnMonsters` adds a group to the fight instead, like the animals a lycanthrope summons
-- [`EndEncounter`][osrlib.crawl.commands.EndEncounter] - close the encounter when the party talks its way past or walks away, and optionally mark a keyed area resolved so its monsters don't come back
-- [`GrantItem`][osrlib.crawl.commands.GrantItem], [`GrantCoins`][osrlib.crawl.commands.GrantCoins], [`AwardXP`][osrlib.crawl.commands.AwardXP] - place rewards directly, magic items included
-- [`RemoveItem`][osrlib.crawl.commands.RemoveItem], [`RemoveCoins`][osrlib.crawl.commands.RemoveCoins] - take items or coins away: a price, a toll, armour a shop buys back
-- [`AddMember`][osrlib.crawl.commands.AddMember] - bring a new character into the party in town or while exploring, like a replacement for a fallen member. The new member joins at the back of the marching order, and the event gives their id
-- [`RemoveMember`][osrlib.crawl.commands.RemoveMember] - take a character out of the party for good in town or while exploring, like one who died too long ago for *raise dead*. Name another member in `give_to` to keep what the character carries in the party. The removed id is never used again. The session refuses with `party.remove.carries_quest_item` when you leave `give_to` out and the character carries an item the adventure depends on, so name a member to take it.
-- [`SetDoorState`][osrlib.crawl.commands.SetDoorState] - rewrite any door's state anywhere: lock it, wedge it, reveal it
-- [`PlaceParty`][osrlib.crawl.commands.PlaceParty] and [`AdvanceTime`][osrlib.crawl.commands.AdvanceTime] - teleport the party, advance the clock
-- [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry] and [`RecordNote`][osrlib.crawl.commands.RecordNote] - what the agent records in the game world: a journal entry is written for the players and appears in their view, and a note is for the referee only and stays out of the player view
-- [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest], [`RevealObjective`][osrlib.crawl.commands.RevealObjective], [`CompleteObjective`][osrlib.crawl.commands.CompleteObjective], [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] - advance authored quest state by hand. `CompleteQuest` pays nothing: whoever completes a quest issues its rewards afterwards, as the interpreter does, so a hand-issued completion leaves the party unpaid unless the agent issues the rewards too
-
-```{.python .no-run}
-# Referee commands are the authorial surface: record a fact, then spring an ambush.
-session.execute(SetFlag(key="ambush_sprung", value=True))
-result = session.execute(SpawnMonsters(template_id="goblin", count_fixed=2, distance_feet=30))
-assert result.accepted
-```
-
-The rejection rules work the same way for referee commands: a rejected command changes nothing, and the result includes a machine-readable rejection code (see [the rejection code reference](../reference/rejection-codes.md)), so a model that asks for something illegal gets structured feedback to correct against instead of a stack trace.
-
-## Narrate from codes, not prose
-
-The engine never writes English text into events. Each has a stable message `code` (a compact fact like `session.monsters.spawned` or `encounter.surprise.rolled`) plus typed fields. [The message code reference](../reference/message-codes.md) lists every code with the event class that emits it and its default template, and each event's fields are on [its schema page](../reference/events/index.md). A narrator model gets facts it can render freely, without parsing English back into facts. The one kind of English an event does include is *authored* narrative: a beat the adventure's author wrote in a structured field. [Narrating authored content](#narrating-authored-content) below covers authored beats separately from the text the model writes. When a plain default line is enough, [`format_message`][osrlib.messages.format_message] renders one for any event, appending any authored beat verbatim:
+When you want a plain fallback line (or a baseline summary alongside the raw event fields), call [`format_message`][osrlib.messages.format_message], which formats any event and appends any authored narrative beat attached to it:
 
 ```{.python .no-run}
 # Every event also renders to a default English line the model can lean on.
@@ -91,29 +91,24 @@ lines = [format_message(event) for event in result.events]
 assert all(lines)
 ```
 
-In a practical narrator prompt, send the structured events (or their codes and fields) as the facts to narrate, and leave the model to choose how to tell them. The engine has already rolled the dice and resolved what happened.
+## Narrate authored content
 
-## Narrating authored content
+When refereeing an adventure that uses gates, triggers, and quests (see [Gates, triggers, and quests](../guides/gates-triggers-quests.md)), coordinate your agent with the adventure's authored mechanics and prose:
 
-An adventure written for the authored layer ([Gates, triggers, and quests](../guides/gates-triggers-quests.md)) includes material written for a narrating referee, and an agent that referees such an adventure should use all of it.
-
-**Register the library's [`Interpreter`][osrlib.crawl.interpreter.Interpreter] and do no bookkeeping.** Call `session.register_listener(Interpreter(session))` once after you build the session, and again after a load. The interpreter then fires the triggers, advances the quests, records the fired-marks, and issues the rewards, all as ordinary logged commands. The agent referees, and the interpreter runs what the adventure's author set up.
-
-**`guidance` is direction for the narrator, not text to read out.** [`NarrativeBlock`][osrlib.crawl.narrative.NarrativeBlock] has a `guidance` field on any authored object, and [`LevelSpec.guidance`][osrlib.crawl.dungeon.LevelSpec] contains ambience for the whole level that isn't attached to any object. The guidance for the TUI barrow's first level is:
+- **Register `Interpreter` for authored mechanics**: Call `session.register_listener(Interpreter(session))` after creating or loading the session so [`Interpreter`][osrlib.crawl.interpreter.Interpreter] evaluates triggers, advances quests, records `fired_triggers`, and issues quest rewards automatically as logged commands without prompt-side bookkeeping.
+- **Deliver authored beats verbatim**: Quest `offer` and `completion` beats, objective `progress` beats, and gate `success` and `refusal` beats arrive on player-visible events or in `rejections[].params.refusal`, along with optional `speaker` attribution (such as `"the temple almoner"`). Present those beats verbatim in the speaker's voice and write the model's narration around them rather than paraphrasing them.
+- **Separate agent commands with `Command.source`**: Set [`Command.source`][osrlib.crawl.commands.Command] on referee commands the model issues (for example, `source="agent:referee"`). Because `Interpreter` stamps its commands with `trigger:{id}` or `quest:{id}`, inspecting `command.source` in `session.command_log` distinguishes the model's choices from authored consequences during evaluation.
+- **Read `guidance` as narrator direction, never player text**: Read `guidance` from `session.adventure` (or `RefereeView.adventure`) as staging notes rather than text to quote to players. Authors attach object-specific direction on [`NarrativeBlock.guidance`][osrlib.crawl.narrative.NarrativeBlock] and level-wide atmosphere on [`LevelSpec.guidance`][osrlib.crawl.dungeon.LevelSpec] (such as level 1 of [the TUI crawler's](tui-crawler.md) barrow), neither of which appears in events or `PlayerView`:
 
 ```{.python .no-run}
 --8<-- "examples/tui_crawler/content.py:level-guidance"
 ```
 
-A referee-side narrator reads guidance from the adventure document it's refereeing and never prints it verbatim. The narrator trusts guidance as it trusts an area's description, which already goes into narration. No event or view includes guidance. It's the author talking to the narrator.
+## Replay trajectories for evaluation
 
-**Deliver authored beats as written.** A quest's offer and completion, an objective's progress, a gate's success and refusal arrive as structured fields on player-visible events and rejections, with `speaker` attribution when the author wrote one ("the temple almoner"). Deliver them as written, in the speaker's voice, and write the model's narration around them instead of replacing them.
+Every random draw in `osrlib` comes from a named stream forked from the session's master seed, so executing the same command sequence from the same starting party, adventure, `Ruleset`, and seed under the same `engine_version` produces identical events and state (see [Determinism, saves, and replay](../guides/determinism-saves-replay.md)).
 
-**[`Command.source`][osrlib.crawl.commands.Command] shows which commands came from the agent.** The interpreter stamps every command it issues with `trigger:{id}` or `quest:{id}`. If the agent stamps its referee commands differently, or leaves them unstamped, you can tell from the log which commands the agent chose and which the adventure caused. When you replay a trajectory, you can tell which grants were the model's ideas.
-
-## Reproducible runs for evaluation
-
-Every random draw in osrlib comes from a named stream forked from the master seed, so the same seed plus the same command sequence produces the same game, bit for bit. For agent work, that means a trajectory (the seed and the list of commands the model chose) is a complete, reproducible record of a run. Re-execute it offline and you get the same events to score. Change a prompt and replay the same seeds to regression-test the change. Compare two models on identical dungeons. [Determinism, saves, and replay](../guides/determinism-saves-replay.md) covers the guarantee and its limit: replays are identical only under the same engine version.
+Recording the master seed alongside the commands the model chose gives you a reproducible trajectory: you can re-execute runs offline to score events, test prompt revisions against fixed seeds, or compare two models on identical encounters:
 
 ```{.python .no-run}
 # Determinism is the eval story: same seed, same commands, same trajectory.
@@ -220,8 +215,8 @@ assert [e.model_dump(mode="json") for e in rerun.events] == [e.model_dump(mode="
 
 ## Where next
 
-- [Gates, triggers, and quests](../guides/gates-triggers-quests.md) - how to author the guidance and beats described on this page.
-- [Views and visibility](../guides/views-and-visibility.md) - what the referee view and the player view each include.
-- [Determinism, saves, and replay](../guides/determinism-saves-replay.md) - the guarantee that makes a run reproducible.
-- [The FastAPI pattern](fastapi-pattern.md) - the opposite case: serving players who must *not* see what the referee sees.
-- [The message code reference](../reference/message-codes.md) - every code an event can have, with its default English template.
+- [Gates, triggers, and quests](../guides/gates-triggers-quests.md) - authoring quests, triggers, narrative beats, and narrator `guidance`.
+- [Views and visibility](../guides/views-and-visibility.md) - comparing `RefereeView` and `PlayerView` fields.
+- [Determinism, saves, and replay](../guides/determinism-saves-replay.md) - saving sessions and replaying `command_log` under a fixed seed.
+- [The FastAPI pattern](fastapi-pattern.md) - serving untrusted player clients with `Visibility.PLAYER` filtering.
+- [The message code reference](../reference/message-codes.md) - event message codes and default English templates.
