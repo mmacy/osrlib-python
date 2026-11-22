@@ -71,7 +71,7 @@ docs = [
 # the package's runtime dependency remains pydantic alone.
 examples = [
     "fastapi>=0.115",
-    "httpx>=0.28",
+    "httpx2>=2.16.2",
     "uvicorn>=0.32",
 ]
 

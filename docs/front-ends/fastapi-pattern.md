@@ -1,110 +1,152 @@
 # The FastAPI pattern
 
-The library's second example front end puts the [TUI crawler's](tui-crawler.md) barrow adventure behind an HTTP API: the same authored content behind a terminal and a web server. osrlib behaves the same whichever of the two calls the [`GameSession`][osrlib.crawl.session.GameSession]. The server patterns the example demonstrates are the per-session lock, the interpreter registered on both session paths, player visibility enforced before data leaves the server, saves that never leave the server, and the mapping from osrlib's typed exceptions to HTTP statuses. [The exception hierarchy and the status map](#the-exception-hierarchy-and-the-status-map) below covers [`osrlib.errors`][osrlib.errors] in full. Run instructions are in [the example's README on GitHub](https://github.com/mmacy/osrlib-python/tree/main/examples/fastapi_crawler).
+[`examples/fastapi_crawler`](https://github.com/mmacy/osrlib-python/tree/main/examples/fastapi_crawler) wraps [`GameSession`][osrlib.crawl.session.GameSession] in a single-process, synchronous [FastAPI](https://fastapi.tiangolo.com/) reference server, exposing the same barrow adventure as [the TUI crawler](tui-crawler.md) over HTTP. It establishes the server boundaries needed for web and mobile backends: locking each session independently, keeping the master seed and save documents on the server, registering [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on both new and restored sessions, exposing only player-visible events and [`PlayerView`][osrlib.crawl.views.PlayerView] snapshots, and mapping [`osrlib.errors`][osrlib.errors] exceptions separately from in-game rejections.
 
-The example is small, five endpoints in `examples/fastapi_crawler/app.py`, and every server snippet below is included from that file, so the page always matches the code. The server snippets don't run on their own. The one self-contained runnable block is [the exception demonstration](#the-exception-hierarchy-and-the-status-map).
+From a clone of the [osrlib repository](https://github.com/mmacy/osrlib-python), sync the workspace dependencies (which include the `examples` group) and start the server with `uv`:
 
-## One session, one lock
+```sh
+uv sync
+uv run uvicorn examples.fastapi_crawler:app
+```
 
-A [`GameSession`][osrlib.crawl.session.GameSession] executes one command at a time and isn't safe to share across threads. FastAPI runs plain `def` endpoints in a threadpool, so any two requests can run concurrently. The store makes that safe by giving every session a separate lock:
+Every server snippet on this page is included from `examples/fastapi_crawler/app.py` and `examples/fastapi_crawler/content.py` (see the example's [README on GitHub](https://github.com/mmacy/osrlib-python/tree/main/examples/fastapi_crawler) for `curl` examples). To test the exception classes directly without starting the server, run the standalone Python snippet in [Map rejections and exceptions to HTTP status codes](#map-rejections-and-exceptions-to-http-status-codes).
+
+`examples/fastapi_crawler/app.py` exposes these routes:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /sessions` | Start a new session from a stamped party document, or restore one from a `save_id`. |
+| `GET /sessions/{session_id}` | Return `schema_version`, `engine_version`, `mode`, and `clock_rounds`. |
+| `POST /sessions/{session_id}/commands` | Parse and execute one command, returning `accepted`, `rejections`, and player-visible `events`. |
+| `GET /sessions/{session_id}/view` | Return the current [`PlayerView`][osrlib.crawl.views.PlayerView] snapshot. |
+| `POST /sessions/{session_id}/save` | Store a server-side save snapshot and return an opaque `save_id`. |
+
+With the server running on `http://localhost:8000`, serialize a party with [`party_to_document`][osrlib.core.character.party_to_document], create a session, and execute `enter_dungeon`:
+
+```{.python .no-run}
+import httpx2
+
+from osrlib.core.alignment import Alignment
+from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character, party_to_document
+from osrlib.core.rng import RngStreams
+from osrlib.core.ruleset import Ruleset
+
+stream = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
+hero = create_character(name="Hild", class_id="fighter", alignment=Alignment.LAWFUL, ruleset=Ruleset(), stream=stream)
+party_doc = party_to_document([hero.character])
+
+with httpx2.Client(base_url="http://localhost:8000") as client:
+    created = client.post("/sessions", json={"party_document": party_doc}).json()
+    session_id = created["session_id"]
+
+    entered = client.post(
+        f"/sessions/{session_id}/commands",
+        json={"command_type": "enter_dungeon", "dungeon_id": "barrow"},
+    ).json()
+    assert entered["accepted"] is True
+    assert [event["code"] for event in entered["events"]] == [
+        "exploration.location.entered",
+        "session.quest.activated",
+    ]
+```
+
+## Lock each session independently
+
+`GameSession` mutates state in place and is not thread-safe. FastAPI runs plain `def` route handlers in a worker threadpool, so concurrent HTTP requests can execute simultaneously on different threads. `examples/fastapi_crawler/app.py` pairs each `GameSession` with its own `threading.Lock`:
 
 ```{.python .no-run}
 --8<-- "examples/fastapi_crawler/app.py:session-store"
 ```
 
-The server holds the session's lock for every `execute` and every view read, so one session's commands run one at a time while separate sessions run in parallel. The outer `_store_lock` only guards the dictionaries themselves. The endpoints are deliberately synchronous: the engine is synchronous and CPU-bound, so an async facade would add nothing.
+Hold `_store_lock` only while reading or updating the `_sessions` and `_saves` dicts, and acquire the session's lock around every `session.execute(...)`, `session.view(...)`, or `save_game(session)` call. Commands targeting the same session run sequentially, while separate sessions run concurrently across worker threads. Because `osrlib` is synchronous and CPU-bound, defining routes with `def` rather than `async def` avoids blocking an `asyncio` event loop.
 
-## Creating and restoring sessions
+## Create and restore sessions
 
-A session begins with a stamped party document (the JSON envelope [`party_to_document`][osrlib.core.character.party_to_document] produces and [`party_from_document`][osrlib.core.character.party_from_document] validates) or with a save id from an earlier server-side snapshot. The request must have exactly one of the two, and the request model checks that before the handler runs:
+`POST /sessions` accepts either a stamped party document (created with [`party_to_document`][osrlib.core.character.party_to_document] and validated by [`party_from_document`][osrlib.core.character.party_from_document]) or a `save_id` from an earlier server-side snapshot. A model validator on `CreateSession` requires exactly one of those two fields:
 
 ```{.python .no-run}
 --8<-- "examples/fastapi_crawler/app.py:create-session-model"
 ```
 
-The handler then branches on which field arrived:
+The handler branches on which field you sent, registers the session in `_sessions` with a fresh lock, and returns the new `session_id` alongside the version stamps:
 
 ```{.python .no-run}
 --8<-- "examples/fastapi_crawler/app.py:create-session"
 ```
 
-Look at two details of that handler:
+Keep two contracts in mind when creating sessions over HTTP:
 
-- **The master seed is a server secret.** By default the server draws it (`secrets.randbits(63)`) and no response ever contains it, because a client with the seed can predict every roll the engine will make. The optional `seed` field exists for reproducible demos and tests, and even when the client supplies it, the server never sends it back.
-- **The response is the schema handshake.** `schema_version` and `engine_version` come from [`osrlib.versioning`][osrlib.versioning], so a client can detect a server whose schema version is newer than the client's before it sends anything else. [Determinism, saves, and replay](../guides/determinism-saves-replay.md) covers what each version stamp guarantees.
+- **Keep the master seed on the server**: By default, `create_session` draws a 63-bit seed with `secrets.randbits(63)` and never returns it, because knowing the master seed lets a client predict every future roll. `CreateSession.seed` exists only for deterministic tests and demos; omit `seed` from public request models, since a client that supplies a seed already knows it.
+- **Return version stamps up front**: Both `POST /sessions` and `GET /sessions/{session_id}` return [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] and [`engine_version()`][osrlib.versioning.engine_version] from [`osrlib.versioning`][osrlib.versioning] so a client can detect a newer server schema before sending commands (see [Determinism, saves, and replay](../guides/determinism-saves-replay.md)).
 
-## The served content and its interpreter
+### Register listeners on both session paths
 
-The barrow is authored content: gated doors, a fetch quest, the works. The content does nothing until you register the [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on the session (see [Gates, triggers, and quests](../guides/gates-triggers-quests.md)). The server does that setup in `content.py`, on **both** entry paths: the fresh session and the restored one. For a fresh session, the server registers the interpreter as soon as it builds the session:
+Authored triggers and quests do not run until you register [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on the session (see [Gates, triggers, and quests](../guides/gates-triggers-quests.md)). `examples/fastapi_crawler/content.py` attaches `Interpreter` both when creating a new session and when restoring a saved session:
 
 ```{.python .no-run}
 --8<-- "examples/fastapi_crawler/content.py:new-session"
 ```
 
-For a restored session, the server registers it again, because a save contains data and a listener is code. The save has the quest's state, the fired-marks, and the journal, but the session can't *react* to any of it until the server attaches the listener again:
+Save documents store JSON data (`quests`, `fired_triggers`, `journal`, and `flags`), whereas listeners are Python objects. [`load_game`][osrlib.persistence.load_game] therefore returns a session with no registered listeners, and `restore_session` must attach `Interpreter` again:
 
 ```{.python .no-run}
 --8<-- "examples/fastapi_crawler/content.py:restore-session"
 ```
 
-If you forget the second registration, a restored barrow session still validates and loads, but its triggers and quests silently stop running.
+If you omit `register_listener` on the restore path, the saved session loads without error, but its triggers and quests stop reacting to subsequent commands.
 
-## The command endpoint
+## Parse commands and filter events
 
-One endpoint accepts every command in the engine's registry, each a typed model with a JSON Schema (see [the command schema reference](../reference/commands/index.md)). [`parse_command`][osrlib.crawl.commands.parse_command] turns the request body into a typed command, returning `None` for a `command_type` that isn't in the registry:
+`POST /sessions/{session_id}/commands` deserializes JSON command payloads using [`parse_command`][osrlib.crawl.commands.parse_command] (see [the command schema reference](../reference/commands/index.md)):
 
 ```{.python .no-run}
 --8<-- "examples/fastapi_crawler/app.py:execute-command"
 ```
 
-A request has one of three outcomes, checked in order:
+Each request follows one of three paths:
 
-- An **unknown `command_type`** returns 422 before the engine sees it: schemas grow additively, so a newer client may send commands this server doesn't have, and the server answers that it doesn't understand rather than guessing.
-- A **known command with a malformed payload** (a direction that doesn't exist, a negative quantity) raises [`ContentValidationError`][osrlib.errors.ContentValidationError] inside [`parse_command`][osrlib.crawl.commands.parse_command], which the exception handler below maps to 422.
-- A **well-formed command** executes under the session lock and returns the [`CommandResult`][osrlib.crawl.commands.CommandResult] envelope: `accepted`, the rejections, and the events, filtered to [`Visibility.PLAYER`][osrlib.core.events.Visibility] on their way out. Referee-visibility events (hidden rolls, referee bookkeeping) never cross the wire.
+- **Unknown `command_type`**: `parse_command` returns `None`, and the route returns HTTP `422` before calling the engine. Because command schemas grow additively across minor releases, returning `422` for unrecognized command types tells newer clients that the server does not support that command.
+- **Malformed payload for a known command**: `parse_command` raises [`ContentValidationError`][osrlib.errors.ContentValidationError] (for example, on an invalid compass direction or a negative quantity), which the exception handler maps to HTTP `422`.
+- **Valid command**: `session.execute(command)` runs under the session lock and returns `accepted`, `rejections`, and `events` filtered to [`Visibility.PLAYER`][osrlib.core.events.Visibility], stripping referee-only events (such as hidden surprise, morale, or detection rolls) before the response leaves the server.
 
-## Rejections are results, not errors
+`parse_command` deserializes every registered command class, including referee commands such as `AdvanceTime` or `GrantItem`. This example omits authentication and command-class filtering to stay concise; in a production server facing untrusted players, verify that the parsed command is an allowed player command class before calling `session.execute`.
 
-The status codes in this API follow one rule: **an in-fiction rejection is a 200.** When the party tries to walk through a wall, the engine rejects the command. That's a rules outcome the client should render, not a transport failure. The response arrives with `accepted: false` and a machine-readable rejection code (see [the rejection code reference](../reference/rejection-codes.md)), and it costs the client nothing: a rejected command draws no dice, advances no clock, and appends nothing to the log, so a confused client can probe freely without corrupting the game. [Sessions, commands, and events](../guides/sessions-commands-events.md) teaches the rejection contract in depth.
+## Map rejections and exceptions to HTTP status codes
 
-Exceptions are the opposite case. An exception means the caller broke the *out-of-fiction* contract, for example by sending a malformed document or replaying an incompatible save. The server maps exceptions to 4xx and 5xx statuses.
+Treat in-game rule rejections as normal `200 OK` responses rather than HTTP errors. When a player tries to walk into a wall or act in the wrong `SessionMode`, `session.execute` returns `CommandResult(accepted=False)` with machine-readable [`Rejection`][osrlib.core.validation.Rejection] codes (see [the rejection code reference](../reference/rejection-codes.md)) without rolling dice, advancing the clock, or modifying logs (see [Sessions, commands, and events](../guides/sessions-commands-events.md)). Returning `200` with `accepted: false` lets clients render game feedback directly instead of treating illegal moves as failed requests.
 
-## The exception hierarchy and the status map
+Reserve `4xx` and `5xx` status codes for failures outside the rules of play. [`osrlib.errors`][osrlib.errors] defines a typed exception hierarchy for invalid inputs and version conflicts:
 
-[`osrlib.errors`][osrlib.errors] is a small hierarchy of typed exceptions for out-of-fiction failures:
+- [`OsrlibError`][osrlib.errors.OsrlibError]: Base class for all library-defined exceptions.
+- [`ContentValidationError`][osrlib.errors.ContentValidationError]: Malformed input at a library boundary, such as an invalid dice expression, an adventure that fails [`validate_adventure`][osrlib.crawl.adventure.validate_adventure], or a serialized document, command, or event whose structure fails validation.
+- [`SaveVersionError`][osrlib.errors.SaveVersionError]: A stamped document whose `schema_version` is higher than [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION], raised by [`check_document`][osrlib.versioning.check_document] before reading unfamiliar fields.
+- [`ReplayVersionError`][osrlib.errors.ReplayVersionError]: A command log passed to [`replay_game`][osrlib.persistence.replay_game] under a different `recorded_engine_version` (this example exposes no replay endpoint, though an API that replays logs should map `ReplayVersionError` to `409` as well).
 
-- [`OsrlibError`][osrlib.errors.OsrlibError] - the root. Catching it catches every exception that osrlib defines.
-- [`ContentValidationError`][osrlib.errors.ContentValidationError] - malformed rules content at a library boundary: a dice expression that doesn't parse, an adventure that fails [`validate_adventure`][osrlib.crawl.adventure.validate_adventure], a serialized document whose structure or kind isn't what the loader expects.
-- [`SaveVersionError`][osrlib.errors.SaveVersionError] - a document whose `schema_version` is newer than this library understands, raised by [`check_document`][osrlib.versioning.check_document] so the library doesn't silently misread the payload.
-- [`ReplayVersionError`][osrlib.errors.ReplayVersionError] - a command log replayed under a different engine version, where any rules change may legitimately alter outcomes. The example never raises it (it exposes no replay endpoint), but a front end that replays command logs has to choose a status for it too.
+Invalid Python arguments in caller code (such as wrong argument types or out-of-range seeds) raise standard `ValueError` or `TypeError` rather than `OsrlibError` so application bugs are not masked as client content errors.
 
-Two kinds of failure are *outside* the hierarchy. Programmer misuse (bad argument types, out-of-range values) raises the standard library's `ValueError` or `TypeError`. That's a bug in the calling code, not a condition to map to a status. In-fiction refusals, as above, aren't exceptions at all.
-
-The example registers one handler per exception type it expects, plus a 404 helper for ids that aren't in the store:
+`examples/fastapi_crawler/app.py` registers exception handlers for `ContentValidationError` and `SaveVersionError` alongside a `404` lookup helper:
 
 ```{.python .no-run}
 --8<-- "examples/fastapi_crawler/app.py:error-mapping"
 ```
 
-This table lists every outcome and its status:
-
-| Outcome | Where it comes from | Status |
+| Outcome | Source | HTTP status |
 | --- | --- | --- |
-| Rejected command | the engine rejected it: `accepted` is `false` | 200 |
-| Unknown `command_type` | [`parse_command`][osrlib.crawl.commands.parse_command] returns `None` | 422 |
-| [`ContentValidationError`][osrlib.errors.ContentValidationError] | malformed party document, command payload, or save | 422 |
-| [`SaveVersionError`][osrlib.errors.SaveVersionError] | a document stamped by a newer library | 409 |
-| Unknown session or save id | the id isn't in the store | 404 |
-| Anything else | a bug, by definition | 500 |
+| Rejected command (`accepted: false`) | `GameSession.execute` rule validation | `200` |
+| Unknown `command_type` | [`parse_command`][osrlib.crawl.commands.parse_command] returns `None` | `422` |
+| [`ContentValidationError`][osrlib.errors.ContentValidationError] | Malformed party document, command payload, or save | `422` |
+| [`SaveVersionError`][osrlib.errors.SaveVersionError] | Document `schema_version` newer than `SCHEMA_VERSION` | `409` |
+| Unknown `session_id` or `save_id` | ID missing from `_sessions` or `_saves` | `404` |
+| Unhandled exception | Server bug (`ValueError`, `TypeError`, or runtime failure) | `500` |
 
-You can exercise the hierarchy without a server. This block runs as written:
+You can test `osrlib.errors` directly without starting a server:
 
 ```python
 from osrlib.errors import ContentValidationError, OsrlibError, ReplayVersionError, SaveVersionError
 from osrlib.persistence import load_game
 from osrlib.versioning import SCHEMA_VERSION, check_document
 
-# The typed hierarchy: every failure osrlib raises on its own authority is an OsrlibError.
+# Every library-defined exception inherits from OsrlibError.
 assert issubclass(ContentValidationError, OsrlibError)
 assert issubclass(SaveVersionError, OsrlibError)
 assert issubclass(ReplayVersionError, OsrlibError)
@@ -125,31 +167,34 @@ except SaveVersionError:
     pass
 ```
 
-## The player view at the wire
+## Serve state through PlayerView
 
-The only read of the full game state that the API offers is the player projection, [`session.view(Visibility.PLAYER)`][osrlib.crawl.session.GameSession.view], serialized verbatim:
+`GET /sessions/{session_id}/view` exposes game state exclusively through [`session.view(Visibility.PLAYER)`][osrlib.crawl.session.GameSession.view], with no referee-view endpoint:
 
 ```{.python .no-run}
 --8<-- "examples/fastapi_crawler/app.py:player-view"
 ```
 
-The API has no referee-view endpoint, because the server never trusts the client. The [`PlayerView`][osrlib.crawl.views.PlayerView] is an enumerated whitelist of explored cells, public character sheets, masked magic items, monster groups without hit points, the journal as written, and the active quests with their revealed objectives. Unexplored geometry, undiscovered secret doors, monster internals, session flags, and the seed can't leak, because they were never in the projection to begin with. A client that renders only what this endpoint returns cannot cheat. [Views and visibility](../guides/views-and-visibility.md) goes through the whitelist field by field.
+[`PlayerView`][osrlib.crawl.views.PlayerView] allowlists only fields safe for an untrusted client: explored and lit dungeon cells, public character sheets, masked descriptions for unidentified magic items, encounter groups without monster hit points, `journal` entries, and active `quests` with their revealed objectives. Unexplored geometry, undiscovered secret doors and traps, monster stats, `flags`, narrator `guidance`, and RNG state are excluded from the model (see [Views and visibility](../guides/views-and-visibility.md)).
 
-Authored content reaches a web client in two more ways, both through the command endpoint. The player-visible quest and journal events (a quest activated, an objective completed, a beat added) arrive in the response's `events` like any other, so an incremental client can render story progress without re-fetching the view. A gate's refusal arrives in `rejections[].params.refusal`: authored words the player is meant to read, in an ordinary `accepted: false` response, so a web client's rejection renderer should print that field when it is present (see [Gates, triggers, and quests](../guides/gates-triggers-quests.md)).
+Authored narrative also reaches web clients through `POST /sessions/{session_id}/commands` responses in two places:
 
-## Saves stay on the server
+- **Quest and journal events**: Player-visible quest activations, objective completions, and journal entries appear in `events`, allowing incremental clients to display story updates without re-fetching `GET /sessions/{session_id}/view`.
+- **Gate refusals**: When a gated door or stair blocks the party, its authored refusal message appears in `rejections[].params.refusal` inside the `accepted: false` response. Render `params.refusal` whenever it is present so players see why the passage blocked them (see [Gates, triggers, and quests](../guides/gates-triggers-quests.md)).
 
-A save document contains everything the API withholds: the master seed, referee state, and the full logs. The example never sends one anywhere. Snapshots go into a server-side store, and only an opaque id crosses the wire:
+## Keep save documents on the server
+
+A document returned by [`save_game`][osrlib.persistence.save_game] contains everything the HTTP API withholds from clients: `master_seed`, `rng_streams`, referee state, and the unfiltered logs. `POST /sessions/{session_id}/save` therefore stores the save document on the server and returns only an opaque `save_id`:
 
 ```{.python .no-run}
 --8<-- "examples/fastapi_crawler/app.py:save-session"
 ```
 
-Restoring is the `save_id` path through `POST /sessions` [above](#creating-and-restoring-sessions): the server calls [`load_game`][osrlib.persistence.load_game], re-registers the [`Interpreter`][osrlib.crawl.interpreter.Interpreter] (the one listener this server runs, shown in [the served content section](#the-served-content-and-its-interpreter)), and returns a new session id. The in-memory store is a deliberate simplification, and swapping in a database changes nothing about the pattern.
+To resume play, the client sends `{"save_id": "..."}` to `POST /sessions` (shown in [Create and restore sessions](#create-and-restore-sessions)), where the server calls [`load_game`][osrlib.persistence.load_game], re-registers `Interpreter` ([Register listeners on both session paths](#register-listeners-on-both-session-paths)), and returns a new `session_id`. Replacing the in-memory `_saves` dict with a database persists snapshots across restarts, while active `_sessions` and their `threading.Lock` instances remain local to one worker process (multi-worker deployments require sticky session routing or external session coordination).
 
 ## Where next
 
-- [Sessions, commands, and events](../guides/sessions-commands-events.md) - the command loop this API wraps: modes, rejections, the event log.
-- [Views and visibility](../guides/views-and-visibility.md) - what the player projection contains and why.
-- [The command schema reference](../reference/commands/index.md) - every command this endpoint accepts, with its JSON Schema and legal modes.
-- [LLM referees](llm-referees.md) - the opposite case: an agent that's *supposed* to see everything.
+- [Sessions, commands, and events](../guides/sessions-commands-events.md) - session modes, command validation, rejections, and the event log.
+- [Views and visibility](../guides/views-and-visibility.md) - field-by-field comparison of `PlayerView` and `RefereeView`.
+- [The command schema reference](../reference/commands/index.md) - JSON Schemas and legal modes for every command class.
+- [LLM referees](llm-referees.md) - driving a session in process with full `RefereeView` access.
