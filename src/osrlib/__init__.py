@@ -89,8 +89,11 @@ events, save, and load. For a step-by-step explanation of this example, see the 
 https://mmacy.github.io/osrlib-python/getting-started/quickstart/.
 
 ```python
+import json
+
 from osrlib.core.alignment import Alignment
 from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+from osrlib.core.events import Visibility
 from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.adventure import Adventure, TownSpec
@@ -118,19 +121,20 @@ town = TownSpec(name="Threshold", travel_turns={"crypt": 1})
 adventure = Adventure(name="A First Delve", town=town, dungeons=(crypt,))
 
 # A session starts in town; entering the dungeon switches it to exploring.
-session = GameSession.new(party, adventure, seed=7)
+session = GameSession.new(party, adventure, seed=7, ruleset=rules)
 session.execute(EnterDungeon(dungeon_id="crypt"))
 assert session.mode is SessionMode.EXPLORING
 
-# Commands in, events out: every rules resolution is a typed event with a message code.
+# Commands in, events out: filter to player-visible events before rendering.
 result = session.execute(MoveParty(direction=Direction.EAST))
 assert result.accepted
-lines = [format_message(event) for event in result.events]
-assert lines  # every event formats to a default English line
+lines = [format_message(event) for event in result.events if event.visibility is Visibility.PLAYER]
+print(lines[0])
+# The party moves to (1, 0), facing east.
 
-# The whole session round-trips through JSON: same seed, same commands, same game.
+# The whole session round-trips through JSON.
 document = save_game(session)
-restored = load_game(document)
+restored = load_game(json.loads(json.dumps(document)))
 assert save_game(restored) == document
 ```
 """

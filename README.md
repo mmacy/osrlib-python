@@ -1,30 +1,44 @@
 # osrlib
 
-osrlib is a Python library that implements the classic 1981 B/X (Basic/Expert) fantasy adventure game rules for turn-based, grid-based dungeon crawlers in the style of the original Bard's Tale. The rules come from the [Old-School Essentials System Reference Document](https://oldschoolessentials.necroticgnome.com/srd/), an Open Game Content restatement of the B/X rules. osrlib is the rules authority and game-state engine. Your game supplies presentation, input, and content.
+osrlib is a Python library that implements the classic 1981 B/X (Basic/Expert) fantasy adventure game rules for turn-based, grid-based dungeon crawlers in the style of the original Bard's Tale. The rules come from the [Old-School Essentials System Reference Document](https://oldschoolessentials.necroticgnome.com/srd/) (SRD), an Open Game Content restatement of the B/X rules.
 
-The library is headless and sans-I/O: it never renders, prompts, sleeps, or touches the network. Every game it runs is deterministic. The same seed and the same commands always replay the same game. An adventure defines its content and behavior (bundled items, gated doors, triggers, and quests), and the library includes the interpreter that plays the adventure through to a victory ending. osrlib is designed for four kinds of consumer: a web or mobile backend (FastAPI over HTTP), a terminal game (a local TUI crawler), an LLM referee or narrator driven by structured events and typed commands, and scripts or simulations that call the rules kernel with no session at all.
+osrlib has no UI, networking, or save-file I/O: you pass typed commands into an in-memory session, osrlib resolves the rules and updates game state, and your application handles rendering, player input, persistence, and transport. Every random roll draws from a named stream derived from a master seed, so running the same commands from the same starting state and seed under the same engine version produces the same game state and events every time.
 
-**Status:** released and published as [osrlib on PyPI](https://pypi.org/project/osrlib/). The public API is frozen. The [documentation site](https://mmacy.github.io/osrlib-python/) is the place to learn the library: quickstart, guides, front-end walk-throughs, and a full reference for every public symbol, command, event, rejection code, message code, RNG stream, and content id.
+osrlib separates standalone rules in `osrlib.core` (such as rolling characters, resolving attacks, or rolling treasure) from stateful dungeon-crawl sessions in `osrlib.crawl`, with shared top-level modules for compiled SRD data, message formatting, and persistence. In `osrlib.crawl`, you can bundle custom monsters, items, and spells with an adventure, put conditions on doors and stairs (which osrlib calls gates), and define quests and scripted reactions to play events (triggers).
+
+You can use osrlib in several ways:
+
+- **Web or mobile backends**: Serve game sessions over HTTP (for example, with FastAPI) using the generated Pydantic JSON Schemas for commands and events.
+- **Terminal or desktop games**: Drive `GameSession` synchronously in process from a local interface.
+- **LLM referees and narrators**: Pass structured events to a language model and execute the typed commands it returns.
+- **Scripts and simulations**: Call functions in `osrlib.core` directly for character generation, combat statistics, or content validation without starting a session (see [Determinism, saves, and replay](#determinism-saves-and-replay) for a standalone dice roll and [Using the rules without a session](https://mmacy.github.io/osrlib-python/guides/rules-without-a-session/)).
 
 ## Installation
 
-osrlib requires Python 3.14 or later. The only runtime dependency is [pydantic](https://docs.pydantic.dev/).
+osrlib requires Python 3.14 or later, and its only runtime dependency is [pydantic](https://docs.pydantic.dev/). Public APIs follow semantic versioning.
+
+In an existing [uv](https://docs.astral.sh/uv/) project (run `uv init` first in a new directory), install [osrlib from PyPI](https://pypi.org/project/osrlib/):
 
 ```sh
 uv add osrlib
 ```
 
-or, with pip:
+Or install into an active virtual environment with `pip`:
 
 ```sh
-pip install osrlib
+python -m pip install osrlib
 ```
 
 ## Quickstart
 
+osrlib does not re-export names at the package root, so import each class or function from the module that defines it. Save the example below as `quickstart.py` to roll a party, move one cell east through a dungeon, print the movement message, and round-trip the session through JSON:
+
 ```python
+import json
+
 from osrlib.core.alignment import Alignment
 from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+from osrlib.core.events import Visibility
 from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.adventure import Adventure, TownSpec
@@ -52,55 +66,81 @@ town = TownSpec(name="Threshold", travel_turns={"crypt": 1})
 adventure = Adventure(name="A First Delve", town=town, dungeons=(crypt,))
 
 # A session starts in town; entering the dungeon switches it to exploring.
-session = GameSession.new(party, adventure, seed=7)
+session = GameSession.new(party, adventure, seed=7, ruleset=rules)
 session.execute(EnterDungeon(dungeon_id="crypt"))
 assert session.mode is SessionMode.EXPLORING
 
-# Commands in, events out: every rules resolution is a typed event with a message code.
+# Commands in, events out: filter to player-visible events before rendering.
 result = session.execute(MoveParty(direction=Direction.EAST))
 assert result.accepted
-lines = [format_message(event) for event in result.events]
-assert lines  # every event formats to a default English line
+lines = [format_message(event) for event in result.events if event.visibility is Visibility.PLAYER]
+print(lines[0])
+# The party moves to (1, 0), facing east.
 
-# The whole session round-trips through JSON: same seed, same commands, same game.
+# The whole session round-trips through JSON.
 document = save_game(session)
-restored = load_game(document)
+restored = load_game(json.loads(json.dumps(document)))
 assert save_game(restored) == document
 ```
 
-The [documentation site](https://mmacy.github.io/osrlib-python/) walks you through this example step by step, then builds out from it: [building an adventure](https://mmacy.github.io/osrlib-python/getting-started/building-an-adventure/), the [session and event loop](https://mmacy.github.io/osrlib-python/guides/sessions-commands-events/), [gates, triggers, and quests](https://mmacy.github.io/osrlib-python/guides/gates-triggers-quests/), and [front-end walk-throughs](https://mmacy.github.io/osrlib-python/front-ends/tui-crawler/) for the two example games in `examples/`.
+Run `quickstart.py` with `uv`:
 
-## Determinism
+```sh
+uv run quickstart.py
+```
 
-Determinism is a public API guarantee. Every random draw comes from a named PCG64 stream forked from a master seed. The same seed and the same key always produce the same stream, independent of any other stream:
+Or run it with the Python interpreter from your activated virtual environment:
+
+```sh
+python quickstart.py
+```
+
+Running the script prints `The party moves to (1, 0), facing east.` and checks that the restored session serializes identically to the saved JSON. When adapting this snippet, keep these details in mind:
+
+- **Map edges and travel**: Unlisted cell boundaries are walls. Setting `"1,0:west"` to `EdgeKind.OPEN` opens the west wall of `(1, 0)`, which is the shared boundary crossed when moving east from `entrance=(0, 0)`. `"crypt"` in `travel_turns={"crypt": 1}` matches `DungeonSpec(id="crypt", ...)` and `EnterDungeon(dungeon_id="crypt")`, advancing the clock by `1` ten-minute exploration turn on entry.
+- **Session streams vs. creation streams**: `GameSession.new(..., seed=7)` creates a fresh set of session RNG streams from `seed`, separate from the `creation` stream used before play. If rolled ability scores miss a class's minimums, `create_character` advances `stream` and raises `ValueError`; retry with the same `stream` instance so the next attempt draws fresh rolls.
+- **Player visibility and command rejections**: Filter `result.events` to `Visibility.PLAYER` before showing events to players so referee-only events stay hidden, and render screens from `session.view(Visibility.PLAYER)` rather than directly from `session` attributes. When a rule blocks a command (such as walking into a wall), `result.accepted` is `False`, `result.rejections` lists `Rejection` objects (each with a `code` and `params`), and session state, RNG streams, and the clock remain unchanged.
+- **Capturing starting party state for replay**: `GameSession.new` assigns session-scoped IDs to `party.members`. If you plan to audit or replay the run from scratch with `replay_game` later, call `party_to_document(party.members)` (from `osrlib.core.character`) *before* calling `GameSession.new`.
+
+For a step-by-step walkthrough of this program, see the [Quickstart guide](https://mmacy.github.io/osrlib-python/getting-started/quickstart/).
+
+## Determinism, saves, and replay
+
+osrlib never calls Python's `random` module. Every random draw comes from a named PCG64 stream (`RngStream`) managed by `RngStreams`. Calling `streams.get("treasure")` repeatedly on the same `RngStreams` instance returns the same stateful stream, advancing on each roll without shifting other streams such as `"combat"`. Creating a new `RngStreams` with the same `master_seed` reproduces the sequence from the first draw:
 
 ```python
 from osrlib.core.dice import roll
 from osrlib.core.rng import RngStreams
 
-streams_a = RngStreams(master_seed=42)
-streams_b = RngStreams(master_seed=42)
+treasure_a = RngStreams(master_seed=42).get("treasure")
+rolls_a = [roll("2d6×10", treasure_a).total for _ in range(3)]
+print(rolls_a)
+# [60, 80, 100]
 
-rolls_a = [roll("2d6×10", streams_a.get("treasure")).total for _ in range(3)]
-rolls_b = [roll("2d6×10", streams_b.get("treasure")).total for _ in range(3)]
-assert rolls_a == rolls_b  # the same seed and the same key give identical sequences
+treasure_b = RngStreams(master_seed=42).get("treasure")
+rolls_b = [roll("2d6×10", treasure_b).total for _ in range(3)]
+assert rolls_a == rolls_b
 ```
 
-Successive rolls on one stream differ. The contract is that deriving a stream again, from the same seed and key, reproduces the same sequence. `load_game` restores a saved game from its serialized state alone, with no re-execution. `replay_game` rebuilds the same session by re-executing the seed and the command log from scratch. The determinism guarantee is that the two paths always agree, and a test checks that they do.
+Choose how you persist a session based on whether you need to continue play or audit a run:
 
-## SRD data pipeline
+- **To continue playing later, save the session (`save_game` / `load_game`)**: `save_game` serializes a running session (including the embedded adventure, current party, explored dungeon state, RNG stream positions, `command_log`, and `event_log`) to a JSON-compatible dict stamped with `schema_version` and `engine_version`. `load_game` restores that state directly without re-running commands and automatically upgrades saves written under older schema versions. Because saves store JSON data rather than Python objects, re-register any event listeners and custom monster AI policies (`action_policies`) on the restored session before executing new commands.
+- **To audit or reproduce a run from scratch, also save the starting inputs (`replay_game`)**: Under the same `engine_version`, `replay_game` starts a fresh session from the master seed, a pre-session party document (captured with `party_to_document` before `GameSession.new` assigns member IDs), the adventure, and the `Ruleset`, then re-executes `command_log`. It reproduces all command-driven state, including commands that listeners issued during original play, but omits private `listener_state` dicts and events that listeners returned directly without executing a command.
 
-The compiler in `tools/srd_compile/` generates the game data in `src/osrlib/data/` from the scraped SRD markdown in `srd/`. Don't edit the generated data by hand. To regenerate it, run:
+## Documentation
 
-```sh
-uv run python -m tools.srd_compile
-```
+Read the [documentation site](https://mmacy.github.io/osrlib-python/) for guides, walkthroughs, and full reference pages for every public symbol, command, event, rejection code, message code, RNG stream, and content ID:
 
-CI regenerates the data and fails on any diff, so `srd/`, the compiler, and the generated data can't drift apart. Parser corrections belong in `tools/srd_compile/overrides/`, never in the output. Every override includes a reason, and the compiler lists each overridden field path in the `overrides_applied` field of the output entry. The [adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) documents the rules interpretations and adaptations.
+- **Build a dungeon**: [Building an adventure](https://mmacy.github.io/osrlib-python/getting-started/building-an-adventure/) covers laying out a dungeon grid with doors and a keyed encounter, adding features, traps, treasure, and transitions, and validating the adventure.
+- **Run the command and event loop**: [Sessions, commands, and events](https://mmacy.github.io/osrlib-python/guides/sessions-commands-events/) covers session modes, command rejections, JSON serialization, and the event log.
+- **Add conditional doors, scripted events, and quests**: [Gates, triggers, and quests](https://mmacy.github.io/osrlib-python/guides/gates-triggers-quests/) covers gating doors and transitions, scripting triggers, defining quests, and registering the built-in `Interpreter` listener to advance quests to a `victory` ending.
+- **Call rules without a session**: [Using the rules without a session](https://mmacy.github.io/osrlib-python/guides/rules-without-a-session/) covers calling `osrlib.core` functions directly for combat, character creation, spells, and treasure.
+- **Connect a UI, HTTP server, or LLM**: [The TUI crawler](https://mmacy.github.io/osrlib-python/front-ends/tui-crawler/) and [The FastAPI pattern](https://mmacy.github.io/osrlib-python/front-ends/fastapi-pattern/) walk through the terminal and HTTP applications in `examples/`, and [LLM referees](https://mmacy.github.io/osrlib-python/front-ends/llm-referees/) shows how to connect an LLM agent to commands and events.
+- **Configure B/X rule options and adaptations**: [Ruleset options](https://mmacy.github.io/osrlib-python/guides/ruleset-options/) lists configurable rule flags on `Ruleset`, and the [Adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) documents how osrlib resolves ambiguous B/X rules and tabletop referee procedures.
 
 ## Contributing
 
-You need Python 3.14 or later and [uv](https://docs.astral.sh/uv/). Install from source and run the checks the way CI does:
+Development requires Python 3.14 or later and [uv](https://docs.astral.sh/uv/). Clone the repository, install the development, documentation, and example dependencies with `uv sync`, and run the CI checks:
 
 ```sh
 git clone https://github.com/mmacy/osrlib-python.git
@@ -113,10 +153,20 @@ uv run pytest
 uv run mkdocs build --strict
 ```
 
-For the design (architecture, contracts, rules scope, and the phased roadmap), see [the specification](docs/spec.md).
+See [the specification](https://github.com/mmacy/osrlib-python/blob/main/docs/spec.md) for the architecture, contracts, and rules scope.
+
+### SRD data pipeline
+
+The compiler in `tools/srd_compile/` parses the scraped SRD markdown in `srd/` and writes the validated JSON data files in `src/osrlib/data/`. Do not edit `srd/` or `src/osrlib/data/` by hand. After changing compiler code or overrides, regenerate the data files and commit the updated files in `src/osrlib/data/` with your change:
+
+```sh
+uv run python -m tools.srd_compile
+```
+
+CI runs this command and fails if `src/osrlib/data/` has uncommitted changes. Put parser corrections in `tools/srd_compile/overrides/` with a non-empty `reason` field; the compiler applies them during generation and records each modified field path in the entry's `overrides_applied` list.
 
 ## Licensing
 
-This repository contains two kinds of material under two licenses. The library code is licensed under the [MIT license](LICENSE). The SRD-derived content (the scraped SRD text in `srd/` and the compiled game data in `src/osrlib/data/`) is Open Game Content used under the [Open Game License 1.0a](LICENSE-OGL.md), which includes the complete Section 15 copyright notice. The data package in the built wheel includes a copy of the license, with the osrlib Section 15 entry.
+Library code is licensed under the [MIT license](https://github.com/mmacy/osrlib-python/blob/main/LICENSE). SRD-derived content (the scraped SRD markdown in `srd/` and the compiled game data in `src/osrlib/data/`) is Open Game Content under the [Open Game License 1.0a](https://github.com/mmacy/osrlib-python/blob/main/LICENSE-OGL.md), which includes the complete Section 15 copyright notice. Built wheels include a copy of `LICENSE-OGL.md` with the osrlib Section 15 entry inside `osrlib/data/`.
 
-osrlib is an independent project, not affiliated with or endorsed by Necrotic Gnome. "Old-School Essentials" is a trademark of Necrotic Gnome, used here only to identify the source document. osrlib makes no claim of compatibility.
+osrlib is an independent project and is not affiliated with or endorsed by Necrotic Gnome. "Old-School Essentials" is a trademark of Necrotic Gnome, used here only to identify the source document. osrlib makes no claim of compatibility.
