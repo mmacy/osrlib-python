@@ -1,40 +1,70 @@
 # LLM referees
 
-You can connect a language model to [`GameSession`][osrlib.crawl.session.GameSession] as an in-process referee or narrator: expose the command JSON Schema as the model's tool definition, pass [`RefereeView`][osrlib.crawl.views.RefereeView] and unfiltered [`Event`][osrlib.core.events.Event] payloads as observations, execute the JSON commands the model returns, and replay recorded command sequences from the same master seed to evaluate changes deterministically. To run every snippet on this page together with imports and session setup included, copy [the complete program](#the-complete-program).
+You can connect a language model to [`GameSession`][osrlib.crawl.session.GameSession] as an in-process referee or narrator: expose the command JSON Schema in a tool definition, pass [`RefereeView`][osrlib.crawl.views.RefereeView] and unfiltered [`Event`][osrlib.core.events.Event] payloads as observations, execute the JSON commands the model returns, and replay recorded command sequences from the same master seed. To run every snippet on this page together on Python 3.14+ with `osrlib` installed (see the [Quickstart](../getting-started/quickstart.md); no LLM SDK or API key is required), copy [the complete program](#the-complete-program).
 
 ## Define tools from the JSON Schemas
 
 The documentation build publishes discriminated-union JSON Schemas for the full command and event registries at [commands.json](../reference/commands/commands.json) (discriminated on `command_type`) and [events.json](../reference/events/events.json) (discriminated on `event_type`), alongside the human-readable [command schema reference](../reference/commands/index.md) and [event schema reference](../reference/events/index.md).
 
-In Python, you can generate those identical JSON Schemas directly from [`AnyCommand`][osrlib.crawl.commands.AnyCommand] and [`AnyEvent`][osrlib.crawl.events.AnyEvent] using Pydantic's [`TypeAdapter`][pydantic.type_adapter.TypeAdapter]:
+In Python, generate those identical JSON Schemas from [`AnyCommand`][osrlib.crawl.commands.AnyCommand] and [`AnyEvent`][osrlib.crawl.events.AnyEvent] with Pydantic's [`TypeAdapter`][pydantic.type_adapter.TypeAdapter]. Because `TypeAdapter(AnyCommand).json_schema()` emits a top-level `oneOf` union, wrap it under a `"command"` property when registering a single tool with LLM APIs that require `parameters` to have `"type": "object"` (or register each class in [`ALL_COMMAND_CLASSES`][osrlib.crawl.commands.ALL_COMMAND_CLASSES] via `cls.model_json_schema()` as its own tool):
 
 ```{.python .no-run}
-# The whole command surface as one discriminated union: a ready-made tool definition.
-tools = TypeAdapter(AnyCommand).json_schema()
-assert tools["discriminator"]["propertyName"] == "command_type"
-assert len(tools["oneOf"]) == len(ALL_COMMAND_CLASSES)
+command_schema = TypeAdapter(AnyCommand).json_schema()
+assert command_schema["discriminator"]["propertyName"] == "command_type"
+assert len(command_schema["oneOf"]) == len(ALL_COMMAND_CLASSES)
 
-# The event surface is the matching observation schema, keyed on event_type.
+tool_definition = {
+    "name": "execute_command",
+    "description": "Execute one player or referee command against the session.",
+    "parameters": {
+        "type": "object",
+        "properties": {"command": command_schema},
+        "required": ["command"],
+    },
+}
+
 observations = TypeAdapter(AnyEvent).json_schema()
 assert observations["discriminator"]["propertyName"] == "event_type"
 assert len(observations["oneOf"]) == len(ALL_EVENT_CLASSES)
-assert json.loads(json.dumps(tools)) == tools  # plain JSON Schema, ready for a tool registry
+assert json.loads(json.dumps(tool_definition)) == tool_definition
 ```
 
-Every model property in `tools` and `observations` includes a `description` generated from its attribute docstring (with mkdocstrings cross-references such as ``[`MoveParty`][osrlib.crawl.commands.MoveParty]`` reduced to plain `` `MoveParty` `` labels), so an LLM reading the tool schema sees what each parameter controls.
+Every model property in `command_schema` and `observations` includes a `description` generated from its attribute docstring (with mkdocstrings cross-references such as ``[`MoveParty`][osrlib.crawl.commands.MoveParty]`` reduced to plain `` `MoveParty` `` labels), so an LLM reading `tool_definition` sees what each parameter controls and emits arguments such as `{"command": {"command_type": "move_party", "direction": "east"}}`.
 
-Pass `tools` to your agent framework's tool registry, read [`RefereeView`][osrlib.crawl.views.RefereeView] on each turn until [`SessionMode.terminal`][osrlib.crawl.commands.SessionMode] becomes `True` (`game_over` or `victory`), and validate each JSON tool call with [`parse_command`][osrlib.crawl.commands.parse_command]:
+On each step of your agent loop, stop once [`SessionMode.terminal`][osrlib.crawl.commands.SessionMode] becomes `True` (`game_over` or `victory`) or a `max_steps` retry cap is reached, validate the model's `command` dict with [`parse_command`][osrlib.crawl.commands.parse_command], and pass structured validation errors, [`Rejection`][osrlib.core.validation.Rejection] codes (see [the rejection code reference](../reference/rejection-codes.md)), or emitted events into the next `decide(observation, feedback)` call:
 
 ```{.python .no-run}
-# Sketch: the agent loop, framework left to the reader.
-while not session.mode.terminal:  # the party fell, or the adventure is won
-    observation = session.view(Visibility.REFEREE)
-    payload = model.decide(observation, tools)  # the model emits one JSON command
-    command = parse_command(payload)
-    result = session.execute(command)  # rejected? that's feedback — the model reads why and retries
+def run_agent_steps(session: GameSession, decide, *, max_steps: int = 10) -> CommandResult | None:
+    feedback: dict | None = None
+    last_result: CommandResult | None = None
+    for _ in range(max_steps):
+        if session.mode.terminal:
+            break
+        observation = session.view(Visibility.REFEREE).model_dump(mode="json")
+        call = decide(observation, feedback)
+        if call is None:
+            break
+        payload = call.get("command")
+        if not isinstance(payload, dict):
+            feedback = {"error": "invalid_payload", "detail": "expected a command object"}
+            continue
+        try:
+            command = parse_command(payload)
+        except ContentValidationError as error:
+            feedback = {"error": "invalid_payload", "detail": str(error)}
+            continue
+        if command is None:
+            feedback = {"error": "unknown_command", "command_type": payload.get("command_type")}
+            continue
+        last_result = session.execute(command)
+        if not last_result.accepted:
+            feedback = {"rejections": [r.model_dump(mode="json") for r in last_result.rejections]}
+            continue
+        feedback = {"events": [e.model_dump(mode="json") for e in last_result.events]}
+    return last_result
 ```
 
-In production code, check `parse_command(payload)` before calling `session.execute(command)`: `parse_command` returns `None` for an unknown `command_type` and raises [`ContentValidationError`][osrlib.errors.ContentValidationError] when a known command has invalid or missing fields, so feed either validation failure back to the model for correction. Once `command` parses, `session.execute(command)` checks game-rule preconditions and returns `CommandResult(accepted=False)` with machine-readable [`Rejection`][osrlib.core.validation.Rejection] codes (see [the rejection code reference](../reference/rejection-codes.md)) without consuming RNG draws, advancing the clock, or mutating state.
+`parse_command` returns `None` for an unknown `command_type` and raises [`ContentValidationError`][osrlib.errors.ContentValidationError] when a known command has invalid or missing fields. Once `command` parses, `session.execute(command)` checks game-rule preconditions and returns `CommandResult(accepted=False)` without consuming RNG draws, advancing the clock, or mutating state, so feeding `feedback` back to the model lets it self-correct without corrupting the session.
 
 ## Modify the world with referee commands
 
@@ -48,10 +78,10 @@ Player commands resolve the party's actions, whereas referee commands let your a
 - **Journal, notes, and triggers**: [`AddJournalEntry`][osrlib.crawl.commands.AddJournalEntry] appends player-visible story text to `PlayerView.journal`, [`RecordNote`][osrlib.crawl.commands.RecordNote] logs a referee-only [`NoteRecordedEvent`][osrlib.crawl.events.NoteRecordedEvent], and [`MarkTriggerFired`][osrlib.crawl.commands.MarkTriggerFired] records a trigger ID in `session.fired_triggers`.
 - **Quest state**: [`ActivateQuest`][osrlib.crawl.commands.ActivateQuest], [`RevealObjective`][osrlib.crawl.commands.RevealObjective], [`CompleteObjective`][osrlib.crawl.commands.CompleteObjective], and [`CompleteQuest`][osrlib.crawl.commands.CompleteQuest] advance quests defined on `Adventure.quests`. `CompleteQuest` marks an active quest completed (and enters `victory` if `concludes_adventure=True`), but never issues `QuestSpec.rewards`; if your agent completes a quest manually rather than through [`Interpreter`][osrlib.crawl.interpreter.Interpreter], issue reward commands separately.
 
-After starting `session = new_session(seed=7)` and entering `"crypt"` (see [the complete program](#the-complete-program)), execute `SetFlag` and `SpawnMonsters` to record a flag and start an ambush:
+After starting `session = new_session(seed=7)` and entering `"crypt"` (see [the complete program](#the-complete-program)), the referee sets a flag and starts an encounter:
 
 ```{.python .no-run}
-# Referee commands are the authorial surface: record a fact, then spring an ambush.
+# Set a session flag, then spawn an encounter at 30 feet.
 session.execute(SetFlag(key="ambush_sprung", value=True))
 result = session.execute(SpawnMonsters(template_id="goblin", count_fixed=2, distance_feet=30))
 assert result.accepted
@@ -62,16 +92,16 @@ assert result.accepted
 [`GameSession.execute`][osrlib.crawl.session.GameSession.execute] returns all emitted events in `result.events` without filtering by [`Visibility`][osrlib.core.events.Visibility]. Unlike a player-facing server (which strips `Visibility.REFEREE` events as shown in [the FastAPI pattern](fastapi-pattern.md)), an in-process referee agent reads the full stream, including hidden surprise, reaction, morale, and secret-door detection rolls:
 
 ```{.python .no-run}
-# The unfiltered event stream is the observation: referee events carry the hidden rolls.
+# Unfiltered events include referee-only rolls alongside player events.
 codes = [event.code for event in result.events]
 assert "session.monsters.spawned" in codes
 assert any(event.visibility is Visibility.REFEREE for event in result.events)
 ```
 
-To inspect current session state between commands, call [`session.view(Visibility.REFEREE)`][osrlib.crawl.session.GameSession.view]. The returned [`RefereeView`][osrlib.crawl.views.RefereeView] exposes typed fields for the full party, `monsters` (including `current_hp`), `npcs`, `flags`, `fired_triggers`, `quests` (including inactive quests and hidden objectives), `dungeon_state`, `ledger`, `command_log`, and `event_log`, omitting only `master_seed` and `rng_streams` (which appear only in save documents). Serialize the snapshot for a prompt with `view.model_dump(mode="json")` (see [Views and visibility](../guides/views-and-visibility.md)):
+To inspect current session state between commands, call [`session.view(Visibility.REFEREE)`][osrlib.crawl.session.GameSession.view]. The returned [`RefereeView`][osrlib.crawl.views.RefereeView] exposes typed fields for the full party, `monsters` (including `current_hp`), `npcs`, `flags`, `fired_triggers`, `quests` (including inactive quests and hidden objectives), `dungeon_state`, `ledger`, `command_log`, and `event_log`, omitting only `master_seed` and `rng_streams` (which appear only in save documents). Serialize the snapshot for a referee prompt with `view.model_dump(mode="json")` (see [Views and visibility](../guides/views-and-visibility.md)):
 
 ```{.python .no-run}
-# The referee view is full state — flags, monster internals — minus RNG state and the seed.
+# RefereeView includes flags and monster hit points, omitting RNG state and master_seed.
 view = session.view(Visibility.REFEREE)
 assert view.flags == {"ambush_sprung": True}
 assert all(monster.current_hp >= 0 for monster in view.monsters)
@@ -81,14 +111,21 @@ assert "master_seed" not in dumped and "rng_streams" not in dumped
 
 ## Narrate from event codes
 
-Events never contain engine-generated English prose. Instead, every event provides a dotted message `code` (such as `session.monsters.spawned` or `encounter.surprise.rolled`) and typed fields (see [the event schema reference](../reference/events/index.md) and [the message code reference](../reference/message-codes.md)). Pass the serialized events to a narrator model as structured facts so the model can write prose without parsing English strings first.
+Events never contain engine-generated English prose. Instead, every event provides a dotted message `code` (such as `encounter.started` or `encounter.surprise.rolled`) and typed fields (see [the event schema reference](../reference/events/index.md) and [the message code reference](../reference/message-codes.md)).
 
-When you want a plain fallback line (or a baseline summary alongside the raw event fields), call [`format_message`][osrlib.messages.format_message], which formats any event and appends any authored narrative beat attached to it:
+Separate the context you pass to private referee adjudication from the context you pass to player-facing narration:
+
+- **Referee adjudication**: Pass `session.view(Visibility.REFEREE)` and unfiltered `result.events` so the referee model sees hidden rolls, monster hit points, and flags.
+- **Player-facing narration**: Filter events to `event.visibility is Visibility.PLAYER` and pass `session.view(Visibility.PLAYER)` so hidden surprise totals, reaction rolls, and monster hit points cannot leak into prose shown to players.
+
+When you want a default English summary alongside (or instead of) the raw event dicts, call [`format_message`][osrlib.messages.format_message] on the player-visible events, which formats each event and appends any authored narrative beat attached to it:
 
 ```{.python .no-run}
-# Every event also renders to a default English line the model can lean on.
-lines = [format_message(event) for event in result.events]
-assert all(lines)
+# Filter to Visibility.PLAYER before generating player-facing narration.
+player_lines = [format_message(event) for event in result.events if event.visibility is Visibility.PLAYER]
+print("\n".join(player_lines))
+# Encounter: 2 goblins at 30'.
+# The monsters' bearing: indifferent.
 ```
 
 ## Narrate authored content
@@ -106,18 +143,21 @@ When refereeing an adventure that uses gates, triggers, and quests (see [Gates, 
 
 ## Replay trajectories for evaluation
 
-Every random draw in `osrlib` comes from a named stream forked from the session's master seed, so executing the same command sequence from the same starting party, adventure, `Ruleset`, and seed under the same `engine_version` produces identical events and state (see [Determinism, saves, and replay](../guides/determinism-saves-replay.md)).
-
-Recording the master seed alongside the commands the model chose gives you a reproducible trajectory: you can re-execute runs offline to score events, test prompt revisions against fixed seeds, or compare two models on identical encounters:
+Every random draw in `osrlib` comes from a named stream forked from the session's master seed, so executing the same accepted commands from the same starting party, adventure, `Ruleset`, and seed under the same `engine_version` produces identical events and state (see [Determinism, saves, and replay](../guides/determinism-saves-replay.md)):
 
 ```{.python .no-run}
-# Determinism is the eval story: same seed, same commands, same trajectory.
+# Repeat the same commands from the same seed and compare serialized events.
 replay = new_session(seed=7)
 replay.execute(EnterDungeon(dungeon_id="crypt"))
 replay.execute(SetFlag(key="ambush_sprung", value=True))
 rerun = replay.execute(SpawnMonsters(template_id="goblin", count_fixed=2, distance_feet=30))
 assert [e.model_dump(mode="json") for e in rerun.events] == [e.model_dump(mode="json") for e in result.events]
 ```
+
+Keep two distinctions in mind when designing an evaluation harness:
+
+- **Replaying a recorded trajectory vs. comparing prompts**: Re-executing a saved seed and command list reproduces the exact events offline without calling an LLM, which is useful for regression-testing your scoring or narration pipeline. To compare two prompts or models, start each candidate on a fresh `new_session(seed=...)` with the same seed, party, and adventure and let each model choose its own commands against identical initial rolls (once a model makes a different draw on an RNG stream, subsequent rolls on that stream diverge while independent streams remain aligned).
+- **Recording rejected or malformed tool calls**: `session.command_log` stores only accepted commands. If your benchmark scores invalid-JSON rates or rule rejections, record each raw model tool call and its `feedback` dict in your harness log alongside `session.command_log`.
 
 ## The complete program
 
@@ -135,30 +175,71 @@ from osrlib.crawl.adventure import Adventure, TownSpec
 from osrlib.crawl.commands import (
     ALL_COMMAND_CLASSES,
     AnyCommand,
+    CommandResult,
     EnterDungeon,
     SetFlag,
     SpawnMonsters,
+    parse_command,
 )
 from osrlib.crawl.dungeon import DungeonSpec, Edge, EdgeKind, LevelSpec
 from osrlib.crawl.events import ALL_EVENT_CLASSES, AnyEvent
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession
+from osrlib.errors import ContentValidationError
 from osrlib.messages import format_message
 
-# The whole command surface as one discriminated union: a ready-made tool definition.
-tools = TypeAdapter(AnyCommand).json_schema()
-assert tools["discriminator"]["propertyName"] == "command_type"
-assert len(tools["oneOf"]) == len(ALL_COMMAND_CLASSES)
+command_schema = TypeAdapter(AnyCommand).json_schema()
+assert command_schema["discriminator"]["propertyName"] == "command_type"
+assert len(command_schema["oneOf"]) == len(ALL_COMMAND_CLASSES)
 
-# The event surface is the matching observation schema, keyed on event_type.
+tool_definition = {
+    "name": "execute_command",
+    "description": "Execute one player or referee command against the session.",
+    "parameters": {
+        "type": "object",
+        "properties": {"command": command_schema},
+        "required": ["command"],
+    },
+}
+
 observations = TypeAdapter(AnyEvent).json_schema()
 assert observations["discriminator"]["propertyName"] == "event_type"
 assert len(observations["oneOf"]) == len(ALL_EVENT_CLASSES)
-assert json.loads(json.dumps(tools)) == tools  # plain JSON Schema, ready for a tool registry
+assert json.loads(json.dumps(tool_definition)) == tool_definition
+
+
+def run_agent_steps(session: GameSession, decide, *, max_steps: int = 10) -> CommandResult | None:
+    feedback: dict | None = None
+    last_result: CommandResult | None = None
+    for _ in range(max_steps):
+        if session.mode.terminal:
+            break
+        observation = session.view(Visibility.REFEREE).model_dump(mode="json")
+        call = decide(observation, feedback)
+        if call is None:
+            break
+        payload = call.get("command")
+        if not isinstance(payload, dict):
+            feedback = {"error": "invalid_payload", "detail": "expected a command object"}
+            continue
+        try:
+            command = parse_command(payload)
+        except ContentValidationError as error:
+            feedback = {"error": "invalid_payload", "detail": str(error)}
+            continue
+        if command is None:
+            feedback = {"error": "unknown_command", "command_type": payload.get("command_type")}
+            continue
+        last_result = session.execute(command)
+        if not last_result.accepted:
+            feedback = {"rejections": [r.model_dump(mode="json") for r in last_result.rejections]}
+            continue
+        feedback = {"events": [e.model_dump(mode="json") for e in last_result.events]}
+    return last_result
 
 
 def new_session(seed: int) -> GameSession:
-    """One tiny two-cell dungeon and one fighter: enough engine to referee."""
+    """Build a two-cell dungeon and a 1st-level fighter."""
     rules = Ruleset()
     stream = RngStreams(master_seed=seed).get(CHARACTER_CREATION_STREAM)
     hero = create_character(
@@ -184,28 +265,51 @@ def new_session(seed: int) -> GameSession:
 session = new_session(seed=7)
 session.execute(EnterDungeon(dungeon_id="crypt"))
 
-# Referee commands are the authorial surface: record a fact, then spring an ambush.
-session.execute(SetFlag(key="ambush_sprung", value=True))
-result = session.execute(SpawnMonsters(template_id="goblin", count_fixed=2, distance_feet=30))
-assert result.accepted
+# Exercise the validation and rejection feedback loop with a deterministic stub model:
+# 1) unknown command -> 2) invalid payload -> 3) blocked wall move -> 4) flag -> 5) ambush -> 6) stop.
+scripted_calls = iter(
+    [
+        {"command": {"command_type": "unknown_move"}},
+        {"command": {"command_type": "move_party", "direction": "up"}},
+        {"command": {"command_type": "move_party", "direction": "north"}},
+        {"command": {"command_type": "set_flag", "key": "ambush_sprung", "value": True}},
+        {"command": {"command_type": "spawn_monsters", "template_id": "goblin", "count_fixed": 2, "distance_feet": 30}},
+        None,
+    ]
+)
+seen_feedback: list[dict | None] = []
 
-# The unfiltered event stream is the observation: referee events carry the hidden rolls.
+
+def stub_decide(_observation: dict, feedback: dict | None) -> dict | None:
+    seen_feedback.append(feedback)
+    return next(scripted_calls)
+
+
+result = run_agent_steps(session, stub_decide)
+assert result is not None and result.accepted
+assert seen_feedback[1] == {"error": "unknown_command", "command_type": "unknown_move"}
+assert seen_feedback[2] is not None and seen_feedback[2]["error"] == "invalid_payload"
+assert seen_feedback[3] is not None and seen_feedback[3]["rejections"][0]["code"] == "exploration.move.blocked"
+
+# Unfiltered events include referee-only rolls alongside player events.
 codes = [event.code for event in result.events]
 assert "session.monsters.spawned" in codes
 assert any(event.visibility is Visibility.REFEREE for event in result.events)
 
-# Every event also renders to a default English line the model can lean on.
-lines = [format_message(event) for event in result.events]
-assert all(lines)
+# Filter to Visibility.PLAYER before generating player-facing narration.
+player_lines = [format_message(event) for event in result.events if event.visibility is Visibility.PLAYER]
+print("\n".join(player_lines))
+# Encounter: 2 goblins at 30'.
+# The monsters' bearing: indifferent.
 
-# The referee view is full state — flags, monster internals — minus RNG state and the seed.
+# RefereeView includes flags and monster hit points, omitting RNG state and master_seed.
 view = session.view(Visibility.REFEREE)
 assert view.flags == {"ambush_sprung": True}
 assert all(monster.current_hp >= 0 for monster in view.monsters)
 dumped = view.model_dump()
 assert "master_seed" not in dumped and "rng_streams" not in dumped
 
-# Determinism is the eval story: same seed, same commands, same trajectory.
+# Repeat the same commands from the same seed and compare serialized events.
 replay = new_session(seed=7)
 replay.execute(EnterDungeon(dungeon_id="crypt"))
 replay.execute(SetFlag(key="ambush_sprung", value=True))

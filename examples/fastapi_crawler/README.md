@@ -9,19 +9,29 @@ uv sync
 uv run uvicorn examples.fastapi_crawler:app
 ```
 
-Then create a session and play:
+Then build a stamped party document, create a session, and enter the barrow:
 
 ```sh
-# A stamped party document comes from osrlib.core.character.party_to_document;
-# the tests build one with the TUI's scripted party.
-curl -s localhost:8000/sessions -X POST -H 'content-type: application/json' \
-  -d '{"party_document": {...}}'
-# → {"session_id": "…", "schema_version": 2, "engine_version": "1.0.0"}
+PARTY=$(uv run python -c '
+import json
+from examples.tui_crawler.create import scripted_party
+from osrlib.core.character import CHARACTER_CREATION_STREAM, party_to_document
+from osrlib.core.rng import RngStreams
+from osrlib.core.ruleset import Ruleset
+party = scripted_party(RngStreams(master_seed=1).get(CHARACTER_CREATION_STREAM), Ruleset())
+print(json.dumps({"party_document": party_to_document(party.members)}))
+')
 
-curl -s localhost:8000/sessions/$SID/commands -X POST -H 'content-type: application/json' \
+RESP=$(curl -s localhost:8000/sessions -X POST -H 'content-type: application/json' -d "$PARTY")
+echo "$RESP"
+# → {"session_id": "…", "schema_version": 4, "engine_version": "2.5.1"}
+
+SID=$(printf '%s' "$RESP" | uv run python -c 'import json, sys; print(json.load(sys.stdin)["session_id"])')
+
+curl -s "localhost:8000/sessions/$SID/commands" -X POST -H 'content-type: application/json' \
   -d '{"command_type": "enter_dungeon", "dungeon_id": "barrow"}'
 
-curl -s localhost:8000/sessions/$SID/view
+curl -s "localhost:8000/sessions/$SID/view"
 ```
 
 ## The patterns it demonstrates

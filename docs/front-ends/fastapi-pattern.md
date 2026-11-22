@@ -1,6 +1,6 @@
 # The FastAPI pattern
 
-[`examples/fastapi_crawler`](https://github.com/mmacy/osrlib-python/tree/main/examples/fastapi_crawler) wraps [`GameSession`][osrlib.crawl.session.GameSession] in a synchronous [FastAPI](https://fastapi.tiangolo.com/) application, serving the same barrow adventure as [the TUI crawler](tui-crawler.md) over HTTP. It establishes the server boundaries needed for web and mobile backends: locking each session independently, keeping the master seed and save documents on the server, registering [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on both new and restored sessions, exposing only player-visible events and [`PlayerView`][osrlib.crawl.views.PlayerView] snapshots, and mapping [`osrlib.errors`][osrlib.errors] exceptions separately from in-game rejections.
+[`examples/fastapi_crawler`](https://github.com/mmacy/osrlib-python/tree/main/examples/fastapi_crawler) wraps [`GameSession`][osrlib.crawl.session.GameSession] in a single-process, synchronous [FastAPI](https://fastapi.tiangolo.com/) reference server, exposing the same barrow adventure as [the TUI crawler](tui-crawler.md) over HTTP. It establishes the server boundaries needed for web and mobile backends: locking each session independently, keeping the master seed and save documents on the server, registering [`Interpreter`][osrlib.crawl.interpreter.Interpreter] on both new and restored sessions, exposing only player-visible events and [`PlayerView`][osrlib.crawl.views.PlayerView] snapshots, and mapping [`osrlib.errors`][osrlib.errors] exceptions separately from in-game rejections.
 
 From a clone of the [osrlib repository](https://github.com/mmacy/osrlib-python), sync the workspace dependencies (which include the `examples` group) and start the server with `uv`:
 
@@ -20,6 +20,35 @@ Every server snippet on this page is included from `examples/fastapi_crawler/app
 | `POST /sessions/{session_id}/commands` | Parse and execute one command, returning `accepted`, `rejections`, and player-visible `events`. |
 | `GET /sessions/{session_id}/view` | Return the current [`PlayerView`][osrlib.crawl.views.PlayerView] snapshot. |
 | `POST /sessions/{session_id}/save` | Store a server-side save snapshot and return an opaque `save_id`. |
+
+With the server running on `http://localhost:8000`, serialize a party with [`party_to_document`][osrlib.core.character.party_to_document], create a session, and execute `enter_dungeon`:
+
+```{.python .no-run}
+import httpx
+
+from osrlib.core.alignment import Alignment
+from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character, party_to_document
+from osrlib.core.rng import RngStreams
+from osrlib.core.ruleset import Ruleset
+
+stream = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
+hero = create_character(name="Hild", class_id="fighter", alignment=Alignment.LAWFUL, ruleset=Ruleset(), stream=stream)
+party_doc = party_to_document([hero.character])
+
+with httpx.Client(base_url="http://localhost:8000") as client:
+    created = client.post("/sessions", json={"party_document": party_doc}).json()
+    session_id = created["session_id"]
+
+    entered = client.post(
+        f"/sessions/{session_id}/commands",
+        json={"command_type": "enter_dungeon", "dungeon_id": "barrow"},
+    ).json()
+    assert entered["accepted"] is True
+    assert [event["code"] for event in entered["events"]] == [
+        "exploration.location.entered",
+        "session.quest.activated",
+    ]
+```
 
 ## Lock each session independently
 
@@ -47,7 +76,7 @@ The handler branches on which field you sent, registers the session in `_session
 
 Keep two contracts in mind when creating sessions over HTTP:
 
-- **Keep the master seed on the server**: By default, `create_session` draws a 63-bit seed with `secrets.randbits(63)`. The optional `seed` field on `CreateSession` supports deterministic tests and demos, but no endpoint ever returns the seed, because knowing the master seed lets a client predict every future roll.
+- **Keep the master seed on the server**: By default, `create_session` draws a 63-bit seed with `secrets.randbits(63)` and never returns it, because knowing the master seed lets a client predict every future roll. `CreateSession.seed` exists only for deterministic tests and demos; omit `seed` from public request models, since a client that supplies a seed already knows it.
 - **Return version stamps up front**: Both `POST /sessions` and `GET /sessions/{session_id}` return [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] and [`engine_version()`][osrlib.versioning.engine_version] from [`osrlib.versioning`][osrlib.versioning] so a client can detect a newer server schema before sending commands (see [Determinism, saves, and replay](../guides/determinism-saves-replay.md)).
 
 ### Register listeners on both session paths
@@ -117,7 +146,7 @@ from osrlib.errors import ContentValidationError, OsrlibError, ReplayVersionErro
 from osrlib.persistence import load_game
 from osrlib.versioning import SCHEMA_VERSION, check_document
 
-# The typed hierarchy: every failure osrlib raises on its own authority is an OsrlibError.
+# Every library-defined exception inherits from OsrlibError.
 assert issubclass(ContentValidationError, OsrlibError)
 assert issubclass(SaveVersionError, OsrlibError)
 assert issubclass(ReplayVersionError, OsrlibError)
@@ -161,7 +190,7 @@ A document returned by [`save_game`][osrlib.persistence.save_game] contains ever
 --8<-- "examples/fastapi_crawler/app.py:save-session"
 ```
 
-To resume play, the client sends `{"save_id": "..."}` to `POST /sessions` (shown in [Create and restore sessions](#create-and-restore-sessions)), where the server calls [`load_game`][osrlib.persistence.load_game], re-registers `Interpreter` ([Register listeners on both session paths](#register-listeners-on-both-session-paths)), and returns a new `session_id`. Replacing the example's in-memory `_saves` dict with a database preserves the same boundary.
+To resume play, the client sends `{"save_id": "..."}` to `POST /sessions` (shown in [Create and restore sessions](#create-and-restore-sessions)), where the server calls [`load_game`][osrlib.persistence.load_game], re-registers `Interpreter` ([Register listeners on both session paths](#register-listeners-on-both-session-paths)), and returns a new `session_id`. Replacing the in-memory `_saves` dict with a database persists snapshots across restarts, while active `_sessions` and their `threading.Lock` instances remain local to one worker process (multi-worker deployments require sticky session routing or external session coordination).
 
 ## Where next
 

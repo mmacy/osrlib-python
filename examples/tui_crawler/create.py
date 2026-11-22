@@ -57,7 +57,8 @@ def interactive_party(stream: RngStream, ruleset: Ruleset) -> Party:
     """Prompt for a party of four, driving the same creation kernel."""
     members = []
     print("Create your party of four.")
-    for slot in range(1, 5):
+    while len(members) < 4:
+        slot = len(members) + 1
         name = input(f"[{slot}/4] Name: ").strip() or f"Adventurer {slot}"
         class_id = ""
         while class_id not in _CLASS_CHOICES:

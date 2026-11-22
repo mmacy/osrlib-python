@@ -28,7 +28,7 @@ Every code snippet on this page is included from `examples/tui_crawler/`. See th
 --8<-- "examples/tui_crawler/create.py:scripted-party-fn"
 ```
 
-After rolling the party, `main()` in `__main__.py` creates the [`GameSession`][osrlib.crawl.session.GameSession], copies the stream positions from character creation into `session.streams` so `CHARACTER_CREATION_STREAM` continues from where party creation stopped, and registers [`Interpreter`][osrlib.crawl.interpreter.Interpreter] so the session evaluates the adventure's authored quests and triggers after each accepted command:
+After rolling the party, `main()` in `__main__.py` passes `seed=arguments.seed` and `ruleset=ruleset` to [`GameSession.new`][osrlib.crawl.session.GameSession.new]. Because `GameSession.new` initializes fresh RNG streams from `seed`, `main()` calls `session.streams.restore_states(streams.export_states())` so `CHARACTER_CREATION_STREAM` continues from where party creation stopped, and then registers [`Interpreter`][osrlib.crawl.interpreter.Interpreter] to evaluate the adventure's authored quests and triggers after each accepted command:
 
 ```{.python .no-run}
 --8<-- "examples/tui_crawler/__main__.py:register-interpreter"
@@ -36,13 +36,19 @@ After rolling the party, `main()` in `__main__.py` creates the [`GameSession`][o
 
 ## Parse input and render command results
 
-`GameSession.execute` accepts typed [`Command`][osrlib.crawl.commands.Command] objects rather than raw strings, so `_dispatch` in `__main__.py` parses each line of player input into a command instance (`_DIRECTIONS` expands `n`, `s`, `e`, and `w` into the compass words [`MoveParty`][osrlib.crawl.commands.MoveParty] expects):
+`GameSession.execute` accepts typed [`Command`][osrlib.crawl.commands.Command] objects rather than raw strings, so `_dispatch_command` in `__main__.py` maps each CLI verb to a command instance (`_DIRECTIONS` expands `n`, `s`, `e`, and `w` into the compass words [`MoveParty`][osrlib.crawl.commands.MoveParty] expects):
 
 ```{.python .no-run}
 --8<-- "examples/tui_crawler/__main__.py:parse-command"
 ```
 
-`_run` passes the command to `session.execute(command)` and prints the outcome from the returned [`CommandResult`][osrlib.crawl.commands.CommandResult]. When a rule blocks the command (`not result.accepted`), `_run` prints each rejection code along with `rejection.params["refusal"]` if a gated door or stair supplied authored refusal text. When the command succeeds, `_run` iterates over `result.events`, keeps only events with [`Visibility.PLAYER`][osrlib.core.events.Visibility] so referee-only rolls stay hidden, and formats each event with [`format_message`][osrlib.messages.format_message] (see [the message code reference](../reference/message-codes.md)):
+Separate input-parsing errors from in-game rule rejections. When a player mistypes an argument (such as `move sideways` or a non-numeric coin amount), Pydantic raises `ValidationError` (or `int()` raises `ValueError`) before any `Command` object reaches the session. `_dispatch` catches both exceptions, prints the error, and returns to the prompt:
+
+```{.python .no-run}
+--8<-- "examples/tui_crawler/__main__.py:validate-input"
+```
+
+Once a well-formed `Command` is constructed, `_run` passes it to `session.execute(command)` and prints the outcome from the returned [`CommandResult`][osrlib.crawl.commands.CommandResult]. When a game rule blocks a well-formed command (`not result.accepted`, such as walking into a wall), `_run` prints each rejection code along with `rejection.params["refusal"]` if a gated door or stair supplied authored refusal text. When the command succeeds, `_run` iterates over `result.events`, keeps only events with [`Visibility.PLAYER`][osrlib.core.events.Visibility] so referee-only rolls stay hidden, and formats each event with [`format_message`][osrlib.messages.format_message] (see [the message code reference](../reference/message-codes.md)):
 
 ```{.python .no-run}
 --8<-- "examples/tui_crawler/__main__.py:render-events"
@@ -92,7 +98,7 @@ Level 1 disables wandering-monster checks with `WanderingSpec(chance_in_six=0)`,
 --8<-- "examples/tui_crawler/content.py:idol-shrine-area"
 ```
 
-Level 2 contains an unguarded vault (`AreaTreasureSpec(unguarded=True)`) with no keyed monsters. Instead, its [`WanderingSpec`][osrlib.crawl.dungeon.WanderingSpec] sets `chance_in_six=6` and `interval_turns=1` against a custom [`EncounterTable`][osrlib.core.tables.EncounterTable], spawning a pair of rival Basic NPC adventurers on every exploration turn:
+Level 2 contains an unguarded vault (`AreaTreasureSpec(unguarded=True)`) with no keyed monsters. Instead, its `LevelSpec` sets `wandering=WanderingSpec(chance_in_six=6, interval_turns=1, table=_rival_party_table())`, checking a custom [`EncounterTable`][osrlib.core.tables.EncounterTable] that spawns a pair of rival Basic NPC adventurers on every exploration turn:
 
 ```{.python .no-run}
 --8<-- "examples/tui_crawler/content.py:wandering-table"
@@ -100,13 +106,13 @@ Level 2 contains an unguarded vault (`AreaTreasureSpec(unguarded=True)`) with no
 
 ### Bundled quest item and QuestSpec
 
-The Jade Idol is defined as a bundled [`GearTemplate`][osrlib.core.items.GearTemplate] (`id="jade-idol"`, `cost_gp=0`) on `Adventure.items`. The town shop stocks only built-in SRD equipment, so players cannot buy `jade-idol`, and looting it from the shrine cache emits an [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent] referencing `"jade-idol"` by catalog ID:
+`build_adventure()` passes `items=(JADE_IDOL,)` and `quests=(_fetch_quest(),)` on the [`Adventure`][osrlib.crawl.adventure.Adventure]. `JADE_IDOL` is a bundled [`GearTemplate`][osrlib.core.items.GearTemplate] (`id="jade-idol"`, `cost_gp=0`). Because the town shop stocks only built-in SRD equipment, players cannot buy `jade-idol`, and looting it from the shrine cache emits an [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent] referencing `"jade-idol"` by catalog ID:
 
 ```{.python .no-run}
 --8<-- "examples/tui_crawler/content.py:bundled-idol"
 ```
 
-`_fetch_quest()` defines the temple's errand as a [`QuestSpec`][osrlib.crawl.quests.QuestSpec] on `Adventure.quests`, with an activation rule, two objectives, three reward commands, and `concludes_adventure=True`:
+`_fetch_quest()` defines the temple's errand as a [`QuestSpec`][osrlib.crawl.quests.QuestSpec] with an activation rule, two objectives, three reward commands, and `concludes_adventure=True`:
 
 ```{.python .no-run}
 --8<-- "examples/tui_crawler/content.py:fetch-quest"
@@ -118,7 +124,7 @@ The crawler contains no custom quest-tracking code. The registered `Interpreter`
 
 Objective `return-home` pairs `TownEnteredPattern()` with `HasItemCondition(item_id="jade-idol")`, so returning to town without the idol does not complete the quest. Because `_fetch_quest()` sets `concludes_adventure=True`, finishing the quest immediately switches `session.mode` to `victory`, where play commands such as `sell`, `heal`, and `give` are rejected with `session.command.wrong_mode`. `examples/tui_crawler/scripts/milestone.txt` therefore splits the playthrough into two trips:
 
-1. **First trip (loot, healing, and encumbrance)**: Enter the barrow, defeat the keyed goblins on level 1 and loot their generated lair hoard, descend to level 2 to loot the vault and fight the rival adventurers, and return to town *without* taking the idol. Returning resolves the first end-of-adventure XP award while keeping the session in `town` mode, allowing the party to sell valuables (`sell all`), buy temple healing (`heal`), and redistribute heavy sale coins with `give` (each coin adds one coin of encumbrance weight, and the party moves at its slowest member's speed).
+1. **First trip (loot, healing, and encumbrance)**: Enter the barrow, defeat the keyed goblins on level 1 and loot their generated lair hoard, descend to level 2 to loot the vault and fight the rival adventurers, and return to town *without* taking the idol. Returning to town awards XP for that expedition's defeated monsters and recovered treasure (`session.xp.adventure_award`) while keeping the quest active and the session in `town` mode, allowing the party to sell valuables (`sell all`), buy temple healing (`heal`), and redistribute heavy sale coins with `give` (each coin adds one coin of encumbrance weight, and the party moves at its slowest member's speed).
 2. **Second trip (recovering the idol)**: Re-enter the barrow, walk straight to `shrine`, take the idol, and return to town to complete the quest.
 
 Emptying the shrine cache on the second trip splits the 50 gp and assigns `jade-idol` using standard loot distribution (here `character-0002`, the cleric, receives the idol, and `HasItemCondition` checks whether *any* party member carries it):

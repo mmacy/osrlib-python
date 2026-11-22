@@ -9,9 +9,12 @@ import argparse
 import sys
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from osrlib.core.character import CHARACTER_CREATION_STREAM
 from osrlib.core.events import Visibility
 from osrlib.core.items import Coins
+from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.battle import MELEE_RANGE_FEET, preview_battle_round
 from osrlib.crawl.commands import (
@@ -180,23 +183,7 @@ def _journal(session) -> None:
 # --8<-- [end:player-view]
 
 
-def _dispatch(session, line: str) -> bool:
-    """Run one text command; returns False on quit."""
-    words = line.strip().split()
-    if not words or words[0].startswith("#"):
-        return True
-    verb, args = words[0].lower(), words[1:]
-    if verb in ("quit", "exit"):
-        return False
-    if verb == "status":
-        _status(session)
-        return True
-    if verb == "journal":
-        _journal(session)
-        return True
-    if verb == "fight":
-        _fight(session)
-        return True
+def _dispatch_command(session, line: str, verb: str, args: list[str]) -> bool:
     # --8<-- [start:parse-command]
     command = None
     if verb == "enter":
@@ -266,6 +253,32 @@ def _dispatch(session, line: str) -> bool:
     return True
 
 
+def _dispatch(session, line: str) -> bool:
+    """Run one text command; returns False on quit."""
+    words = line.strip().split()
+    if not words or words[0].startswith("#"):
+        return True
+    verb, args = words[0].lower(), words[1:]
+    if verb in ("quit", "exit"):
+        return False
+    if verb == "status":
+        _status(session)
+        return True
+    if verb == "journal":
+        _journal(session)
+        return True
+    if verb == "fight":
+        _fight(session)
+        return True
+    # --8<-- [start:validate-input]
+    try:
+        return _dispatch_command(session, line, verb, args)
+    except (ValidationError, ValueError) as error:
+        print(f"  (invalid command: {str(error).splitlines()[0]})")
+        return True
+    # --8<-- [end:validate-input]
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the crawler; returns the process exit code."""
     parser = argparse.ArgumentParser(description="A minimal osrlib terminal crawler.")
@@ -275,17 +288,13 @@ def main(argv: list[str] | None = None) -> int:
 
     ruleset = Ruleset()
     adventure = build_adventure()
-    # Creation draws ride the session's own creation stream so `--seed` governs
-    # the whole game, party included.
-    from osrlib.core.rng import RngStreams
-
+    # --8<-- [start:register-interpreter]
     streams = RngStreams(master_seed=arguments.seed)
     creation_stream = streams.get(CHARACTER_CREATION_STREAM)
     if arguments.script is not None:
         party = scripted_party(creation_stream, ruleset)
     else:
         party = interactive_party(creation_stream, ruleset)
-    # --8<-- [start:register-interpreter]
     session = GameSession.new(party, adventure, seed=arguments.seed, ruleset=ruleset)
     session.streams.restore_states(streams.export_states())
     session.register_listener(Interpreter(session))

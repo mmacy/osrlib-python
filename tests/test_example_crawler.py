@@ -89,3 +89,37 @@ class TestMilestonePlaythrough:
         second = run_crawler("--seed", str(MILESTONE_SEED), "--script", str(SCRIPT))
         assert first.stdout == second.stdout
         assert first.returncode == second.returncode == 0
+
+    def test_invalid_command_syntax_is_caught_without_exiting(self, capsys):
+        if str(REPO_ROOT) not in sys.path:
+            sys.path.insert(0, str(REPO_ROOT))
+        from examples.tui_crawler.__main__ import _dispatch
+        from examples.tui_crawler.content import build_adventure
+        from examples.tui_crawler.create import scripted_party
+
+        from osrlib.core.character import CHARACTER_CREATION_STREAM
+        from osrlib.core.rng import RngStreams
+        from osrlib.core.ruleset import Ruleset
+        from osrlib.crawl.session import GameSession
+
+        ruleset = Ruleset()
+        party = scripted_party(RngStreams(master_seed=1).get(CHARACTER_CREATION_STREAM), ruleset)
+        session = GameSession.new(party, build_adventure(), seed=1, ruleset=ruleset)
+        assert _dispatch(session, "move sideways") is True
+        assert "(invalid command:" in capsys.readouterr().out
+        assert session.clock.rounds == 0
+
+    def test_interactive_party_retries_same_slot_when_scores_miss_minimums(self, monkeypatch):
+        if str(REPO_ROOT) not in sys.path:
+            sys.path.insert(0, str(REPO_ROOT))
+        from examples.tui_crawler.create import interactive_party
+
+        from osrlib.core.character import CHARACTER_CREATION_STREAM
+        from osrlib.core.rng import RngStreams
+        from osrlib.core.ruleset import Ruleset
+
+        answers = iter(["", "elf", "l"] * 8)
+        monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
+        stream = RngStreams(master_seed=1).get(CHARACTER_CREATION_STREAM)
+        party = interactive_party(stream, Ruleset())
+        assert len(party.members) == 4
