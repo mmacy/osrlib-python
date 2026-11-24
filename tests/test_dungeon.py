@@ -11,6 +11,7 @@ from osrlib.crawl.dungeon import (
     DungeonState,
     EdgeKind,
     FeatureSpec,
+    GeneratedCache,
     PartyLocation,
     cell_ref,
     edge_key,
@@ -197,6 +198,19 @@ class TestDungeonState:
         state.lock_failures["delve:1:2,1:north"] = {"pc-2": 1}
         restored = DungeonState.model_validate(state.model_dump(mode="json"))
         assert restored == state
+
+    @pytest.mark.xfail(strict=True, reason="#38: old GeneratedCache documents lack lair provenance defaults")
+    def test_old_generated_cache_without_lair_area_ref_loads(self):
+        cache = GeneratedCache.model_validate(
+            {
+                "cell_ref": "cell:delve:1:3,2",
+                "treasure_types": ["C"],
+                "coins": {"pp": 0, "gp": 12, "ep": 0, "sp": 0, "cp": 0},
+                "valuables": [],
+                "magic_items": [],
+            }
+        )
+        assert cache.lair_area_ref is None
 
     def test_cell_ref_format(self):
         # The pinned location-bound effect anchor format.

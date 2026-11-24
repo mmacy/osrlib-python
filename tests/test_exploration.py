@@ -45,7 +45,9 @@ from osrlib.crawl.commands import (
     RemoveTreasureTrap,
     Rest,
     Search,
+    SessionMode,
     SetDoorState,
+    SpawnMonsters,
     TakeTreasure,
     TravelToTown,
     TurnParty,
@@ -1632,6 +1634,23 @@ class TestStairsAndTravel:
         result = session.execute(TravelToTown())
         assert result.accepted
         assert session.mode.value == "town"
+
+    @pytest.mark.xfail(strict=True, reason="#38: the player view does not report whether town travel is available")
+    def test_player_view_reports_town_travel_at_the_entrance_while_exploring(self):
+        session = quiet_session()
+        assert session.view(Visibility.PLAYER).can_travel_to_town is False
+
+        entered(session)
+        assert session.view(Visibility.PLAYER).can_travel_to_town is True
+
+        assert session.execute(MoveParty(direction=Direction.EAST)).accepted
+        assert session.view(Visibility.PLAYER).can_travel_to_town is False
+
+        place(session, (0, 0))
+        assert session.view(Visibility.PLAYER).can_travel_to_town is True
+        assert session.execute(SpawnMonsters(template_id="goblin", count_fixed=1, distance_feet=30)).accepted
+        assert session.mode is SessionMode.ENCOUNTER
+        assert session.view(Visibility.PLAYER).can_travel_to_town is False
 
 
 class TestStationarySilence:

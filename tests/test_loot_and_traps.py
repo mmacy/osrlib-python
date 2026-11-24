@@ -16,6 +16,7 @@
 """
 
 import copy
+import json
 
 import pytest
 
@@ -23,6 +24,7 @@ from crawl_fixtures import build_adventure, build_open_door_adventure, build_par
 from osrlib.core.alignment import Alignment
 from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
 from osrlib.core.combat import SaveCategory
+from osrlib.core.effects import kill
 from osrlib.core.events import DeathEvent, EquipmentDestroyedEvent, Visibility
 from osrlib.core.items import Coins, MagicItemInstance, ValuableInstance
 from osrlib.core.rng import RngStreams
@@ -46,6 +48,7 @@ from osrlib.crawl.commands import (
 )
 from osrlib.crawl.dungeon import (
     AreaSpec,
+    AreaTreasureSpec,
     Direction,
     DroppedItem,
     DropPile,
@@ -53,6 +56,7 @@ from osrlib.crawl.dungeon import (
     DungeonState,
     Edge,
     EdgeKind,
+    FeatureSpec,
     KeyedEncounter,
     KeyedMonster,
     LevelSpec,
@@ -67,7 +71,7 @@ from osrlib.crawl.narrative import NarrativeBlock
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import EXPLORATION_STREAM, GameSession
 from osrlib.messages import format_message
-from osrlib.persistence import load_game, save_game
+from osrlib.persistence import load_game, save_game, session_state
 
 # ---------------------------------------------------------------------- shared helpers
 
@@ -358,6 +362,136 @@ class TestLairHoardOnce:
         events = visit_and_evade(restored)
         assert not [event for event in events if event.code == "treasure.hoard.generated"]
         assert list(restored.dungeon_state.generated_caches) == [hoard.cache_ref]
+
+
+def shared_cache_session(seed: int = 1) -> tuple[GameSession, str, str, str]:
+    """Enter a lair whose cell has an authored, area, and lair cache."""
+    cache = FeatureSpec(
+        id="authored_cache",
+        kind="treasure_cache",
+        description="A locked coffer set beneath the lair's bones.",
+        cell=(1, 0),
+        coins=Coins(gp=5),
+    )
+    lair = AreaSpec(
+        id="lair",
+        name="The Bone Lair",
+        cells=((1, 0),),
+        treasure=AreaTreasureSpec(letters=("A",)),
+        encounter=KeyedEncounter(monsters=(KeyedMonster(template_id="orc", count_fixed=2),)),
+        features=(cache,),
+    )
+    session = crypt_session([corridor([lair])], seed=seed)
+    result = session.execute(MoveParty(direction=Direction.EAST))
+    assert result.accepted
+    generated = [event for event in result.events if event.code == "treasure.hoard.generated"]
+    by_types = {event.treasure_types: event.cache_ref for event in generated}
+    assert set(by_types) == {("A",), ("D",)}
+    return session, cache.id, by_types[("A",)], by_types[("D",)]
+
+
+def shared_cache_features(session: GameSession):
+    level = next(entry for entry in session.view(Visibility.PLAYER).explored if entry.level_number == 1)
+    return {feature.id: feature for feature in level.features}
+
+
+class TestWorldKnownCaches:
+    def test_authored_and_generated_area_caches_remain_independently_actionable(self):
+        session, authored_id, area_cache_id, lair_cache_id = shared_cache_session()
+        encounter_module.end_encounter(session, "evaded")
+
+        authored = session.execute(TakeTreasure(feature_id=authored_id))
+        assert authored.accepted, [rejection.code for rejection in authored.rejections]
+        assert set(session.dungeon_state.generated_caches) == {area_cache_id, lair_cache_id}
+
+        area = session.execute(TakeTreasure(feature_id=area_cache_id))
+        assert area.accepted, [rejection.code for rejection in area.rejections]
+        assert set(session.dungeon_state.generated_caches) == {lair_cache_id}
+
+    @pytest.mark.xfail(strict=True, reason="#38: generated caches do not record lair provenance")
+    def test_only_lair_hoards_record_their_area_reference(self):
+        session, _, area_cache_id, lair_cache_id = shared_cache_session()
+        caches = session.dungeon_state.generated_caches
+        assert caches[area_cache_id].lair_area_ref is None
+        assert caches[lair_cache_id].lair_area_ref == "crypt:1:lair"
+        restored = load_game(save_game(session))
+        assert restored.dungeon_state.generated_caches[area_cache_id].lair_area_ref is None
+        assert restored.dungeon_state.generated_caches[lair_cache_id].lair_area_ref == "crypt:1:lair"
+
+    def test_projecting_generated_caches_is_read_only_and_deterministic(self):
+        session, _, _, _ = shared_cache_session()
+        encounter_module.end_encounter(session, "evaded")
+        before = copy.deepcopy(session_state(session))
+        first = session.view(Visibility.PLAYER)
+        second = session.view(Visibility.PLAYER)
+        assert first == second
+        assert first.model_dump_json() == second.model_dump_json()
+        assert session_state(session) == before
+
+    @pytest.mark.xfail(strict=True, reason="#38: generated lair caches are not gated by resolved encounter knowledge")
+    def test_player_view_keeps_lair_cache_ids_hidden_until_victory(self):
+        session, authored_id, area_cache_id, lair_cache_id = shared_cache_session()
+        session.dungeon_state.piles[here(session)] = DropPile(coins=Coins(gp=1))
+
+        unresolved = session.view(Visibility.PLAYER)
+        unresolved_features = shared_cache_features(session)
+        assert set(unresolved_features) == {authored_id, area_cache_id}
+        assert unresolved_features[authored_id].kind == "treasure_cache"
+        assert unresolved_features[area_cache_id].kind == "generated_cache"
+        assert unresolved_features[area_cache_id].description == ""
+        assert here(session) in unresolved.piles
+        assert "pile" not in unresolved_features
+        assert "piles" not in next(entry for entry in unresolved.explored if entry.level_number == 1).model_dump()
+
+        encounter_module.end_encounter(session, "evaded")
+        assert set(shared_cache_features(session)) == {authored_id, area_cache_id}
+        restored_evaded = load_game(json.loads(json.dumps(save_game(session))))
+        assert set(shared_cache_features(restored_evaded)) == {authored_id, area_cache_id}
+
+        victory, authored_id, area_cache_id, lair_cache_id = shared_cache_session()
+        for group in victory.encounter.groups:
+            for monster_id in group.monster_ids:
+                kill(victory.monsters[monster_id])
+        encounter_module.end_encounter(victory, "victory")
+        assert "crypt:1:lair" in victory.dungeon_state.resolved_encounters
+        resolved = shared_cache_features(victory)
+        assert set(resolved) == {authored_id, area_cache_id, lair_cache_id}
+        assert resolved[lair_cache_id].kind == "generated_cache"
+        assert resolved[lair_cache_id].cell == (1, 0)
+        assert resolved[lair_cache_id].area_id is None
+        restored_victory = load_game(json.loads(json.dumps(save_game(victory))))
+        assert shared_cache_features(restored_victory) == resolved
+        for cache_id in (area_cache_id, lair_cache_id):
+            payload = resolved[cache_id].model_dump(mode="json")
+            assert set(payload) == {"id", "kind", "description", "cell", "area_id", "trap_state"}
+            assert all(
+                secret not in payload for secret in ("coins", "valuables", "magic_items", "item_ids", "treasure_types")
+            )
+
+    @pytest.mark.xfail(strict=True, reason="#38: unresolved lair cache IDs are accepted as TakeTreasure targets")
+    def test_take_treasure_rejects_an_unresolved_lair_cache_after_evasion_without_mutation(self):
+        session, _, _, lair_cache_id = shared_cache_session()
+        encounter_module.end_encounter(session, "evaded")
+        before = copy.deepcopy(session_state(session))
+
+        result = session.execute(TakeTreasure(feature_id=lair_cache_id))
+
+        assert not result.accepted
+        assert [rejection.code for rejection in result.rejections] == ["exploration.feature.unknown"]
+        assert session_state(session) == before
+
+    @pytest.mark.xfail(strict=True, reason="#38: old generated caches lack an additive lair provenance default")
+    def test_old_save_without_lair_provenance_loads_with_no_area_reference(self):
+        session, _, area_cache_id, lair_cache_id = shared_cache_session()
+        document = json.loads(json.dumps(save_game(session)))
+        assert document["schema_version"] == 4
+        caches = document["payload"]["dungeon_state"]["generated_caches"]
+        caches[area_cache_id].pop("lair_area_ref", None)
+        caches[lair_cache_id].pop("lair_area_ref", None)
+
+        restored = load_game(document)
+        assert restored.dungeon_state.generated_caches[area_cache_id].lair_area_ref is None
+        assert restored.dungeon_state.generated_caches[lair_cache_id].lair_area_ref is None
 
 
 # ---------------------------------------------------------------------- item 18
