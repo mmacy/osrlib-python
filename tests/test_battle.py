@@ -4,14 +4,16 @@ import pytest
 from pydantic import ValidationError
 
 from crawl_fixtures import build_adventure, build_party
-from osrlib.core.effects import ActiveCondition, Condition, EffectDefinition, ModifierSpec, has_condition
+from osrlib.core.effects import ActiveCondition, Condition, EffectDefinition, ModifierSpec, has_condition, kill
 from osrlib.core.events import Visibility
 from osrlib.core.ruleset import Ruleset
+from osrlib.core.spells import MemorizedSpell, memorize_spells
 from osrlib.core.tables import ReactionResult
 from osrlib.crawl import battle as battle_module
 from osrlib.crawl import encounter as encounter_module
 from osrlib.crawl.commands import (
     BattleDeclaration,
+    CastSpell,
     EngageBattle,
     EnterDungeon,
     EquipItem,
@@ -24,7 +26,8 @@ from osrlib.crawl.commands import (
 )
 from osrlib.crawl.dungeon import Direction
 from osrlib.crawl.session import GameSession
-from osrlib.data import load_equipment
+from osrlib.data import load_classes, load_equipment, load_spells
+from osrlib.persistence import save_game
 
 
 def battle_session(
@@ -79,6 +82,32 @@ def hold_all(session, except_ids=(), extra=()):
             continue
         declarations.append(BattleDeclaration(character_id=member.id, action="hold"))
     return tuple(declarations)
+
+
+def prepare_spell(session: GameSession, spell_id: str, *, level: int | None = None) -> str:
+    member = session.member("character-0004")
+    if level is not None:
+        member.level = level
+    member.spell_book = (spell_id,)
+    result = memorize_spells(
+        member,
+        load_classes().get("magic_user"),
+        load_spells(),
+        [MemorizedSpell(spell_id=spell_id)],
+    )
+    assert result.accepted, [rejection.code for rejection in result.rejections]
+    return member.id
+
+
+def spell_declaration(session: GameSession, target_id: str) -> BattleDeclaration:
+    caster_id = prepare_spell(session, "magic_missile")
+    return BattleDeclaration(
+        character_id=caster_id,
+        action="cast",
+        spell_id="magic_missile",
+        spell_mode="missiles",
+        targets=(target_id,),
+    )
 
 
 class TestDeclarationValidation:
@@ -142,6 +171,134 @@ class TestDeclarationValidation:
         )
         result = session.execute(ResolveBattleRound(declarations=declarations))
         assert result.accepted
+
+
+class TestExplicitBattleSpellTargets:
+    @pytest.mark.parametrize("fleeing", [False, True])
+    def test_a_current_living_enemy_id_is_valid_even_while_its_group_runs(self, fleeing):
+        session = battle_session(count=2, distance=40)
+        group = session.encounter.groups[0]
+        group.fleeing = fleeing
+        target_id = group.monster_ids[0]
+
+        result = session.execute(
+            ResolveBattleRound(declarations=hold_all(session, extra=(spell_declaration(session, target_id),)))
+        )
+
+        assert result.accepted, [rejection.code for rejection in result.rejections]
+        cast = next(event for event in result.events if event.code == "magic.cast.cast")
+        assert cast.target_ids == (target_id,)
+
+    @pytest.mark.parametrize("case", ["stale", "dead", "fled"])
+    @pytest.mark.xfail(
+        strict=True,
+        reason="#39: battle spell target ids must name living members of current non-fled groups",
+    )
+    def test_an_explicit_enemy_id_outside_the_live_encounter_is_refused_whole(self, case):
+        session = battle_session(count=2, distance=40)
+        group = session.encounter.groups[0]
+        if case == "stale":
+            target_id = session.spawn("goblin", 1)[0].id
+            assert target_id not in group.monster_ids
+        elif case == "dead":
+            target_id = group.monster_ids[0]
+            kill(session.combatant(target_id))
+            assert has_condition(session.combatant(target_id), Condition.DEAD)
+        else:
+            target_id = group.monster_ids[0]
+            group.fled = True
+            assert group.fled
+        declaration = spell_declaration(session, target_id)
+        before = save_game(session)
+
+        result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(declaration,))))
+
+        assert not result.accepted
+        assert [(rejection.code, dict(rejection.params)) for rejection in result.rejections] == [
+            ("magic.cast.unknown_target", {"target": target_id})
+        ]
+        assert result.events == ()
+        assert save_game(session) == before
+
+    def test_party_and_cell_targets_keep_their_existing_cast_semantics(self):
+        party_session = battle_session(distance=40)
+        party_target = party_session.party.members[0].id
+        party_result = party_session.execute(
+            ResolveBattleRound(
+                declarations=hold_all(party_session, extra=(spell_declaration(party_session, party_target),))
+            )
+        )
+        assert party_result.accepted
+
+        cell_session = battle_session(distance=40)
+        cell_target = "cell:delve:1:0,0"
+        cell_result = cell_session.execute(
+            ResolveBattleRound(
+                declarations=hold_all(cell_session, extra=(spell_declaration(cell_session, cell_target),))
+            )
+        )
+        assert [rejection.code for rejection in cell_result.rejections] == ["magic.cast.target_must_be_creature"]
+
+    def test_a_valid_enemy_id_still_obeys_range_and_target_count(self):
+        out_of_range = battle_session(distance=160)
+        declaration = spell_declaration(out_of_range, out_of_range.encounter.groups[0].monster_ids[0])
+        before = save_game(out_of_range)
+
+        range_result = out_of_range.execute(
+            ResolveBattleRound(declarations=hold_all(out_of_range, extra=(declaration,)))
+        )
+
+        assert [rejection.code for rejection in range_result.rejections] == ["magic.cast.out_of_range"]
+        assert save_game(out_of_range) == before
+
+        too_many = battle_session(count=2, distance=40)
+        caster_id = prepare_spell(too_many, "magic_missile")
+        declaration = BattleDeclaration(
+            character_id=caster_id,
+            action="cast",
+            spell_id="magic_missile",
+            spell_mode="missiles",
+            targets=tuple(too_many.encounter.groups[0].monster_ids),
+        )
+        count_result = too_many.execute(ResolveBattleRound(declarations=hold_all(too_many, extra=(declaration,))))
+        assert [rejection.code for rejection in count_result.rejections] == ["magic.cast.target_count"]
+
+    def test_a_group_targeted_area_spell_still_resolves_through_the_group(self):
+        session = battle_session(count=3, distance=40)
+        caster_id = prepare_spell(session, "fire_ball", level=5)
+        declaration = BattleDeclaration(
+            character_id=caster_id,
+            action="cast",
+            spell_id="fire_ball",
+            spell_mode="damage",
+            target_group_id=group_id(session),
+        )
+        target_ids = tuple(session.encounter.groups[0].monster_ids)
+
+        result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(declaration,))))
+
+        assert result.accepted, [rejection.code for rejection in result.rejections]
+        cast = next(event for event in result.events if event.code == "magic.cast.cast")
+        assert set(cast.target_ids) == set(target_ids)
+
+    def test_top_level_cast_spell_keeps_registry_target_lookup(self):
+        session = GameSession.new(build_party(), build_adventure(wandering_chance=0), seed=5)
+        caster_id = prepare_spell(session, "magic_missile")
+        target_id = session.spawn("goblin", 1)[0].id
+        assert session.encounter is None
+
+        result = session.execute(
+            CastSpell(
+                character_id=caster_id,
+                spell_id="magic_missile",
+                mode="missiles",
+                targets=(target_id,),
+            )
+        )
+
+        assert result.accepted, [rejection.code for rejection in result.rejections]
+        cast = next(event for event in result.events if event.code == "magic.cast.cast")
+        assert cast.target_ids == (target_id,)
 
 
 class TestUseItemAction:

@@ -11,16 +11,18 @@ The tests give the fighter and the elf a sword each and the thief a flask of oil
 """
 
 import pytest
+from pydantic import ValidationError
 
 import positions_fixtures as pf
 from crawl_fixtures import build_adventure, build_milestone_party
 from osrlib.core.combat import TargetingMode, effective_hd, select_targets
-from osrlib.core.effects import ActiveCondition, Condition, has_condition
+from osrlib.core.effects import ActiveCondition, Condition, has_condition, kill
 from osrlib.core.events import Visibility
 from osrlib.core.items import MagicItemInstance
 from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import Ruleset
 from osrlib.core.tables import ReactionResult
+from osrlib.crawl import battle as battle_module
 from osrlib.crawl import encounter as encounter_module
 from osrlib.crawl.battle import FLEE_EXIT_FEET, MELEE_RANGE_FEET, group_front_rank, preview_battle_round
 from osrlib.crawl.commands import (
@@ -40,6 +42,7 @@ from osrlib.crawl.commands import (
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession
 from osrlib.crawl.views import EncounterGroupView, EncounterView, PlayerView
+from osrlib.persistence import load_game, save_game
 
 PARTY_SEED = 20260715
 """The milestone golden's master seed, which `build_milestone_party` is known to build a party from."""
@@ -195,6 +198,120 @@ def _fingerprint(session: GameSession, result: CommandResult) -> dict:
         "streams": session.streams.export_states(),
         "view": session.view(Visibility.PLAYER).model_dump(mode="json"),
     }
+
+
+# ---------------------------------------------------------------------- issue #39: the encounter's member roster
+
+
+def _rosters(session: GameSession) -> list[list[dict]]:
+    return [[member.model_dump(mode="json") for member in group.members] for group in _encounter(session).groups]
+
+
+class TestTheEncounterMemberRosterInThePlayerView:
+    @pytest.mark.xfail(strict=True, reason="#39: EncounterGroupView needs a typed, defaulted member roster")
+    def test_the_roster_is_typed_and_old_views_default_it_to_empty(self):
+        assert "members" in EncounterGroupView.model_fields
+        payload = {
+            "id": "group-0001",
+            "label": "goblin",
+            "count": 2,
+            "distance_feet": 30,
+            "visible_conditions": [],
+        }
+
+        older = EncounterGroupView.model_validate(payload)
+
+        assert older.members == ()
+        parsed = EncounterGroupView.model_validate({**payload, "members": [{"id": "monster-0001", "status": "alive"}]})
+        assert parsed.members[0].model_dump(mode="json") == {"id": "monster-0001", "status": "alive"}
+        with pytest.raises(ValidationError):
+            EncounterGroupView.model_validate({**payload, "members": [{"id": "monster-0001", "status": "wounded"}]})
+
+    @pytest.mark.xfail(strict=True, reason="#39: player views need stable member ids for monster groups")
+    def test_monster_members_keep_group_order_and_expose_only_id_and_status(self):
+        session = _battle_three_goblins()
+        group = session.encounter.groups[0]
+
+        assert _rosters(session)[0] == [{"id": monster_id, "status": "alive"} for monster_id in group.monster_ids]
+
+    @pytest.mark.xfail(strict=True, reason="#39: player views need stable member ids for NPC adventurers")
+    def test_npc_adventurers_use_their_existing_session_ids_in_group_order(self):
+        session = _delve(seed=2)
+        result = session.execute(SpawnNpcParty(party_kind="basic", count_fixed=3, distance_feet=60))
+        assert result.accepted, [rejection.code for rejection in result.rejections]
+        group = session.encounter.groups[0]
+        assert all(member_id.startswith("npc-") for member_id in group.monster_ids)
+
+        assert _rosters(session)[0] == [{"id": member_id, "status": "alive"} for member_id in group.monster_ids]
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason="#39: roster status must distinguish living, defeated, and fled encounter members",
+    )
+    def test_statuses_cover_running_dead_and_fled_members(self):
+        session = _battle_three_goblins()
+        group = session.encounter.groups[0]
+        first, second, third = group.monster_ids
+        group.fleeing = True
+
+        assert _rosters(session)[0] == [
+            {"id": first, "status": "alive"},
+            {"id": second, "status": "alive"},
+            {"id": third, "status": "alive"},
+        ]
+
+        kill(session.combatant(first))
+        group.fled = True
+
+        assert _rosters(session)[0] == [
+            {"id": first, "status": "defeated"},
+            {"id": second, "status": "fled"},
+            {"id": third, "status": "fled"},
+        ]
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason="#39: roster ids and statuses must survive group split and save/load rebuilds",
+    )
+    def test_split_death_fleeing_and_save_load_keep_ids_and_statuses(self):
+        session = _battle_three_goblins()
+        original = session.encounter.groups[0]
+        defeated_id, runner_id, survivor_id = original.monster_ids
+        session.combatant(runner_id).conditions = (
+            ActiveCondition(condition=Condition.TURNED, effect_id="effect-9999"),
+        )
+
+        split = battle_module._split_off_turned(session)
+
+        assert len(split) == 1
+        runners = session.encounter.groups[1]
+        assert runners.monster_ids == [runner_id]
+        assert original.monster_ids == [defeated_id, survivor_id]
+        kill(session.combatant(defeated_id))
+        runners.fled = True
+        expected = [
+            [
+                {"id": defeated_id, "status": "defeated"},
+                {"id": survivor_id, "status": "alive"},
+            ],
+            [{"id": runner_id, "status": "fled"}],
+        ]
+        assert _rosters(session) == expected
+
+        restored = load_game(save_game(session))
+
+        assert [group.id for group in _encounter(restored).groups] == [original.id, runners.id]
+        assert _rosters(restored) == expected
+
+    def test_building_the_view_is_pure_and_deterministic(self):
+        session = _battle_three_goblins()
+        before = save_game(session)
+
+        first = session.view(Visibility.PLAYER)
+        second = session.view(Visibility.PLAYER)
+
+        assert first == second
+        assert save_game(session) == before
 
 
 # ---------------------------------------------------------------------- item 16: an hd_budget spell at a group
