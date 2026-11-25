@@ -171,6 +171,7 @@ def _generate_cache(
             cache_ref=cache_id,
             treasure_types=tuple(treasure_types),
             coins_gp_value=bundle.coins.value_gp,
+            coins=bundle.coins,
             valuable_ids=tuple(valuable.instance_id for valuable in bundle.valuables),
             magic_item_ids=tuple(item.instance_id for item in bundle.magic_items),
         )

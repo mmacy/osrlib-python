@@ -125,7 +125,7 @@ from osrlib.core.events import (
     Visibility,
 )
 from osrlib.core.frozen import _Model
-from osrlib.core.items import EquipmentCatalog, Inventory, ItemInstance, MagicItemInstance
+from osrlib.core.items import Coins, EquipmentCatalog, Inventory, ItemInstance, MagicItemInstance
 from osrlib.core.monsters import MONSTER_SPAWN_STREAM, IdAllocator, MonsterCatalog, MonsterInstance, spawn_monster
 from osrlib.core.rng import RngStreams, StreamName
 from osrlib.core.ruleset import Ruleset
@@ -463,6 +463,8 @@ def _xp_award_events(member: Character, result: XpAwardResult) -> list[Event]:
             award=result.award,
             modified_award=result.modified_award,
             level_after=result.level_after,
+            gained=result.xp_after - result.xp_before,
+            clamped=result.clamped,
         )
     ]
     if result.level_up is not None:
@@ -2336,7 +2338,12 @@ def _handle_grant_coins(session: GameSession, command: GrantCoins) -> tuple[list
     for denomination in ("pp", "gp", "ep", "sp", "cp"):
         setattr(purse, denomination, getattr(purse, denomination) + getattr(command.coins, denomination))
     events: list[Event] = [
-        ItemAcquiredEvent(character_id=_member_id(member), coins_gp_value=command.coins.value_gp, origin="grant")
+        ItemAcquiredEvent(
+            character_id=_member_id(member),
+            coins_gp_value=command.coins.value_gp,
+            coins=command.coins,
+            origin="grant",
+        )
     ]
     return [], events
 
@@ -2430,7 +2437,9 @@ def _handle_remove_coins(session: GameSession, command: RemoveCoins) -> tuple[li
             ], []
     for denomination in denominations:
         setattr(purse, denomination, getattr(purse, denomination) - getattr(command.coins, denomination))
-    return [], [ItemsRemovedEvent(character_id=_member_id(member), coins_gp_value=command.coins.value_gp)]
+    return [], [
+        ItemsRemovedEvent(character_id=_member_id(member), coins_gp_value=command.coins.value_gp, coins=command.coins)
+    ]
 
 
 def _handle_add_member(session: GameSession, command: AddMember) -> tuple[list[Rejection], list[Event]]:
@@ -2582,19 +2591,19 @@ def _hand_over_everything(session: GameSession, giver: Character, recipient: Cha
         recipient.inventory.valuables.append(valuable)
         item_ids.append(valuable.instance_id)
     purse = inventory.purse
-    moved_cp = purse.value_cp
-    moved_coins = purse.total_coins
+    moved = Coins(pp=purse.pp, gp=purse.gp, ep=purse.ep, sp=purse.sp, cp=purse.cp)
     recipient_purse = recipient.inventory.purse
     for denomination in ("pp", "gp", "ep", "sp", "cp"):
         setattr(recipient_purse, denomination, getattr(recipient_purse, denomination) + getattr(purse, denomination))
     giver.inventory = Inventory()
-    if item_ids or moved_coins:
+    if item_ids or moved.total_coins:
         events.append(
             ItemsGivenEvent(
                 character_id=_member_id(giver),
                 recipient_id=_member_id(recipient),
                 item_ids=tuple(item_ids),
-                coins_gp_value=moved_cp // 100,
+                coins_gp_value=moved.value_gp,
+                coins=moved,
             )
         )
     return events

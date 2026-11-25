@@ -1434,18 +1434,22 @@ class MemberWithdrewEvent(Event):
 
 
 class MonsterFledEvent(Event):
-    """A monster group fled the battle.
+    """A monster group broke and ran.
 
     Emitted by [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] when
     a group fails its morale check and flees. When a battle opens, it's also emitted for a
-    group whose morale is so low that it never fights at all.
+    group whose morale is so low that it never fights at all, and that group leaves the
+    battle at once.
 
     When a cleric turns only some of a group, the turned members leave the group and flee as
     a new group, and `group_id` is the new group's id.
 
-    A fleeing group moves away each round. It has left the battle once it's more than
-    [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET] from the party. Its members
-    still count as defeated for the experience award.
+    A group that fails its morale check is still in the battle when this event comes, and
+    [`EncounterGroupView.fleeing`][osrlib.crawl.views.EncounterGroupView.fleeing] is true from
+    then on. It moves away each round, and it has left the battle once it's more than
+    [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET] from the party, when
+    [`EncounterGroupView.fled`][osrlib.crawl.views.EncounterGroupView.fled] becomes true. Its
+    members still count as defeated for the experience award.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"battle.side.fled"})
@@ -1924,7 +1928,8 @@ class XpAwardedEvent(Event):
     modified_award: int
     """The award after the class's prime-requisite adjustment, rounded down. The character gains
     this much, except when it would raise them two levels: one award raises a character at most one
-    level, so their total stops one point short of the level after next and the rest is lost."""
+    level, so their total stops one point short of the level after next and the rest is lost. Then
+    `clamped` is true and `gained` says how much the character got."""
     level_after: int
     """The member's level once the award was applied."""
     gained: int | None = None

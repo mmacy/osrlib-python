@@ -200,8 +200,8 @@ class MemberView(_Model):
     class_id: str
     """The character class id, like `"fighter"`, as in
     [`Character.class_id`][osrlib.core.character.Character.class_id]. For a class your game wrote, it's
-    the id of the character's [`custom_class`][osrlib.core.character.Character.custom_class], so look
-    the class's name up in your own definitions."""
+    the id of the character's [`custom_class`][osrlib.core.character.Character.custom_class]. To show
+    the class, use `class_name`."""
     class_name: str = ""
     """The character class's name, like `"Fighter"`, read from
     [`Character.definition`][osrlib.core.character.Character.definition], so it's right for a custom
@@ -608,8 +608,12 @@ class EncounterGroupView(_Model):
     the group or its members as targets. A group that's running but hasn't got away yet isn't fled.
     You can still close on it, shoot at it, or cast at it."""
     fleeing: bool = False
-    """True while the group is running from the battle and hasn't got away yet, as in
-    [`EncounterGroup.fleeing`][osrlib.crawl.encounter.EncounterGroup.fleeing]."""
+    """True once the group has failed a morale check and turned to run, as in
+    [`EncounterGroup.fleeing`][osrlib.crawl.encounter.EncounterGroup.fleeing].
+
+    It stays true after the group gets away, when `fled` becomes true as well. A group that's
+    `fleeing` and not `fled` is running and still in the battle, so you can show it running and
+    still offer it as a target."""
     member_distance_feet: dict[str, int] = {}
     """Each living party member's distance to this group, in feet, keyed by member id. Empty outside a
     battle.
@@ -1288,6 +1292,7 @@ def build_player_view(session) -> PlayerView:
                 )
             ),
             coins_gp_value=pile.coins.value_gp,
+            coins=pile.coins,
         )
         for ref, pile in session.dungeon_state.piles.items()
         if ref in visible_refs
@@ -1559,6 +1564,7 @@ def _member_view(session, member) -> MemberView:
         id=member.id,
         name=member.name,
         class_id=member.class_id,
+        class_name=definition.name,
         level=member.level,
         current_hp=member.current_hp,
         max_hp=member.max_hp,
@@ -1652,6 +1658,7 @@ def _encounter_view(session) -> EncounterView | None:
                 visible_conditions=tuple(conditions),
                 condition_counts={condition: sum(condition in values for values in held) for condition in conditions},
                 fled=group.fled,
+                fleeing=group.fleeing,
                 member_distance_feet=distances,
                 front_rank=front_rank,
                 lit=lit,

@@ -64,7 +64,6 @@ def test_every_event_that_reports_a_gp_value_also_carries_the_coins():
     assert [cls.__name__ for cls in classes if "coins" not in cls.model_fields] == []
 
 
-@pytest.mark.xfail(reason="chunk: exact-coins")
 def test_a_grant_of_copper_reports_every_coin_and_reads_as_copper():
     session = _session()
 
@@ -78,7 +77,6 @@ def test_a_grant_of_copper_reports_every_coin_and_reads_as_copper():
     assert " ." not in message
 
 
-@pytest.mark.xfail(reason="chunk: exact-coins")
 def test_a_removal_of_one_copper_reports_that_coin():
     session = _session()
     assert session.execute(GrantCoins(character_id=FIGHTER, coins=Coins(gp=2, cp=5))).accepted
@@ -106,7 +104,6 @@ def test_a_pile_of_copper_alone_is_not_an_empty_pile():
     assert piles[0].coins_gp_value == 0
 
 
-@pytest.mark.xfail(reason="chunk: exact-coins")
 def test_loot_of_copper_alone_names_the_copper():
     message = format_message(LootDroppedEvent(coins=Coins(cp=39)))
 
@@ -114,7 +111,6 @@ def test_loot_of_copper_alone_names_the_copper():
     assert "behind ." not in message
 
 
-@pytest.mark.xfail(reason="chunk: exact-coins")
 def test_a_message_names_each_denomination_that_moved():
     message = format_message(ItemAcquiredEvent(character_id=FIGHTER, coins=Coins(gp=3, sp=4), coins_gp_value=3))
 
@@ -125,7 +121,6 @@ def test_a_message_names_each_denomination_that_moved():
 # ---------------------------------------------------------------------- issue 286: the experience gained
 
 
-@pytest.mark.xfail(reason="chunk: xp-gained")
 def test_an_award_the_one_level_limit_cuts_reports_the_gain_and_the_cut():
     session = _session()
     before = session.member(FIGHTER).xp
@@ -142,7 +137,6 @@ def test_an_award_the_one_level_limit_cuts_reports_the_gain_and_the_cut():
     assert "limit" in message
 
 
-@pytest.mark.xfail(reason="chunk: xp-gained")
 def test_an_award_within_the_limit_reports_the_whole_award_as_gained():
     session = _session()
     before = session.member(FIGHTER).xp
@@ -158,7 +152,6 @@ def test_an_award_within_the_limit_reports_the_whole_award_as_gained():
 # ---------------------------------------------------------------------- issue 287: the declaring member
 
 
-@pytest.mark.xfail(reason="chunk: declaring-member")
 def test_every_declaration_rejection_names_the_member_who_declared():
     """A sword swing at 40' and a magic missile with too many targets, refused in one round."""
     session = battle_session(count=2, distance=40)
@@ -185,7 +178,6 @@ def test_every_declaration_rejection_names_the_member_who_declared():
 # ---------------------------------------------------------------------- issue 269: the group view
 
 
-@pytest.mark.xfail(reason="chunk: group-and-member-view")
 def test_a_group_view_says_the_group_is_fleeing():
     session = battle_session(count=3, distance=40)
     assert _player_view(session).encounter.groups[0].fleeing is False
@@ -197,7 +189,6 @@ def test_a_group_view_says_the_group_is_fleeing():
     assert view_group.fled is False
 
 
-@pytest.mark.xfail(reason="chunk: group-and-member-view")
 def test_the_fled_message_does_not_say_the_group_left():
     message = format_message(MonsterFledEvent(code="battle.side.fled", group_id="group-0001"))
 
@@ -205,7 +196,6 @@ def test_the_fled_message_does_not_say_the_group_left():
     assert "flees the battle" not in message
 
 
-@pytest.mark.xfail(reason="chunk: group-and-member-view")
 def test_a_member_view_names_the_class():
     session = _session()
 

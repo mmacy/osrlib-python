@@ -429,6 +429,7 @@ def _distribute_haul(session, carriers, haul: DropPile) -> tuple[list[Event], Dr
                 character_id=member.id,
                 item_ids=tuple(taken_ids[index]),
                 coins_gp_value=taken_coins.value_gp,
+                coins=taken_coins,
                 origin="treasure",
             )
         )
@@ -475,7 +476,7 @@ def _leave_behind(session, leftovers: DropPile) -> list[Event]:
     if not (leftovers.items or leftovers.valuables or leftovers.magic_items or leftovers.coins.total_coins):
         return []
     item_ids = _add_to_pile(session, leftovers)
-    return [ItemsLeftBehindEvent(item_ids=item_ids, coins_gp_value=leftovers.coins.value_gp)]
+    return [ItemsLeftBehindEvent(item_ids=item_ids, coins_gp_value=leftovers.coins.value_gp, coins=leftovers.coins)]
 
 
 def _take_haul(session, carriers, haul: DropPile) -> list[Event]:

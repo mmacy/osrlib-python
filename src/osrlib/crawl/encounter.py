@@ -928,11 +928,9 @@ def _handle_evade(session, command: Evade) -> tuple[list[Rejection], list[Event]
         for member in session.party.living_members():
             purse = member.inventory.purse
             if purse.total_coins:
+                scattered = Coins(pp=purse.pp, gp=purse.gp, ep=purse.ep, sp=purse.sp, cp=purse.cp)
                 events.append(
-                    ItemsDroppedEvent(
-                        character_id=member.id,
-                        coins_gp_value=Coins(pp=purse.pp, gp=purse.gp, ep=purse.ep, sp=purse.sp, cp=purse.cp).value_gp,
-                    )
+                    ItemsDroppedEvent(character_id=member.id, coins_gp_value=scattered.value_gp, coins=scattered)
                 )
                 purse.pp = purse.gp = purse.ep = purse.sp = purse.cp = 0
     elif dropped_kind == "food":
@@ -1259,7 +1257,7 @@ def _drop_loot(session, state: EncounterState) -> list[Event]:
     if not (loot.items or loot.valuables or loot.magic_items or loot.coins.total_coins):
         return []
     item_ids = _hauling._add_to_pile(session, loot)
-    return [LootDroppedEvent(item_ids=item_ids, coins_gp_value=loot.coins.value_gp)]
+    return [LootDroppedEvent(item_ids=item_ids, coins_gp_value=loot.coins.value_gp, coins=loot.coins)]
 
 
 def end_encounter(session, outcome: str) -> list[Event]:
