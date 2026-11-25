@@ -64,6 +64,16 @@ class TestSaveLoad:
         assert document["payload"]["master_seed"] == SEED
         assert document["payload"]["command_log"]  # always present
 
+    def test_old_save_without_player_handle_key_uses_seed_fallback(self):
+        session, _ = drive_session()
+        document = save_game(session)
+        document["payload"].pop("player_handle_key", None)
+
+        restored = load_game(document)
+
+        assert restored._player_handle_key is None
+        assert "player_handle_key" not in save_game(restored)["payload"]
+
     def test_event_log_optional_saves_restore_correctly(self):
         session, _ = drive_session()
         compact = save_game(session, include_event_log=False)

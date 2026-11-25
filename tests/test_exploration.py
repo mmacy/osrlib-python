@@ -45,7 +45,9 @@ from osrlib.crawl.commands import (
     RemoveTreasureTrap,
     Rest,
     Search,
+    SessionMode,
     SetDoorState,
+    SpawnMonsters,
     TakeTreasure,
     TravelToTown,
     TurnParty,
@@ -411,7 +413,7 @@ class TestTreasureTraps:
     def test_remove_requires_a_found_trap(self):
         session = self.build_at_chest()
         result = session.execute(RemoveTreasureTrap(character_id="character-0002", feature_id="chest"))
-        assert result.rejections[0].code == "exploration.trap.not_found"
+        assert result.rejections[0].code == "exploration.feature.unknown"
 
     def test_take_treasure_runs_the_spring_check_and_fills_packs(self):
         # Seed 9 springs the poison needle on the leader, who dies reaching in; the
@@ -1632,6 +1634,22 @@ class TestStairsAndTravel:
         result = session.execute(TravelToTown())
         assert result.accepted
         assert session.mode.value == "town"
+
+    def test_player_view_reports_town_travel_at_the_entrance_while_exploring(self):
+        session = quiet_session()
+        assert session.view(Visibility.PLAYER).can_travel_to_town is False
+
+        entered(session)
+        assert session.view(Visibility.PLAYER).can_travel_to_town is True
+
+        assert session.execute(MoveParty(direction=Direction.EAST)).accepted
+        assert session.view(Visibility.PLAYER).can_travel_to_town is False
+
+        place(session, (0, 0))
+        assert session.view(Visibility.PLAYER).can_travel_to_town is True
+        assert session.execute(SpawnMonsters(template_id="goblin", count_fixed=1, distance_feet=30)).accepted
+        assert session.mode is SessionMode.ENCOUNTER
+        assert session.view(Visibility.PLAYER).can_travel_to_town is False
 
 
 class TestStationarySilence:

@@ -1,6 +1,6 @@
 # Determinism, saves, and replay
 
-Every random draw in osrlib comes from an explicit, named [`RngStream`][osrlib.core.rng.RngStream] forked from a session's master seed rather than from Python's `random` module or global state (see [RNG streams](../reference/rng-streams.md)). Given the same master seed, starting party, adventure, `Ruleset`, accepted command sequence, and engine version, osrlib produces an identical game state every time:
+Every random draw in osrlib comes from an explicit, named [`RngStream`][osrlib.core.rng.RngStream] forked from a session's master seed rather than from Python's `random` module or global state (see [RNG streams](../reference/rng-streams.md)). Given the same master seed, starting party, adventure, `Ruleset`, accepted command sequence, player-handle key, and engine version, osrlib produces an identical game state every time. Omitting `player_handle_key` from [`GameSession.new`][osrlib.crawl.session.GameSession.new] deterministically derives it from the seed:
 
 ```{.python .no-run}
 def play(seed: int) -> tuple[dict, GameSession]:
@@ -24,7 +24,7 @@ osrlib provides two ways to restore a game:
 
 ## Saves
 
-Call [`save_game`][osrlib.persistence.save_game] to serialize a running [`GameSession`][osrlib.crawl.session.GameSession] to a JSON-compatible dict. The save includes the party, the embedded adventure, dungeon exploration state, the clock, the master seed, every RNG stream's current position, referee and authored progress (`flags`, `listener_state`, `fired_triggers`, `journal`, and `quests`), `command_log`, and `event_log` (see [Listeners and flags](listeners-and-flags.md) and [Gates, triggers, and quests](gates-triggers-quests.md)).
+Call [`save_game`][osrlib.persistence.save_game] to serialize a running [`GameSession`][osrlib.crawl.session.GameSession] to a JSON-compatible dict. The save includes the party, the embedded adventure, dungeon exploration state, the clock, the master seed, every RNG stream's current position, referee and authored progress (`flags`, `listener_state`, `fired_triggers`, `journal`, and `quests`), `command_log`, and `event_log` (see [Listeners and flags](listeners-and-flags.md) and [Gates, triggers, and quests](gates-triggers-quests.md)). If the session has a supplied `player_handle_key`, the save stores it as hex so a restore produces the same opaque feature handles. A full save is a server or referee artifact because it also contains the master seed and other hidden state. Don't send it as a player export.
 
 Call [`load_game`][osrlib.persistence.load_game] to restore a `GameSession` from that dict (or decoded JSON), including its exact RNG stream positions, so play continues drawing from where it stopped:
 
@@ -38,7 +38,7 @@ assert save_game(restored) == document
 
 ## Replay from a seed and command log
 
-Call [`replay_game`][osrlib.persistence.replay_game] with the master seed, the pre-session party document, the adventure, the `Ruleset`, and the recorded `command_log` to rebuild a session from scratch without a save file. Capture `pre_session_party = party_to_document(party.members)` ([`party_to_document`][osrlib.core.character.party_to_document]) *before* passing `party` to [`GameSession.new`][osrlib.crawl.session.GameSession.new], because `GameSession.new` assigns session-scoped member IDs in party order when play begins:
+Call [`replay_game`][osrlib.persistence.replay_game] with the master seed, the pre-session party document, the adventure, the `Ruleset`, and the recorded `command_log` to rebuild a session from scratch without a save file. When the log contains feature handles created under a supplied key, pass that key as `player_handle_key`. A replay with no key derives one from the master seed, which matches old sessions and new sessions that omitted the key. Capture `pre_session_party = party_to_document(party.members)` ([`party_to_document`][osrlib.core.character.party_to_document]) *before* passing `party` to [`GameSession.new`][osrlib.crawl.session.GameSession.new], because `GameSession.new` assigns session-scoped member IDs in party order when play begins:
 
 ```{.python .no-run}
 replayed = replay_game(
@@ -50,6 +50,8 @@ replayed = replay_game(
 )
 assert save_game(replayed, include_event_log=False) == save_game(session_a, include_event_log=False)
 ```
+
+For a networked game, generate an independent random key of at least 32 bytes and keep it on the server. osrlib uses HMAC-SHA-256 to turn a fully qualified authored feature reference or a generated cache key into an opaque `feature:` handle. A server key prevents a client that supplies the master seed from controlling the handles. The seed-derived fallback is a deterministic pseudonym, not confidential from someone who knows or can guess the seed.
 
 Pass `recorded_engine_version` to `replay_game` when you want it to verify that the installed engine version matches the version that recorded the log. On a mismatch, `replay_game` raises [`ReplayVersionError`][osrlib.errors.ReplayVersionError]. If any logged command is rejected during replay, `replay_game` raises [`ContentValidationError`][osrlib.errors.ContentValidationError], because `command_log` records only accepted commands.
 

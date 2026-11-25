@@ -457,6 +457,117 @@ class TestView:
         assert level.edges[edge_key((2, 1), EAST)].kind == "open"
         assert (3, 1) not in level.cells, "the far cell stays dark"
 
+    def test_every_transition_kind_is_public_without_destination_or_gate_data(self):
+        base = passage_adventure()
+        level_1 = base.dungeons[0].level(1)
+        additions = (
+            TransitionSpec(
+                kind="stairs_up",
+                position=(0, 1),
+                to_dungeon_id="keep",
+                to_level_number=2,
+                to_position=(1, 1),
+                to_facing=EAST,
+            ),
+            TransitionSpec(
+                kind="stairs_down",
+                position=(0, 1),
+                to_dungeon_id="keep",
+                to_level_number=2,
+                to_position=(1, 1),
+                to_facing=WEST,
+            ),
+            TransitionSpec(
+                kind="trapdoor",
+                position=(1, 1),
+                to_dungeon_id="keep",
+                to_level_number=2,
+                to_position=(1, 1),
+                to_facing=SOUTH,
+                requires=TOLL,
+            ),
+            TransitionSpec(
+                kind="chute",
+                position=(2, 1),
+                to_dungeon_id="keep",
+                to_level_number=2,
+                to_position=(1, 1),
+                to_facing=NORTH,
+            ),
+        )
+        level_2 = base.dungeons[0].level(2).model_copy(update={"entrance": (2, 1)})
+        dungeon = base.dungeons[0].model_copy(
+            update={
+                "levels": (
+                    level_1.model_copy(update={"transitions": (*level_1.transitions, *additions)}),
+                    level_2,
+                )
+            }
+        )
+        adventure = base.model_copy(update={"dungeons": (dungeon,)})
+        session = GameSession.new(build_party(), adventure, seed=SEED)
+        assert session.execute(EnterDungeon(dungeon_id="keep")).accepted
+        for position in ((1, 1), (2, 1)):
+            assert session.execute(
+                PlaceParty(
+                    location=PartyLocation(
+                        kind="dungeon",
+                        dungeon_id="keep",
+                        level_number=1,
+                        position=position,
+                        facing=EAST,
+                    )
+                )
+            ).accepted
+
+        level = self._level_view(session, 1)
+        transitions = level.transitions
+        assert [(transition.position, transition.kind, transition.side) for transition in transitions] == [
+            ((2, 1), "passage", EAST),
+            ((1, 1), "passage", NORTH),
+            ((0, 1), "stairs_up", None),
+            ((0, 1), "stairs_down", None),
+            ((1, 1), "trapdoor", None),
+            ((2, 1), "chute", None),
+        ]
+        assert {transition.kind for transition in transitions} == {
+            "stairs_up",
+            "stairs_down",
+            "trapdoor",
+            "chute",
+            "passage",
+        }
+        assert all(
+            set(transition.model_dump(mode="json")) == {"position", "kind", "side"} for transition in transitions
+        )
+        assert all(transition.position in {(0, 1), (1, 1), (2, 1)} for transition in transitions)
+        assert level.entrance == (0, 1)
+
+        assert session.execute(
+            PlaceParty(
+                location=PartyLocation(
+                    kind="dungeon",
+                    dungeon_id="keep",
+                    level_number=2,
+                    position=(1, 1),
+                    facing=EAST,
+                )
+            )
+        ).accepted
+        assert self._level_view(session, 2).entrance is None
+        assert session.execute(
+            PlaceParty(
+                location=PartyLocation(
+                    kind="dungeon",
+                    dungeon_id="keep",
+                    level_number=2,
+                    position=(2, 1),
+                    facing=EAST,
+                )
+            )
+        ).accepted
+        assert self._level_view(session, 2).entrance == (2, 1)
+
 
 class TestValidation:
     def test_the_fixture_is_valid(self):

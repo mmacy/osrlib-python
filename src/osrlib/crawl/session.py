@@ -22,7 +22,8 @@ monsters, the session flags (a key-value store for facts you track), the record
 of fired triggers, the journal, the quest states, the listeners and their state, the
 command and event logs, the session mode, and what play has changed on the map.
 Because the session contains all of it, one save restores a game, and replaying the
-command log from the same seed reaches the same game.
+command log from the same seed reaches the same game. A log that carries player feature
+handles also needs the original `player_handle_key`.
 
 The other members of this module are records the session stores, which you read from a
 view rather than build: [`JournalEntry`][osrlib.crawl.session.JournalEntry],
@@ -138,6 +139,7 @@ from osrlib.crawl.adventure import (
     _effective_equipment,
     _effective_monsters,
     _effective_spells,
+    _validate_canonical_references,
     validate_adventure,
 )
 from osrlib.crawl.battle import BattleState
@@ -601,7 +603,8 @@ class GameSession:
 
     [`save_game`][osrlib.persistence.save_game] and `load_game` round-trip a session.
     Every accepted command is on `command_log` and every event on `event_log`, and
-    replaying the command log from the same seed reaches the same game.
+    replaying the command log from the same seed reaches the same game. A replay of commands
+    that carry player feature handles also needs the original key.
 
     The attributes are public so that a referee screen and the save functions can read the
     whole state. Don't write to them. A change you make yourself isn't in the command log, so
@@ -625,12 +628,15 @@ class GameSession:
         ruleset: Ruleset,
         streams: RngStreams,
         master_seed: int,
+        player_handle_key: bytes | None = None,
     ) -> None:
         """Build a session from parts you already have.
 
         You rarely call this yourself. Call [`GameSession.new`][osrlib.crawl.session.GameSession.new]
         to start a game, or [`load_game`][osrlib.persistence.load_game] to restore one, and both
-        call this constructor. It doesn't check the adventure's references, and it doesn't assign
+        call this constructor. It checks canonical area and feature references and bundled
+        catalog ids, but it doesn't run the rest of
+        [`validate_adventure`][osrlib.crawl.adventure.validate_adventure]. It doesn't assign
         character ids.
 
         Args:
@@ -639,12 +645,20 @@ class GameSession:
             ruleset: The ruleset in play.
             streams: The seeded random streams.
             master_seed: The seed those streams came from, kept so that `load_game` can rebuild them.
+            player_handle_key: A server-side key of at least 32 bytes for the opaque feature
+                handles in [`PlayerView`][osrlib.crawl.views.PlayerView]. Leave it out to derive a
+                deterministic key from `master_seed`. A seed-derived handle is a deterministic
+                pseudonym, not confidential from someone who knows or can guess the seed.
 
         Raises:
+            ValueError: If `player_handle_key` is shorter than 32 bytes.
             ContentValidationError: If the adventure bundles monster, item, or spell ids that
                 collide with the built-in catalogs or with each other. This check still runs for
                 `load_game`, which doesn't validate the rest of a saved adventure.
         """
+        if player_handle_key is not None and (not isinstance(player_handle_key, bytes) or len(player_handle_key) < 32):
+            raise ValueError("player_handle_key must contain at least 32 bytes")
+        _validate_canonical_references(adventure)
         self.party = party
         """The party, in marching order. The order determines who is in the front rank in a fight.
         Outside a fight, [`ReorderParty`][osrlib.crawl.commands.ReorderParty] sets the order. In a
@@ -679,6 +693,7 @@ class GameSession:
         self.master_seed = master_seed
         """The seed the streams were built from. A save contains it and no view does, because
         knowing it would let a player predict every roll to come."""
+        self._player_handle_key: bytes | None = player_handle_key
         self.allocator = IdAllocator()
         """The source of session ids. Every id the session hands out, for characters, monsters, NPC
         adventurers, effects, encounter groups, and treasure, comes from here as `<kind>-NNNN`,
@@ -808,7 +823,15 @@ class GameSession:
         aren't saved: register them again after a load."""
 
     @classmethod
-    def new(cls, party: Party, adventure: Adventure, *, seed: int, ruleset: Ruleset | None = None) -> GameSession:
+    def new(
+        cls,
+        party: Party,
+        adventure: Adventure,
+        *,
+        seed: int,
+        ruleset: Ruleset | None = None,
+        player_handle_key: bytes | None = None,
+    ) -> GameSession:
         """Start a new game: validate the adventure, assign character ids, and open in town.
 
         Start every new game here. Build characters with
@@ -829,8 +852,11 @@ class GameSession:
         This method checks the whole adventure before it builds anything, so an unknown monster id
         or a stair to a level that doesn't exist fails here, not partway through a delve.
 
-        The same seed and the same commands produce the same game, which is what makes a bug
-        reproducible and a replay possible. Use a fresh seed for each game, and record it.
+        The same seed and the same commands produce the same game when
+        `player_handle_key` is also the same or omitted. Use a fresh seed and a separate random
+        key for each networked game, and record both in the server-side save. A seed-derived
+        feature handle is deterministic but isn't confidential from someone who knows or can
+        guess the seed.
 
         Args:
             party: The party, in marching order. Members that have no id get one here, as
@@ -840,6 +866,9 @@ class GameSession:
             seed: The master seed every random draw in the session comes from.
             ruleset: The ruleset options in play. Defaults to a stock
                 [`Ruleset`][osrlib.core.ruleset.Ruleset].
+            player_handle_key: A server-side key of at least 32 bytes for opaque feature handles.
+                Leave it out for deterministic seed-derived pseudonyms when you run the library
+                directly.
 
         Returns:
             The session, in town, at round 0, with an empty command log.
@@ -851,6 +880,7 @@ class GameSession:
                 bundled entry's id. The message lists every problem found, and no member has been given
                 an id. Fix the adventure and call again. The same adventure fails the same way
                 every time.
+            ValueError: If `player_handle_key` is shorter than 32 bytes.
 
         Examples:
             ```python
@@ -888,6 +918,7 @@ class GameSession:
             ruleset=ruleset if ruleset is not None else Ruleset(),
             streams=RngStreams(master_seed=seed),
             master_seed=seed,
+            player_handle_key=player_handle_key,
         )
         for member in party.members:
             if member.id is None:
@@ -2199,15 +2230,17 @@ class GameSession:
         `view.monsters[0].current_hp` and `view.flags["key"]` with the models this reference documents.
 
         In a networked game, keep the session and the referee view on the server, and send the
-        client the player view or the player-visibility events. Neither view contains the master seed.
-        Only the save contains it.
+        client the player view or the player-visibility events. Neither view contains the master
+        seed or the player-handle key. A full save contains the master seed and any supplied
+        player-handle key.
 
         Views are frozen and built fresh from the current state each time, never from the event
         log, so call this again after each command rather than keeping one.
 
         Args:
             visibility: `Visibility.PLAYER` for what a player may see, `Visibility.REFEREE` for
-                everything except the master seed and the random streams' positions.
+                everything except the master seed, the random streams' positions, and the
+                player-handle key.
 
         Returns:
             A [`PlayerView`][osrlib.crawl.views.PlayerView] or a

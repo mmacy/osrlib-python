@@ -13,7 +13,7 @@ player_view = session.view(Visibility.PLAYER)
 referee_view = session.view(Visibility.REFEREE)
 ```
 
-[`PlayerView`][osrlib.crawl.views.PlayerView] builds its fields directly from current session state rather than from `session.event_log`, so referee-only events cannot leak hidden numbers into the snapshot. [`RefereeView`][osrlib.crawl.views.RefereeView] exposes the full state that [`session_state`][osrlib.persistence.session_state] serializes into a save (including [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects with current hit points, `flags`, `npcs`, `exploration` counters, and the unfiltered `event_log`), omitting only the master seed and RNG stream states. Use `RefereeView` for LLM referees, test assertions, or debugging tools, and never send it to a player client:
+[`PlayerView`][osrlib.crawl.views.PlayerView] builds its fields directly from current session state rather than from `session.event_log`, so referee-only events cannot leak hidden numbers into the snapshot. [`RefereeView`][osrlib.crawl.views.RefereeView] exposes the state that [`session_state`][osrlib.persistence.session_state] serializes into a save (including [`MonsterInstance`][osrlib.core.monsters.MonsterInstance] objects with current hit points, `flags`, `npcs`, `exploration` counters, and the unfiltered `event_log`), omitting the master seed, RNG stream states, and player-handle key. Use `RefereeView` for LLM referees, test assertions, or debugging tools, and never send it to a player client:
 
 ```{.python .no-run}
 # The referee sees the goblin's hit points; the player view never contains them.
@@ -42,7 +42,13 @@ In `MemberView.inventory`, unidentified magic items use a category description f
 
 ## Render maps, encounters, and battle positions
 
-`PlayerView` exposes explored dungeon geometry through [`ExploredLevelView`][osrlib.crawl.views.ExploredLevelView] and [`EdgeView`][osrlib.crawl.views.EdgeView]: every cell the party has visited, every cell previously illuminated by the party's light (stored in [`DungeonState.seen`][osrlib.crawl.dungeon.DungeonState.seen] for automapping), and cells currently lit from the party's position. Undiscovered secret doors appear as plain walls. Explored cells also list known dropped item piles and emptied treasure caches.
+`PlayerView` exposes explored dungeon geometry through [`ExploredLevelView`][osrlib.crawl.views.ExploredLevelView] and [`EdgeView`][osrlib.crawl.views.EdgeView]: every cell the party has visited, every cell previously illuminated by the party's light (stored in [`DungeonState.seen`][osrlib.crawl.dungeon.DungeonState.seen] for automapping), and cells currently lit from the party's position. Undiscovered secret doors appear as plain walls.
+
+Each level also reports the authored areas the party entered, with only walked area cells. When areas overlap, the first area in the level's list owns the shared cell and only that owner can enter through it. A known custom feature or treasure cache appears as a [`MapFeatureView`][osrlib.crawl.views.MapFeatureView] on its visible cell. An area-bound feature appears after the party enters that area, and a construction trick appears only after search marks it in `found_tricks`. An explicit feature on a shared cell belongs to the owning area only. Use the feature's opaque `id` in `feature_id`; the feature list never exposes the authored or generated raw id. The fields list the safe kind, description, location, area id after entry, and trap state (`"found"`, `"sprung"`, or `"removed"`). They never include cache contents, trap or trigger mechanics, destinations, gates, or an unannounced secret.
+
+Generated area caches appear after their cells become known. A generated lair cache stays out of the view and refuses feature commands until the party resolves the area's keyed encounter. [`TransitionView`][osrlib.crawl.views.TransitionView] exposes the kind and safe position of each transition on a known cell, but not its destination or gate. `ExploredLevelView.entrance` appears only when the party knows the entrance cell, and `PlayerView.can_travel_to_town` is true only when the party can issue [`TravelToTown`][osrlib.crawl.commands.TravelToTown] from there. Known dropped piles stay in `PlayerView.piles`.
+
+`PlayerView.emptied_caches` keeps its established raw feature references as a post-use compatibility diagnostic. A raw authored feature id can appear there after the party uses it, but it never appears in `MapFeatureView.id` and isn't the preferred command identifier.
 
 During an active encounter or battle, `PlayerView.encounter` provides an [`EncounterView`][osrlib.crawl.views.EncounterView] with [`EncounterGroupView`][osrlib.crawl.views.EncounterGroupView] entries for each monster group:
 
@@ -92,7 +98,7 @@ When a quest activates, reveals an objective, completes an objective, or finishe
 
 ## Enforce visibility on the server
 
-In a networked game, treat the player/referee split as an authority boundary. Keep `GameSession` and `RefereeView` on the server: accept a command per request, call `session.execute(command)` on the server, and return only `session.view(Visibility.PLAYER)` along with events filtered to `Visibility.PLAYER`. Sending `RefereeView` or running `GameSession` on an untrusted client exposes monster hit points, unexplored rooms, and unaccepted state changes. See [The FastAPI pattern](../front-ends/fastapi-pattern.md) for a reference HTTP server layout.
+In a networked game, treat the player/referee split as an authority boundary. Keep `GameSession` and `RefereeView` on the server: accept a command per request, call `session.execute(command)` on the server, and return only `session.view(Visibility.PLAYER)` along with events filtered to `Visibility.PLAYER`. Give each new session an independent random `player_handle_key` of at least 32 bytes, and persist it in the server-side save so restored sessions resolve the same handles. Sending `RefereeView`, a save, or running `GameSession` on an untrusted client exposes referee state, the master seed, and the key. See [The FastAPI pattern](../front-ends/fastapi-pattern.md) for a reference HTTP server layout.
 
 ## The complete example
 

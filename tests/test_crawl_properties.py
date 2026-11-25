@@ -517,11 +517,13 @@ def test_the_player_view_never_leaks(seed, commands):
                 "visible_conditions",
                 "condition_counts",
                 "fled",
+                "members",
                 "member_distance_feet",
                 "front_rank",
                 "lit",
                 "seen_by",
             }
+            assert all(set(member) == {"id", "status"} for member in group["members"])
     # Referee-visibility outcomes never appear (views carry no events at all).
     assert "exploration.detection.rolled" not in blob
     # Gate wiring is content wiring, and content wiring is the game's secret: the

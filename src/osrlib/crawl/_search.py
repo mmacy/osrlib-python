@@ -9,6 +9,7 @@ from osrlib.core.events import Event
 from osrlib.core.validation import Rejection
 from osrlib.crawl._arrival import _areas_at_door, _resolve_trap
 from osrlib.crawl._doors import _door_state, _materialize_door
+from osrlib.crawl._feature_handles import _resolve_current_feature
 from osrlib.crawl._light import _requires_light
 from osrlib.crawl._odometer import _spend_turn
 from osrlib.crawl._party_location import (
@@ -161,16 +162,18 @@ def _handle_inspect_treasure(session, command: InspectTreasure) -> tuple[list[Re
     definition = member.definition
     if not definition.thief_skills:
         return [Rejection(code="exploration.trap.not_a_thief", params={"character": member.id})], []
-    feature = next((f for f in _features_here(session) if f.id == command.feature_id), None)
-    cache = session.dungeon_state.generated_caches.get(command.feature_id)
-    if cache is not None and cache.cell_ref == _cell_ref(session):
-        feature = None  # generated hoards are untrapped: the check runs and finds nothing
-    elif feature is None or feature.kind != "treasure_cache":
+    target = _resolve_current_feature(session, command.feature_id)
+    if target is None:
+        return [Rejection(code="exploration.feature.unknown", params={"feature": command.feature_id})], []
+    feature = target.feature
+    if feature is not None and feature.kind != "treasure_cache":
         return [Rejection(code="exploration.feature.unknown", params={"feature": command.feature_id})], []
     light_rejections = _requires_light(session, member, infravision_suffices=False)
     if light_rejections:
         return light_rejections, []
-    ref = _feature_ref(session, feature) if feature is not None else command.feature_id
+    ref = target.ref if feature is not None else target.cache_id
+    if ref is None:  # a resolved candidate always has one internal identity
+        return [Rejection(code="exploration.feature.unknown", params={"feature": command.feature_id})], []
     attempts = session.dungeon_state.inspect_attempts.setdefault(ref, [])
     if member.id in attempts:
         return [Rejection(code="exploration.search.already_tried", params={"character": member.id})], []
@@ -211,13 +214,16 @@ def _handle_remove_treasure_trap(session, command: RemoveTreasureTrap) -> tuple[
     definition = member.definition
     if not definition.thief_skills:
         return [Rejection(code="exploration.trap.not_a_thief", params={"character": member.id})], []
-    feature = next((f for f in _features_here(session) if f.id == command.feature_id), None)
-    if feature is None or feature.trap is None:
+    target = _resolve_current_feature(session, command.feature_id)
+    if target is None:
         return [Rejection(code="exploration.feature.unknown", params={"feature": command.feature_id})], []
-    ref = _feature_ref(session, feature)
+    feature = target.feature
+    if feature is None or feature.kind != "treasure_cache" or feature.trap is None or target.ref is None:
+        return [Rejection(code="exploration.feature.unknown", params={"feature": command.feature_id})], []
+    ref = target.ref
     state = session.dungeon_state
     if ref not in state.found_traps:
-        return [Rejection(code="exploration.trap.not_found", params={"feature": command.feature_id})], []
+        return [Rejection(code="exploration.feature.unknown", params={"feature": command.feature_id})], []
     if ref in state.removed_traps or ref in state.sprung_traps:
         return [Rejection(code="exploration.trap.already_resolved", params={"feature": command.feature_id})], []
     light_rejections = _requires_light(session, member, infravision_suffices=False)

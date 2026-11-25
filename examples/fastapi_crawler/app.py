@@ -1,30 +1,31 @@
-"""The FastAPI wrapper over `GameSession` — the sync-endpoint, per-session-lock pattern.
+"""The FastAPI wrapper over `GameSession`, with sync endpoints and per-session locks.
 
 `GameSession` is not thread-safe by contract, and FastAPI runs sync `def` endpoints
-in its threadpool — which is precisely why every session lives in the store beside
-its own `threading.Lock`, held across every `execute` and every view read. The
+in its threadpool. Every session therefore lives in the store beside its own
+`threading.Lock`, held across every `execute` and every view read. The
 endpoints are deliberately sync: the engine is synchronous and CPU-bound, so the
 threadpool-plus-lock pattern serializes each session's commands while separate
 sessions proceed in parallel. An async facade would add nothing.
 
 What crosses the wire is the spec's player surface and nothing else:
 
-- Full state, referee events, and the master seed are server-side secrets. The
-  server draws the seed by default and never returns it; the optional client seed
-  exists for reproducible demos and the tests.
-- Command results return with events filtered to player visibility — referee
+- Full state, referee events, the master seed, and the player-handle key are
+  server-side secrets. The server draws the seed and key by default and never
+  returns either. The optional client seed exists for reproducible demos and tests.
+- Command results return with events filtered to player visibility. Referee
   events are stripped at the wire, never trusted to the client.
 - The only game-state read is `session.view(Visibility.PLAYER)`. There is no
   referee-view endpoint at all.
-- Saves snapshot into a server-side store and return an opaque id; the save
-  document (seed, referee state, full logs) never crosses the wire. `POST
+- Saves snapshot into a server-side store and return an opaque id. The save
+  document (seed, player-handle key, referee state, and full logs) never crosses
+  the wire. `POST
   /sessions` accepts a save id to restore.
 
-The status mapping mirrors the spec's error split — this is `osrlib.errors` earning
-its keep. An in-fiction rejection (`accepted: false`) is a **200**: rejections are
-game feedback, not transport errors. Out-of-fiction failures map from the typed
-hierarchy: `ContentValidationError` → 422, `SaveVersionError` → 409, an unknown
-session or save id → 404, and anything else is a 500.
+The status mapping mirrors the spec's error split. An in-fiction rejection
+(`accepted: false`) is a **200** because rejections are game feedback, not
+transport errors. Out-of-fiction failures map from the typed hierarchy:
+`ContentValidationError` to 422, `SaveVersionError` to 409, an unknown session or
+save id to 404, and anything else to 500.
 """
 
 import secrets
@@ -61,7 +62,7 @@ class CreateSession(BaseModel):
     """The `POST /sessions` body: a stamped party document, or a save id to restore.
 
     `seed` exists for reproducible demos and the tests; production clients omit it
-    and the server draws one — the master seed is a server-side secret either way.
+    and the server draws one. The master seed is a server-side secret either way.
     """
 
     party_document: dict | None = None
@@ -81,7 +82,7 @@ class CreateSession(BaseModel):
 # --8<-- [start:error-mapping]
 @app.exception_handler(ContentValidationError)
 def _content_validation_error(request: Request, error: ContentValidationError) -> JSONResponse:
-    """Malformed content — a bad party document or command payload — is a 422."""
+    """Return 422 for malformed content, such as a bad party document or command payload."""
     return JSONResponse(status_code=422, content={"detail": str(error)})
 
 
@@ -107,7 +108,7 @@ def _session_or_404(session_id: str) -> tuple[GameSession, threading.Lock]:
 def create_session(request: CreateSession) -> dict:
     """Create a session from a party document, or restore one from a server-side save.
 
-    The response carries the schema handshake and the new session id — never the
+    The response carries the schema handshake and the new session id, but never the
     seed.
     """
     if request.save_id is not None:
@@ -119,7 +120,11 @@ def create_session(request: CreateSession) -> dict:
     elif request.party_document is not None:
         members = party_from_document(request.party_document)
         seed = request.seed if request.seed is not None else secrets.randbits(63)
-        session = new_session(Party(members=members), seed=seed)
+        session = new_session(
+            Party(members=members),
+            seed=seed,
+            player_handle_key=secrets.token_bytes(32),
+        )
     else:  # unreachable: the body model requires exactly one of the two
         raise HTTPException(status_code=422, detail="exactly one of party_document or save_id is required")
     session_id = secrets.token_hex(8)
@@ -152,9 +157,9 @@ def session_metadata(session_id: str) -> dict:
 def execute_command(session_id: str, body: dict) -> dict:
     """Parse and execute one command under the session lock.
 
-    An unknown `command_type` is a 422 (the additive-schema contract: this server
+    An     unknown `command_type` is a 422 (the additive-schema contract: this server
     doesn't understand the command, so it never reaches the engine). A rejected
-    command is a 200 — rejections are game feedback, and they cost the client
+    command is a 200. Rejections are game feedback, and they cost the client
     nothing: no draws, no clock time, no log entry.
     """
     session, lock = _session_or_404(session_id)
@@ -176,7 +181,7 @@ def execute_command(session_id: str, body: dict) -> dict:
 # --8<-- [start:player-view]
 @app.get("/sessions/{session_id}/view")
 def player_view(session_id: str) -> dict:
-    """The player projection — the only game-state read the API offers."""
+    """Return the player projection, the only game-state read the API offers."""
     session, lock = _session_or_404(session_id)
     with lock:
         view = session.view(Visibility.PLAYER)

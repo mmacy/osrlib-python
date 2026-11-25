@@ -16,6 +16,7 @@
 """
 
 import copy
+import json
 
 import pytest
 
@@ -23,6 +24,7 @@ from crawl_fixtures import build_adventure, build_open_door_adventure, build_par
 from osrlib.core.alignment import Alignment
 from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
 from osrlib.core.combat import SaveCategory
+from osrlib.core.effects import kill
 from osrlib.core.events import DeathEvent, EquipmentDestroyedEvent, Visibility
 from osrlib.core.items import Coins, MagicItemInstance, ValuableInstance
 from osrlib.core.rng import RngStreams
@@ -37,6 +39,7 @@ from osrlib.crawl.commands import (
     EngageBattle,
     EnterDungeon,
     GrantItem,
+    InspectTreasure,
     LightSource,
     MoveParty,
     ResolveBattleRound,
@@ -46,6 +49,7 @@ from osrlib.crawl.commands import (
 )
 from osrlib.crawl.dungeon import (
     AreaSpec,
+    AreaTreasureSpec,
     Direction,
     DroppedItem,
     DropPile,
@@ -53,6 +57,7 @@ from osrlib.crawl.dungeon import (
     DungeonState,
     Edge,
     EdgeKind,
+    FeatureSpec,
     KeyedEncounter,
     KeyedMonster,
     LevelSpec,
@@ -67,7 +72,7 @@ from osrlib.crawl.narrative import NarrativeBlock
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import EXPLORATION_STREAM, GameSession
 from osrlib.messages import format_message
-from osrlib.persistence import load_game, save_game
+from osrlib.persistence import load_game, save_game, session_state
 
 # ---------------------------------------------------------------------- shared helpers
 
@@ -342,8 +347,14 @@ class TestLairHoardOnce:
 
     def test_a_taken_hoard_is_not_rolled_again(self):
         session = lair_session()
-        events = visit_and_evade(session)
+        result = session.execute(MoveParty(direction=Direction.EAST))
+        assert result.accepted
+        events = result.events
         (hoard,) = [event for event in events if event.code == "treasure.hoard.generated"]
+        for group in session.encounter.groups:
+            for monster_id in group.monster_ids:
+                kill(session.monsters[monster_id])
+        encounter_module.end_encounter(session, "victory")
         taken = session.execute(TakeTreasure(feature_id=hoard.cache_ref))
         assert taken.accepted, [rejection.code for rejection in taken.rejections]
         assert session.dungeon_state.generated_caches == {}
@@ -358,6 +369,293 @@ class TestLairHoardOnce:
         events = visit_and_evade(restored)
         assert not [event for event in events if event.code == "treasure.hoard.generated"]
         assert list(restored.dungeon_state.generated_caches) == [hoard.cache_ref]
+
+
+def shared_cache_session(seed: int = 1, *, area_id: str = "lair") -> tuple[GameSession, str, str, str]:
+    """Enter a lair whose cell has an authored, area, and lair cache."""
+    cache = FeatureSpec(
+        id="authored_cache",
+        kind="treasure_cache",
+        description="A locked coffer set beneath the lair's bones.",
+        cell=(1, 0),
+        coins=Coins(gp=5),
+    )
+    lair = AreaSpec(
+        id=area_id,
+        name="The Bone Lair",
+        cells=((1, 0),),
+        treasure=AreaTreasureSpec(letters=("A",)),
+        encounter=KeyedEncounter(monsters=(KeyedMonster(template_id="orc", count_fixed=2),)),
+        features=(cache,),
+    )
+    session = crypt_session([corridor([lair])], seed=seed, members=[build_party().members[1]])
+    result = session.execute(MoveParty(direction=Direction.EAST))
+    assert result.accepted
+    generated = [event for event in result.events if event.code == "treasure.hoard.generated"]
+    by_types = {event.treasure_types: event.cache_ref for event in generated}
+    assert set(by_types) == {("A",), ("D",)}
+    return session, cache.id, by_types[("A",)], by_types[("D",)]
+
+
+def shared_cache_features(session: GameSession):
+    level = next(entry for entry in session.view(Visibility.PLAYER).explored if entry.level_number == 1)
+    return {feature.id: feature for feature in level.features}
+
+
+class TestWorldKnownCaches:
+    def test_authored_and_generated_area_caches_remain_independently_actionable(self):
+        session, authored_id, area_cache_id, lair_cache_id = shared_cache_session()
+        encounter_module.end_encounter(session, "evaded")
+
+        authored = session.execute(TakeTreasure(feature_id=authored_id))
+        assert authored.accepted, [rejection.code for rejection in authored.rejections]
+        assert set(session.dungeon_state.generated_caches) == {area_cache_id, lair_cache_id}
+
+        area = session.execute(TakeTreasure(feature_id=area_cache_id))
+        assert area.accepted, [rejection.code for rejection in area.rejections]
+        assert set(session.dungeon_state.generated_caches) == {lair_cache_id}
+
+    def test_public_generated_handle_takes_only_its_cache(self):
+        session, _, area_cache_id, lair_cache_id = shared_cache_session()
+        encounter_module.end_encounter(session, "evaded")
+        handle = next(
+            feature.id for feature in shared_cache_features(session).values() if feature.kind == "generated_cache"
+        )
+
+        result = session.execute(TakeTreasure(feature_id=handle))
+
+        assert result.accepted, [rejection.code for rejection in result.rejections]
+        assert set(session.dungeon_state.generated_caches) == {lair_cache_id}
+        assert area_cache_id not in session.dungeon_state.generated_caches
+
+    def test_only_lair_hoards_record_their_area_reference(self):
+        session, _, area_cache_id, lair_cache_id = shared_cache_session()
+        caches = session.dungeon_state.generated_caches
+        assert caches[area_cache_id].origin == "area"
+        assert caches[area_cache_id].lair_area_ref is None
+        assert caches[lair_cache_id].origin == "lair"
+        assert caches[lair_cache_id].lair_area_ref == "crypt:1:lair"
+        restored = load_game(save_game(session))
+        assert restored.dungeon_state.generated_caches[area_cache_id].origin == "area"
+        assert restored.dungeon_state.generated_caches[lair_cache_id].origin == "lair"
+        assert restored.dungeon_state.generated_caches[area_cache_id].lair_area_ref is None
+        assert restored.dungeon_state.generated_caches[lair_cache_id].lair_area_ref == "crypt:1:lair"
+
+    def test_projecting_generated_caches_is_read_only_and_deterministic(self):
+        session, _, _, _ = shared_cache_session()
+        encounter_module.end_encounter(session, "evaded")
+        before = copy.deepcopy(session_state(session))
+        first = session.view(Visibility.PLAYER)
+        second = session.view(Visibility.PLAYER)
+        assert first == second
+        assert first.model_dump_json() == second.model_dump_json()
+        assert session_state(session) == before
+
+    def test_player_view_keeps_lair_cache_ids_hidden_until_victory(self):
+        session, authored_id, area_cache_id, lair_cache_id = shared_cache_session()
+        session.dungeon_state.piles[here(session)] = DropPile(coins=Coins(gp=1))
+
+        unresolved = session.view(Visibility.PLAYER)
+        unresolved_features = tuple(shared_cache_features(session).values())
+        assert sorted(feature.kind for feature in unresolved_features) == ["generated_cache", "treasure_cache"]
+        assert all(feature.id.startswith("feature:") for feature in unresolved_features)
+        assert not {authored_id, area_cache_id, lair_cache_id} & {feature.id for feature in unresolved_features}
+        generated = next(feature for feature in unresolved_features if feature.kind == "generated_cache")
+        assert generated.description == ""
+        assert here(session) in unresolved.piles
+        assert "pile" not in {feature.id for feature in unresolved_features}
+        assert "piles" not in next(entry for entry in unresolved.explored if entry.level_number == 1).model_dump()
+
+        encounter_module.end_encounter(session, "evaded")
+        assert len(shared_cache_features(session)) == 2
+        restored_evaded = load_game(json.loads(json.dumps(save_game(session))))
+        assert shared_cache_features(restored_evaded) == shared_cache_features(session)
+
+        victory, authored_id, area_cache_id, lair_cache_id = shared_cache_session()
+        for group in victory.encounter.groups:
+            for monster_id in group.monster_ids:
+                kill(victory.monsters[monster_id])
+        encounter_module.end_encounter(victory, "victory")
+        assert "crypt:1:lair" in victory.dungeon_state.resolved_encounters
+        resolved = shared_cache_features(victory)
+        assert len(resolved) == 3
+        generated = [feature for feature in resolved.values() if feature.kind == "generated_cache"]
+        assert len(generated) == 2
+        generated_ids = [feature.id for feature in generated]
+        assert generated_ids == sorted(generated_ids)
+        assert all(feature.cell == (1, 0) and feature.area_id is None for feature in generated)
+        assert not {authored_id, area_cache_id, lair_cache_id} & set(resolved)
+        victory.dungeon_state.generated_caches = dict(reversed(tuple(victory.dungeon_state.generated_caches.items())))
+        reordered = shared_cache_features(victory)
+        assert [feature.id for feature in reordered.values() if feature.kind == "generated_cache"] == generated_ids
+        restored_victory = load_game(json.loads(json.dumps(save_game(victory))))
+        assert shared_cache_features(restored_victory) == reordered
+        for feature in generated:
+            payload = feature.model_dump(mode="json")
+            assert set(payload) == {"id", "kind", "description", "cell", "area_id", "trap_state"}
+            assert all(
+                secret not in payload for secret in ("coins", "valuables", "magic_items", "item_ids", "treasure_types")
+            )
+
+    def test_take_treasure_rejects_an_unresolved_lair_cache_after_evasion_without_mutation(self):
+        session, _, _, lair_cache_id = shared_cache_session()
+        encounter_module.end_encounter(session, "evaded")
+        before = copy.deepcopy(session_state(session))
+
+        result = session.execute(TakeTreasure(feature_id=lair_cache_id))
+
+        assert not result.accepted
+        assert [rejection.code for rejection in result.rejections] == ["exploration.feature.unknown"]
+        assert session_state(session) == before
+
+    def test_inspect_rejects_an_unresolved_lair_cache_without_a_roll_or_mutation(self):
+        session, _, _, lair_cache_id = shared_cache_session()
+        encounter_module.end_encounter(session, "evaded")
+        before = copy.deepcopy(session_state(session))
+
+        result = session.execute(InspectTreasure(character_id="character-0001", feature_id=lair_cache_id))
+
+        assert not result.accepted
+        assert [rejection.code for rejection in result.rejections] == ["exploration.feature.unknown"]
+        assert session_state(session) == before
+
+    def test_ambiguous_raw_id_rejects_while_each_handle_resolves(self):
+        session, authored_id, area_cache_id, lair_cache_id = shared_cache_session()
+        encounter_module.end_encounter(session, "evaded")
+        cache = session.dungeon_state.generated_caches.pop(area_cache_id)
+        session.dungeon_state.generated_caches[authored_id] = cache
+        features = tuple(shared_cache_features(session).values())
+        authored = next(feature for feature in features if feature.kind == "treasure_cache")
+        generated = next(feature for feature in features if feature.kind == "generated_cache")
+        before = copy.deepcopy(session_state(session))
+
+        ambiguous = session.execute(TakeTreasure(feature_id=authored_id))
+
+        assert not ambiguous.accepted
+        assert [rejection.code for rejection in ambiguous.rejections] == ["exploration.feature.unknown"]
+        assert session_state(session) == before
+        assert session.execute(TakeTreasure(feature_id=authored.id)).accepted
+        assert session.execute(TakeTreasure(feature_id=generated.id)).accepted
+        assert set(session.dungeon_state.generated_caches) == {lair_cache_id}
+
+    def test_feature_prefixed_raw_authored_id_never_falls_back(self):
+        raw_id = "feature:authored"
+        feature = FeatureSpec(id=raw_id, kind="treasure_cache", cell=(0, 0), coins=Coins(gp=1))
+        level = corridor(width=1).model_copy(update={"features": (feature,)})
+        session = crypt_session([level])
+        before = copy.deepcopy(session_state(session))
+
+        raw = session.execute(TakeTreasure(feature_id=raw_id))
+
+        assert not raw.accepted
+        assert [rejection.code for rejection in raw.rejections] == ["exploration.feature.unknown"]
+        assert session_state(session) == before
+        handle = next(entry.id for entry in shared_cache_features(session).values() if entry.kind == "treasure_cache")
+        assert handle.startswith("feature:") and handle != raw_id
+        assert session.execute(TakeTreasure(feature_id=handle)).accepted
+
+    def test_old_save_without_lair_provenance_loads_with_no_area_reference(self):
+        session, _, area_cache_id, lair_cache_id = shared_cache_session()
+        document = json.loads(json.dumps(save_game(session)))
+        assert document["schema_version"] == 4
+        caches = document["payload"]["dungeon_state"]["generated_caches"]
+        caches[area_cache_id].pop("origin", None)
+        caches[lair_cache_id].pop("origin", None)
+        caches[area_cache_id].pop("lair_area_ref", None)
+        caches[lair_cache_id].pop("lair_area_ref", None)
+
+        restored = load_game(document)
+        assert restored.dungeon_state.generated_caches[area_cache_id].origin == "legacy"
+        assert restored.dungeon_state.generated_caches[lair_cache_id].origin == "legacy"
+        assert restored.dungeon_state.generated_caches[area_cache_id].lair_area_ref is None
+        assert restored.dungeon_state.generated_caches[lair_cache_id].lair_area_ref is None
+
+    def test_old_legacy_cache_stays_hidden_until_unresolved_encounter_resolves(self):
+        session, authored_id, area_cache_id, lair_cache_id = shared_cache_session()
+        document = json.loads(json.dumps(save_game(session)))
+        caches = document["payload"]["dungeon_state"]["generated_caches"]
+        for cache_id in (area_cache_id, lair_cache_id):
+            caches[cache_id].pop("origin")
+            caches[cache_id].pop("lair_area_ref")
+        restored = load_game(document)
+        encounter_module.end_encounter(restored, "evaded")
+
+        visible = shared_cache_features(restored)
+        assert [feature.kind for feature in visible.values()] == ["treasure_cache"]
+        assert visible
+        for target in (area_cache_id, lair_cache_id):
+            before = copy.deepcopy(session_state(restored))
+            taken = restored.execute(TakeTreasure(feature_id=target))
+            inspected = restored.execute(InspectTreasure(character_id="character-0001", feature_id=target))
+            assert [rejection.code for rejection in taken.rejections] == ["exploration.feature.unknown"]
+            assert [rejection.code for rejection in inspected.rejections] == ["exploration.feature.unknown"]
+            assert session_state(restored) == before
+
+        assert restored.execute(MoveParty(direction=Direction.WEST)).accepted
+        assert restored.execute(MoveParty(direction=Direction.EAST)).accepted
+        for group in restored.encounter.groups:
+            for monster_id in group.monster_ids:
+                kill(restored.monsters[monster_id])
+        encounter_module.end_encounter(restored, "victory")
+        assert len(shared_cache_features(restored)) == 3
+        assert restored.execute(TakeTreasure(feature_id=lair_cache_id)).accepted
+        assert set(restored.dungeon_state.generated_caches) == {area_cache_id}
+        assert authored_id not in restored.dungeon_state.generated_caches
+
+    def test_colon_area_refs_support_new_and_legacy_provenance(self):
+        current, _, _, _ = shared_cache_session(area_id="bone:lair")
+        assert sorted(feature.kind for feature in shared_cache_features(current).values()) == [
+            "generated_cache",
+            "treasure_cache",
+        ]
+        for group in current.encounter.groups:
+            for monster_id in group.monster_ids:
+                kill(current.monsters[monster_id])
+        encounter_module.end_encounter(current, "victory")
+        assert (
+            len([feature for feature in shared_cache_features(current).values() if feature.kind == "generated_cache"])
+            == 2
+        )
+
+        legacy, _, area_cache_id, lair_cache_id = shared_cache_session(area_id="bone:lair")
+        document = json.loads(json.dumps(save_game(legacy)))
+        caches = document["payload"]["dungeon_state"]["generated_caches"]
+        for cache_id in (area_cache_id, lair_cache_id):
+            caches[cache_id].pop("origin")
+            caches[cache_id].pop("lair_area_ref")
+        restored = load_game(document)
+
+        assert [feature.kind for feature in shared_cache_features(restored).values()] == ["treasure_cache"]
+        for group in restored.encounter.groups:
+            for monster_id in group.monster_ids:
+                kill(restored.monsters[monster_id])
+        encounter_module.end_encounter(restored, "victory")
+        assert "crypt:1:bone:lair" in restored.dungeon_state.resolved_encounters
+        assert sorted(feature.kind for feature in shared_cache_features(restored).values()) == [
+            "generated_cache",
+            "generated_cache",
+            "treasure_cache",
+        ]
+        assert restored.execute(TakeTreasure(feature_id=lair_cache_id)).accepted
+        assert set(restored.dungeon_state.generated_caches) == {area_cache_id}
+
+    @pytest.mark.parametrize("cell_ref_value", ["broken", "cell:missing:1:0,0"])
+    def test_malformed_legacy_cache_refuses_projection_and_commands(self, cell_ref_value: str):
+        session, _, area_cache_id, _ = shared_cache_session()
+        encounter_module.end_encounter(session, "evaded")
+        cache = session.dungeon_state.generated_caches[area_cache_id]
+        cache.cell_ref = cell_ref_value
+        cache.origin = "legacy"
+        cache.lair_area_ref = None
+        before = copy.deepcopy(session_state(session))
+
+        assert [feature.kind for feature in shared_cache_features(session).values()] == ["treasure_cache"]
+        taken = session.execute(TakeTreasure(feature_id=area_cache_id))
+        inspected = session.execute(InspectTreasure(character_id="character-0001", feature_id=area_cache_id))
+
+        assert [rejection.code for rejection in taken.rejections] == ["exploration.feature.unknown"]
+        assert [rejection.code for rejection in inspected.rejections] == ["exploration.feature.unknown"]
+        assert session_state(session) == before
 
 
 # ---------------------------------------------------------------------- item 18

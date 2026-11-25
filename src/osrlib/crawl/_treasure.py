@@ -122,7 +122,16 @@ def _assign_carried(session, carried) -> None:
         group.group_treasure = group_bundle
 
 
-def _generate_cache(session, *, cell, treasure_types, entries_lists, extra_gp=0) -> list:
+def _generate_cache(
+    session,
+    *,
+    cell,
+    treasure_types,
+    entries_lists,
+    extra_gp=0,
+    origin: Literal["area", "lair"],
+    lair_area_ref: str | None = None,
+) -> list:
     """Store generated treasure as an engine-created cache in the state overlay."""
     from osrlib.core.items import Coins
     from osrlib.core.treasure import TREASURE_STREAM, generate_treasure_entries
@@ -154,6 +163,8 @@ def _generate_cache(session, *, cell, treasure_types, entries_lists, extra_gp=0)
         coins=bundle.coins,
         valuables=bundle.valuables,
         magic_items=bundle.magic_items,
+        origin=origin,
+        lair_area_ref=lair_area_ref,
     )
     return [
         HoardGeneratedEvent(
@@ -187,7 +198,13 @@ def _generate_lair_hoard(session, area, templates) -> list:
     tables = load_treasure_tables()
     entries_lists = [tables.treasure_type(letter).entries for letter in letters]
     return _generate_cache(
-        session, cell=area.cells[0], treasure_types=letters, entries_lists=entries_lists, extra_gp=extra_gp
+        session,
+        cell=area.cells[0],
+        treasure_types=letters,
+        entries_lists=entries_lists,
+        extra_gp=extra_gp,
+        origin="lair",
+        lair_area_ref=_area_ref(session, area.id),
     )
 
 
@@ -214,9 +231,17 @@ def _area_treasure_check(session) -> list:
     if area.treasure.unguarded:
         band = tables.unguarded.band_for_level(level.number)
         return _generate_cache(
-            session, cell=_position(session), treasure_types=("unguarded",), entries_lists=[band.entries]
+            session,
+            cell=_position(session),
+            treasure_types=("unguarded",),
+            entries_lists=[band.entries],
+            origin="area",
         )
     entries_lists = [tables.treasure_type(letter).entries for letter in area.treasure.letters]
     return _generate_cache(
-        session, cell=_position(session), treasure_types=area.treasure.letters, entries_lists=entries_lists
+        session,
+        cell=_position(session),
+        treasure_types=area.treasure.letters,
+        entries_lists=entries_lists,
+        origin="area",
     )

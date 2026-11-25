@@ -23,8 +23,9 @@ from osrlib.core.items import (
 from osrlib.core.ruleset import EncumbranceMode
 from osrlib.core.validation import Rejection
 from osrlib.crawl._arrival import _spring_check
+from osrlib.crawl._feature_handles import _resolve_current_feature
 from osrlib.crawl._odometer import _spend_turn
-from osrlib.crawl._party_location import _cell_ref, _feature_ref, _features_here
+from osrlib.crawl._party_location import _cell_ref
 from osrlib.crawl._party_members import _member_able
 from osrlib.crawl._treasure import _treasure_tier
 from osrlib.crawl.commands import TakeTreasure
@@ -55,20 +56,21 @@ def _handle_take_treasure(session, command: TakeTreasure) -> tuple[list[Rejectio
         turn_events, _ = _spend_turn(session)
         events.extend(turn_events)
         return [], events
-    cache = state.generated_caches.get(command.feature_id)
-    if cache is not None:
-        if cache.cell_ref != _cell_ref(session):
-            return [Rejection(code="exploration.feature.unknown", params={"feature": command.feature_id})], []
+    target = _resolve_current_feature(session, command.feature_id)
+    if target is None:
+        return [Rejection(code="exploration.feature.unknown", params={"feature": command.feature_id})], []
+    if target.cache_id is not None:
+        cache = state.generated_caches[target.cache_id]
         haul = DropPile(coins=cache.coins, valuables=list(cache.valuables), magic_items=list(cache.magic_items))
-        del state.generated_caches[command.feature_id]
+        del state.generated_caches[target.cache_id]
         events.extend(_take_haul(session, carriers, haul))
         turn_events, _ = _spend_turn(session)
         events.extend(turn_events)
         return [], events
-    feature = next((f for f in _features_here(session) if f.id == command.feature_id), None)
-    if feature is None or feature.kind != "treasure_cache":
+    feature = target.feature
+    if feature is None or feature.kind != "treasure_cache" or target.ref is None:
         return [Rejection(code="exploration.feature.unknown", params={"feature": command.feature_id})], []
-    ref = _feature_ref(session, feature)
+    ref = target.ref
     if ref in state.emptied_caches:
         return [Rejection(code="exploration.feature.emptied", params={"feature": command.feature_id})], []
     trap = feature.trap

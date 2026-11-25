@@ -1,14 +1,17 @@
 """Session contract tests: rejection purity, modes, logs, listeners, records, views."""
 
 import json
+from copy import deepcopy
 
 import pytest
 from pydantic import ValidationError
 
 from crawl_fixtures import build_adventure, build_party
+from osrlib.core.character import party_to_document
 from osrlib.core.clock import ROUNDS_PER_DAY, TimeUnit
 from osrlib.core.events import Visibility
 from osrlib.core.items import Coins
+from osrlib.crawl.adventure import Adventure, TownSpec
 from osrlib.crawl.commands import (
     AddJournalEntry,
     AdvanceTime,
@@ -22,6 +25,7 @@ from osrlib.crawl.commands import (
     MoveParty,
     OpenDoor,
     PlaceParty,
+    RemoveTreasureTrap,
     ReorderParty,
     ResolveBattleRound,
     RollDice,
@@ -29,12 +33,29 @@ from osrlib.crawl.commands import (
     SetDoorState,
     SetFlag,
     SpawnMonsters,
+    TakeTreasure,
     Wait,
     WedgeDoor,
 )
-from osrlib.crawl.dungeon import Direction, PartyLocation
+from osrlib.crawl.dungeon import (
+    AreaSpec,
+    Direction,
+    DungeonSpec,
+    Edge,
+    EdgeKind,
+    FeatureSpec,
+    LevelSpec,
+    PartyLocation,
+    TrapEffect,
+    TrapSpec,
+    WanderingSpec,
+    edge_key,
+)
 from osrlib.crawl.events import DiceRolledEvent, FlagSetEvent
 from osrlib.crawl.session import GameSession
+from osrlib.crawl.views import ExploredLevelView, PlayerView
+from osrlib.errors import ContentValidationError
+from osrlib.persistence import load_game, replay_game, save_game, session_state
 
 
 def make_session(seed: int = 11) -> GameSession:
@@ -729,6 +750,663 @@ class TestViews:
             }
             & group.model_dump().keys()
         )
+
+
+def feature_view_adventure() -> Adventure:
+    """A map with known, unentered, trapped, and hidden features."""
+    needle = TrapSpec(kind="treasure", trigger="open", effect=TrapEffect(damage_dice="1d4"))
+    edges = {
+        edge_key((0, 0), Direction.EAST): Edge(kind=EdgeKind.OPEN),
+        edge_key((1, 0), Direction.EAST): Edge(kind=EdgeKind.OPEN),
+        edge_key((2, 0), Direction.EAST): Edge(kind=EdgeKind.OPEN),
+    }
+    shrine = AreaSpec(
+        id="shrine",
+        name="The Ashen Shrine",
+        description="A cold altar faces the corridor.",
+        cells=((1, 0), (2, 0)),
+        features=(
+            FeatureSpec(
+                id="area_cache",
+                kind="treasure_cache",
+                description="An offering bowl bound to the shrine.",
+                coins=Coins(gp=11),
+            ),
+            FeatureSpec(
+                id="trapped_cache",
+                kind="treasure_cache",
+                description="A brass-bound reliquary.",
+                cell=(2, 0),
+                coins=Coins(gp=23),
+                trap=needle,
+            ),
+            FeatureSpec(
+                id="turning_floor",
+                kind="construction_trick",
+                description="The flagstones turn the shrine around.",
+            ),
+        ),
+    )
+    level = LevelSpec(
+        number=1,
+        width=4,
+        height=1,
+        edges=edges,
+        areas=(shrine,),
+        features=(
+            FeatureSpec(
+                id="mural",
+                kind="custom",
+                description="A procession painted on the entry wall.",
+                cell=(0, 0),
+            ),
+            FeatureSpec(
+                id="seen_cache",
+                kind="treasure_cache",
+                description="A niche in the far wall.",
+                cell=(3, 0),
+                coins=Coins(gp=31),
+            ),
+        ),
+        entrance=(0, 0),
+        wandering=WanderingSpec(chance_in_six=0),
+    )
+    return Adventure(
+        name="The Known World",
+        town=TownSpec(name="Threshold", travel_turns={"vault": 1}),
+        dungeons=(DungeonSpec(id="vault", name="The Vault", levels=(level,)),),
+    )
+
+
+def feature_view_session(*, player_handle_key: bytes | None = None) -> GameSession:
+    session = GameSession.new(
+        build_party(),
+        feature_view_adventure(),
+        seed=19,
+        player_handle_key=player_handle_key,
+    )
+    assert session.execute(EnterDungeon(dungeon_id="vault")).accepted
+    return session
+
+
+def world_level(session: GameSession, dungeon_id: str = "vault", level_number: int = 1):
+    return next(
+        level
+        for level in session.view(Visibility.PLAYER).explored
+        if (level.dungeon_id, level.level_number) == (dungeon_id, level_number)
+    )
+
+
+class TestPlayerWorldKnowledge:
+    def test_the_world_components_have_minimal_public_shapes(self):
+        from osrlib.crawl import views
+
+        assert views.EnteredAreaView.model_fields.keys() == {"id", "name", "description", "cells"}
+        assert views.DungeonNameView.model_fields.keys() == {"id", "name"}
+        assert views.TransitionView.model_fields.keys() == {"position", "kind", "side"}
+        assert views.MapFeatureView.model_fields.keys() == {
+            "id",
+            "kind",
+            "description",
+            "cell",
+            "area_id",
+            "trap_state",
+        }
+        for name in ("EnteredAreaView", "DungeonNameView", "MapFeatureView", "TransitionView"):
+            assert name in views.__all__
+
+    def test_only_entered_dungeons_and_walked_area_cells_are_projected(self):
+        spare_level = LevelSpec(
+            number=1,
+            width=1,
+            height=1,
+            entrance=(0, 0),
+            wandering=WanderingSpec(chance_in_six=0),
+        )
+        base = build_adventure(wandering_chance=0)
+        adventure = base.model_copy(
+            update={
+                "dungeons": (
+                    *base.dungeons,
+                    DungeonSpec(id="annex", name="The Annex", levels=(spare_level,)),
+                )
+            }
+        )
+        session = GameSession.new(build_party(), adventure, seed=23)
+        assert session.view(Visibility.PLAYER).dungeons == ()
+
+        assert session.execute(EnterDungeon(dungeon_id="delve")).accepted
+        session.dungeon_state.mark_seen("delve", 1, [(1, 1)])
+        level = world_level(session, "delve")
+        assert (1, 1) in level.cells
+        assert level.areas == ()
+        assert [(entry.id, entry.name) for entry in session.view(Visibility.PLAYER).dungeons] == [
+            ("delve", "The Delve")
+        ]
+
+        for position in ((2, 1), (3, 2)):
+            assert session.execute(
+                PlaceParty(
+                    location=PartyLocation(
+                        kind="dungeon",
+                        dungeon_id="delve",
+                        level_number=1,
+                        position=position,
+                        facing=Direction.NORTH,
+                    )
+                )
+            ).accepted
+        level = world_level(session, "delve")
+        assert [(area.id, area.name, area.description, area.cells) for area in level.areas] == [
+            ("room_a", "Guard room", "Bones and bedrolls.", ((2, 1), (3, 2)))
+        ]
+        assert "pit_room" not in {area.id for area in level.areas}
+        assert all(
+            set(entry.model_dump(mode="json")) == {"id", "name"} for entry in session.view(Visibility.PLAYER).dungeons
+        )
+
+        assert session.execute(
+            PlaceParty(
+                location=PartyLocation(
+                    kind="dungeon",
+                    dungeon_id="annex",
+                    level_number=1,
+                    position=(0, 0),
+                    facing=Direction.NORTH,
+                )
+            )
+        ).accepted
+        assert [(entry.id, entry.name) for entry in session.view(Visibility.PLAYER).dungeons] == [
+            ("delve", "The Delve"),
+            ("annex", "The Annex"),
+        ]
+
+    def test_overlapping_areas_use_the_level_owner_for_entry_and_features(self):
+        owned = AreaSpec(
+            id="owned",
+            name="Owned room",
+            description="The first-listed area owns the shared cell.",
+            cells=((0, 0), (1, 0)),
+        )
+        later_cache = FeatureSpec(
+            id="later_cache",
+            kind="treasure_cache",
+            description="A cache anywhere in the later room.",
+            coins=Coins(gp=7),
+        )
+        shared_feature = FeatureSpec(
+            id="shared_feature",
+            kind="custom",
+            description="A marker on the shared cell.",
+            cell=(1, 0),
+        )
+        later = AreaSpec(
+            id="later",
+            name="Later room",
+            description="The later area owns only its independent cell.",
+            cells=((1, 0), (2, 0)),
+            features=(later_cache,),
+        )
+        level = LevelSpec(
+            number=1,
+            width=3,
+            height=1,
+            entrance=(0, 0),
+            edges={
+                edge_key((0, 0), Direction.EAST): Edge(kind=EdgeKind.OPEN),
+                edge_key((1, 0), Direction.EAST): Edge(kind=EdgeKind.OPEN),
+            },
+            areas=(owned, later),
+            wandering=WanderingSpec(chance_in_six=0),
+        )
+        adventure = Adventure(
+            name="Overlapping rooms",
+            town=TownSpec(name="Threshold"),
+            dungeons=(DungeonSpec(id="overlap", name="The Overlap", levels=(level,)),),
+        )
+        session = GameSession.new(build_party(), adventure, seed=17)
+        document = save_game(session)
+        document["payload"]["adventure"]["dungeons"][0]["levels"][0]["areas"][1]["features"].append(
+            shared_feature.model_dump(mode="json")
+        )
+        session = load_game(document)
+        assert session.execute(EnterDungeon(dungeon_id="overlap")).accepted
+        assert session.execute(
+            PlaceParty(
+                location=PartyLocation(
+                    kind="dungeon",
+                    dungeon_id="overlap",
+                    level_number=1,
+                    position=(1, 0),
+                    facing=Direction.EAST,
+                )
+            )
+        ).accepted
+
+        shared = world_level(session, "overlap")
+        assert [(area.id, area.cells) for area in shared.areas] == [("owned", ((0, 0), (1, 0)))]
+        assert later_cache.description not in shared.model_dump_json()
+        assert shared_feature.description not in shared.model_dump_json()
+        for target in ("later_cache", "shared_feature"):
+            before = deepcopy(session_state(session))
+            assert session.execute(TakeTreasure(feature_id=target)).rejections[0].code == (
+                "exploration.feature.unknown"
+            )
+            assert session_state(session) == before
+
+        assert session.execute(
+            PlaceParty(
+                location=PartyLocation(
+                    kind="dungeon",
+                    dungeon_id="overlap",
+                    level_number=1,
+                    position=(2, 0),
+                    facing=Direction.EAST,
+                )
+            )
+        ).accepted
+        independent = world_level(session, "overlap")
+        assert [(area.id, area.cells) for area in independent.areas] == [
+            ("owned", ((0, 0), (1, 0))),
+            ("later", ((2, 0),)),
+        ]
+        assert "A marker on the shared cell." not in independent.model_dump_json()
+        later_cache = next(
+            feature for feature in independent.features if feature.description == "A cache anywhere in the later room."
+        )
+        assert later_cache.area_id == "later"
+        assert session.execute(TakeTreasure(feature_id=later_cache.id)).accepted
+
+    def test_colons_in_dungeon_and_feature_ids_do_not_cross_resolve(self):
+        first_dungeon_id = "vault:lower"
+        first_feature_id = "cache"
+        second_dungeon_id = "vault"
+        second_feature_id = "upper:cache"
+        first_ref = f"{first_dungeon_id}:1:{first_feature_id}"
+        second_ref = f"{second_dungeon_id}:1:{second_feature_id}"
+        assert first_ref != second_ref
+
+        def dungeon(dungeon_id: str, feature_id: str, description: str) -> DungeonSpec:
+            return DungeonSpec(
+                id=dungeon_id,
+                name=description,
+                levels=(
+                    LevelSpec(
+                        number=1,
+                        width=1,
+                        height=1,
+                        entrance=(0, 0),
+                        features=(
+                            FeatureSpec(
+                                id=feature_id,
+                                kind="treasure_cache",
+                                description=description,
+                                cell=(0, 0),
+                                coins=Coins(gp=1),
+                            ),
+                        ),
+                        wandering=WanderingSpec(chance_in_six=0),
+                    ),
+                ),
+            )
+
+        adventure = Adventure(
+            name="Colon identities",
+            town=TownSpec(name="Threshold"),
+            dungeons=(
+                dungeon(first_dungeon_id, first_feature_id, "First cache"),
+                dungeon(second_dungeon_id, second_feature_id, "Second cache"),
+            ),
+        )
+        session = GameSession.new(build_party(), adventure, seed=19)
+        assert session.execute(EnterDungeon(dungeon_id=first_dungeon_id)).accepted
+        first_handle = world_level(session, first_dungeon_id).features[0].id
+
+        assert session.execute(
+            PlaceParty(
+                location=PartyLocation(
+                    kind="dungeon",
+                    dungeon_id=second_dungeon_id,
+                    level_number=1,
+                    position=(0, 0),
+                    facing=Direction.NORTH,
+                )
+            )
+        ).accepted
+        second_handle = world_level(session, second_dungeon_id).features[0].id
+        assert first_handle != second_handle
+        before = deepcopy(session_state(session))
+        stale = session.execute(TakeTreasure(feature_id=first_handle))
+        assert [rejection.code for rejection in stale.rejections] == ["exploration.feature.unknown"]
+        assert session_state(session) == before
+
+        assert session.execute(
+            PlaceParty(
+                location=PartyLocation(
+                    kind="dungeon",
+                    dungeon_id=first_dungeon_id,
+                    level_number=1,
+                    position=(0, 0),
+                    facing=Direction.NORTH,
+                )
+            )
+        ).accepted
+        before = deepcopy(session_state(session))
+        stale = session.execute(TakeTreasure(feature_id=second_handle))
+        assert [rejection.code for rejection in stale.rejections] == ["exploration.feature.unknown"]
+        assert session_state(session) == before
+        assert session.execute(TakeTreasure(feature_id=first_handle)).accepted
+
+        second_session = GameSession.new(build_party(), adventure, seed=19)
+        assert second_session.execute(EnterDungeon(dungeon_id=first_dungeon_id)).accepted
+        assert second_session.execute(
+            PlaceParty(
+                location=PartyLocation(
+                    kind="dungeon",
+                    dungeon_id=second_dungeon_id,
+                    level_number=1,
+                    position=(0, 0),
+                    facing=Direction.NORTH,
+                )
+            )
+        ).accepted
+        other_second_handle = world_level(second_session, second_dungeon_id).features[0].id
+        assert other_second_handle == second_handle
+        assert second_session.execute(TakeTreasure(feature_id=other_second_handle)).accepted
+
+    def test_known_features_use_their_command_ids_and_safe_locations(self):
+        session = feature_view_session()
+        session.dungeon_state.mark_seen("vault", 1, [(2, 0), (3, 0)])
+
+        level = world_level(session)
+        features = {feature.description: feature for feature in level.features}
+        assert set(features) == {
+            "A procession painted on the entry wall.",
+            "A niche in the far wall.",
+            "A brass-bound reliquary.",
+        }
+        assert level.areas == ()
+        mural = features["A procession painted on the entry wall."]
+        trapped = features["A brass-bound reliquary."]
+        assert mural.kind == "custom"
+        assert mural.cell == (0, 0)
+        assert mural.area_id is None
+        assert trapped.cell == (2, 0)
+        assert trapped.area_id is None
+        assert trapped.trap_state is None
+        assert all(feature.id.startswith("feature:") for feature in features.values())
+        assert not {"mural", "seen_cache", "trapped_cache"} & {feature.id for feature in features.values()}
+
+        assert session.execute(
+            PlaceParty(
+                location=PartyLocation(
+                    kind="dungeon",
+                    dungeon_id="vault",
+                    level_number=1,
+                    position=(1, 0),
+                    facing=Direction.EAST,
+                )
+            )
+        ).accepted
+        level = world_level(session)
+        features = {feature.description: feature for feature in level.features}
+        assert len(level.areas) == 1
+        area = level.areas[0]
+        assert (area.id, area.name, area.description, area.cells) == (
+            "shrine",
+            "The Ashen Shrine",
+            "A cold altar faces the corridor.",
+            ((1, 0),),
+        )
+        assert features["An offering bowl bound to the shrine."].cell is None
+        assert features["An offering bowl bound to the shrine."].area_id == "shrine"
+        assert "The flagstones turn the shrine around." not in features
+        for feature in features.values():
+            assert set(feature.model_dump(mode="json")) == {
+                "id",
+                "kind",
+                "description",
+                "cell",
+                "area_id",
+                "trap_state",
+            }
+            assert feature.id != "pile"
+
+    def test_only_known_trap_and_construction_state_reaches_the_map(self):
+        session = feature_view_session()
+        assert session.execute(
+            PlaceParty(
+                location=PartyLocation(
+                    kind="dungeon",
+                    dungeon_id="vault",
+                    level_number=1,
+                    position=(1, 0),
+                    facing=Direction.EAST,
+                )
+            )
+        ).accepted
+        feature_ref = "vault:1:trapped_cache"
+        session.dungeon_state.mark_seen("vault", 1, [(2, 0)])
+        session.dungeon_state.found_traps.append(feature_ref)
+        found = {feature.description: feature for feature in world_level(session).features}
+        assert found["A brass-bound reliquary."].trap_state == "found"
+        assert "The flagstones turn the shrine around." not in found
+
+        session.dungeon_state.sprung_traps.append(feature_ref)
+        sprung = {feature.description: feature for feature in world_level(session).features}
+        assert sprung["A brass-bound reliquary."].trap_state == "sprung"
+
+        session.dungeon_state.removed_traps.append(feature_ref)
+        removed = {feature.description: feature for feature in world_level(session).features}
+        assert removed["A brass-bound reliquary."].trap_state == "removed"
+
+        session.dungeon_state.found_tricks.append("vault:1:turning_floor")
+        trick = next(
+            feature
+            for feature in world_level(session).features
+            if feature.description == "The flagstones turn the shrine around."
+        )
+        assert trick.kind == "construction_trick"
+        assert trick.description == "The flagstones turn the shrine around."
+        assert (trick.cell, trick.area_id) == (None, "shrine")
+        blob = trick.model_dump_json()
+        assert all(secret not in blob for secret in ("damage_dice", "effect", "trigger", "coins", "magic_items"))
+
+    def test_authored_feature_ids_are_the_existing_command_targets(self):
+        session = feature_view_session()
+        assert session.execute(
+            PlaceParty(
+                location=PartyLocation(
+                    kind="dungeon",
+                    dungeon_id="vault",
+                    level_number=1,
+                    position=(1, 0),
+                    facing=Direction.EAST,
+                )
+            )
+        ).accepted
+        public = next(
+            feature
+            for feature in world_level(session).features
+            if feature.description == "An offering bowl bound to the shrine."
+        )
+        assert "vault:1:area_cache" not in session.view(Visibility.PLAYER).emptied_caches
+        assert "area_cache" not in {feature.id for feature in world_level(session).features}
+        result = session.execute(TakeTreasure(feature_id="area_cache"))
+        assert result.accepted, [rejection.code for rejection in result.rejections]
+        assert "vault:1:area_cache" in session.dungeon_state.emptied_caches
+        assert "vault:1:area_cache" in session.view(Visibility.PLAYER).emptied_caches
+        assert "area_cache" not in {feature.id for feature in world_level(session).features}
+        assert public.id in {feature.id for feature in world_level(session).features}
+
+    def test_projecting_world_knowledge_is_read_only_and_deterministic(self):
+        session = feature_view_session()
+        session.dungeon_state.mark_seen("vault", 1, [(2, 0), (3, 0)])
+        before = deepcopy(session_state(session))
+        first = session.view(Visibility.PLAYER)
+        second = session.view(Visibility.PLAYER)
+        assert first == second
+        assert first.model_dump_json() == second.model_dump_json()
+        assert session_state(session) == before
+
+    def test_remove_treasure_trap_does_not_reveal_an_unfound_trap(self):
+        plain = feature_view_session()
+        assert plain.execute(
+            PlaceParty(
+                location=PartyLocation(
+                    kind="dungeon",
+                    dungeon_id="vault",
+                    level_number=1,
+                    position=(1, 0),
+                    facing=Direction.EAST,
+                )
+            )
+        ).accepted
+        plain_before = deepcopy(session_state(plain))
+        plain_result = plain.execute(RemoveTreasureTrap(character_id="character-0002", feature_id="area_cache"))
+        assert [rejection.code for rejection in plain_result.rejections] == ["exploration.feature.unknown"]
+        assert session_state(plain) == plain_before
+
+        hidden = feature_view_session()
+        assert hidden.execute(
+            PlaceParty(
+                location=PartyLocation(
+                    kind="dungeon",
+                    dungeon_id="vault",
+                    level_number=1,
+                    position=(2, 0),
+                    facing=Direction.EAST,
+                )
+            )
+        ).accepted
+        hidden_before = deepcopy(session_state(hidden))
+        hidden_result = hidden.execute(RemoveTreasureTrap(character_id="character-0002", feature_id="trapped_cache"))
+        assert [rejection.code for rejection in hidden_result.rejections] == [
+            rejection.code for rejection in plain_result.rejections
+        ]
+        assert session_state(hidden) == hidden_before
+
+    def test_explicit_player_handle_key_round_trips_and_replays_with_handles(self):
+        key = bytes(range(32))
+        party = build_party()
+        starting_party = party_to_document(party.members)
+        session = GameSession.new(
+            party,
+            feature_view_adventure(),
+            seed=19,
+            player_handle_key=key,
+        )
+        assert session.execute(EnterDungeon(dungeon_id="vault")).accepted
+        assert session.execute(
+            PlaceParty(
+                location=PartyLocation(
+                    kind="dungeon",
+                    dungeon_id="vault",
+                    level_number=1,
+                    position=(1, 0),
+                    facing=Direction.EAST,
+                )
+            )
+        ).accepted
+        handle = next(
+            feature
+            for feature in world_level(session).features
+            if feature.description == "An offering bowl bound to the shrine."
+        ).id
+        assert session.execute(TakeTreasure(feature_id=handle)).accepted
+
+        document = json.loads(json.dumps(save_game(session)))
+        assert document["schema_version"] == 4
+        assert document["payload"]["player_handle_key"] == key.hex()
+        restored = load_game(document)
+        assert session_state(restored) == session_state(session)
+        assert restored.view(Visibility.PLAYER) == session.view(Visibility.PLAYER)
+
+        replayed = replay_game(
+            19,
+            starting_party,
+            feature_view_adventure(),
+            session.ruleset,
+            session.command_log,
+            player_handle_key=key,
+        )
+        assert session_state(replayed) == session_state(session)
+        with pytest.raises(ContentValidationError, match="replayed command 'take_treasure' was rejected"):
+            replay_game(
+                19,
+                starting_party,
+                feature_view_adventure(),
+                session.ruleset,
+                session.command_log,
+            )
+
+        player_blob = session.view(Visibility.PLAYER).model_dump_json()
+        referee_blob = session.view(Visibility.REFEREE).model_dump_json()
+        assert key.hex() not in player_blob
+        assert key.hex() not in referee_blob
+        assert "player_handle_key" not in player_blob
+        assert "player_handle_key" not in referee_blob
+        command_blob = json.dumps([command.model_dump(mode="json") for command in session.command_log])
+        event_blob = json.dumps(
+            [event if isinstance(event, dict) else event.model_dump(mode="json") for event in session.event_log]
+        )
+        assert key.hex() not in command_blob
+        assert key.hex() not in event_blob
+
+    def test_player_handle_keys_are_private_and_validate_their_length(self):
+        first = feature_view_session()
+        second = feature_view_session()
+        first_handle = next(feature.id for feature in world_level(first).features if feature.cell == (0, 0))
+        second_handle = next(feature.id for feature in world_level(second).features if feature.cell == (0, 0))
+        assert first_handle == second_handle
+
+        with pytest.raises(ValueError, match="at least 32 bytes"):
+            feature_view_session(player_handle_key=b"x" * 31)
+
+        a = feature_view_session(player_handle_key=b"a" * 32)
+        b = feature_view_session(player_handle_key=b"b" * 32)
+        a_handle = next(feature.id for feature in world_level(a).features if feature.cell == (0, 0))
+        b_handle = next(feature.id for feature in world_level(b).features if feature.cell == (0, 0))
+        assert a_handle != b_handle
+
+    def test_world_projection_is_equal_after_save_and_load(self):
+        session = feature_view_session()
+        session.dungeon_state.mark_seen("vault", 1, [(2, 0), (3, 0)])
+        session.dungeon_state.found_tricks.append("vault:1:turning_floor")
+        expected = session.view(Visibility.PLAYER)
+        restored = load_game(json.loads(json.dumps(save_game(session))))
+        actual = restored.view(Visibility.PLAYER)
+        assert actual == expected
+        expected_features = {feature.id: feature for feature in world_level(session).features}
+        actual_features = {feature.id: feature for feature in world_level(restored).features}
+        assert list(actual_features) == list(expected_features)
+        assert actual_features == expected_features
+
+    def test_old_player_view_documents_load_with_world_defaults(self):
+        session = feature_view_session()
+        document = session.view(Visibility.PLAYER).model_dump(mode="json")
+        document.pop("dungeons", None)
+        document.pop("can_travel_to_town", None)
+        for level in document["explored"]:
+            level.pop("areas", None)
+            level.pop("features", None)
+            level.pop("transitions", None)
+            level.pop("entrance", None)
+
+        restored = PlayerView.model_validate(document)
+        assert restored.dungeons == ()
+        assert restored.can_travel_to_town is False
+        for level in restored.explored:
+            assert level.areas == ()
+            assert level.features == ()
+            assert level.transitions == ()
+            assert level.entrance is None
+
+        legacy_level = ExploredLevelView(dungeon_id="vault", level_number=1, cells=(), edges={})
+        assert legacy_level.areas == ()
+        assert legacy_level.features == ()
+        assert legacy_level.transitions == ()
+        assert legacy_level.entrance is None
 
 
 class TestSpawnMonstersCommand:

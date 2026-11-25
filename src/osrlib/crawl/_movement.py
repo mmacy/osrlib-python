@@ -19,7 +19,7 @@ from osrlib.crawl._arrival import (
 from osrlib.crawl._doors import _door_state
 from osrlib.crawl._gating import _gate_refusal, _gate_success, _pay_toll
 from osrlib.crawl._odometer import _accrue_movement
-from osrlib.crawl._party_location import _cell_ref, _level, _location, _position
+from osrlib.crawl._party_location import _can_travel_to_town, _cell_ref, _level, _location, _position
 from osrlib.crawl._treasure import _area_treasure_check
 from osrlib.crawl.commands import EnterDungeon, MoveParty, ReorderParty, SessionMode, TravelToTown, TurnParty, UseStairs
 from osrlib.crawl.dungeon import Direction, EdgeKind, PartyLocation, TransitionSpec, step
@@ -182,10 +182,9 @@ def _handle_enter_dungeon(session, command: EnterDungeon) -> tuple[list[Rejectio
 
 
 def _handle_travel_to_town(session, command: TravelToTown) -> tuple[list[Rejection], list[Event]]:
-    location = _location(session)
-    level = _level(session)
-    if level.entrance is None or location.position != level.entrance:
+    if not _can_travel_to_town(session):
         return [Rejection(code="exploration.travel.not_at_entrance")], []
+    location = _location(session)
     events = _swing_shut_on_leave(session)
     session.mode = SessionMode.TOWN
     session.dungeon_state.location = PartyLocation(kind="town")
