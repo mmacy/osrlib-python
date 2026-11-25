@@ -1329,7 +1329,7 @@ Two rules apply to every action a policy chooses, not only to melee:
 - A monster or NPC adventurer that can't act when its action comes up doesn't act, whatever its policy chose. NPC adventurers choose their actions at the start of the round, so an NPC whom the party puts to sleep before the NPCs act makes no attack, shot, cast, or drink that round. A confused member who can't act makes no behaviour roll, as a confused party member makes none.
 - A scroll of protection's ward and *protection from evil* bar a monster from melee whatever its policy chose (see [Spell effect consumption in battle](#spell-effect-consumption-in-battle)).
 
-The player view shows how many monsters of a group can strike at most, the smaller of `EncounterGroupView.count` and `EncounterView.formation_width`. It doesn't say which monsters stand in front, and `condition_counts` counts conditions across the whole group, so a front end can't tell whether a sleeping monster is one of those in front.
+The player view shows how many monsters of a group can strike at most, the smaller of `EncounterGroupView.count` and `EncounterView.formation_width`. The group's first `"alive"` entries in `EncounterGroupView.members`, as many as the width allows, are its front rank. The roster doesn't report individual conditions, and `condition_counts` counts conditions across the whole group, so a front end can't tell whether a sleeping monster is one of those in front.
 
 Locked by `test_monster_frontage.py`.
 

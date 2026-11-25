@@ -13,6 +13,7 @@ from osrlib.core.combat import (
     saving_throw,
 )
 from osrlib.core.effects import ActiveModifier, Condition, EffectDefinition, ModifierSpec, has_condition, kill
+from osrlib.core.events import Visibility
 from osrlib.core.items import (
     MagicItemInstance,
     equip,
@@ -563,18 +564,26 @@ def scroll_mode(spell_id: str) -> str:
 
 class TestBattleScrollTargets:
     @staticmethod
-    def declaration(case: str, *, distance: int = 40):
-        from test_battle import battle_session
+    def declaration(case: str, *, distance: int = 40, enemy: str = "monster"):
+        from test_battle import battle_session, npc_battle_session
 
-        session = battle_session(count=2, distance=distance)
-        group = session.encounter.groups[0]
+        session = (
+            npc_battle_session(distance=distance) if enemy == "npc" else battle_session(count=2, distance=distance)
+        )
+        group = session.encounter.groups[-1]
         if case == "valid":
-            target_id = group.monster_ids[0]
+            target_id = session.view(Visibility.PLAYER).encounter.groups[-1].members[0].id
         elif case == "running":
             target_id = group.monster_ids[0]
             group.fleeing = True
         elif case == "party":
             target_id = session.party.members[0].id
+        elif case == "unknown":
+            target_id = "npc-9999" if enemy == "npc" else "monster-9999"
+        elif case == "stale" and enemy == "npc":
+            target_id = group.monster_ids[0]
+            group.monster_ids = group.monster_ids[1:]
+            assert target_id in session.registry()
         elif case == "stale":
             target_id = session.spawn("goblin", 1)[0].id
         elif case == "dead":
@@ -601,11 +610,12 @@ class TestBattleScrollTargets:
         )
         return session, reader, scroll, declaration, target_id
 
+    @pytest.mark.parametrize("enemy", ["monster", "npc"])
     @pytest.mark.parametrize("case", ["valid", "running"])
-    def test_a_current_living_enemy_id_is_valid_even_while_its_group_runs(self, case):
+    def test_a_current_living_enemy_id_is_valid_even_while_its_group_runs(self, case, enemy):
         from test_battle import hold_all
 
-        session, _, scroll, declaration, target_id = self.declaration(case)
+        session, _, scroll, declaration, target_id = self.declaration(case, enemy=enemy)
 
         result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(declaration,))))
 
@@ -625,15 +635,12 @@ class TestBattleScrollTargets:
         cast = next(event for event in result.events if event.code == "magic.cast.cast")
         assert cast.target_ids == (target_id,)
 
-    @pytest.mark.parametrize("case", ["stale", "dead", "fled"])
-    @pytest.mark.xfail(
-        strict=True,
-        reason="#39: battle scroll target ids must name living members of current non-fled groups",
-    )
-    def test_an_explicit_enemy_id_outside_the_live_encounter_is_refused_whole(self, case):
+    @pytest.mark.parametrize("enemy", ["monster", "npc"])
+    @pytest.mark.parametrize("case", ["unknown", "stale", "dead", "fled"])
+    def test_an_explicit_enemy_id_outside_the_live_encounter_is_refused_whole(self, case, enemy):
         from test_battle import hold_all
 
-        session, _, scroll, declaration, target_id = self.declaration(case)
+        session, _, scroll, declaration, target_id = self.declaration(case, enemy=enemy)
         before = save_game(session)
 
         result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(declaration,))))
@@ -646,10 +653,11 @@ class TestBattleScrollTargets:
         assert session.member("character-0004").inventory.magic_item(scroll.instance_id) is scroll
         assert save_game(session) == before
 
-    def test_a_valid_enemy_id_still_obeys_range(self):
+    @pytest.mark.parametrize("enemy", ["monster", "npc"])
+    def test_a_valid_enemy_id_still_obeys_range(self, enemy):
         from test_battle import hold_all
 
-        session, _, scroll, declaration, target_id = self.declaration("valid", distance=160)
+        session, _, scroll, declaration, target_id = self.declaration("valid", distance=160, enemy=enemy)
         before = save_game(session)
 
         result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(declaration,))))

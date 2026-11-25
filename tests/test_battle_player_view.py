@@ -1,9 +1,8 @@
 """A battle played from the player view alone: sleep aimed at a group, and a group that has fled.
 
-Both classes come from issue #162, items 16 and 17. A front end built on
-[`PlayerView`][osrlib.crawl.views.PlayerView] sees group ids and never monster ids, so every
-declaration it makes has to work from a group id, and every group it offers has to be one the
-session accepts a declaration against.
+A front end built on [`PlayerView`][osrlib.crawl.views.PlayerView] sees group ids and
+individual creature ids with coarse statuses, but no monster hit points or referee statistics.
+It can aim spells at groups or individuals without waiting for a combat event.
 
 The party is the milestone party, built from the golden's seed: a 3rd-level fighter, elf, thief, and
 cleric, and a 5th-level magic-user. The elf has *sleep* memorized and the magic-user has *fire ball*.
@@ -41,7 +40,7 @@ from osrlib.crawl.commands import (
 )
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession
-from osrlib.crawl.views import EncounterGroupView, EncounterView, PlayerView
+from osrlib.crawl.views import EncounterGroupView, EncounterMemberView, EncounterView, PlayerView
 from osrlib.persistence import load_game, save_game
 
 PARTY_SEED = 20260715
@@ -208,7 +207,6 @@ def _rosters(session: GameSession) -> list[list[dict]]:
 
 
 class TestTheEncounterMemberRosterInThePlayerView:
-    @pytest.mark.xfail(strict=True, reason="#39: EncounterGroupView needs a typed, defaulted member roster")
     def test_the_roster_is_typed_and_old_views_default_it_to_empty(self):
         assert "members" in EncounterGroupView.model_fields
         payload = {
@@ -223,18 +221,19 @@ class TestTheEncounterMemberRosterInThePlayerView:
 
         assert older.members == ()
         parsed = EncounterGroupView.model_validate({**payload, "members": [{"id": "monster-0001", "status": "alive"}]})
+        assert isinstance(parsed.members[0], EncounterMemberView)
         assert parsed.members[0].model_dump(mode="json") == {"id": "monster-0001", "status": "alive"}
         with pytest.raises(ValidationError):
             EncounterGroupView.model_validate({**payload, "members": [{"id": "monster-0001", "status": "wounded"}]})
+        with pytest.raises(ValidationError, match="frozen"):
+            parsed.members[0].status = "defeated"
 
-    @pytest.mark.xfail(strict=True, reason="#39: player views need stable member ids for monster groups")
     def test_monster_members_keep_group_order_and_expose_only_id_and_status(self):
         session = _battle_three_goblins()
         group = session.encounter.groups[0]
 
         assert _rosters(session)[0] == [{"id": monster_id, "status": "alive"} for monster_id in group.monster_ids]
 
-    @pytest.mark.xfail(strict=True, reason="#39: player views need stable member ids for NPC adventurers")
     def test_npc_adventurers_use_their_existing_session_ids_in_group_order(self):
         session = _delve(seed=2)
         result = session.execute(SpawnNpcParty(party_kind="basic", count_fixed=3, distance_feet=60))
@@ -243,11 +242,17 @@ class TestTheEncounterMemberRosterInThePlayerView:
         assert all(member_id.startswith("npc-") for member_id in group.monster_ids)
 
         assert _rosters(session)[0] == [{"id": member_id, "status": "alive"} for member_id in group.monster_ids]
+        original_view = session.view(Visibility.PLAYER)
+        kill(session.combatant(group.monster_ids[0]))
+        group.fled = True
+        expected = [
+            {"id": member_id, "status": "defeated" if index == 0 else "fled"}
+            for index, member_id in enumerate(group.monster_ids)
+        ]
+        assert _rosters(session)[0] == expected
+        assert _rosters(load_game(save_game(session)))[0] == expected
+        assert all(member.status == "alive" for member in original_view.encounter.groups[0].members)
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="#39: roster status must distinguish living, defeated, and fled encounter members",
-    )
     def test_statuses_cover_running_dead_and_fled_members(self):
         session = _battle_three_goblins()
         group = session.encounter.groups[0]
@@ -269,10 +274,6 @@ class TestTheEncounterMemberRosterInThePlayerView:
             {"id": third, "status": "fled"},
         ]
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="#39: roster ids and statuses must survive group split and save/load rebuilds",
-    )
     def test_split_death_fleeing_and_save_load_keep_ids_and_statuses(self):
         session = _battle_three_goblins()
         original = session.encounter.groups[0]
@@ -360,23 +361,22 @@ class TestAnHdBudgetSpellAimedAtAGroup:
 
     The OSE SRD's *sleep* page reads: "The spell may target either: ... A total of 2d8 Hit Dice of
     creatures of 4 HD or lower each", with "**Weakest first:** Targets with the least HD are affected
-    first." A player-side front end knows a group's id and nothing about its members, so a `cast` of an
+    first." A player-side front end needn't select individuals for a group spell, so a `cast` of an
     `hd_budget` mode declared with `target_group_id` and no `targets` spreads the budget over that
     group's living members, in the group's spawn order, through the kernel's own target selection.
     The result is exactly the cast that names every living member of the group explicitly.
 
-    A declaration that names explicit `targets` keeps today's meaning, with or without a
-    `target_group_id` beside them, so a saved command log replays as it did.
+    A declaration that names explicit living `targets` uses those ids, with or without a
+    `target_group_id` beside them.
     """
 
     def test_a_sleep_aimed_at_a_group_needs_only_the_player_view(self):
         session = _battle_three_goblins()
         view = session.view(Visibility.PLAYER)
-        goblin_ids = tuple(session.encounter.groups[0].monster_ids)
-        assert not any(monster_id in view.model_dump_json() for monster_id in goblin_ids), (
-            "precondition: the player view shows no monster ids"
-        )
         group = view.encounter.groups[0]
+        goblin_ids = tuple(member.id for member in group.members)
+        assert all(set(member.model_dump()) == {"id", "status"} for member in group.members)
+        assert not {"current_hp", "max_hp", "hit_dice", "morale", "treasure"} & group.model_dump().keys()
         assert group.count == 3 and group.visible_conditions == ()
 
         result = _round(session, _sleep(group_id=group.id))

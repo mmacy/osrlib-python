@@ -4,6 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from crawl_fixtures import build_adventure, build_party
+from osrlib.core.character import Character
 from osrlib.core.effects import ActiveCondition, Condition, EffectDefinition, ModifierSpec, has_condition, kill
 from osrlib.core.events import Visibility
 from osrlib.core.ruleset import Ruleset
@@ -23,6 +24,7 @@ from osrlib.crawl.commands import (
     ReorderParty,
     ResolveBattleRound,
     SessionMode,
+    SpawnNpcParty,
 )
 from osrlib.crawl.dungeon import Direction
 from osrlib.crawl.session import GameSession
@@ -38,6 +40,7 @@ def battle_session(
     ruleset: Ruleset | None = None,
     engage=True,
     order=None,
+    npc=False,
 ) -> GameSession:
     session = GameSession.new(build_party(), build_adventure(wandering_chance=0), seed=seed, ruleset=ruleset)
     session.execute(GrantItem(character_id="character-0001", item_id="torch", quantity=6))
@@ -54,22 +57,36 @@ def battle_session(
         lit = session.execute(LightSource(character_id="character-0001", item_id="torch"))
         if any(event.code == "exploration.light.lit" for event in lit.events):
             break
-    instances = session.spawn(template_id, count)
-    encounter_module.start_encounter(
-        session,
-        groups=[(template_id, instances)],
-        kind="spawned",
-        distance_feet=distance,
-        pinned_stance=ReactionResult.HOSTILE,
-        party_aware=True,
-    )
-    if engage:
+    if npc:
+        result = session.execute(SpawnNpcParty(party_kind="basic", count_fixed=count, distance_feet=distance))
+        assert result.accepted, [rejection.code for rejection in result.rejections]
+    else:
+        instances = session.spawn(template_id, count)
+        encounter_module.start_encounter(
+            session,
+            groups=[(template_id, instances)],
+            kind="spawned",
+            distance_feet=distance,
+            pinned_stance=ReactionResult.HOSTILE,
+            party_aware=True,
+        )
+    if engage and session.mode is SessionMode.ENCOUNTER:
         session.execute(EngageBattle())
     return session
 
 
 def group_id(session) -> str:
     return session.encounter.groups[0].id
+
+
+def npc_battle_session(*, distance: int = 40, order=None) -> GameSession:
+    session = battle_session(distance=distance, count=3, npc=True, order=order)
+    assert session.mode is SessionMode.BATTLE
+    npc_ids = session.encounter.groups[-1].monster_ids
+    assert all(isinstance(session.combatant(npc_id), Character) for npc_id in npc_ids)
+    assert not set(npc_ids) & {member.id for member in session.party.members}
+    session.battle.monsters_hold_rounds = 1
+    return session
 
 
 def hold_all(session, except_ids=(), extra=()):
@@ -174,12 +191,13 @@ class TestDeclarationValidation:
 
 
 class TestExplicitBattleSpellTargets:
+    @pytest.mark.parametrize("enemy", ["monster", "npc"])
     @pytest.mark.parametrize("fleeing", [False, True])
-    def test_a_current_living_enemy_id_is_valid_even_while_its_group_runs(self, fleeing):
-        session = battle_session(count=2, distance=40)
-        group = session.encounter.groups[0]
+    def test_a_current_living_enemy_id_is_valid_even_while_its_group_runs(self, fleeing, enemy):
+        session = npc_battle_session() if enemy == "npc" else battle_session(count=2, distance=40)
+        group = session.encounter.groups[-1]
         group.fleeing = fleeing
-        target_id = group.monster_ids[0]
+        target_id = session.view(Visibility.PLAYER).encounter.groups[-1].members[0].id
 
         result = session.execute(
             ResolveBattleRound(declarations=hold_all(session, extra=(spell_declaration(session, target_id),)))
@@ -189,15 +207,18 @@ class TestExplicitBattleSpellTargets:
         cast = next(event for event in result.events if event.code == "magic.cast.cast")
         assert cast.target_ids == (target_id,)
 
-    @pytest.mark.parametrize("case", ["stale", "dead", "fled"])
-    @pytest.mark.xfail(
-        strict=True,
-        reason="#39: battle spell target ids must name living members of current non-fled groups",
-    )
-    def test_an_explicit_enemy_id_outside_the_live_encounter_is_refused_whole(self, case):
-        session = battle_session(count=2, distance=40)
-        group = session.encounter.groups[0]
-        if case == "stale":
+    @pytest.mark.parametrize("enemy", ["monster", "npc"])
+    @pytest.mark.parametrize("case", ["unknown", "stale", "dead", "fled"])
+    def test_an_explicit_enemy_id_outside_the_live_encounter_is_refused_whole(self, case, enemy):
+        session = npc_battle_session() if enemy == "npc" else battle_session(count=2, distance=40)
+        group = session.encounter.groups[-1]
+        if case == "unknown":
+            target_id = "npc-9999" if enemy == "npc" else "monster-9999"
+        elif case == "stale" and enemy == "npc":
+            target_id = group.monster_ids[0]
+            group.monster_ids = group.monster_ids[1:]
+            assert target_id in session.registry()
+        elif case == "stale":
             target_id = session.spawn("goblin", 1)[0].id
             assert target_id not in group.monster_ids
         elif case == "dead":
@@ -220,6 +241,39 @@ class TestExplicitBattleSpellTargets:
         assert result.events == ()
         assert save_game(session) == before
 
+    @pytest.mark.parametrize("enemy", ["monster", "npc"])
+    @pytest.mark.parametrize(
+        ("spell_id", "mode", "level", "count"),
+        [("charm_person", "charm", 1, 1), ("hold_person_mu", "group", 5, 2)],
+    )
+    def test_single_and_up_to_n_targets_come_from_the_player_view(self, enemy, spell_id, mode, level, count):
+        session = npc_battle_session() if enemy == "npc" else battle_session(count=3)
+        session.battle.monsters_hold_rounds = 1
+        caster_id = prepare_spell(session, spell_id, level=level)
+        view = session.view(Visibility.PLAYER)
+        target_ids = tuple(member.id for member in view.encounter.groups[-1].members if member.status == "alive")[
+            :count
+        ]
+        assert len(target_ids) == count
+        declaration = BattleDeclaration(
+            character_id=caster_id,
+            action="cast",
+            spell_id=spell_id,
+            spell_mode=mode,
+            targets=target_ids,
+        )
+        holds = tuple(
+            BattleDeclaration(character_id=member_id, action="hold")
+            for member_id in view.encounter.declarers
+            if member_id != caster_id
+        )
+
+        result = session.execute(ResolveBattleRound(declarations=(declaration, *holds)))
+
+        assert result.accepted, [rejection.code for rejection in result.rejections]
+        cast = next(event for event in result.events if event.code in ("magic.cast.cast", "magic.cast.no_effect"))
+        assert cast.target_ids == target_ids
+
     def test_party_and_cell_targets_keep_their_existing_cast_semantics(self):
         party_session = battle_session(distance=40)
         party_target = party_session.party.members[0].id
@@ -239,9 +293,10 @@ class TestExplicitBattleSpellTargets:
         )
         assert [rejection.code for rejection in cell_result.rejections] == ["magic.cast.target_must_be_creature"]
 
-    def test_a_valid_enemy_id_still_obeys_range_and_target_count(self):
-        out_of_range = battle_session(distance=160)
-        declaration = spell_declaration(out_of_range, out_of_range.encounter.groups[0].monster_ids[0])
+    @pytest.mark.parametrize("enemy", ["monster", "npc"])
+    def test_a_valid_enemy_id_still_obeys_range_and_target_count(self, enemy):
+        out_of_range = npc_battle_session(distance=160) if enemy == "npc" else battle_session(distance=160)
+        declaration = spell_declaration(out_of_range, out_of_range.encounter.groups[-1].monster_ids[0])
         before = save_game(out_of_range)
 
         range_result = out_of_range.execute(
@@ -262,6 +317,92 @@ class TestExplicitBattleSpellTargets:
         )
         count_result = too_many.execute(ResolveBattleRound(declarations=hold_all(too_many, extra=(declaration,))))
         assert [rejection.code for rejection in count_result.rejections] == ["magic.cast.target_count"]
+
+    @pytest.mark.parametrize("enemy", ["monster", "npc"])
+    def test_visibility_checks_still_apply_to_current_enemy_ids(self, enemy):
+        session = npc_battle_session() if enemy == "npc" else battle_session()
+        target_id = session.encounter.groups[-1].monster_ids[0]
+        session.combatant(target_id).conditions = (
+            ActiveCondition(condition=Condition.INVISIBLE, effect_id="effect-9999"),
+        )
+        declaration = spell_declaration(session, target_id)
+        before = save_game(session)
+
+        result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(declaration,))))
+
+        assert [(rejection.code, dict(rejection.params)) for rejection in result.rejections] == [
+            ("battle.declaration.invisible_target", {"target": target_id})
+        ]
+        assert result.events == ()
+        assert save_game(session) == before
+
+    @pytest.mark.parametrize(
+        ("case", "code"),
+        [
+            ("party_back", "battle.declaration.not_in_front_rank"),
+            ("enemy_back", "combat.attack.out_of_reach"),
+            ("too_far", "magic.cast.out_of_range"),
+        ],
+    )
+    def test_npc_touch_targets_keep_the_range_and_both_front_rank_checks(self, case, code):
+        order = (
+            None
+            if case == "party_back"
+            else (
+                "character-0003",
+                "character-0001",
+                "character-0002",
+                "character-0004",
+            )
+        )
+        session = npc_battle_session(distance=10 if case == "too_far" else 5, order=order)
+        cleric = session.member("character-0003")
+        cleric.level = 2
+        assert memorize_spells(
+            cleric, cleric.definition, session.effective_spells, [MemorizedSpell(spell_id="cure_light_wounds")]
+        ).accepted
+        view = session.view(Visibility.PLAYER)
+        target_id = view.encounter.groups[0].members[-1 if case == "enemy_back" else 0].id
+        declaration = BattleDeclaration(
+            character_id=cleric.id,
+            action="cast",
+            spell_id="cure_light_wounds",
+            spell_mode="harm",
+            reversed=True,
+            targets=(target_id,),
+        )
+        before = save_game(session)
+
+        result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(declaration,))))
+
+        assert not result.accepted
+        assert [rejection.code for rejection in result.rejections] == [code]
+        assert result.events == ()
+        assert save_game(session) == before
+
+    def test_a_party_corpse_keeps_the_restore_life_mode_contract(self):
+        session = battle_session()
+        session.battle.monsters_hold_rounds = 1
+        cleric = session.member("character-0003")
+        cleric.level = 9
+        assert memorize_spells(
+            cleric, cleric.definition, session.effective_spells, [MemorizedSpell(spell_id="raise_dead")]
+        ).accepted
+        corpse_id = session.view(Visibility.PLAYER).party[0].id
+        kill(session.member(corpse_id))
+        declaration = BattleDeclaration(
+            character_id=cleric.id,
+            action="cast",
+            spell_id="raise_dead",
+            spell_mode="restore_life",
+            targets=(corpse_id,),
+        )
+
+        result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(declaration,))))
+
+        assert result.accepted, [rejection.code for rejection in result.rejections]
+        cast = next(event for event in result.events if event.code in ("magic.cast.cast", "magic.cast.no_effect"))
+        assert cast.target_ids == (corpse_id,)
 
     def test_a_group_targeted_area_spell_still_resolves_through_the_group(self):
         session = battle_session(count=3, distance=40)

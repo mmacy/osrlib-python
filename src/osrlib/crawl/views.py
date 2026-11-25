@@ -15,10 +15,11 @@ view.
 
 Events report what just happened, and a view shows what is true now. A view is built
 from the session's current state, never by reading the event log, though the referee
-view includes the log as one of its fields. The ids a view includes,
-[`MemberView.id`][osrlib.crawl.views.MemberView] and
-[`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView], are the ids the
-commands in [`osrlib.crawl.commands`][osrlib.crawl.commands] take.
+view includes the log as one of its fields. Commands in
+[`osrlib.crawl.commands`][osrlib.crawl.commands] take the ids from
+[`MemberView.id`][osrlib.crawl.views.MemberView.id],
+[`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id], and
+[`EncounterMemberView.id`][osrlib.crawl.views.EncounterMemberView.id].
 
 The player view has a fixed list of fields, each one safe to show a player. It includes:
 
@@ -94,6 +95,8 @@ for member in player.party:
 group = player.encounter.groups[0]
 print(group.label, group.count, group.distance_feet)
 # goblin 2 30
+print([member.model_dump(mode="json") for member in group.members])
+# [{'id': 'monster-0001', 'status': 'alive'}, {'id': 'monster-0002', 'status': 'alive'}]
 
 # The referee sees each monster's hit points.
 referee = session.view(Visibility.REFEREE)
@@ -103,6 +106,7 @@ print([monster.current_hp for monster in referee.monsters])
 """
 
 from copy import deepcopy
+from typing import Literal
 
 from pydantic import ConfigDict, Field, SerializeAsAny, ValidationInfo, field_validator
 
@@ -134,6 +138,7 @@ from osrlib.crawl.session import (
 __all__ = [
     "EdgeView",
     "EncounterGroupView",
+    "EncounterMemberView",
     "EncounterView",
     "ExplorationCounters",
     "ExploredLevelView",
@@ -420,8 +425,30 @@ class ExploredLevelView(_Model):
     is one entry, not two."""
 
 
+class EncounterMemberView(_Model):
+    """One monster or NPC adventurer's public identity and coarse status.
+
+    Read these from [`EncounterGroupView.members`][osrlib.crawl.views.EncounterGroupView.members].
+    Use `id` in [`BattleDeclaration.targets`][osrlib.crawl.commands.BattleDeclaration.targets] to
+    select an individual creature for a spell or scroll before any combat event names it. Hit
+    points, individual conditions, and other private statistics never appear.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    """The creature's existing session id, such as `"monster-0001"` or `"npc-0001"`.
+
+    It matches the id in events and stays the same after save/load or a group split. Read the
+    current group to find where the creature is now."""
+    status: Literal["alive", "defeated", "fled"]
+    """The creature's coarse status: `"defeated"` when dead, `"fled"` when alive in a group
+    that has left the encounter, and `"alive"` otherwise. A creature that's running but hasn't
+    left is still `"alive"`. This doesn't report whether the creature can act or is immune to a spell."""
+
+
 class EncounterGroupView(_Model):
-    """A monster group as the players see it: what it is, how many, how far, how it looks.
+    """A monster or NPC group as the players see it: identity, roster, count, distance, and appearance.
 
     You get these from [`EncounterView.groups`][osrlib.crawl.views.EncounterView.groups]. Hit
     points and other statistics never appear, because the players know only what they can see
@@ -489,9 +516,10 @@ class EncounterGroupView(_Model):
     [`EncounterGroup.fled`][osrlib.crawl.encounter.EncounterGroup.fled].
 
     A fled group stays in [`EncounterView.groups`][osrlib.crawl.views.EncounterView.groups], but the
-    session refuses every declaration aimed at it with `battle.declaration.unknown_group`. So don't
-    offer it as a target. A group that's running but hasn't got away yet isn't fled. You can still
-    close on it, shoot at it, or cast at it."""
+    session refuses group-targeted declarations with `battle.declaration.unknown_group`. A spell or
+    scroll that names one of its members in `targets` gets `magic.cast.unknown_target`. Don't offer
+    the group or its members as targets. A group that's running but hasn't got away yet isn't fled.
+    You can still close on it, shoot at it, or cast at it."""
     member_distance_feet: dict[str, int] = {}
     """Each living party member's distance to this group, in feet, keyed by member id. Empty outside a
     battle.
@@ -554,6 +582,13 @@ class EncounterGroupView(_Model):
     effect grants. A darkness effect that stops infravision, as
     [`GameSession.party_light`][osrlib.crawl.session.GameSession.party_light] reports, leaves it
     working for nobody. A blind member sees nothing."""
+    members: tuple[EncounterMemberView, ...] = ()
+    """Every member of this group in the group's existing order, including dead and fled members.
+
+    Each entry exposes only its session id and coarse status. Use an `"alive"` entry's id in
+    [`BattleDeclaration.targets`][osrlib.crawl.commands.BattleDeclaration.targets] for a spell or
+    scroll aimed at individual creatures. The spell's range, target count, and touch checks still
+    apply. The tuple defaults to empty when you parse a view written before rosters were available."""
 
     @field_validator("label_plural")
     @classmethod
@@ -1404,6 +1439,15 @@ def _encounter_view(session) -> EncounterView | None:
                 front_rank=front_rank,
                 lit=lit,
                 seen_by=seen_by,
+                members=tuple(
+                    EncounterMemberView(
+                        id=member.id,
+                        status=(
+                            "defeated" if has_condition(member, Condition.DEAD) else "fled" if group.fled else "alive"
+                        ),
+                    )
+                    for member in members
+                ),
             )
         )
     declarers = _able_declarers(session)

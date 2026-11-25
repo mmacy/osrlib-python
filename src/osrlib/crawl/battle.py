@@ -2895,6 +2895,11 @@ def _cast_targets(
 
     A touch spell on a monster within 5' of the caster takes the checks of `_touch_rejection`. A touch spell on a
     monster farther away is left to the spell's range check, which refuses it with `magic.cast.out_of_range`.
+
+    An explicit enemy id must name a living member of a current group that hasn't fled. An unknown,
+    dead, out-of-encounter, or fled enemy gets `magic.cast.unknown_target` before the visibility or
+    reach checks. Party member and cell targets retain their existing checks. A scroll declaration
+    uses the same target lookup.
     """
     try:
         mode = spell.mode(declaration.spell_mode, reversed=declaration.reversed)
@@ -2932,6 +2937,11 @@ def _cast_targets(
         entity = registry.get(target_ref)
         if entity is None:
             return [], None, [Rejection(code="magic.cast.unknown_target", params={"target": target_ref})]
+        group = None
+        if target_ref not in party_ids:
+            group = next((group for group in session.encounter.groups if target_ref in group.monster_ids), None)
+            if group is None or group.fled or has_condition(entity, Condition.DEAD):
+                return [], None, [Rejection(code="magic.cast.unknown_target", params={"target": target_ref})]
         if has_condition(entity, Condition.INVISIBLE):
             # The player already knows the target is invisible, so this rejection reveals nothing.
             return [], None, [Rejection(code="battle.declaration.invisible_target", params={"target": target_ref})]
@@ -2939,15 +2949,13 @@ def _cast_targets(
         if target_ref in party_ids:
             distance = max(distance or 0, placement.between(declaration.character_id, target_ref))
             continue
-        for group in session.encounter.groups:
-            if target_ref in group.monster_ids:
-                reach = placement.distance(declaration.character_id, group)
-                distance = max(distance or 0, reach)
-                # A touch beyond 5' fails the spell's range check in `validate_cast`, with `magic.cast.out_of_range`.
-                if touch and reach <= MELEE_RANGE_FEET:
-                    refused = _touch_rejection(session, declaration.character_id, entity, group, placement)
-                    if refused is not None:
-                        return [], None, [refused]
+        reach = placement.distance(declaration.character_id, group)
+        distance = max(distance or 0, reach)
+        # A touch beyond 5' fails the spell's range check in `validate_cast`, with `magic.cast.out_of_range`.
+        if touch and reach <= MELEE_RANGE_FEET:
+            refused = _touch_rejection(session, declaration.character_id, entity, group, placement)
+            if refused is not None:
+                return [], None, [refused]
     return targets, distance, []
 
 

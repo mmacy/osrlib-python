@@ -2587,6 +2587,9 @@ class BattleDeclaration(_Model):
       when their distance to it is at most that rate plus 5'.
     - `immobile` and `reloading` on the encounter view: who can't move, and who can't fire a
       reloading weapon this round.
+    - Each group's [`members`][osrlib.crawl.views.EncounterGroupView.members], the individual
+      monster or NPC ids and their coarse statuses. Use an `"alive"` entry's id to select a
+      creature for a single-target or `up_to_n` spell or scroll.
     - [`advance_feet`][osrlib.crawl.views.EncounterView.advance_feet] on the encounter view,
       each member's place on the range track. Two members reach each other when their advances
       differ by 5' or less. A member needs to reach another to hand them an item, to give them a
@@ -2628,7 +2631,8 @@ class BattleDeclaration(_Model):
       touch another member with a staff of healing, name that member as the one id in
       `targets`. The two members have to reach each other once the round's moves are made. It's
       the action of the member who carries the item, and the potion's effect lands on the
-      drinker.
+      drinker. A scroll read uses `spell_id`, `spell_mode`, and `targets`, or `target_group_id`
+      for a group-targeted spell, on the same terms as a `cast`.
     - `give_item` uses `item_id` and `targets`. The member hands one item, or one unit of a
       stack, to the member named as the one id in `targets`. It's the giver's action for the
       round, and it resolves in the party's magic phase with the round's other item uses. The
@@ -2742,11 +2746,19 @@ class BattleDeclaration(_Model):
     [`CastSpell.reversed`][osrlib.crawl.commands.CastSpell.reversed]: an arcane caster needs a
     reversed copy memorized, and a divine caster chooses the form here."""
     targets: tuple[str, ...] = ()
-    """The spell's targets, named as in
-    [`CastSpell.targets`][osrlib.crawl.commands.CastSpell.targets]. Each one is a member id, a
-    monster id, or, for a spell that affects a place, a cell reference like
+    """The spell or scroll's targets: party member ids from
+    [`PlayerView.party`][osrlib.crawl.views.PlayerView.party], enemy ids from
+    [`EncounterGroupView.members`][osrlib.crawl.views.EncounterGroupView.members], or, for a
+    spell that affects a place, a cell reference like
     `cell:crypt:1:3,4` that [`cell_ref`][osrlib.crawl.dungeon.cell_ref] builds. Leave it empty
     for a spell whose area covers creatures, which takes `target_group_id` instead.
+
+    An enemy must be a living monster or NPC in a current encounter group that hasn't fled.
+    An unknown id, an enemy outside the current groups, a dead enemy, or an enemy in a fled
+    group gets `magic.cast.unknown_target`, whose `target` param is the id you supplied.
+    Refresh the player view and choose an `"alive"` member. A running group remains targetable
+    until it leaves. A refused round changes no state, draws no randomness, and spends no time.
+    Party member and cell targets retain the spell mode's existing checks.
 
     For a mode that affects a total number of Hit Dice (`hd_budget`), you can leave this empty
     and set `target_group_id` instead. The session then collects the targets from the group, as
