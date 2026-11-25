@@ -923,11 +923,12 @@ class GeneratedCache(_Model):
     This is the other kind: treasure the session rolled for a keyed encounter's lair hoard or for an
     [`AreaTreasureSpec`][osrlib.crawl.dungeon.AreaTreasureSpec]. The session puts it in
     [`DungeonState.generated_caches`][osrlib.crawl.dungeon.DungeonState.generated_caches] under a new
-    id like `"cache-0001"`, and reports the id in a
+    internal id like `"cache-0001"`, and reports that id in a
     [`HoardGeneratedEvent`][osrlib.crawl.events.HoardGeneratedEvent]. When the party takes it with
-    [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure] and that id, the session removes the cache.
-    Whatever the party can't carry goes into a [`DropPile`][osrlib.crawl.dungeon.DropPile] on the
-    same cell.
+    [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure], the player view supplies an opaque
+    [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id]. A current caller can still use an
+    unambiguous raw internal id for compatibility. The session removes a taken cache. Whatever the
+    party can't carry goes into a [`DropPile`][osrlib.crawl.dungeon.DropPile] on the same cell.
 
     The session never traps treasure it rolls, so the only trapped treasure is treasure you write.
     That choice is one of the entries in
@@ -941,6 +942,8 @@ class GeneratedCache(_Model):
         coins: The coins in it.
         valuables: The gems and jewellery in it.
         magic_items: The magic items in it.
+        origin: Whether the cache came from an area, a lair, or an old save without provenance.
+        lair_area_ref: The keyed area for a lair cache, or `None`.
     """
 
     model_config = ConfigDict(validate_assignment=True)
@@ -959,6 +962,12 @@ class GeneratedCache(_Model):
     """The gems and jewellery in the cache, each with an id."""
     magic_items: list[MagicItemInstance] = []
     """The magic items in the cache, each an instance with its charges or quantity already rolled."""
+    origin: Literal["legacy", "area", "lair"] = "legacy"
+    """How the cache was created. New area treasure uses `"area"`, a keyed encounter's hoard uses
+    `"lair"`, and a cache loaded from an old save without provenance uses `"legacy"`."""
+    lair_area_ref: str | None = None
+    """The canonical area reference for a lair cache, or `None` for area treasure and legacy
+    caches."""
 
 
 class FeatureSpec(_Model):
@@ -1015,10 +1024,12 @@ class FeatureSpec(_Model):
 
     id: str
     """The feature's id. It has to be unique across the level, counting the features on the level
-    and on all its areas together. You pass it to [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure]
-    and the other feature commands. The id `"pile"` is reserved for the drop pile on a cell, and
-    [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] reports a feature that uses
-    it."""
+    and on all its areas together. A player client uses the opaque
+    [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id] in feature commands. Current
+    callers can still pass this raw id when it is unambiguous. The id `"pile"` is reserved for
+    the drop pile on a cell, and
+    [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] reports a feature that
+    uses it."""
     kind: Literal["treasure_cache", "construction_trick", "custom"]
     """What kind of feature this is. osrlib runs `"treasure_cache"` for the party. You decide what
     `"construction_trick"` and `"custom"` do."""

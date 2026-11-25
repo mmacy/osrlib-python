@@ -4,22 +4,91 @@ import pytest
 
 from crawl_fixtures import build_adventure, build_party
 from osrlib.core.items import Coins
+from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import Ruleset
-from osrlib.crawl.adventure import validate_adventure
+from osrlib.crawl.adventure import Adventure, TownSpec, validate_adventure
 from osrlib.crawl.dungeon import (
+    AreaSpec,
     Direction,
+    DungeonSpec,
     DungeonState,
     EdgeKind,
     FeatureSpec,
     GeneratedCache,
+    LevelSpec,
     PartyLocation,
     cell_ref,
     edge_key,
     edge_ref,
     step,
 )
+from osrlib.crawl.session import GameSession
 from osrlib.data import load_equipment, load_monsters
 from osrlib.errors import ContentValidationError
+from osrlib.persistence import load_game, save_game
+
+
+def canonical_ref_collision_adventure(kind: str) -> Adventure:
+    """Build two dungeons whose different colon-bearing tuples produce one ref."""
+    first_feature = FeatureSpec(id="cache", kind="treasure_cache", cell=(0, 0), coins=Coins(gp=1))
+    second_feature = FeatureSpec(id="1:cache", kind="treasure_cache", cell=(0, 0), coins=Coins(gp=2))
+    first_area = AreaSpec(id="cache", cells=((0, 0),))
+    second_area = AreaSpec(id="1:cache", cells=((0, 0),))
+
+    def dungeon(dungeon_id: str, feature: FeatureSpec, area: AreaSpec) -> DungeonSpec:
+        return DungeonSpec(
+            id=dungeon_id,
+            levels=(
+                LevelSpec(
+                    number=1,
+                    width=1,
+                    height=1,
+                    entrance=(0, 0),
+                    areas=() if kind == "feature" else (area,),
+                    features=() if kind == "area" else (feature,),
+                ),
+            ),
+        )
+
+    return Adventure(
+        name="Ambiguous refs",
+        town=TownSpec(name="Threshold"),
+        dungeons=(
+            dungeon("vault:1", first_feature, first_area),
+            dungeon("vault", second_feature, second_area),
+        ),
+    )
+
+
+def duplicate_definition_adventure(kind: str) -> Adventure:
+    """Build one level with two features or areas that have the same id."""
+    feature = FeatureSpec(id="repeat", kind="treasure_cache", cell=(0, 0), coins=Coins(gp=1))
+    area = AreaSpec(id="repeat", cells=((0, 0),))
+    level = LevelSpec(
+        number=1,
+        width=1,
+        height=1,
+        entrance=(0, 0),
+        areas=(area, area.model_copy()) if kind == "area" else (),
+        features=(feature, feature.model_copy()) if kind == "feature" else (),
+    )
+    return Adventure(
+        name="Repeated definitions",
+        town=TownSpec(name="Threshold"),
+        dungeons=(DungeonSpec(id="duplicate", levels=(level,)),),
+    )
+
+
+def construct_session_without_validation(adventure: Adventure) -> GameSession:
+    """Call the direct constructor, which checks canonical refs but not all content."""
+    seed = 7
+    return GameSession(
+        party=build_party(),
+        adventure=adventure,
+        ruleset=Ruleset(),
+        streams=RngStreams(master_seed=seed),
+        master_seed=seed,
+    )
 
 
 class TestGeometry:
@@ -77,6 +146,135 @@ class TestValidateAdventure:
         )
         with pytest.raises(ContentValidationError, match="nowhere"):
             validate_adventure(broken, load_monsters(), load_equipment())
+
+    @pytest.mark.parametrize("kind", ["area", "feature"])
+    def test_canonical_area_and_feature_refs_reject_component_collisions(self, kind: str):
+        adventure = canonical_ref_collision_adventure(kind)
+
+        with pytest.raises(ContentValidationError) as excinfo:
+            validate_adventure(adventure, load_monsters(), load_equipment())
+
+        message = str(excinfo.value)
+        assert "canonical reference 'vault:1:1:cache' is repeated" in message
+        assert "dungeon 'vault:1', level 1, id 'cache', " in message
+        assert "dungeon 'vault', level 1, id '1:cache', " in message
+
+    def test_canonical_feature_collision_fails_before_session_state_exists(self):
+        party = build_party()
+        adventure = canonical_ref_collision_adventure("feature")
+
+        with pytest.raises(ContentValidationError, match="canonical reference .* is repeated"):
+            GameSession.new(party, adventure, seed=7)
+
+        assert all(member.id is None for member in party.members)
+
+    def test_load_rejects_canonical_feature_collision_before_commands_can_alias(self):
+        source = GameSession.new(build_party(), build_adventure(), seed=7)
+        document = save_game(source)
+        document["payload"]["adventure"] = canonical_ref_collision_adventure("feature").model_dump(mode="json")
+
+        with pytest.raises(ContentValidationError, match="canonical reference .* is repeated"):
+            load_game(document)
+
+    @pytest.mark.parametrize("kind", ["area", "feature"])
+    def test_direct_constructor_rejects_duplicate_same_id_definitions(self, kind: str):
+        with pytest.raises(ContentValidationError) as excinfo:
+            construct_session_without_validation(duplicate_definition_adventure(kind))
+
+        message = str(excinfo.value)
+        assert "canonical reference 'duplicate:1:repeat' is repeated" in message
+        assert "occurrence 1" in message
+        assert "occurrence 2" in message
+
+    @pytest.mark.parametrize(
+        ("kind", "established_error"),
+        [
+            ("area", "area ids are not unique"),
+            ("feature", "feature ids are not unique"),
+        ],
+    )
+    def test_new_keeps_established_duplicate_id_errors(self, kind: str, established_error: str):
+        with pytest.raises(ContentValidationError) as excinfo:
+            GameSession.new(build_party(), duplicate_definition_adventure(kind), seed=7)
+
+        message = str(excinfo.value)
+        assert established_error in message
+        assert message.count("canonical reference 'duplicate:1:repeat' is repeated") == 1
+
+    @pytest.mark.parametrize("kind", ["area", "feature"])
+    def test_load_rejects_duplicate_same_id_definitions_before_state_validation(self, kind: str):
+        document = save_game(GameSession.new(build_party(), build_adventure(), seed=7))
+        document["payload"]["adventure"] = duplicate_definition_adventure(kind).model_dump(mode="json")
+        document["payload"]["dungeon_state"]["generated_caches"] = {
+            "cache-defective": {
+                "cell_ref": "malformed-on-purpose",
+                "treasure_types": [],
+            }
+        }
+
+        with pytest.raises(ContentValidationError) as excinfo:
+            load_game(document)
+
+        message = str(excinfo.value)
+        assert "canonical reference 'duplicate:1:repeat' is repeated" in message
+        assert "occurrence 1" in message
+        assert "occurrence 2" in message
+        assert "save payload failed validation" not in message
+
+    def test_unique_colon_ids_construct_and_load_without_collisions(self):
+        adventure = Adventure(
+            name="Unique colon ids",
+            town=TownSpec(name="Threshold"),
+            dungeons=(
+                DungeonSpec(
+                    id="vault:outer",
+                    levels=(
+                        LevelSpec(
+                            number=1,
+                            width=2,
+                            height=1,
+                            entrance=(0, 0),
+                            areas=(AreaSpec(id="room:inner", cells=((0, 0),)),),
+                            features=(
+                                FeatureSpec(
+                                    id="cache:outer",
+                                    kind="treasure_cache",
+                                    cell=(1, 0),
+                                    coins=Coins(gp=1),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        validate_adventure(adventure, load_monsters(), load_equipment())
+        session = construct_session_without_validation(adventure)
+        restored = load_game(save_game(session))
+
+        assert restored.adventure == adventure
+
+    def test_load_rejects_colliding_area_ref_with_legacy_cache_state(self):
+        source = GameSession.new(build_party(), build_adventure(), seed=7)
+        document = save_game(source)
+        document["payload"]["adventure"] = canonical_ref_collision_adventure("area").model_dump(mode="json")
+        ambiguous_ref = "vault:1:1:cache"
+        document["payload"]["dungeon_state"]["resolved_encounters"] = [ambiguous_ref]
+        document["payload"]["dungeon_state"]["generated_caches"] = {
+            "cache-legacy": {
+                "cell_ref": cell_ref("vault:1", 1, (0, 0)),
+                "treasure_types": [],
+                "coins": {"pp": 0, "gp": 10, "ep": 0, "sp": 0, "cp": 0},
+                "valuables": [],
+                "magic_items": [],
+            }
+        }
+
+        with pytest.raises(ContentValidationError) as excinfo:
+            load_game(document)
+
+        assert "canonical reference 'vault:1:1:cache' is repeated" in str(excinfo.value)
 
     def test_out_of_bounds_area_cell(self):
         adventure = build_adventure()
@@ -199,7 +397,6 @@ class TestDungeonState:
         restored = DungeonState.model_validate(state.model_dump(mode="json"))
         assert restored == state
 
-    @pytest.mark.xfail(strict=True, reason="#38: old GeneratedCache documents lack lair provenance defaults")
     def test_old_generated_cache_without_lair_area_ref_loads(self):
         cache = GeneratedCache.model_validate(
             {
@@ -210,6 +407,7 @@ class TestDungeonState:
                 "magic_items": [],
             }
         )
+        assert cache.origin == "legacy"
         assert cache.lair_area_ref is None
 
     def test_cell_ref_format(self):

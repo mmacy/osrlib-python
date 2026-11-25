@@ -1,11 +1,11 @@
-"""The referee view is typed: every group the save serializes is a field, built fresh from the session.
+"""The referee view is typed: every public referee group the save serializes is a field.
 
 [`RefereeView`][osrlib.crawl.views.RefereeView] holds the same groups
 [`session_state`][osrlib.persistence.session_state] writes, minus the master seed and the RNG stream
 states, each as the session's own model rather than as a dict, so a front-end author reads
 `view.monsters[0].current_hp` and `view.flags["key"]` with the types the reference documents. The view's
-JSON dump is the save payload without the two withheld keys, which is what keeps the two layouts from
-drifting apart. A view is a snapshot: the session moving on after the view was built changes nothing in
+JSON dump is the save payload without its server-only keys, which keeps the layouts aligned. A view is a
+snapshot: the session moving on after the view was built changes nothing in
 it.
 """
 
@@ -26,13 +26,18 @@ from osrlib.crawl.session import GameSession
 from osrlib.crawl.views import RefereeView, build_referee_view
 from osrlib.persistence import session_state
 
-WITHHELD = ("master_seed", "rng_streams")
-"""The two save keys a referee view never contains."""
+WITHHELD = ("master_seed", "rng_streams", "player_handle_key")
+"""The save keys a referee view never contains."""
 
 
-def played_session() -> GameSession:
+def played_session(player_handle_key: bytes | None = None) -> GameSession:
     """A session with something in every group a referee reads: a flag, a beat, a lit torch, a goblin."""
-    session = GameSession.new(build_party(), build_adventure(wandering_chance=0), seed=11)
+    session = GameSession.new(
+        build_party(),
+        build_adventure(wandering_chance=0),
+        seed=11,
+        player_handle_key=player_handle_key,
+    )
     session.execute(GrantItem(character_id="character-0001", item_id="torch", quantity=6))
     session.execute(GrantItem(character_id="character-0001", item_id="tinder_box"))
     session.execute(EnterDungeon(dungeon_id="delve"))
@@ -103,3 +108,11 @@ class TestTheRefereeViewIsTyped:
         blob = build_referee_view(session).model_dump_json()
         for key in WITHHELD:
             assert key not in blob
+
+    def test_an_explicit_player_handle_key_stays_out_of_the_referee_view(self):
+        key = bytes(range(32))
+        session = played_session(key)
+        blob = build_referee_view(session).model_dump_json()
+
+        assert "player_handle_key" not in blob
+        assert key.hex() not in blob

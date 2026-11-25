@@ -413,7 +413,7 @@ class TestTreasureTraps:
     def test_remove_requires_a_found_trap(self):
         session = self.build_at_chest()
         result = session.execute(RemoveTreasureTrap(character_id="character-0002", feature_id="chest"))
-        assert result.rejections[0].code == "exploration.trap.not_found"
+        assert result.rejections[0].code == "exploration.feature.unknown"
 
     def test_take_treasure_runs_the_spring_check_and_fills_packs(self):
         # Seed 9 springs the poison needle on the leader, who dies reaching in; the
@@ -1635,7 +1635,6 @@ class TestStairsAndTravel:
         assert result.accepted
         assert session.mode.value == "town"
 
-    @pytest.mark.xfail(strict=True, reason="#38: the player view does not report whether town travel is available")
     def test_player_view_reports_town_travel_at_the_entrance_while_exploring(self):
         session = quiet_session()
         assert session.view(Visibility.PLAYER).can_travel_to_town is False

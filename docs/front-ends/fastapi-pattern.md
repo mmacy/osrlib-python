@@ -74,9 +74,10 @@ The handler branches on which field you sent, registers the session in `_session
 --8<-- "examples/fastapi_crawler/app.py:create-session"
 ```
 
-Keep two contracts in mind when creating sessions over HTTP:
+Keep three contracts in mind when creating sessions over HTTP:
 
 - **Keep the master seed on the server**: By default, `create_session` draws a 63-bit seed with `secrets.randbits(63)` and never returns it, because knowing the master seed lets a client predict every future roll. `CreateSession.seed` exists only for deterministic tests and demos; omit `seed` from public request models, since a client that supplies a seed already knows it.
+- **Keep feature handles separate from the seed**: The server passes an independent `secrets.token_bytes(32)` key to each new `GameSession`. A caller-controlled seed therefore can't choose the opaque `feature:` handles in `PlayerView`. `CreateSession` has no player-handle-key field. Restoring a save uses the key in that save, so handles from prior views still resolve.
 - **Return version stamps up front**: Both `POST /sessions` and `GET /sessions/{session_id}` return [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] and [`engine_version()`][osrlib.versioning.engine_version] from [`osrlib.versioning`][osrlib.versioning] so a client can detect a newer server schema before sending commands (see [Determinism, saves, and replay](../guides/determinism-saves-replay.md)).
 
 ### Register listeners on both session paths
@@ -175,7 +176,7 @@ except SaveVersionError:
 --8<-- "examples/fastapi_crawler/app.py:player-view"
 ```
 
-[`PlayerView`][osrlib.crawl.views.PlayerView] allowlists only fields safe for an untrusted client: explored and lit dungeon cells, public character sheets, masked descriptions for unidentified magic items, encounter groups without monster hit points, `journal` entries, and active `quests` with their revealed objectives. Unexplored geometry, undiscovered secret doors and traps, monster stats, `flags`, narrator `guidance`, and RNG state are excluded from the model (see [Views and visibility](../guides/views-and-visibility.md)).
+[`PlayerView`][osrlib.crawl.views.PlayerView] allowlists only fields safe for an untrusted client: explored and lit dungeon cells, entered areas, known features and transitions, public character sheets, masked descriptions for unidentified magic items, encounter groups without monster hit points, `journal` entries, and active `quests` with their revealed objectives. Pass each known [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id] back in a treasure command's `feature_id`. Unexplored geometry, raw ids in the feature list, cache contents, undiscovered secret doors and traps, transition destinations, monster stats, `flags`, narrator `guidance`, the player-handle key, and RNG state are excluded from the model (see [Views and visibility](../guides/views-and-visibility.md)). The established `emptied_caches` diagnostic may contain a fully qualified raw id only after use.
 
 Authored narrative also reaches web clients through `POST /sessions/{session_id}/commands` responses in two places:
 
@@ -184,7 +185,7 @@ Authored narrative also reaches web clients through `POST /sessions/{session_id}
 
 ## Keep save documents on the server
 
-A document returned by [`save_game`][osrlib.persistence.save_game] contains everything the HTTP API withholds from clients: `master_seed`, `rng_streams`, referee state, and the unfiltered logs. `POST /sessions/{session_id}/save` therefore stores the save document on the server and returns only an opaque `save_id`:
+A document returned by [`save_game`][osrlib.persistence.save_game] contains everything the HTTP API withholds from clients: `master_seed`, `rng_streams`, a supplied `player_handle_key`, referee state, and the unfiltered logs. `POST /sessions/{session_id}/save` therefore stores the save document on the server and returns only an opaque `save_id`:
 
 ```{.python .no-run}
 --8<-- "examples/fastapi_crawler/app.py:save-session"

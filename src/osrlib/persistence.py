@@ -38,9 +38,9 @@ A save contains the session's state: the party, the adventure content, the rules
 explored dungeon, the clock, the id allocator, the active effects, the spawned monsters and
 NPCs, flags, fired triggers, the journal, quest progress, listener state, death records,
 defeated monsters, the session mode, the exploration counters, any encounter or battle in
-progress, every RNG stream's position, and the master seed. Beside that state, the save
-contains two logs of what happened: the accepted commands, and the events, unless you leave
-the events out. `load_game` rebuilds the session from the state and doesn't re-run any of the
+progress, every RNG stream's position, the master seed, and a supplied player-handle key. The
+save also contains two logs of what happened: the accepted commands and the events, unless
+you leave the events out. `load_game` rebuilds the session from the state and doesn't re-run
 logged commands.
 
 The two logs have different uses. [`replay_game`][osrlib.persistence.replay_game] runs the
@@ -114,7 +114,7 @@ from osrlib.core.effects import EffectsLedger
 from osrlib.core.monsters import IdAllocator, MonsterInstance
 from osrlib.core.rng import RngStreams, RngStreamState
 from osrlib.core.ruleset import Ruleset
-from osrlib.crawl.adventure import Adventure
+from osrlib.crawl.adventure import Adventure, _validate_canonical_references
 from osrlib.crawl.battle import BattleState
 from osrlib.crawl.commands import Command, SessionMode, parse_command
 from osrlib.crawl.dungeon import DungeonState
@@ -355,6 +355,8 @@ def session_state(session: GameSession, *, include_event_log: bool = True) -> di
         "rng_streams": {key: state.model_dump(mode="json") for key, state in session.streams.export_states().items()},
         "command_log": [command.model_dump(mode="json") for command in session.command_log],
     }
+    if session._player_handle_key is not None:
+        payload["player_handle_key"] = session._player_handle_key.hex()
     if include_event_log:
         payload["event_log"] = [
             copy.deepcopy(entry) if isinstance(entry, dict) else entry.model_dump(mode="json")
@@ -376,7 +378,9 @@ def save_game(session: GameSession, *, include_event_log: bool = True) -> dict:
     beside the schema and engine versions. `load_game` checks the schema version before it
     reads the payload. [`session_state`][osrlib.persistence.session_state] gives you the
     payload without the envelope, for when you embed it in a document of your own instead
-    of storing it.
+    of storing it. When the session has an explicit player-handle key, the payload stores its hex
+    encoding. A full save therefore belongs on the server or with the referee, not in a player
+    export.
 
     Args:
         session: The session to save.
@@ -519,12 +523,19 @@ def load_game(document: Mapping[str, object]) -> GameSession:
     payload = _migrate(payload, int(cast(int, document["schema_version"])))
     try:
         master_seed = int(payload["master_seed"])
+        encoded_handle_key = payload.get("player_handle_key")
+        if encoded_handle_key is not None and not isinstance(encoded_handle_key, str):
+            raise ContentValidationError("save player_handle_key is not a string")
+        player_handle_key = bytes.fromhex(encoded_handle_key) if encoded_handle_key is not None else None
+        adventure = Adventure.model_validate(payload["adventure"])
+        _validate_canonical_references(adventure)
         session = GameSession(
             party=Party.model_validate(payload["party"]),
-            adventure=Adventure.model_validate(payload["adventure"]),
+            adventure=adventure,
             ruleset=Ruleset.model_validate(payload["ruleset"]),
             streams=RngStreams(master_seed=master_seed),
             master_seed=master_seed,
+            player_handle_key=player_handle_key,
         )
         session.mode = SessionMode(str(payload["mode"]))
         session.clock = GameClock(rounds=int(payload["clock_rounds"]))
@@ -608,6 +619,7 @@ def replay_game(
     ruleset: Ruleset,
     commands: Sequence[Command | Mapping[str, object]],
     *,
+    player_handle_key: bytes | None = None,
     recorded_engine_version: str | None = None,
 ) -> GameSession:
     """Rebuild a session by running its recorded commands again from the seed.
@@ -625,8 +637,9 @@ def replay_game(
 
     To replay a stored game, load its save with `load_game` first. Take the seed, the
     adventure, the ruleset, and the command log from the restored session's `master_seed`,
-    `adventure`, `ruleset`, and `command_log`. `load_game` upgrades an older save to the
-    current schema, so those values are in the format this osrlib reads. Take
+    `adventure`, `ruleset`, and `command_log`. If its commands carry opaque feature handles,
+    pass the original `player_handle_key` from server-side state. `load_game` upgrades an
+    older save to the current schema, so those values are in the format this osrlib reads. Take
     `recorded_engine_version` from the save document's `engine_version`.
 
     The save doesn't contain the starting party, so keep it yourself. `party_document` must be
@@ -660,6 +673,9 @@ def replay_game(
         commands: The accepted commands, in order, either as
             [`Command`][osrlib.crawl.commands.Command] objects or as the dicts a save contains
             under `command_log`.
+        player_handle_key: The original server-side feature handle key. Pass it when the log
+            contains opaque handles from that session. Leave it out to deterministically derive
+            handles from `seed`, as old sessions do.
         recorded_engine_version: The `engine_version` from the save the log came from. Pass
             it to make `replay_game` raise an error under a different osrlib version. Leave it
             out and the replay runs without that check.
@@ -678,7 +694,8 @@ def replay_game(
             don't fit that type, or if the session rejects a logged command. The log contains
             only commands the original session accepted, so a rejection means the replay no
             longer matches the game it was meant to reproduce. Check that you passed the
-            starting party, the same ruleset, and the same seed.
+            starting party, the same ruleset and seed, and the original player-handle key
+            when the log contains handles.
         osrlib.errors.SaveVersionError: If a newer osrlib wrote `party_document`.
 
     Examples:
@@ -733,7 +750,13 @@ def replay_game(
     from osrlib.core.character import party_from_document
 
     party = Party(members=party_from_document(party_document))
-    session = GameSession.new(party, adventure, seed=seed, ruleset=ruleset)
+    session = GameSession.new(
+        party,
+        adventure,
+        seed=seed,
+        ruleset=ruleset,
+        player_handle_key=player_handle_key,
+    )
     for entry in commands:
         if isinstance(entry, Command):
             command = entry

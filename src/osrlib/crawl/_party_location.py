@@ -53,6 +53,20 @@ def _features_here(session) -> list[FeatureSpec]:
     return features
 
 
+def _can_travel_to_town(session) -> bool:
+    """Return whether the current exploring party stands on a dungeon entrance."""
+    from osrlib.crawl.commands import SessionMode
+
+    if session.mode is not SessionMode.EXPLORING:
+        return False
+    try:
+        _, _, position = _dungeon_coords(session)
+        level = _level(session)
+    except ValueError:
+        return False
+    return level.entrance is not None and position == level.entrance
+
+
 def _feature_ref(session, feature: FeatureSpec) -> str:
     location = _location(session)
     return f"{location.dungeon_id}:{location.level_number}:{feature.id}"

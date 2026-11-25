@@ -457,7 +457,6 @@ class TestView:
         assert level.edges[edge_key((2, 1), EAST)].kind == "open"
         assert (3, 1) not in level.cells, "the far cell stays dark"
 
-    @pytest.mark.xfail(strict=True, reason="#38: the player view does not project known transitions")
     def test_every_transition_kind_is_public_without_destination_or_gate_data(self):
         base = passage_adventure()
         level_1 = base.dungeons[0].level(1)

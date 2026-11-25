@@ -897,6 +897,63 @@ def _validate_quest(
         _validate_consequence(reward, f"{owner}: reward {position}", adventure, monsters, equipment, magic, errors)
 
 
+def _validate_canonical_references(adventure: Adventure, errors: list[str] | None = None) -> None:
+    """Reject ambiguous canonical area and feature references.
+
+    Dungeon, level, and object ids may contain colons. The overlay still stores area and feature
+    references in the established `"{dungeon}:{level}:{id}"` form, so every authored occurrence
+    must have a unique reference, even when two occurrences have the same component tuple.
+
+    Args:
+        adventure: The authored adventure to inspect.
+        errors: A list to append validation problems to. When omitted, the helper raises a
+            [`ContentValidationError`][osrlib.errors.ContentValidationError] itself.
+
+    Raises:
+        ContentValidationError: If a canonical reference names more than one authored occurrence
+            and `errors` is omitted.
+    """
+    problems = []
+    seen: dict[str, tuple[str, str, int, str, str]] = {}
+    for dungeon in adventure.dungeons:
+        for level in dungeon.levels:
+            entries = [
+                *(("area", area.id, f"level area occurrence {index}") for index, area in enumerate(level.areas, 1)),
+                *(
+                    ("feature", feature.id, f"level feature occurrence {index}")
+                    for index, feature in enumerate(level.features, 1)
+                ),
+                *(
+                    (
+                        "feature",
+                        feature.id,
+                        f"area {area.id!r} feature occurrence {feature_index}",
+                    )
+                    for area in level.areas
+                    for feature_index, feature in enumerate(area.features, 1)
+                ),
+            ]
+            for kind, item_id, occurrence in entries:
+                ref = f"{dungeon.id}:{level.number}:{item_id}"
+                identity = (kind, dungeon.id, level.number, item_id, occurrence)
+                previous = seen.get(ref)
+                if previous is None:
+                    seen[ref] = identity
+                    continue
+                previous_kind, previous_dungeon, previous_level, previous_id, previous_occurrence = previous
+                problems.append(
+                    f"canonical reference {ref!r} is repeated: {previous_kind} "
+                    f"(dungeon {previous_dungeon!r}, level {previous_level}, id {previous_id!r}, "
+                    f"{previous_occurrence}) "
+                    f"conflicts with {kind} "
+                    f"(dungeon {dungeon.id!r}, level {level.number}, id {item_id!r}, {occurrence})"
+                )
+    if errors is not None:
+        errors.extend(problems)
+    elif problems:
+        raise ContentValidationError("adventure validation failed:\n" + "\n".join(problems))
+
+
 def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment: EquipmentCatalog) -> None:
     """Check that every id in an adventure refers to something that exists, and that the session can play it.
 
@@ -931,6 +988,10 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
     - Feature ids are unique across the level, and none is `"pile"`, which is reserved for drop
       piles. A feature is something in the dungeon that the party can find and act on, like a
       treasure cache, a [`FeatureSpec`][osrlib.crawl.dungeon.FeatureSpec].
+    - Every area and feature occurrence has a unique canonical reference across the adventure.
+      A dungeon, area, or feature id can contain a colon, but neither a repeated id on one level
+      nor two different component tuples can produce the same `"{dungeon}:{level}:{id}"`
+      reference.
     - No area has the same id as a feature. The session records found, sprung, and removed traps
       by area id and feature id in the same way, so it would confuse the two.
     - Every feature cell is on the grid, and every feature listed on the level itself, not on an
@@ -1046,6 +1107,7 @@ def validate_adventure(adventure: Adventure, monsters: MonsterCatalog, equipment
     errors.extend(item_conflicts.lines("item"))
     _, spell_conflicts = _effective_spells(adventure, load_spells())
     errors.extend(spell_conflicts.lines("spell"))
+    _validate_canonical_references(adventure, errors)
     for template in adventure.monsters:
         for letter in _unknown_treasure_types((*template.treasure.letters, *template.treasure.parenthetical)):
             errors.append(f"bundled monster {template.id!r} has unknown treasure type {letter!r}")

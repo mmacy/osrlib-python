@@ -29,6 +29,9 @@ The player view has a fixed list of fields, each one safe to show a player. It i
   shown it, and what its light shows right now, with an undiscovered secret door shown
   as wall
 - the dropped piles on cells the party has walked, and the caches it has emptied
+- entered dungeons and areas, with only the area cells the party has walked
+- known custom features, caches, transitions, and the entrance, plus the safe feature handles
+  treasure commands accept
 - the active effects on party members, with their remaining durations
 - the elapsed clock and the session mode
 - the journal, and the active quests with their revealed objectives
@@ -45,13 +48,13 @@ It never includes:
 - the logic of a quest (its activation clauses, patterns, conditions, and rewards), its
   hidden objectives, or any quest that isn't active, whether not yet taken on or already
   finished
-- the RNG state or the master seed, which only the save contains
+- the RNG state, the master seed, or the player-handle key, which only the save contains
 
 The referee view includes everything else the save does, except the random streams'
-positions and the master seed. Use it for an LLM referee, a debugging panel, or a test. Its
+positions, the master seed, and the player-handle key. Use it for an LLM referee, a debugging panel, or a test. Its
 fields are the groups [`session_state`][osrlib.persistence.session_state] writes, so
 `view.monsters[0].current_hp` and `view.flags["key"]` have the types this reference
-documents, and `view.model_dump(mode="json")` is that save data without those two keys.
+documents, and `view.model_dump(mode="json")` is that save data without those three keys.
 Don't send it to a player's client. In a networked game, keep the session and the referee view
 on the server, and send only the player view, or the player-visibility events. The guide [Views
 and visibility](https://mmacy.github.io/osrlib-python/guides/views-and-visibility/) shows both
@@ -119,7 +122,14 @@ from osrlib.core.frozen import _Model
 from osrlib.core.items import MagicItemCategory, MagicItemInstance, magic_item_template
 from osrlib.core.monsters import IdAllocator, MonsterInstance, _regular_plural
 from osrlib.core.ruleset import Ruleset
+from osrlib.crawl._feature_handles import (
+    _authored_feature_id,
+    _cache_available,
+    _generated_feature_id,
+    _parse_cell_location,
+)
 from osrlib.crawl._light import _light_reveal
+from osrlib.crawl._party_location import _can_travel_to_town
 from osrlib.crawl.adventure import Adventure
 from osrlib.crawl.battle import BattleState
 from osrlib.crawl.commands import Command, SessionMode
@@ -136,12 +146,15 @@ from osrlib.crawl.session import (
 )
 
 __all__ = [
+    "DungeonNameView",
     "EdgeView",
+    "EnteredAreaView",
     "EncounterGroupView",
     "EncounterMemberView",
     "EncounterView",
     "ExplorationCounters",
     "ExploredLevelView",
+    "MapFeatureView",
     "MemberEffectView",
     "MemberView",
     "ObjectiveView",
@@ -149,6 +162,7 @@ __all__ = [
     "PlayerView",
     "QuestView",
     "RefereeView",
+    "TransitionView",
     "build_player_view",
     "build_referee_view",
 ]
@@ -399,6 +413,65 @@ class PileView(_Model):
     """The pile's coins, as their value in whole gold pieces, rounded down."""
 
 
+class DungeonNameView(_Model):
+    """The public identity of a dungeon the party has entered."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str = ""
+    """The dungeon id from the adventure."""
+    name: str = ""
+    """The dungeon's display name."""
+
+
+class EnteredAreaView(_Model):
+    """An authored area after the party has entered at least one of its cells."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str = ""
+    """The area's authored id."""
+    name: str = ""
+    """The area's display name."""
+    description: str = ""
+    """The area's authored description."""
+    cells: tuple[Position, ...] = ()
+    """Only the area cells the party has walked, in authored order."""
+
+
+class MapFeatureView(_Model):
+    """One known actionable or descriptive feature on the player map."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str = ""
+    """An opaque `feature:` handle. Pass this value in a feature command's `feature_id`
+    instead of an internal authored or generated cache id."""
+    kind: Literal["treasure_cache", "construction_trick", "custom", "generated_cache"] = "custom"
+    """The feature's public kind. Generated caches use `"generated_cache"`."""
+    description: str = ""
+    """The authored description, or an empty string for a generated cache."""
+    cell: Position | None = None
+    """The feature's cell, or `None` when an area feature applies to the whole entered area."""
+    area_id: str | None = None
+    """The containing area's id after entry, otherwise `None`."""
+    trap_state: Literal["found", "sprung", "removed"] | None = None
+    """The party's known trap state, or `None` when the party knows no trap state."""
+
+
+class TransitionView(_Model):
+    """A known level transition without its destination or gate."""
+
+    model_config = ConfigDict(frozen=True)
+
+    position: Position = (0, 0)
+    """The cell where the transition stands."""
+    kind: Literal["stairs_up", "stairs_down", "trapdoor", "chute", "passage"] = "stairs_up"
+    """The visible transition kind."""
+    side: Direction | None = None
+    """The passage side, or `None` for every transition the party uses at the cell."""
+
+
 class ExploredLevelView(_Model):
     """One level's explored map: the cells the party knows, and the edges around them.
 
@@ -423,6 +496,14 @@ class ExploredLevelView(_Model):
     [`edge_key`][osrlib.crawl.dungeon.edge_key] returns, in the form `"{x},{y}:north"` or
     `"{x},{y}:west"`. Each physical edge appears once, so a wall between two known cells
     is one entry, not two."""
+    areas: tuple[EnteredAreaView, ...] = ()
+    """The authored areas the party has entered, with only their walked cells."""
+    features: tuple[MapFeatureView, ...] = ()
+    """The features the party can currently see or has discovered."""
+    transitions: tuple[TransitionView, ...] = ()
+    """The transitions on known cells, without destinations or gates."""
+    entrance: Position | None = None
+    """The level's entrance when the party knows that cell, otherwise `None`."""
 
 
 class EncounterMemberView(_Model):
@@ -795,13 +876,23 @@ class PlayerView(_Model):
     accepts different commands."""
     explored: tuple[ExploredLevelView, ...]
     """The party's map, one entry per level it knows anything about."""
+    dungeons: tuple[DungeonNameView, ...] = ()
+    """The dungeons the party has entered, in adventure order."""
+    can_travel_to_town: bool = False
+    """Whether the exploring party can use
+    [`TravelToTown`][osrlib.crawl.commands.TravelToTown] from its current position."""
     piles: dict[str, PileView]
     """The dropped piles the party knows about, keyed by the cell reference
     [`cell_ref`][osrlib.crawl.dungeon.cell_ref] returns. A pile in a cell the party has
     not walked is left out."""
     emptied_caches: tuple[str, ...]
     """The treasure caches the party has already emptied, as `"{dungeon}:{level}:{id}"`
-    references, so you can draw a looted cache as looted."""
+    references, so you can draw a looted cache as looted.
+
+    These established raw references are a post-use diagnostic for compatibility. New command
+    targets come from [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id]. A raw authored
+    feature id can appear here only after the party has used it, not in the new `features` list
+    before use."""
     effects: tuple[MemberEffectView, ...]
     """The active effects on party members, in ledger order."""
     fatigued: bool
@@ -869,7 +960,7 @@ class ExplorationCounters(_Model):
 
 
 class RefereeView(_Model):
-    """The full state of a session except the random streams, one typed field for each group of data in a save.
+    """The referee state in a save, except seeds, random streams, and the player-handle key.
 
     Get one from [`GameSession.view`][osrlib.crawl.session.GameSession.view] with
     `Visibility.REFEREE`, or from [`build_referee_view`][osrlib.crawl.views.build_referee_view]. Use
@@ -880,10 +971,10 @@ class RefereeView(_Model):
     Each field is the session's model rather than a dict, so you read
     `view.monsters[0].current_hp` and `view.flags["key"]` with the types this reference documents, and
     each field's docstring links the model to read next. The fields are the groups
-    [`session_state`][osrlib.persistence.session_state] writes, minus the master seed and the RNG stream
-    positions, so `view.model_dump(mode="json")` is that save payload without those two keys. The seed
-    and the stream positions live only in the save, because knowing them would let a player predict
-    every roll to come.
+    [`session_state`][osrlib.persistence.session_state] writes, minus the master seed, the RNG stream
+    positions, and the player-handle key, so `view.model_dump(mode="json")` is that save payload
+    without those keys. The seed and stream positions let a player predict every roll to come.
+    The key lets someone reproduce and control the session's opaque feature handles.
 
     The view is a snapshot of the moment it was built. The session's mutable state is copied into it,
     so later play leaves the view as it was, and editing what you find on a view changes nothing on
@@ -1214,6 +1305,8 @@ def build_player_view(session) -> PlayerView:
         clock_rounds=session.clock.rounds,
         mode=session.mode.value,
         explored=explored,
+        dungeons=tuple(_entered_dungeons(session)),
+        can_travel_to_town=_can_travel_to_town(session),
         piles=piles,
         emptied_caches=tuple(session.dungeon_state.emptied_caches),
         effects=effects,
@@ -1268,6 +1361,85 @@ def _visible_cell_refs(session) -> set[str]:
     return refs
 
 
+def _entered_dungeons(session):
+    entered_ids: set[str] = set()
+    for key in session.dungeon_state.explored:
+        try:
+            dungeon_id, level_text = key.rsplit(":", 1)
+            int(level_text)
+        except TypeError, ValueError:
+            continue
+        entered_ids.add(dungeon_id)
+    for dungeon in session.adventure.dungeons:
+        if dungeon.id in entered_ids:
+            yield DungeonNameView(id=dungeon.id, name=dungeon.name)
+
+
+def _trap_state(session, ref: str, trapped: bool) -> Literal["found", "sprung", "removed"] | None:
+    if not trapped:
+        return None
+    state = session.dungeon_state
+    if ref in state.removed_traps:
+        return "removed"
+    if ref in state.sprung_traps:
+        return "sprung"
+    if ref in state.found_traps:
+        return "found"
+    return None
+
+
+def _authored_feature_views(session, dungeon_id, level_number, level, known, entered_area_ids):
+    features = []
+    visible_features = [
+        *((None, feature) for feature in level.features),
+        *((area, feature) for area in level.areas for feature in area.features),
+    ]
+    for area, feature in visible_features:
+        if feature.cell is None:
+            if area is None or area.id not in entered_area_ids:
+                continue
+        else:
+            if feature.cell not in known:
+                continue
+            if area is not None and level.area_at(feature.cell) is not area:
+                continue
+        ref = f"{dungeon_id}:{level_number}:{feature.id}"
+        if feature.kind == "construction_trick" and ref not in session.dungeon_state.found_tricks:
+            continue
+        features.append(
+            MapFeatureView(
+                id=_authored_feature_id(session, dungeon_id, level_number, feature.id),
+                kind=feature.kind,
+                description=feature.description,
+                cell=feature.cell,
+                area_id=area.id if area is not None and area.id in entered_area_ids else None,
+                trap_state=_trap_state(session, ref, feature.trap is not None),
+            )
+        )
+    return features
+
+
+def _generated_feature_views(session, dungeon_id, level_number, known):
+    features = []
+    for cache_id, cache in session.dungeon_state.generated_caches.items():
+        location = _parse_cell_location(session, cache.cell_ref)
+        if location is None or location[:2] != (dungeon_id, level_number):
+            continue
+        if location[2] not in known or not _cache_available(session, cache):
+            continue
+        features.append(
+            MapFeatureView(
+                id=_generated_feature_id(session, dungeon_id, level_number, cache_id),
+                kind="generated_cache",
+                description="",
+                cell=location[2],
+                area_id=None,
+                trap_state=None,
+            )
+        )
+    return sorted(features, key=lambda feature: feature.id)
+
+
 def _explored_levels(session):
     reveal_key, reveal_cells = _light_reveal(session)
     dungeon_state = session.dungeon_state
@@ -1293,6 +1465,33 @@ def _explored_levels(session):
                 known.add(cell)
         if key == reveal_key:
             visible.extend(cell for cell in reveal_cells if cell not in known)
+        known = set(visible)
+        walked = set(dungeon_state.explored.get(key, []))
+        areas = []
+        entered_area_ids = set()
+        for area in level.areas:
+            walked_cells = tuple(cell for cell in area.cells if cell in walked and level.area_at(cell) is area)
+            if not walked_cells:
+                continue
+            entered_area_ids.add(area.id)
+            areas.append(
+                EnteredAreaView(
+                    id=area.id,
+                    name=area.name,
+                    description=area.description,
+                    cells=walked_cells,
+                )
+            )
+        features = [
+            *_authored_feature_views(session, dungeon_id, level_number, level, known, entered_area_ids),
+            *_generated_feature_views(session, dungeon_id, level_number, known),
+        ]
+        transitions = tuple(
+            TransitionView(position=transition.position, kind=transition.kind, side=transition.side)
+            for transition in level.transitions
+            if transition.position in known
+        )
+        entrance = level.entrance if level.entrance in known else None
         # A passage's side is a wall in the level's edges, but the party walks through it, so
         # the view reports it as open.
         passage_edges = {
@@ -1323,7 +1522,16 @@ def _explored_levels(session):
                     )
                 else:
                     edges[key_text] = EdgeView(kind=edge.kind.value)
-        yield ExploredLevelView(dungeon_id=dungeon_id, level_number=level_number, cells=tuple(visible), edges=edges)
+        yield ExploredLevelView(
+            dungeon_id=dungeon_id,
+            level_number=level_number,
+            cells=tuple(visible),
+            edges=edges,
+            areas=tuple(areas),
+            features=tuple(features),
+            transitions=transitions,
+            entrance=entrance,
+        )
 
 
 def _canonical_edge(cell: Position, direction: Direction) -> str:
@@ -1471,7 +1679,7 @@ def _encounter_view(session) -> EncounterView | None:
 
 
 def build_referee_view(session) -> RefereeView:
-    """Build the referee view: every group of data in a save, typed, except the seed and the random streams.
+    """Build the referee view from a save's groups, except its seed, streams, and handle key.
 
     Use it for the context an LLM referee reasons over, for a debugging panel, or for a test that
     checks state a player may not see.
@@ -1495,7 +1703,7 @@ def build_referee_view(session) -> RefereeView:
 
     Returns:
         A frozen [`RefereeView`][osrlib.crawl.views.RefereeView] of the whole session, except the
-            master seed and the random streams' positions.
+            master seed, the random streams' positions, and the player-handle key.
 
     Examples:
         ```python

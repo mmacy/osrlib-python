@@ -17,7 +17,8 @@ from osrlib.core.character import CHARACTER_CREATION_STREAM, party_to_document
 from osrlib.core.items import ValuableInstance
 from osrlib.core.rng import RngStreams
 from osrlib.core.ruleset import Ruleset
-from osrlib.crawl.commands import SessionMode
+from osrlib.crawl.commands import PlaceParty, SessionMode
+from osrlib.crawl.dungeon import Direction, PartyLocation
 from osrlib.versioning import SCHEMA_VERSION, engine_version
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -81,6 +82,15 @@ def get_view(client, session_id: str, *, capture: list | None = None) -> dict:
     if capture is not None:
         capture.append(response.text)
     return response.json()
+
+
+def feature_handle(view: dict, description: str) -> str:
+    return next(
+        feature["id"]
+        for level in view["explored"]
+        for feature in level["features"]
+        if feature["description"] == description
+    )
 
 
 def first_weapon_id(member_view: dict) -> str | None:
@@ -163,6 +173,48 @@ class TestHandshake:
         assert response.status_code == 200
         assert "seed" not in response.json()
 
+    def test_server_key_not_the_caller_seed_controls_player_handles(self, client):
+        first = create_session(client)
+        second = create_session(client)
+        first_session, _ = _sessions[first]
+        second_session, _ = _sessions[second]
+        assert len(first_session._player_handle_key) == 32
+        assert len(second_session._player_handle_key) == 32
+        assert first_session._player_handle_key != second_session._player_handle_key
+
+        for session_id in (first, second):
+            assert run(client, session_id, {"command_type": "enter_dungeon", "dungeon_id": "barrow"})["accepted"]
+        for session, _lock in (_sessions[first], _sessions[second]):
+            assert session.execute(
+                PlaceParty(
+                    location=PartyLocation(
+                        kind="dungeon",
+                        dungeon_id="barrow",
+                        level_number=1,
+                        position=(4, 0),
+                        facing=Direction.EAST,
+                    )
+                )
+            ).accepted
+        first_handle = feature_handle(get_view(client, first), "The idol rests in a hollow under the altar stone.")
+        second_handle = feature_handle(get_view(client, second), "The idol rests in a hollow under the altar stone.")
+        assert first_handle != second_handle
+
+    def test_create_ignores_a_client_player_handle_key(self, client):
+        supplied = b"c" * 32
+        response = client.post(
+            "/sessions",
+            json={
+                "party_document": build_party_document(),
+                "seed": MASTER_SEED,
+                "player_handle_key": supplied.hex(),
+            },
+        )
+        assert response.status_code == 200
+        session, _ = _sessions[response.json()["session_id"]]
+        assert session._player_handle_key != supplied
+        assert len(session._player_handle_key) == 32
+
 
 class TestScriptedPlaythrough:
     def test_the_shortened_barrow_script(self, client):
@@ -191,7 +243,9 @@ class TestScriptedPlaythrough:
         run(client, session_id, {"command_type": "move_party", "direction": "east"})
         view = get_view(client, session_id)
         gold_before = sum(member["inventory"]["purse"]["gp"] for member in view["party"])
-        result = run(client, session_id, {"command_type": "take_treasure", "feature_id": "idol_shrine"})
+        idol_handle = feature_handle(view, "The idol rests in a hollow under the altar stone.")
+        assert "idol_shrine" not in idol_handle
+        result = run(client, session_id, {"command_type": "take_treasure", "feature_id": idol_handle})
         assert result["accepted"], result
         acquired = [event for event in result["events"] if event["code"] == "exploration.item.acquired"]
         assert acquired, result["events"]
@@ -279,6 +333,7 @@ class TestScriptedPlaythrough:
         assert restored.status_code == 200
         restored_id = restored.json()["session_id"]
         assert restored_id != session_id
+        assert _sessions[restored_id][0]._player_handle_key == _sessions[session_id][0]._player_handle_key
         assert get_view(client, restored_id) == get_view(client, session_id)
 
 
@@ -408,7 +463,16 @@ class TestWireLeaks:
         fight(client, session_id, capture=captured)
         run(client, session_id, {"command_type": "move_party", "direction": "east"}, capture=captured)
         run(client, session_id, {"command_type": "move_party", "direction": "east"}, capture=captured)
-        run(client, session_id, {"command_type": "take_treasure", "feature_id": "idol_shrine"}, capture=captured)
+        idol_handle = feature_handle(
+            get_view(client, session_id, capture=captured),
+            "The idol rests in a hollow under the altar stone.",
+        )
+        run(
+            client,
+            session_id,
+            {"command_type": "take_treasure", "feature_id": idol_handle},
+            capture=captured,
+        )
         get_view(client, session_id, capture=captured)
         captured.append(client.get(f"/sessions/{session_id}").text)
         captured.append(client.post(f"/sessions/{session_id}/save").text)
