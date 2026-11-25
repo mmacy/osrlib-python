@@ -1,5 +1,7 @@
 """The wired magic item census, behavior by behavior — the Phase 5 item contract."""
 
+import pytest
+
 from crawl_fixtures import build_adventure, build_party
 from osrlib.core.combat import (
     AttackContext,
@@ -10,7 +12,8 @@ from osrlib.core.combat import (
     resolve_attack,
     saving_throw,
 )
-from osrlib.core.effects import ActiveModifier, EffectDefinition, ModifierSpec
+from osrlib.core.effects import ActiveModifier, Condition, EffectDefinition, ModifierSpec, has_condition, kill
+from osrlib.core.events import Visibility
 from osrlib.core.items import (
     MagicItemInstance,
     equip,
@@ -21,15 +24,18 @@ from osrlib.core.monsters import spawn_monster
 from osrlib.core.rng import RngStream
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.commands import (
+    BattleDeclaration,
     EnterDungeon,
     EquipItem,
     GrantItem,
     IdentifyItem,
+    ResolveBattleRound,
     UnequipItem,
     UseItem,
 )
 from osrlib.crawl.session import GameSession
 from osrlib.data import load_classes, load_equipment, load_monsters
+from osrlib.persistence import save_game
 
 RULESET = Ruleset()
 
@@ -447,6 +453,28 @@ class TestScrollsInPlay:
         assert result.accepted
         assert member.inventory.magic_item(scroll.instance_id) is None  # the last spell burned the scroll
 
+    def test_out_of_battle_scroll_read_keeps_registry_target_lookup(self):
+        session, member, scroll = session_with_item(
+            "spell_scroll_1", state={"spell_list": "magic_user", "spells": ("magic_missile",)}
+        )
+        member.class_id = "magic_user"
+        target = session.spawn("goblin", 1)[0]
+        assert session.encounter is None
+
+        result = session.execute(
+            UseItem(
+                character_id=member.id,
+                item_id=scroll.instance_id,
+                spell_id="magic_missile",
+                mode=scroll_mode("magic_missile"),
+                targets=(target.id,),
+            )
+        )
+
+        assert result.accepted, [rejection.code for rejection in result.rejections]
+        cast = next(event for event in result.events if event.code == "magic.cast.cast")
+        assert cast.target_ids == (target.id,)
+
     def test_wrong_caster_rejected_and_thief_fizzle_wired(self):
         session, member, scroll = session_with_item(
             "spell_scroll_1", state={"spell_list": "magic_user", "spells": ("shield",)}
@@ -532,6 +560,114 @@ def scroll_mode(spell_id: str) -> str:
     from osrlib.data import load_spells
 
     return load_spells().get(spell_id).modes[0].key
+
+
+class TestBattleScrollTargets:
+    @staticmethod
+    def declaration(case: str, *, distance: int = 40, enemy: str = "monster"):
+        from test_battle import battle_session, npc_battle_session
+
+        session = (
+            npc_battle_session(distance=distance) if enemy == "npc" else battle_session(count=2, distance=distance)
+        )
+        group = session.encounter.groups[-1]
+        if case == "valid":
+            target_id = session.view(Visibility.PLAYER).encounter.groups[-1].members[0].id
+        elif case == "running":
+            target_id = group.monster_ids[0]
+            group.fleeing = True
+        elif case == "party":
+            target_id = session.party.members[0].id
+        elif case == "unknown":
+            target_id = "npc-9999" if enemy == "npc" else "monster-9999"
+        elif case == "stale" and enemy == "npc":
+            target_id = group.monster_ids[0]
+            group.monster_ids = group.monster_ids[1:]
+            assert target_id in session.registry()
+        elif case == "stale":
+            target_id = session.spawn("goblin", 1)[0].id
+        elif case == "dead":
+            target_id = group.monster_ids[0]
+            kill(session.combatant(target_id))
+            assert has_condition(session.combatant(target_id), Condition.DEAD)
+        else:
+            target_id = group.monster_ids[0]
+            group.fled = True
+        reader = session.member("character-0004")
+        scroll = MagicItemInstance(
+            instance_id="magic-item-9001",
+            template_id="spell_scroll_1",
+            state={"spell_list": "magic_user", "spells": ("magic_missile",)},
+        )
+        reader.inventory.items.append(scroll)
+        declaration = BattleDeclaration(
+            character_id=reader.id,
+            action="use_item",
+            item_id=scroll.instance_id,
+            spell_id="magic_missile",
+            spell_mode=scroll_mode("magic_missile"),
+            targets=(target_id,),
+        )
+        return session, reader, scroll, declaration, target_id
+
+    @pytest.mark.parametrize("enemy", ["monster", "npc"])
+    @pytest.mark.parametrize("case", ["valid", "running"])
+    def test_a_current_living_enemy_id_is_valid_even_while_its_group_runs(self, case, enemy):
+        from test_battle import hold_all
+
+        session, _, scroll, declaration, target_id = self.declaration(case, enemy=enemy)
+
+        result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(declaration,))))
+
+        assert result.accepted, [rejection.code for rejection in result.rejections]
+        assert session.member("character-0004").inventory.magic_item(scroll.instance_id) is None
+        cast = next(event for event in result.events if event.code == "magic.cast.cast")
+        assert cast.target_ids == (target_id,)
+
+    def test_a_party_member_id_keeps_its_existing_scroll_target_semantics(self):
+        from test_battle import hold_all
+
+        session, _, _, declaration, target_id = self.declaration("party")
+
+        result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(declaration,))))
+
+        assert result.accepted, [rejection.code for rejection in result.rejections]
+        cast = next(event for event in result.events if event.code == "magic.cast.cast")
+        assert cast.target_ids == (target_id,)
+
+    @pytest.mark.parametrize("enemy", ["monster", "npc"])
+    @pytest.mark.parametrize("case", ["unknown", "stale", "dead", "fled"])
+    def test_an_explicit_enemy_id_outside_the_live_encounter_is_refused_whole(self, case, enemy):
+        from test_battle import hold_all
+
+        session, _, scroll, declaration, target_id = self.declaration(case, enemy=enemy)
+        before = save_game(session)
+
+        result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(declaration,))))
+
+        assert not result.accepted
+        assert [(rejection.code, dict(rejection.params)) for rejection in result.rejections] == [
+            ("magic.cast.unknown_target", {"target": target_id})
+        ]
+        assert result.events == ()
+        assert session.member("character-0004").inventory.magic_item(scroll.instance_id) is scroll
+        assert save_game(session) == before
+
+    @pytest.mark.parametrize("enemy", ["monster", "npc"])
+    def test_a_valid_enemy_id_still_obeys_range(self, enemy):
+        from test_battle import hold_all
+
+        session, _, scroll, declaration, target_id = self.declaration("valid", distance=160, enemy=enemy)
+        before = save_game(session)
+
+        result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(declaration,))))
+
+        assert [(rejection.code, dict(rejection.params)) for rejection in result.rejections] == [
+            ("magic.cast.out_of_range", {"spell": "magic_missile", "distance_feet": 160, "range_feet": 150})
+        ]
+        assert session.combatant(target_id) is not None
+        assert session.member("character-0004").inventory.magic_item(scroll.instance_id) is scroll
+        assert save_game(session) == before
 
 
 class TestDevicesInPlay:

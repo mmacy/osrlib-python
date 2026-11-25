@@ -709,12 +709,26 @@ class TestViews:
         session.execute(SpawnMonsters(template_id="goblin", count_fixed=3, distance_feet=60))
         view = session.view(Visibility.PLAYER)
         assert view.encounter is not None
-        assert view.encounter.groups[0].count == 3
+        group = view.encounter.groups[0]
+        assert group.count == 3
         blob = view.model_dump_json()
         assert "current_hp" in blob  # the party's own
         goblins = [session.monsters[mid] for mid in session.encounter.groups[0].monster_ids]
-        for goblin in goblins:
-            assert f'"{goblin.id}"' not in blob  # not even ids, only counts and labels
+        assert [member.model_dump(mode="json") for member in group.members] == [
+            {"id": goblin.id, "status": "alive"} for goblin in goblins
+        ]
+        assert (
+            not {
+                "current_hp",
+                "max_hp",
+                "template",
+                "conditions",
+                "stat_modifiers",
+                "inventory",
+                "treasure",
+            }
+            & group.model_dump().keys()
+        )
 
 
 class TestSpawnMonstersCommand:

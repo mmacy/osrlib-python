@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- The player view exposes an ordered roster for each encounter group through [`EncounterGroupView.members`][osrlib.crawl.views.EncounterGroupView.members] (#268, [bxapi #39](https://github.com/mmacy/bxapi/issues/39)). Each frozen [`EncounterMemberView`][osrlib.crawl.views.EncounterMemberView] contains only the creature's existing `id` and coarse `status` (`"alive"`, `"defeated"`, or `"fled"`), including monsters and NPC adventurers without exposing HP or individual conditions. IDs match events and survive save/load and group splits. `members` defaults to empty when you parse an older view. A player-only client can select individual spell and scroll targets before receiving combat events. Battle spell and scroll declarations refuse unknown, out-of-encounter, dead, or fled enemy IDs with `magic.cast.unknown_target` without draws, elapsed time, events, or state changes. A running group remains targetable until it leaves. Party and cell targets, group-targeted spells, out-of-battle casting, and top-level item use keep their existing contracts.
+
 ## [2.5.1] - 2026-11-21
 
 ### Fixed
