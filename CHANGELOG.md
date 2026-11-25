@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Every event that reports `coins_gp_value` also reports the exact coins by denomination, as a new `coins` field of type [`Coins`][osrlib.core.items.Coins], and so does [`PileView`][osrlib.crawl.views.PileView] (#285). The events are [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent], [`ItemsDroppedEvent`][osrlib.crawl.events.ItemsDroppedEvent], [`ItemsLeftBehindEvent`][osrlib.crawl.events.ItemsLeftBehindEvent], [`ItemsGivenEvent`][osrlib.crawl.events.ItemsGivenEvent], [`LootDroppedEvent`][osrlib.crawl.events.LootDroppedEvent], [`HoardGeneratedEvent`][osrlib.crawl.events.HoardGeneratedEvent], and [`ItemsRemovedEvent`][osrlib.crawl.events.ItemsRemovedEvent]. `coins_gp_value` keeps its meaning, the value in whole gold pieces rounded down, so 39 cp still reports 0 there and now reports `Coins(cp=39)` in `coins`. When `TakeTreasure` splits a haul, each member's `ItemAcquiredEvent` has the coins that member received, so the shares' `coins` add up to the coins taken. A pile of copper alone has `coins_gp_value` 0 and its copper in `coins`, so a client can tell it from an empty pile. Every field this release adds has a default, so an event or a view from 2.6.0 still parses, [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] stays 4, and no draw sequence changes.
+- [`XpAwardedEvent`][osrlib.crawl.events.XpAwardedEvent] has two new fields, `gained` and `clamped` (#286). `gained` is the experience the character actually gained, and `clamped` is true when the one-level limit cut the award. A first-level fighter awarded 5,000 XP ends at 3,999, and the event now reports a `gained` of 3,999 and a `clamped` of true beside the `modified_award` of 5,000. An event recorded before this release has a `gained` of `None`.
+- [`EncounterGroupView.fleeing`][osrlib.crawl.views.EncounterGroupView.fleeing] says that a group has failed its morale check and is running, as [`EncounterGroup.fleeing`][osrlib.crawl.encounter.EncounterGroup.fleeing] does (#269). A group that's `fleeing` and not yet `fled` is still in the battle, so a client that draws the battle from the player view, or loads a save, can show it running and still offer it as a target.
+- [`MemberView.class_name`][osrlib.crawl.views.MemberView.class_name] is the name of the member's class, like `"Fighter"`, read from the class definition the character uses, so it's right for a custom class too (#257). Before, a client turned `class_id` into a name with `load_classes()`, which raises `ValueError` for a custom class.
+- Every rejection of a battle declaration names the member who made it, in its `character` param (#287). That includes the kernel's checks that a declaration passes through, like `combat.attack.out_of_reach` and `magic.cast.target_count`, which had no `character` param. It applies to [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] and to [`preview_battle_round`][osrlib.crawl.battle.preview_battle_round], so a client with several players can tell from one refused round whose declaration to change.
+
+### Fixed
+
+- [`format_message`][osrlib.messages.format_message] describes coins by denomination, like "3 gp and 4 sp in coin", from the events' new `coins` (#285). Before, it described coins from `coins_gp_value` and left out an amount worth less than 1 gp, so 39 cp of loot read "The fallen leave behind ." and a member's share of 48 cp read "acquires .". The hoard line reads "no coin" for a hoard without coins. An event recorded before this release has no `coins`, and its line still uses `coins_gp_value`.
+- The `session.xp.awarded` line reports the experience the character gained, and when the one-level limit cut the award, it adds "The rest is lost to the one-level limit." (#286). Before, it reported the whole award.
+- The `battle.side.fled` line reads "group-0001 breaks and runs!" (#269). Before, it read "group-0001 flees the battle!", but the group leaves the battle in a later round, when it gets far enough away.
+
 ## [2.6.0] - 2026-11-25
 
 ### Added
