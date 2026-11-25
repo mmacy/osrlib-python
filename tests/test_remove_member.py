@@ -486,7 +486,9 @@ class TestGiveTo:
         session = new_session()
         assert session.execute(GrantCoins(character_id=THIEF, coins=Coins(gp=30))).accepted
         events = remove(session, THIEF, give_to=LEAD)
-        assert events[:-1] == [ItemsGivenEvent(character_id=THIEF, recipient_id=LEAD, item_ids=(), coins_gp_value=30)]
+        assert events[:-1] == [
+            ItemsGivenEvent(character_id=THIEF, recipient_id=LEAD, item_ids=(), coins_gp_value=30, coins=Coins(gp=30))
+        ]
         assert session.member(LEAD).inventory.purse.gp == 30
 
     def test_an_empty_handed_member_makes_no_handover(self):

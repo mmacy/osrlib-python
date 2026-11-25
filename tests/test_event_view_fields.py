@@ -10,8 +10,6 @@
 Everything here is additive within the current `schema_version`: `coins_gp_value` keeps its meaning.
 """
 
-import pytest
-
 from crawl_fixtures import build_adventure, build_party
 from osrlib.core.events import Visibility
 from osrlib.core.items import Coins
@@ -88,7 +86,6 @@ def test_a_removal_of_one_copper_reports_that_coin():
     assert "1 cp" in format_message(event)
 
 
-@pytest.mark.xfail(reason="chunk: exact-coins")
 def test_a_pile_of_copper_alone_is_not_an_empty_pile():
     session = _session()
     assert session.execute(GrantCoins(character_id=FIGHTER, coins=Coins(cp=48))).accepted
@@ -99,7 +96,7 @@ def test_a_pile_of_copper_alone_is_not_an_empty_pile():
     assert result.accepted, [rejection.code for rejection in result.rejections]
     dropped = [event for event in result.events if getattr(event, "coins_gp_value", None) is not None]
     assert [event.coins for event in dropped] == [Coins(cp=48)]
-    piles = _player_view(session).piles_here
+    piles = list(_player_view(session).piles.values())
     assert [pile.coins for pile in piles] == [Coins(cp=48)]
     assert piles[0].coins_gp_value == 0
 

@@ -494,7 +494,7 @@ class TestRemoveCoins:
         result = session.execute(RemoveCoins(character_id=LEAD, coins=toll))
         assert result.accepted
         assert purse(session, LEAD) == {"pp": 1, "gp": 7, "ep": 0, "sp": 0, "cp": 40}
-        assert list(result.events) == [ItemsRemovedEvent(character_id=LEAD, coins_gp_value=toll.value_gp)]
+        assert list(result.events) == [ItemsRemovedEvent(character_id=LEAD, coins_gp_value=toll.value_gp, coins=toll)]
         assert stream_states(session) == streams and session.clock.rounds == rounds, "a removal is bookkeeping"
 
     def test_it_makes_no_change_from_another_denomination(self):
@@ -729,7 +729,7 @@ class TestTollTrigger:
         (paid,) = logged(session, "remove_coins")
         assert paid.character_id == LEAD and paid.source == "trigger:toll"
         assert purse(session, LEAD)["gp"] == 7
-        assert removed_events(session) == [ItemsRemovedEvent(character_id=LEAD, coins_gp_value=5)]
+        assert removed_events(session) == [ItemsRemovedEvent(character_id=LEAD, coins_gp_value=5, coins=Coins(gp=5))]
         assert notes(session) == []
         assert_replays(session, document)
 
