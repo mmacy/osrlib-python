@@ -119,7 +119,7 @@ from osrlib.core.classes import level_title
 from osrlib.core.effects import Condition, EffectsLedger, has_condition
 from osrlib.core.events import Event
 from osrlib.core.frozen import _Model
-from osrlib.core.items import MagicItemCategory, MagicItemInstance, magic_item_template
+from osrlib.core.items import Coins, MagicItemCategory, MagicItemInstance, magic_item_template
 from osrlib.core.monsters import IdAllocator, MonsterInstance, _regular_plural
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl._feature_handles import (
@@ -202,6 +202,10 @@ class MemberView(_Model):
     [`Character.class_id`][osrlib.core.character.Character.class_id]. For a class your game wrote, it's
     the id of the character's [`custom_class`][osrlib.core.character.Character.custom_class], so look
     the class's name up in your own definitions."""
+    class_name: str = ""
+    """The character class's name, like `"Fighter"`, read from
+    [`Character.definition`][osrlib.core.character.Character.definition], so it's right for a custom
+    class too."""
     level: int
     """The character's experience level."""
     current_hp: int
@@ -411,6 +415,8 @@ class PileView(_Model):
     name, or its kind when it has no name."""
     coins_gp_value: int
     """The pile's coins, as their value in whole gold pieces, rounded down."""
+    coins: Coins = Coins()
+    """The pile's coins by denomination, so a pile of copper alone isn't mistaken for an empty one."""
 
 
 class DungeonNameView(_Model):
@@ -601,6 +607,9 @@ class EncounterGroupView(_Model):
     scroll that names one of its members in `targets` gets `magic.cast.unknown_target`. Don't offer
     the group or its members as targets. A group that's running but hasn't got away yet isn't fled.
     You can still close on it, shoot at it, or cast at it."""
+    fleeing: bool = False
+    """True while the group is running from the battle and hasn't got away yet, as in
+    [`EncounterGroup.fleeing`][osrlib.crawl.encounter.EncounterGroup.fleeing]."""
     member_distance_feet: dict[str, int] = {}
     """Each living party member's distance to this group, in feet, keyed by member id. Empty outside a
     battle.

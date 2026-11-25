@@ -517,6 +517,7 @@ def test_the_player_view_never_leaks(seed, commands):
                 "visible_conditions",
                 "condition_counts",
                 "fled",
+                "fleeing",
                 "members",
                 "member_distance_feet",
                 "front_rank",

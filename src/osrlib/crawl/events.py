@@ -84,6 +84,7 @@ from typing import Annotated, ClassVar, Literal, Union
 from pydantic import Field, ValidationInfo, field_validator
 
 from osrlib.core.events import KERNEL_EVENT_CLASSES, Event, Visibility, _classes_by_type, _parse_record
+from osrlib.core.items import Coins
 from osrlib.core.monsters import _regular_plural
 
 __all__ = [
@@ -584,6 +585,9 @@ class ItemAcquiredEvent(Event):
     coins_gp_value: int = 0
     """The coins acquired, converted to their value in gold pieces, and zero when only items
     changed hands."""
+    coins: Coins = Coins()
+    """The same coins by denomination, so a client can show the exact amount, and every
+    coin of a small amount that `coins_gp_value` rounds down to zero."""
     origin: str | None = None
     """Where the goods came from: `"treasure"` for a share of a haul taken with
     [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure], `"purchase"` for gear bought with
@@ -654,6 +658,9 @@ class ItemsDroppedEvent(Event):
     instance ids for valuables and magic items."""
     coins_gp_value: int = 0
     """The coins dropped, as their value in gold pieces."""
+    coins: Coins = Coins()
+    """The same coins by denomination, so a client can show the exact amount, and every
+    coin of a small amount that `coins_gp_value` rounds down to zero."""
 
 
 class ItemsLeftBehindEvent(Event):
@@ -681,6 +688,9 @@ class ItemsLeftBehindEvent(Event):
     magic items."""
     coins_gp_value: int = 0
     """The coins left behind, as their value in gold pieces."""
+    coins: Coins = Coins()
+    """The same coins by denomination, so a client can show the exact amount, and every
+    coin of a small amount that `coins_gp_value` rounds down to zero."""
 
 
 class ItemsGivenEvent(Event):
@@ -711,6 +721,9 @@ class ItemsGivenEvent(Event):
     magic items."""
     coins_gp_value: int = 0
     """The coins handed over, as their value in gold pieces."""
+    coins: Coins = Coins()
+    """The same coins by denomination, so a client can show the exact amount, and every
+    coin of a small amount that `coins_gp_value` rounds down to zero."""
 
 
 class LightEvent(Event):
@@ -1155,6 +1168,9 @@ class LootDroppedEvent(Event):
     nature stays hidden."""
     coins_gp_value: int = 0
     """The coins that went into the pile, as their value in gold pieces."""
+    coins: Coins = Coins()
+    """The same coins by denomination, so a client can show the exact amount, and every
+    coin of a small amount that `coins_gp_value` rounds down to zero."""
 
 
 class EncounterEndedEvent(Event):
@@ -1564,6 +1580,9 @@ class HoardGeneratedEvent(Event):
     letters lists both. Treasure rolled on the unguarded-treasure table has `("unguarded",)`."""
     coins_gp_value: int = 0
     """The coins in the hoard, as their value in gold pieces."""
+    coins: Coins = Coins()
+    """The same coins by denomination, so a client can show the exact amount, and every
+    coin of a small amount that `coins_gp_value` rounds down to zero."""
     valuable_ids: tuple[str, ...] = ()
     """The session-scoped instance ids of the gems and jewellery in the hoard."""
     magic_item_ids: tuple[str, ...] = ()
@@ -1908,6 +1927,12 @@ class XpAwardedEvent(Event):
     level, so their total stops one point short of the level after next and the rest is lost."""
     level_after: int
     """The member's level once the award was applied."""
+    gained: int | None = None
+    """The experience the character actually gained. It's less than `modified_award` when
+    `clamped` is true, and `None` in an event recorded before osrlib 2.7.0."""
+    clamped: bool = False
+    """Whether the one-level limit cut the award, so the character gained less than
+    `modified_award` and the rest was lost."""
 
 
 class CharacterLeveledUpEvent(Event):
@@ -2306,6 +2331,9 @@ class ItemsRemovedEvent(Event):
     id of a magic item or a valuable. Empty for a removal of coins."""
     coins_gp_value: int = 0
     """The coins removed, as their value in gold pieces. 0 for a removal of items."""
+    coins: Coins = Coins()
+    """The same coins by denomination, so a client can show the exact amount, and every
+    coin of a small amount that `coins_gp_value` rounds down to zero."""
 
 
 class MemberAddedEvent(Event):
