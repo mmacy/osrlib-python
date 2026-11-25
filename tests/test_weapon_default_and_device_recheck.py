@@ -394,7 +394,7 @@ class TestExplicitAndUnarmedAttacksStayAsTheyAre:
         result = session.execute(ResolveBattleRound(declarations=declarations(session, attack(session, "short_bow"))))
         assert not result.accepted
         assert [rejection.code for rejection in result.rejections] == ["battle.declaration.weapon_not_wielded"]
-        assert result.rejections[0].params == {"item": "short_bow"}
+        assert result.rejections[0].params == {"item": "short_bow", "character": FIGHTER}
 
     def test_a_member_wielding_nothing_strikes_unarmed(self):
         session = armed_battle((), distance=5, carried=("sword",))

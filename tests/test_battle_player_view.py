@@ -523,7 +523,7 @@ class TestAnHdBudgetSpellAimedAtAGroup:
             session,
             result,
             before,
-            [("magic.cast.target_count", {"mode": "hd_budget", "expected": 1, "supplied": 0})],
+            [("magic.cast.target_count", {"mode": "hd_budget", "expected": 1, "supplied": 0, "character": ELF})],
         )
 
 
@@ -988,7 +988,7 @@ def test_the_walk_through_battle_from_the_player_view():
         assert [
             (rejection.code, dict(rejection.params))
             for rejection in preview_battle_round(game, [hild_swings]).rejections[hild]
-        ] == [("combat.attack.out_of_reach", {"distance_feet": 10})]
+        ] == [("combat.attack.out_of_reach", {"distance_feet": 10, "character": hild})]
         first = (
             pf.strike(game, nim, move="close", back_stab=True),
             pf.close(game, hild),

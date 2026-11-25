@@ -114,7 +114,7 @@ class TestCloseAndAttack:
             assert advance(game, hild) == distance - 5
             assert attacks_by(events, hild), "Hild closed and swung"
         else:
-            assert refused(game, declaration) == [(OUT_OF_REACH, {"distance_feet": 10})]
+            assert refused(game, declaration) == [(OUT_OF_REACH, {"distance_feet": 10, "character": hild})]
 
     def test_a_member_can_close_and_shoot(self):
         game = _held(distance=60)

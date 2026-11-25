@@ -524,12 +524,14 @@ class TestTheRefusals:
         unwielded = _refused(game, _attack(game, back_stab=True, weapon_id="sword"))
 
         assert missing == [("battle.declaration.unknown_group", {"character": sable})]
-        assert unwielded == [("battle.declaration.weapon_not_wielded", {"item": "sword"})]
+        assert unwielded == [("battle.declaration.weapon_not_wielded", {"item": "sword", "character": sable})]
 
     def test_the_melee_checks_come_after_the_back_stab_checks(self):
         """A guard: a melee back-stab out of reach, or from the back rank, gets the ordinary melee code."""
         far = _battle(wield=("sword",), distance_feet=10)
-        assert _refused(far, _attack(far, back_stab=True)) == [("combat.attack.out_of_reach", {"distance_feet": 10})]
+        assert _refused(far, _attack(far, back_stab=True)) == [
+            ("combat.attack.out_of_reach", {"distance_feet": 10, "character": _sable(far)})
+        ]
 
         three = _battle(roster=(FIGHTER, SECOND_FIGHTER, THIEF), wield=("sword",))
         sable = _sable(three)
@@ -585,7 +587,7 @@ class TestCloseAndBackStab:
 
         rejections = _refused(game, _attack(game, back_stab=True, move="close"))
 
-        assert rejections == [("combat.attack.out_of_reach", {"distance_feet": 10})]
+        assert rejections == [("combat.attack.out_of_reach", {"distance_feet": 10, "character": _sable(game)})]
 
     def test_haste_doubles_the_thiefs_reach(self):
         game = _battle(wield=("dagger", "leather"), distance_feet=65)

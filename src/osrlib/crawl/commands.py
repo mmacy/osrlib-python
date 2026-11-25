@@ -3058,11 +3058,13 @@ class ResolveBattleRound(Command):
         - `battle.declaration.unknown_action` - an `action` the session doesn't
           recognize. Constructing a `BattleDeclaration` with one already fails validation.
 
-        Each declaration, by its `action`:
+        Each declaration, by its `action`. Every rejection of a declaration has the declaring
+        member's id as its `character` param, including the kernel's `combat.attack.*` and
+        `magic.cast.*` checks, so a client with several players can tell whose declaration
+        to change:
 
         - Any action: `battle.declaration.no_mirror` when the member declares a
-          `gaze_defense` of `mirror` and carries no mirror. The rejection has the member's
-          id as its `character` param.
+          `gaze_defense` of `mirror` and carries no mirror.
         - Move declarations: `battle.declaration.missing_move`,
           `battle.declaration.unknown_group`, and `battle.declaration.cannot_move`.
         - A `move` set on an action that can't take it: `battle.declaration.cast_cannot_move`

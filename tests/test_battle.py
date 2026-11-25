@@ -236,7 +236,7 @@ class TestExplicitBattleSpellTargets:
 
         assert not result.accepted
         assert [(rejection.code, dict(rejection.params)) for rejection in result.rejections] == [
-            ("magic.cast.unknown_target", {"target": target_id})
+            ("magic.cast.unknown_target", {"target": target_id, "character": declaration.character_id})
         ]
         assert result.events == ()
         assert save_game(session) == before
@@ -331,7 +331,7 @@ class TestExplicitBattleSpellTargets:
         result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(declaration,))))
 
         assert [(rejection.code, dict(rejection.params)) for rejection in result.rejections] == [
-            ("battle.declaration.invisible_target", {"target": target_id})
+            ("battle.declaration.invisible_target", {"target": target_id, "character": declaration.character_id})
         ]
         assert result.events == ()
         assert save_game(session) == before
@@ -491,7 +491,7 @@ class TestUseItemAction:
         result = session.execute(ResolveBattleRound(declarations=self.flask_declaration(session, "rope")))
         assert not result.accepted
         assert [rejection.code for rejection in result.rejections] == ["battle.declaration.item_unusable"]
-        assert result.rejections[0].params == {"item": "rope"}
+        assert result.rejections[0].params == {"item": "rope", "character": self.thrower(session).id}
         assert result.events == ()
         assert self.thrower(session).inventory.model_dump(mode="json") == before
 
@@ -502,7 +502,7 @@ class TestUseItemAction:
         result = session.execute(ResolveBattleRound(declarations=self.flask_declaration(session, "oil_flask")))
         assert not result.accepted
         assert [rejection.code for rejection in result.rejections] == ["battle.declaration.item_unusable"]
-        assert result.rejections[0].params == {"item": "oil_flask"}
+        assert result.rejections[0].params == {"item": "oil_flask", "character": self.thrower(session).id}
         assert result.events == ()
         assert self.thrower(session).inventory.model_dump(mode="json") == before
 

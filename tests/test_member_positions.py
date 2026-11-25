@@ -508,7 +508,7 @@ class TestTheRanksTowardAGroup:
 
         rejections = refused(game, strike(game, wren))
 
-        assert rejections == [("combat.attack.out_of_reach", {"distance_feet": 10})]
+        assert rejections == [("combat.attack.out_of_reach", {"distance_feet": 10, "character": wren})]
 
     def test_the_member_alone_in_front_strikes_and_the_row_behind_waits(self):
         """A row never mixes distances: Nim at 5' is the whole front row, and Hild at 30' is in the next one.
@@ -520,7 +520,9 @@ class TestTheRanksTowardAGroup:
         play(game, close(game, nim))
 
         assert group_front_rank(game, group_id(game)) == (nim,)
-        assert refused(game, strike(game, hild)) == [("combat.attack.out_of_reach", {"distance_feet": 30})]
+        assert refused(game, strike(game, hild)) == [
+            ("combat.attack.out_of_reach", {"distance_feet": 30, "character": hild})
+        ]
         events = play(game, strike(game, nim))
 
         assert any(getattr(event, "attacker_id", None) == nim for event in events)
@@ -681,7 +683,7 @@ class TestDeterminism:
 
         rejections = refused(game, close(game, hild), strike(game, osric))
 
-        assert rejections == [("combat.attack.out_of_reach", {"distance_feet": 30})]
+        assert rejections == [("combat.attack.out_of_reach", {"distance_feet": 30, "character": osric})]
         assert game.battle.advance_feet == {nim: 25}
 
     def test_a_save_mid_battle_keeps_the_positions_and_plays_on_the_same(self):

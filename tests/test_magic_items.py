@@ -647,7 +647,7 @@ class TestBattleScrollTargets:
 
         assert not result.accepted
         assert [(rejection.code, dict(rejection.params)) for rejection in result.rejections] == [
-            ("magic.cast.unknown_target", {"target": target_id})
+            ("magic.cast.unknown_target", {"target": target_id, "character": declaration.character_id})
         ]
         assert result.events == ()
         assert session.member("character-0004").inventory.magic_item(scroll.instance_id) is scroll
@@ -663,7 +663,15 @@ class TestBattleScrollTargets:
         result = session.execute(ResolveBattleRound(declarations=hold_all(session, extra=(declaration,))))
 
         assert [(rejection.code, dict(rejection.params)) for rejection in result.rejections] == [
-            ("magic.cast.out_of_range", {"spell": "magic_missile", "distance_feet": 160, "range_feet": 150})
+            (
+                "magic.cast.out_of_range",
+                {
+                    "spell": "magic_missile",
+                    "distance_feet": 160,
+                    "range_feet": 150,
+                    "character": declaration.character_id,
+                },
+            )
         ]
         assert session.combatant(target_id) is not None
         assert session.member("character-0004").inventory.magic_item(scroll.instance_id) is scroll
