@@ -1431,6 +1431,13 @@
     {
       "character_id": "character-0001",
       "code": "exploration.item.acquired",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 150,
+        "pp": 0,
+        "sp": 0
+      },
       "coins_gp_value": 150,
       "event_type": "item_acquired",
       "item_ids": [],
@@ -1440,6 +1447,13 @@
     {
       "character_id": "character-0001",
       "code": "exploration.item.acquired",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 0,
+        "pp": 0,
+        "sp": 0
+      },
       "coins_gp_value": 0,
       "event_type": "item_acquired",
       "item_ids": [
@@ -1460,6 +1474,13 @@
     {
       "character_id": "character-0002",
       "code": "exploration.item.acquired",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 150,
+        "pp": 0,
+        "sp": 0
+      },
       "coins_gp_value": 150,
       "event_type": "item_acquired",
       "item_ids": [],
@@ -1469,6 +1490,13 @@
     {
       "character_id": "character-0002",
       "code": "exploration.item.acquired",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 0,
+        "pp": 0,
+        "sp": 0
+      },
       "coins_gp_value": 0,
       "event_type": "item_acquired",
       "item_ids": [
@@ -1483,6 +1511,13 @@
     {
       "character_id": "character-0003",
       "code": "exploration.item.acquired",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 150,
+        "pp": 0,
+        "sp": 0
+      },
       "coins_gp_value": 150,
       "event_type": "item_acquired",
       "item_ids": [],
@@ -1492,6 +1527,13 @@
     {
       "character_id": "character-0003",
       "code": "exploration.item.acquired",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 0,
+        "pp": 0,
+        "sp": 0
+      },
       "coins_gp_value": 0,
       "event_type": "item_acquired",
       "item_ids": [
@@ -1506,6 +1548,13 @@
     {
       "character_id": "character-0004",
       "code": "exploration.item.acquired",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 150,
+        "pp": 0,
+        "sp": 0
+      },
       "coins_gp_value": 150,
       "event_type": "item_acquired",
       "item_ids": [],
@@ -1515,6 +1564,13 @@
     {
       "character_id": "character-0004",
       "code": "exploration.item.acquired",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 0,
+        "pp": 0,
+        "sp": 0
+      },
       "coins_gp_value": 0,
       "event_type": "item_acquired",
       "item_ids": [
@@ -1529,6 +1585,13 @@
     {
       "character_id": "character-0005",
       "code": "exploration.item.acquired",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 150,
+        "pp": 0,
+        "sp": 0
+      },
       "coins_gp_value": 150,
       "event_type": "item_acquired",
       "item_ids": [],
@@ -1538,6 +1601,13 @@
     {
       "character_id": "character-0005",
       "code": "exploration.item.acquired",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 0,
+        "pp": 0,
+        "sp": 0
+      },
       "coins_gp_value": 0,
       "event_type": "item_acquired",
       "item_ids": [
@@ -1889,6 +1959,13 @@
     {
       "cache_ref": "cache-0001",
       "code": "treasure.hoard.generated",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 0,
+        "pp": 0,
+        "sp": 2000
+      },
       "coins_gp_value": 200,
       "event_type": "hoard_generated",
       "magic_item_ids": [],
@@ -2332,6 +2409,13 @@
     },
     {
       "code": "encounter.loot.dropped",
+      "coins": {
+        "cp": 0,
+        "ep": 6,
+        "gp": 0,
+        "pp": 0,
+        "sp": 0
+      },
       "coins_gp_value": 3,
       "event_type": "loot_dropped",
       "item_ids": [],
@@ -2355,6 +2439,13 @@
     {
       "character_id": "character-0001",
       "code": "exploration.item.acquired",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 80,
+        "pp": 0,
+        "sp": 0
+      },
       "coins_gp_value": 80,
       "event_type": "item_acquired",
       "item_ids": [],
@@ -2364,6 +2455,13 @@
     {
       "character_id": "character-0002",
       "code": "exploration.item.acquired",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 80,
+        "pp": 0,
+        "sp": 0
+      },
       "coins_gp_value": 80,
       "event_type": "item_acquired",
       "item_ids": [],
@@ -2373,6 +2471,13 @@
     {
       "character_id": "character-0003",
       "code": "exploration.item.acquired",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 80,
+        "pp": 0,
+        "sp": 0
+      },
       "coins_gp_value": 80,
       "event_type": "item_acquired",
       "item_ids": [],
@@ -2382,6 +2487,13 @@
     {
       "character_id": "character-0004",
       "code": "exploration.item.acquired",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 80,
+        "pp": 0,
+        "sp": 0
+      },
       "coins_gp_value": 80,
       "event_type": "item_acquired",
       "item_ids": [],
@@ -2391,6 +2503,13 @@
     {
       "character_id": "character-0005",
       "code": "exploration.item.acquired",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 80,
+        "pp": 0,
+        "sp": 0
+      },
       "coins_gp_value": 80,
       "event_type": "item_acquired",
       "item_ids": [],
@@ -3157,6 +3276,13 @@
     },
     {
       "code": "encounter.loot.dropped",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 0,
+        "pp": 0,
+        "sp": 0
+      },
       "coins_gp_value": 0,
       "event_type": "loot_dropped",
       "item_ids": [
@@ -4137,6 +4263,13 @@
     {
       "cache_ref": "cache-0002",
       "code": "treasure.hoard.generated",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 0,
+        "pp": 0,
+        "sp": 1000
+      },
       "coins_gp_value": 100,
       "event_type": "hoard_generated",
       "magic_item_ids": [],
@@ -4196,6 +4329,13 @@
     {
       "character_id": "character-0001",
       "code": "exploration.item.dropped",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 10,
+        "pp": 0,
+        "sp": 0
+      },
       "coins_gp_value": 10,
       "event_type": "items_dropped",
       "item_ids": [],
@@ -4211,6 +4351,13 @@
     {
       "character_id": "character-0001",
       "code": "exploration.item.dropped",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 10,
+        "pp": 0,
+        "sp": 0
+      },
       "coins_gp_value": 10,
       "event_type": "items_dropped",
       "item_ids": [],
@@ -5259,8 +5406,10 @@
     {
       "award": 106,
       "character_id": "character-0005",
+      "clamped": false,
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
+      "gained": 95,
       "level_after": 5,
       "modified_award": 95,
       "visibility": "player"
@@ -5268,8 +5417,10 @@
     {
       "award": 106,
       "character_id": "character-0001",
+      "clamped": false,
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
+      "gained": 106,
       "level_after": 3,
       "modified_award": 106,
       "visibility": "player"
@@ -5277,8 +5428,10 @@
     {
       "award": 106,
       "character_id": "character-0002",
+      "clamped": false,
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
+      "gained": 116,
       "level_after": 3,
       "modified_award": 116,
       "visibility": "player"
@@ -5286,8 +5439,10 @@
     {
       "award": 106,
       "character_id": "character-0003",
+      "clamped": false,
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
+      "gained": 111,
       "level_after": 3,
       "modified_award": 111,
       "visibility": "player"
@@ -5295,8 +5450,10 @@
     {
       "award": 106,
       "character_id": "character-0004",
+      "clamped": false,
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
+      "gained": 95,
       "level_after": 3,
       "modified_award": 95,
       "visibility": "player"
@@ -5347,7 +5504,7 @@
   },
   "master_seed": 20260757,
   "party_document": {
-    "engine_version": "2.2.0",
+    "engine_version": "2.6.0",
     "kind": "party",
     "payload": {
       "characters": [
@@ -5655,7 +5812,7 @@
     "An iron spike wedges the door south of (3, 0).",
     "The party moves to (3, 1), facing south.",
     "The party enters area guard_room (level 1).",
-    "Treasure generated at cache-0001 (C): 200 gp in coin, 0 valuable(s), 0 magic item(s).",
+    "Treasure generated at cache-0001 (C): 2000 sp in coin, 0 valuable(s), 0 magic item(s).",
     "Surprise (monsters): no roll, surprised on 1-2 — not surprised.",
     "Surprise (party): no roll, surprised on 1-2 — not surprised.",
     "Encounter: 6 goblins at 10'.",
@@ -5677,7 +5834,7 @@
     "monster-0001 is killed.",
     "monster-0001 is at 0/4 hit points.",
     "Morale check for group-0001 (ML 7): rolled 8+0 — they flee or surrender.",
-    "group-0001 flees the battle!",
+    "group-0001 breaks and runs!",
     "group-0001 is now 70' away.",
     "Battle round 2 begins.",
     "Initiative (side): party 4, monsters 2. Order: character-0001, character-0002, character-0003, character-0004, character-0005, group-0001.",
@@ -5697,7 +5854,7 @@
     "monster-0004 (goblin) is routed.",
     "monster-0005 (goblin) is routed.",
     "monster-0006 (goblin) is routed.",
-    "The fallen leave behind 3 gp in coin.",
+    "The fallen leave behind 6 ep in coin.",
     "The encounter ends (victory).",
     "The party moves to (4, 1), facing east.",
     "character-0001 acquires 80 gp in coin.",
@@ -5873,7 +6030,7 @@
     "The party moves to (3, 0), facing east.",
     "The party moves to (3, 1), facing south.",
     "The party enters area kennel_a (level 2).",
-    "Treasure generated at cache-0002 (C): 100 gp in coin, 0 valuable(s), 0 magic item(s).",
+    "Treasure generated at cache-0002 (C): 1000 sp in coin, 0 valuable(s), 0 magic item(s).",
     "Surprise (monsters): no roll, surprised on 1-2 — not surprised.",
     "Surprise (party): rolled 6, surprised on 1-2 — not surprised.",
     "Encounter: 3 goblins at 10'.",
