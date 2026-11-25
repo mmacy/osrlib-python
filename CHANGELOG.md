@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-11-25
+
 ### Added
 
 - The player view now projects entered dungeons, walked area cells, known features and transitions, visible entrances, and whether the party can travel to town ([bxapi #38](https://github.com/mmacy/bxapi/issues/38)). New opaque HMAC-SHA-256 `feature:` handles target treasure commands without exposing raw authored or generated ids before use. The handles encode dungeon, level, and feature components without colon-delimiter collisions. Individual dungeon, area, and feature ids can contain colons, but validation requires every internal `"{dungeon}:{level}:{id}"` area or feature reference to occur once. New sessions and loaded saves fail closed on repeated ids and colon-delimited component collisions before play can use ambiguous state. An optional server-side handle key is persisted in schema 4 saves and replayed explicitly, while omitted keys remain deterministic seed-derived pseudonyms. Generated lair caches stay hidden and unusable until their keyed encounter is resolved, and legacy saves fail closed when their missing provenance could represent an unresolved lair. `RemoveTreasureTrap` now returns `exploration.feature.unknown` for both an unfound trap and a cache with no trap. It no longer returns the client-visible `exploration.trap.not_found`. The existing encounter member roster is unchanged.
