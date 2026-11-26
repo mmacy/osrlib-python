@@ -1,0 +1,1150 @@
+{
+  "engine_version": "2.7.0",
+  "kind": "save",
+  "payload": {
+    "adventure": {
+      "description": "",
+      "dungeons": [
+        {
+          "id": "crypt",
+          "levels": [
+            {
+              "areas": [],
+              "edges": {},
+              "entrance": [
+                0,
+                0
+              ],
+              "features": [],
+              "guidance": "",
+              "height": 1,
+              "number": 1,
+              "transitions": [],
+              "wandering": {
+                "chance_in_six": 0,
+                "interval_turns": 2,
+                "table": null
+              },
+              "width": 1
+            }
+          ],
+          "name": "Crypt"
+        }
+      ],
+      "hooks": [],
+      "items": [],
+      "monsters": [],
+      "name": "The Rival Band",
+      "party": null,
+      "quests": [],
+      "spells": [],
+      "town": {
+        "description": "",
+        "healing_prices": {},
+        "name": "Threshold",
+        "services": [],
+        "travel_turns": {
+          "crypt": 1
+        }
+      },
+      "triggers": []
+    },
+    "allocator": {
+      "counters": {
+        "character": 4,
+        "group": 1,
+        "npc": 4
+      }
+    },
+    "battle": {
+      "advance_feet": {},
+      "arrived_round": {},
+      "concentration": {},
+      "fired_last_round": [],
+      "hiding": {},
+      "melee_engagements": {},
+      "monsters_hold_rounds": 0,
+      "morale": {
+        "passed": {}
+      },
+      "morale_acted": {},
+      "round": 1,
+      "started_round": 60
+    },
+    "clock_rounds": 61,
+    "command_log": [
+      {
+        "command_type": "enter_dungeon",
+        "dungeon_id": "crypt",
+        "source": null
+      },
+      {
+        "command_type": "spawn_npc_party",
+        "count_dice": null,
+        "count_fixed": 4,
+        "distance_feet": 60,
+        "party_kind": "basic",
+        "source": null
+      }
+    ],
+    "death_records": {},
+    "defeated_monsters": [],
+    "deprivation": {},
+    "dungeon_state": {
+      "doors": {},
+      "emptied_caches": [],
+      "explored": {
+        "crypt:1": [
+          [
+            0,
+            0
+          ]
+        ]
+      },
+      "found_traps": [],
+      "found_tricks": [],
+      "generated_caches": {},
+      "generated_lair_hoards": [],
+      "generated_treasure_areas": [],
+      "inspect_attempts": {},
+      "listen_attempts": {},
+      "location": {
+        "dungeon_id": "crypt",
+        "facing": "north",
+        "kind": "dungeon",
+        "level_number": 1,
+        "position": [
+          0,
+          0
+        ]
+      },
+      "lock_failures": {},
+      "piles": {},
+      "removal_attempts": {},
+      "removed_traps": [],
+      "resolved_encounters": [],
+      "search_attempts": {},
+      "seen": {},
+      "sprung_traps": []
+    },
+    "encounter": {
+      "area_ref": null,
+      "evading": false,
+      "groups": [
+        {
+          "distance_feet": 40,
+          "fled": false,
+          "fleeing": false,
+          "group_treasure": {
+            "coins": {
+              "cp": 0,
+              "ep": 0,
+              "gp": 0,
+              "pp": 0,
+              "sp": 49
+            },
+            "magic_items": [],
+            "valuables": []
+          },
+          "id": "group-0001",
+          "label": "adventurer",
+          "label_plural": "adventurers",
+          "member_treasure": {},
+          "monster_ids": [
+            "npc-0001",
+            "npc-0002",
+            "npc-0003",
+            "npc-0004"
+          ]
+        }
+      ],
+      "hostile_deadline": null,
+      "kind": "spawned",
+      "monsters_skip_rounds": 0,
+      "monsters_surprised": false,
+      "party_surprised": true,
+      "pursuit": null,
+      "round": 0,
+      "stance": "attacks",
+      "started_round": 60
+    },
+    "event_log": [
+      {
+        "code": "exploration.location.entered",
+        "dungeon_id": null,
+        "event_type": "location_entered",
+        "level_number": 1,
+        "location_id": "crypt",
+        "location_kind": "dungeon",
+        "narrative": null,
+        "transition_ref": null,
+        "via": "entrance",
+        "visibility": "player"
+      },
+      {
+        "alignment": "chaotic",
+        "class_ids": [
+          "magic_user",
+          "cleric",
+          "fighter",
+          "fighter"
+        ],
+        "code": "encounter.npc_party.spawned",
+        "event_type": "npc_party_spawned",
+        "levels": [
+          1,
+          1,
+          1,
+          2
+        ],
+        "npc_ids": [
+          "npc-0001",
+          "npc-0002",
+          "npc-0003",
+          "npc-0004"
+        ],
+        "party_kind": "basic",
+        "visibility": "referee"
+      },
+      {
+        "code": "encounter.surprise.rolled",
+        "event_type": "surprise_rolled",
+        "roll": 5,
+        "side": "monsters",
+        "surprised": false,
+        "threshold": 2,
+        "visibility": "referee"
+      },
+      {
+        "code": "encounter.surprise.rolled",
+        "event_type": "surprise_rolled",
+        "roll": 3,
+        "side": "party",
+        "surprised": true,
+        "threshold": 3,
+        "visibility": "referee"
+      },
+      {
+        "code": "encounter.started",
+        "count": 4,
+        "distance_feet": 60,
+        "event_type": "encounter_started",
+        "group_counts": [
+          4
+        ],
+        "group_labels": [
+          "adventurer"
+        ],
+        "group_labels_plural": [
+          "adventurers"
+        ],
+        "monster_name": "adventurer",
+        "monster_name_plural": "adventurers",
+        "monsters_surprised": false,
+        "party_surprised": true,
+        "visibility": "player"
+      },
+      {
+        "code": "encounter.reaction.rolled",
+        "event_type": "reaction_rolled",
+        "modifier": 0,
+        "result": "attacks",
+        "roll": 2,
+        "total": 2,
+        "visibility": "referee"
+      },
+      {
+        "code": "encounter.stance.changed",
+        "event_type": "stance_changed",
+        "stance": "attacks",
+        "visibility": "player"
+      },
+      {
+        "code": "battle.started",
+        "event_type": "battle_started",
+        "visibility": "player"
+      },
+      {
+        "attack_name": "Dagger",
+        "attacker_id": "npc-0001",
+        "back_stab": false,
+        "code": "combat.attack.hit",
+        "defender_ac": 9,
+        "defender_id": "character-0002",
+        "event_type": "attack_rolled",
+        "modifier": 0,
+        "natural": null,
+        "required": 10,
+        "roll": 17,
+        "total": 17,
+        "visibility": "player"
+      },
+      {
+        "amount": 3,
+        "attacker_id": "npc-0001",
+        "code": "combat.damage.dealt",
+        "event_type": "damage_dealt",
+        "keys": [],
+        "non_regenerable": false,
+        "rolls": [
+          3
+        ],
+        "target_id": "character-0002",
+        "visibility": "player"
+      },
+      {
+        "code": "combat.state.hit_points",
+        "current_hp": 3,
+        "event_type": "hit_points_reported",
+        "max_hp": 6,
+        "target_id": "character-0002",
+        "visibility": "referee"
+      },
+      {
+        "code": "battle.group.moved",
+        "distance_feet": 40,
+        "event_type": "group_moved",
+        "group_id": "group-0001",
+        "visibility": "player"
+      }
+    ],
+    "exploration": {
+      "alerted_areas": [],
+      "heard_areas": [],
+      "last_prepared_sleep": {},
+      "noise_since_check": false,
+      "odometer_thirds": 0,
+      "provisions_day": 0,
+      "sleep_count": 0,
+      "turns_since_rest": 0,
+      "wandering_counter": 0
+    },
+    "fired_triggers": [],
+    "flags": {},
+    "journal": [],
+    "ledger": {
+      "effects": []
+    },
+    "listener_state": {},
+    "master_seed": 1,
+    "mode": "battle",
+    "monsters": [],
+    "npcs": [
+      {
+        "alignment": "chaotic",
+        "carrying_treasure": false,
+        "class_id": "magic_user",
+        "conditions": [],
+        "current_hp": 3,
+        "custom_class": null,
+        "extra_languages": [],
+        "id": "npc-0001",
+        "inventory": {
+          "items": [
+            {
+              "instance_type": "item",
+              "quantity": 7,
+              "template": {
+                "capacity_coins": null,
+                "combat": null,
+                "cost_gp": 5,
+                "id": "rations_standard",
+                "item_type": "gear",
+                "lot_size": 7,
+                "name": "Rations (standard, 7 days)",
+                "overrides_applied": [],
+                "params": {
+                  "ration": true
+                }
+              }
+            },
+            {
+              "instance_type": "item",
+              "quantity": 1,
+              "template": {
+                "capacity_coins": null,
+                "combat": null,
+                "cost_gp": 1,
+                "id": "waterskin",
+                "item_type": "gear",
+                "lot_size": 1,
+                "name": "Waterskin",
+                "overrides_applied": [],
+                "params": {
+                  "water_container": true
+                }
+              }
+            },
+            {
+              "instance_type": "item",
+              "quantity": 6,
+              "template": {
+                "capacity_coins": null,
+                "combat": {
+                  "damage": "1d4",
+                  "missile_ranges": null,
+                  "qualities": [
+                    "melee"
+                  ]
+                },
+                "cost_gp": 1,
+                "id": "torch",
+                "item_type": "gear",
+                "lot_size": 6,
+                "name": "Torches (6)",
+                "overrides_applied": [],
+                "params": {
+                  "brightness": "flame",
+                  "burn_turns": 6,
+                  "light_radius_feet": 30
+                }
+              }
+            }
+          ],
+          "purse": {
+            "cp": 0,
+            "ep": 0,
+            "gp": 0,
+            "pp": 0,
+            "sp": 0
+          },
+          "rings": [],
+          "shield": null,
+          "valuables": [],
+          "wielded": [
+            {
+              "instance_type": "item",
+              "quantity": 1,
+              "template": {
+                "cost_gp": 3,
+                "damage": "1d4",
+                "id": "dagger",
+                "item_type": "weapon",
+                "material": "standard",
+                "missile_ranges": {
+                  "long": {
+                    "max_feet": 30,
+                    "min_feet": 21
+                  },
+                  "medium": {
+                    "max_feet": 20,
+                    "min_feet": 11
+                  },
+                  "short": {
+                    "max_feet": 10,
+                    "min_feet": 5
+                  }
+                },
+                "name": "Dagger",
+                "overrides_applied": [],
+                "qualities": [
+                  "melee",
+                  "missile"
+                ],
+                "weight_coins": 10
+              }
+            }
+          ],
+          "worn_armour": null
+        },
+        "level": 1,
+        "max_hp": 3,
+        "memorized_spells": [
+          {
+            "reversed": false,
+            "spell_id": "floating_disc"
+          }
+        ],
+        "name": "Magic-User adventurer 1",
+        "nonregen_damage": 0,
+        "race": "human",
+        "scores": {
+          "cha": 9,
+          "con": 9,
+          "dex": 11,
+          "int": 12,
+          "str": 15,
+          "wis": 12
+        },
+        "spell_book": [
+          "floating_disc"
+        ],
+        "stat_modifiers": [],
+        "xp": 0
+      },
+      {
+        "alignment": "chaotic",
+        "carrying_treasure": false,
+        "class_id": "cleric",
+        "conditions": [],
+        "current_hp": 5,
+        "custom_class": null,
+        "extra_languages": [],
+        "id": "npc-0002",
+        "inventory": {
+          "items": [
+            {
+              "instance_type": "item",
+              "quantity": 7,
+              "template": {
+                "capacity_coins": null,
+                "combat": null,
+                "cost_gp": 5,
+                "id": "rations_standard",
+                "item_type": "gear",
+                "lot_size": 7,
+                "name": "Rations (standard, 7 days)",
+                "overrides_applied": [],
+                "params": {
+                  "ration": true
+                }
+              }
+            },
+            {
+              "instance_type": "item",
+              "quantity": 1,
+              "template": {
+                "capacity_coins": null,
+                "combat": null,
+                "cost_gp": 1,
+                "id": "waterskin",
+                "item_type": "gear",
+                "lot_size": 1,
+                "name": "Waterskin",
+                "overrides_applied": [],
+                "params": {
+                  "water_container": true
+                }
+              }
+            },
+            {
+              "instance_type": "item",
+              "quantity": 6,
+              "template": {
+                "capacity_coins": null,
+                "combat": {
+                  "damage": "1d4",
+                  "missile_ranges": null,
+                  "qualities": [
+                    "melee"
+                  ]
+                },
+                "cost_gp": 1,
+                "id": "torch",
+                "item_type": "gear",
+                "lot_size": 6,
+                "name": "Torches (6)",
+                "overrides_applied": [],
+                "params": {
+                  "brightness": "flame",
+                  "burn_turns": 6,
+                  "light_radius_feet": 30
+                }
+              }
+            }
+          ],
+          "purse": {
+            "cp": 0,
+            "ep": 0,
+            "gp": 0,
+            "pp": 0,
+            "sp": 0
+          },
+          "rings": [],
+          "shield": {
+            "instance_type": "item",
+            "quantity": 1,
+            "template": {
+              "ac": null,
+              "ac_ascending": null,
+              "ac_bonus": 1,
+              "category": null,
+              "cost_gp": 10,
+              "id": "shield",
+              "item_type": "armour",
+              "name": "Shield",
+              "overrides_applied": [],
+              "weight_coins": 100
+            }
+          },
+          "valuables": [],
+          "wielded": [
+            {
+              "instance_type": "item",
+              "quantity": 1,
+              "template": {
+                "cost_gp": 5,
+                "damage": "1d6",
+                "id": "mace",
+                "item_type": "weapon",
+                "material": "standard",
+                "missile_ranges": null,
+                "name": "Mace",
+                "overrides_applied": [],
+                "qualities": [
+                  "blunt",
+                  "melee"
+                ],
+                "weight_coins": 30
+              }
+            }
+          ],
+          "worn_armour": {
+            "instance_type": "item",
+            "quantity": 1,
+            "template": {
+              "ac": 5,
+              "ac_ascending": 14,
+              "ac_bonus": null,
+              "category": "heavy",
+              "cost_gp": 40,
+              "id": "chainmail",
+              "item_type": "armour",
+              "name": "Chainmail",
+              "overrides_applied": [],
+              "weight_coins": 400
+            }
+          }
+        },
+        "level": 1,
+        "max_hp": 5,
+        "memorized_spells": [],
+        "name": "Cleric adventurer 2",
+        "nonregen_damage": 0,
+        "race": "human",
+        "scores": {
+          "cha": 14,
+          "con": 11,
+          "dex": 12,
+          "int": 13,
+          "str": 11,
+          "wis": 8
+        },
+        "spell_book": [],
+        "stat_modifiers": [],
+        "xp": 0
+      },
+      {
+        "alignment": "chaotic",
+        "carrying_treasure": false,
+        "class_id": "fighter",
+        "conditions": [],
+        "current_hp": 6,
+        "custom_class": null,
+        "extra_languages": [],
+        "id": "npc-0003",
+        "inventory": {
+          "items": [
+            {
+              "instance_type": "item",
+              "quantity": 7,
+              "template": {
+                "capacity_coins": null,
+                "combat": null,
+                "cost_gp": 5,
+                "id": "rations_standard",
+                "item_type": "gear",
+                "lot_size": 7,
+                "name": "Rations (standard, 7 days)",
+                "overrides_applied": [],
+                "params": {
+                  "ration": true
+                }
+              }
+            },
+            {
+              "instance_type": "item",
+              "quantity": 1,
+              "template": {
+                "capacity_coins": null,
+                "combat": null,
+                "cost_gp": 1,
+                "id": "waterskin",
+                "item_type": "gear",
+                "lot_size": 1,
+                "name": "Waterskin",
+                "overrides_applied": [],
+                "params": {
+                  "water_container": true
+                }
+              }
+            },
+            {
+              "instance_type": "item",
+              "quantity": 6,
+              "template": {
+                "capacity_coins": null,
+                "combat": {
+                  "damage": "1d4",
+                  "missile_ranges": null,
+                  "qualities": [
+                    "melee"
+                  ]
+                },
+                "cost_gp": 1,
+                "id": "torch",
+                "item_type": "gear",
+                "lot_size": 6,
+                "name": "Torches (6)",
+                "overrides_applied": [],
+                "params": {
+                  "brightness": "flame",
+                  "burn_turns": 6,
+                  "light_radius_feet": 30
+                }
+              }
+            }
+          ],
+          "purse": {
+            "cp": 0,
+            "ep": 0,
+            "gp": 0,
+            "pp": 0,
+            "sp": 0
+          },
+          "rings": [],
+          "shield": {
+            "instance_type": "item",
+            "quantity": 1,
+            "template": {
+              "ac": null,
+              "ac_ascending": null,
+              "ac_bonus": 1,
+              "category": null,
+              "cost_gp": 10,
+              "id": "shield",
+              "item_type": "armour",
+              "name": "Shield",
+              "overrides_applied": [],
+              "weight_coins": 100
+            }
+          },
+          "valuables": [],
+          "wielded": [
+            {
+              "instance_type": "item",
+              "quantity": 1,
+              "template": {
+                "cost_gp": 10,
+                "damage": "1d8",
+                "id": "sword",
+                "item_type": "weapon",
+                "material": "standard",
+                "missile_ranges": null,
+                "name": "Sword",
+                "overrides_applied": [],
+                "qualities": [
+                  "melee"
+                ],
+                "weight_coins": 60
+              }
+            }
+          ],
+          "worn_armour": {
+            "instance_type": "item",
+            "quantity": 1,
+            "template": {
+              "ac": 5,
+              "ac_ascending": 14,
+              "ac_bonus": null,
+              "category": "heavy",
+              "cost_gp": 40,
+              "id": "chainmail",
+              "item_type": "armour",
+              "name": "Chainmail",
+              "overrides_applied": [],
+              "weight_coins": 400
+            }
+          }
+        },
+        "level": 1,
+        "max_hp": 6,
+        "memorized_spells": [],
+        "name": "Fighter adventurer 3",
+        "nonregen_damage": 0,
+        "race": "human",
+        "scores": {
+          "cha": 6,
+          "con": 15,
+          "dex": 12,
+          "int": 9,
+          "str": 8,
+          "wis": 5
+        },
+        "spell_book": [],
+        "stat_modifiers": [],
+        "xp": 0
+      },
+      {
+        "alignment": "chaotic",
+        "carrying_treasure": false,
+        "class_id": "fighter",
+        "conditions": [],
+        "current_hp": 8,
+        "custom_class": null,
+        "extra_languages": [],
+        "id": "npc-0004",
+        "inventory": {
+          "items": [
+            {
+              "instance_type": "item",
+              "quantity": 7,
+              "template": {
+                "capacity_coins": null,
+                "combat": null,
+                "cost_gp": 5,
+                "id": "rations_standard",
+                "item_type": "gear",
+                "lot_size": 7,
+                "name": "Rations (standard, 7 days)",
+                "overrides_applied": [],
+                "params": {
+                  "ration": true
+                }
+              }
+            },
+            {
+              "instance_type": "item",
+              "quantity": 1,
+              "template": {
+                "capacity_coins": null,
+                "combat": null,
+                "cost_gp": 1,
+                "id": "waterskin",
+                "item_type": "gear",
+                "lot_size": 1,
+                "name": "Waterskin",
+                "overrides_applied": [],
+                "params": {
+                  "water_container": true
+                }
+              }
+            },
+            {
+              "instance_type": "item",
+              "quantity": 6,
+              "template": {
+                "capacity_coins": null,
+                "combat": {
+                  "damage": "1d4",
+                  "missile_ranges": null,
+                  "qualities": [
+                    "melee"
+                  ]
+                },
+                "cost_gp": 1,
+                "id": "torch",
+                "item_type": "gear",
+                "lot_size": 6,
+                "name": "Torches (6)",
+                "overrides_applied": [],
+                "params": {
+                  "brightness": "flame",
+                  "burn_turns": 6,
+                  "light_radius_feet": 30
+                }
+              }
+            }
+          ],
+          "purse": {
+            "cp": 0,
+            "ep": 0,
+            "gp": 0,
+            "pp": 0,
+            "sp": 0
+          },
+          "rings": [],
+          "shield": {
+            "instance_type": "item",
+            "quantity": 1,
+            "template": {
+              "ac": null,
+              "ac_ascending": null,
+              "ac_bonus": 1,
+              "category": null,
+              "cost_gp": 10,
+              "id": "shield",
+              "item_type": "armour",
+              "name": "Shield",
+              "overrides_applied": [],
+              "weight_coins": 100
+            }
+          },
+          "valuables": [],
+          "wielded": [
+            {
+              "instance_type": "item",
+              "quantity": 1,
+              "template": {
+                "cost_gp": 10,
+                "damage": "1d8",
+                "id": "sword",
+                "item_type": "weapon",
+                "material": "standard",
+                "missile_ranges": null,
+                "name": "Sword",
+                "overrides_applied": [],
+                "qualities": [
+                  "melee"
+                ],
+                "weight_coins": 60
+              }
+            }
+          ],
+          "worn_armour": {
+            "instance_type": "item",
+            "quantity": 1,
+            "template": {
+              "ac": 5,
+              "ac_ascending": 14,
+              "ac_bonus": null,
+              "category": "heavy",
+              "cost_gp": 40,
+              "id": "chainmail",
+              "item_type": "armour",
+              "name": "Chainmail",
+              "overrides_applied": [],
+              "weight_coins": 400
+            }
+          }
+        },
+        "level": 2,
+        "max_hp": 8,
+        "memorized_spells": [],
+        "name": "Fighter adventurer 4",
+        "nonregen_damage": 0,
+        "race": "human",
+        "scores": {
+          "cha": 12,
+          "con": 7,
+          "dex": 11,
+          "int": 8,
+          "str": 16,
+          "wis": 9
+        },
+        "spell_book": [],
+        "stat_modifiers": [],
+        "xp": 2000
+      }
+    ],
+    "party": {
+      "members": [
+        {
+          "alignment": "lawful",
+          "carrying_treasure": false,
+          "class_id": "fighter",
+          "conditions": [],
+          "current_hp": 6,
+          "custom_class": null,
+          "extra_languages": [],
+          "id": "character-0001",
+          "inventory": {
+            "items": [],
+            "purse": {
+              "cp": 0,
+              "ep": 0,
+              "gp": 0,
+              "pp": 0,
+              "sp": 0
+            },
+            "rings": [],
+            "shield": null,
+            "valuables": [],
+            "wielded": [],
+            "worn_armour": null
+          },
+          "level": 1,
+          "max_hp": 6,
+          "memorized_spells": [],
+          "name": "Brakk",
+          "nonregen_damage": 0,
+          "race": "human",
+          "scores": {
+            "cha": 11,
+            "con": 11,
+            "dex": 11,
+            "int": 11,
+            "str": 11,
+            "wis": 11
+          },
+          "spell_book": [],
+          "stat_modifiers": [],
+          "xp": 0
+        },
+        {
+          "alignment": "lawful",
+          "carrying_treasure": false,
+          "class_id": "thief",
+          "conditions": [],
+          "current_hp": 3,
+          "custom_class": null,
+          "extra_languages": [],
+          "id": "character-0002",
+          "inventory": {
+            "items": [],
+            "purse": {
+              "cp": 0,
+              "ep": 0,
+              "gp": 0,
+              "pp": 0,
+              "sp": 0
+            },
+            "rings": [],
+            "shield": null,
+            "valuables": [],
+            "wielded": [],
+            "worn_armour": null
+          },
+          "level": 1,
+          "max_hp": 6,
+          "memorized_spells": [],
+          "name": "Sable",
+          "nonregen_damage": 0,
+          "race": "human",
+          "scores": {
+            "cha": 11,
+            "con": 11,
+            "dex": 11,
+            "int": 11,
+            "str": 11,
+            "wis": 11
+          },
+          "spell_book": [],
+          "stat_modifiers": [],
+          "xp": 0
+        },
+        {
+          "alignment": "lawful",
+          "carrying_treasure": false,
+          "class_id": "cleric",
+          "conditions": [],
+          "current_hp": 6,
+          "custom_class": null,
+          "extra_languages": [],
+          "id": "character-0003",
+          "inventory": {
+            "items": [],
+            "purse": {
+              "cp": 0,
+              "ep": 0,
+              "gp": 0,
+              "pp": 0,
+              "sp": 0
+            },
+            "rings": [],
+            "shield": null,
+            "valuables": [],
+            "wielded": [],
+            "worn_armour": null
+          },
+          "level": 1,
+          "max_hp": 6,
+          "memorized_spells": [],
+          "name": "Wynn",
+          "nonregen_damage": 0,
+          "race": "human",
+          "scores": {
+            "cha": 11,
+            "con": 11,
+            "dex": 11,
+            "int": 11,
+            "str": 11,
+            "wis": 13
+          },
+          "spell_book": [],
+          "stat_modifiers": [],
+          "xp": 0
+        },
+        {
+          "alignment": "lawful",
+          "carrying_treasure": false,
+          "class_id": "magic_user",
+          "conditions": [],
+          "current_hp": 6,
+          "custom_class": null,
+          "extra_languages": [],
+          "id": "character-0004",
+          "inventory": {
+            "items": [],
+            "purse": {
+              "cp": 0,
+              "ep": 0,
+              "gp": 0,
+              "pp": 0,
+              "sp": 0
+            },
+            "rings": [],
+            "shield": null,
+            "valuables": [],
+            "wielded": [],
+            "worn_armour": null
+          },
+          "level": 1,
+          "max_hp": 6,
+          "memorized_spells": [],
+          "name": "Elara",
+          "nonregen_damage": 0,
+          "race": "human",
+          "scores": {
+            "cha": 11,
+            "con": 11,
+            "dex": 11,
+            "int": 11,
+            "str": 11,
+            "wis": 11
+          },
+          "spell_book": [
+            "sleep"
+          ],
+          "stat_modifiers": [],
+          "xp": 0
+        }
+      ]
+    },
+    "quests": {},
+    "rng_streams": {
+      "combat": {
+        "inc": 51974326853383236054174564158459888819,
+        "state": 180795397024793254201627794445874276412
+      },
+      "effects": {
+        "inc": 283453162651363138174751306997233822321,
+        "state": 82950419690610286897458899398562272993
+      },
+      "encounter": {
+        "inc": 89959186405662357923881332541411655931,
+        "state": 245600835435001370040161073915762547766
+      },
+      "monster_action": {
+        "inc": 216485260068944084833976769572152741595,
+        "state": 316252631387065876105645382272260252652
+      },
+      "npc_party": {
+        "inc": 6905548725317423460208538633085511011,
+        "state": 167557780833365036580802211511327935853
+      },
+      "treasure": {
+        "inc": 55149374389624700722747444595030452821,
+        "state": 119070280199547008720396439384068395895
+      }
+    },
+    "ruleset": {
+      "aoe_friendly_fire": true,
+      "back_stab_needs_both_skills": true,
+      "deprivation_penalties": false,
+      "encumbrance": "basic",
+      "failed_trap_removal_springs": true,
+      "formation_width_limit": true,
+      "hd5_counts_as_magical": false,
+      "hp_reroll_at_first_level": false,
+      "individual_initiative": false,
+      "magic_item_death_save": true,
+      "thac0_arithmetic": false,
+      "variable_weapon_damage": true,
+      "weapon_reload": false,
+      "xp_award_timing": "on_return"
+    },
+    "treasure_snapshot_cp": 0
+  },
+  "schema_version": 4
+}

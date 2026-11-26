@@ -5,5 +5,21 @@
     "set": {
       "manual.4": "Bidirectional communication: The wearer may initiate bidirectional, telepathic communication, though the creature is not compelled to respond."
     }
+  },
+  {
+    "id": "drums_of_panic",
+    "reason": "The page describes 'Large war drums', a single item made of several drums, so the display name calls it a set, which also gives it a plural that differs from the singular.",
+    "set": {
+      "display_name": "set of drums of panic",
+      "display_name_plural": "sets of drums of panic"
+    }
+  },
+  {
+    "id": "elven_cloak_and_boots",
+    "reason": "The page describes 'A set of enchanted boots and a matching cloak', a single item made of two pieces, so the display name calls it a set.",
+    "set": {
+      "display_name": "set of elven cloak and boots",
+      "display_name_plural": "sets of elven cloak and boots"
+    }
   }
 ]

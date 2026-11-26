@@ -1,0 +1,146 @@
+[
+  {
+    "id": "garlic",
+    "reason": "The price list prints 'Garlic' with no unit, and one unit is a bulb.",
+    "set": {
+      "display_name": "bulb of garlic",
+      "display_name_plural": "bulbs of garlic"
+    }
+  },
+  {
+    "id": "hammer",
+    "reason": "The price list prints 'Hammer (small)', so the size goes in front of the noun.",
+    "set": {
+      "display_name": "small hammer",
+      "display_name_plural": "small hammers"
+    }
+  },
+  {
+    "id": "holy_water",
+    "reason": "Holy water is a substance, and the description says it is 'stored in a special vial', so a unit is a vial.",
+    "set": {
+      "display_name": "vial of holy water",
+      "display_name_plural": "vials of holy water"
+    }
+  },
+  {
+    "id": "iron_spikes",
+    "reason": "'Iron spikes (12)' is a lot of 12, and the session counts single spikes.",
+    "set": {
+      "display_name": "iron spike",
+      "display_name_plural": "iron spikes"
+    }
+  },
+  {
+    "id": "leather",
+    "reason": "The armour table prints the bare 'Leather', and the prose under it says 'Leather armour counts as light armour', so a suit is of leather armour.",
+    "set": {
+      "display_name": "suit of leather armour",
+      "display_name_plural": "suits of leather armour"
+    }
+  },
+  {
+    "id": "mirror",
+    "reason": "The price list prints 'Mirror (hand-sized, steel)', so the display name keeps the size.",
+    "set": {
+      "display_name": "hand mirror",
+      "display_name_plural": "hand mirrors"
+    }
+  },
+  {
+    "id": "oil_flask",
+    "reason": "'Oil (1 flask)' is a substance, and the description says 'A flask of oil fuels a lantern', so a unit is a flask.",
+    "set": {
+      "display_name": "flask of oil",
+      "display_name_plural": "flasks of oil"
+    }
+  },
+  {
+    "id": "pole",
+    "reason": "The price list prints 'Pole (10’ long, wooden)', and the description heading is 'Pole, 10’'.",
+    "set": {
+      "display_name": "10’ pole",
+      "display_name_plural": "10’ poles"
+    }
+  },
+  {
+    "id": "rations_iron",
+    "reason": "'Rations (iron, 7 days)' is a lot of 7, and the session counts one day's iron ration.",
+    "set": {
+      "display_name": "iron ration",
+      "display_name_plural": "iron rations"
+    }
+  },
+  {
+    "id": "rations_standard",
+    "reason": "'Rations (standard, 7 days)' is a lot of 7, and the session counts one day's standard ration.",
+    "set": {
+      "display_name": "standard ration",
+      "display_name_plural": "standard rations"
+    }
+  },
+  {
+    "id": "rope",
+    "reason": "Rope is a substance, and 'Rope (50’)' sells one 50’ length, which is a coil.",
+    "set": {
+      "display_name": "50’ coil of rope",
+      "display_name_plural": "50’ coils of rope"
+    }
+  },
+  {
+    "id": "sack_large",
+    "reason": "The price list prints 'Sack (large)', so the size goes in front of the noun.",
+    "set": {
+      "display_name": "large sack",
+      "display_name_plural": "large sacks"
+    }
+  },
+  {
+    "id": "sack_small",
+    "reason": "The price list prints 'Sack (small)', so the size goes in front of the noun.",
+    "set": {
+      "display_name": "small sack",
+      "display_name_plural": "small sacks"
+    }
+  },
+  {
+    "id": "stakes_and_mallet",
+    "reason": "'Stakes (3) and mallet' is one kit, which the description calls 'A wooden mallet and three 18” long stakes'.",
+    "set": {
+      "display_name": "set of stakes and mallet",
+      "display_name_plural": "sets of stakes and mallet"
+    }
+  },
+  {
+    "id": "thieves_tools",
+    "reason": "The description says 'A set of lock picking tools in a small case'.",
+    "set": {
+      "display_name": "set of thieves’ tools",
+      "display_name_plural": "sets of thieves’ tools"
+    }
+  },
+  {
+    "id": "torch",
+    "reason": "'Torches (6)' is a lot of 6, and the session counts single torches.",
+    "set": {
+      "display_name": "torch",
+      "display_name_plural": "torches"
+    }
+  },
+  {
+    "id": "wine",
+    "reason": "'Wine (2 pints)' is a substance sold in a lot of 2, and the session counts pints.",
+    "set": {
+      "display_name": "pint of wine",
+      "display_name_plural": "pints of wine"
+    }
+  },
+  {
+    "id": "wolfsbane",
+    "reason": "'Wolfsbane (1 bunch)' is a herb, and a unit is a bunch.",
+    "set": {
+      "display_name": "bunch of wolfsbane",
+      "display_name_plural": "bunches of wolfsbane"
+    }
+  }
+]

@@ -109,6 +109,7 @@ print([monster.current_hp for monster in referee.monsters])
 ```
 """
 
+from collections.abc import Iterable
 from copy import deepcopy
 from typing import Literal
 
@@ -120,7 +121,15 @@ from osrlib.core.classes import level_title
 from osrlib.core.effects import Condition, EffectsLedger, has_condition
 from osrlib.core.events import Event
 from osrlib.core.frozen import _Model
-from osrlib.core.items import Coins, MagicItemCategory, MagicItemInstance, magic_item_template
+from osrlib.core.items import (
+    _MASKED_CATEGORY_NAMES,
+    Coins,
+    MagicItemCategory,
+    MagicItemInstance,
+    _masked_names,
+    _with_article,
+    magic_item_template,
+)
 from osrlib.core.monsters import IdAllocator, MonsterInstance, _regular_plural
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl._feature_handles import (
@@ -136,7 +145,16 @@ from osrlib.crawl._party_location import _can_travel_to_town
 from osrlib.crawl.adventure import Adventure
 from osrlib.crawl.battle import BattleState
 from osrlib.crawl.commands import Command, SessionMode
-from osrlib.crawl.dungeon import Direction, DungeonState, EdgeKind, PartyLocation, Position, cell_ref, edge_ref
+from osrlib.crawl.dungeon import (
+    Direction,
+    DropPile,
+    DungeonState,
+    EdgeKind,
+    PartyLocation,
+    Position,
+    cell_ref,
+    edge_ref,
+)
 from osrlib.crawl.encounter import EncounterState, _member_kind
 from osrlib.crawl.exploration import EXHAUSTED_KIND, FATIGUE_KIND, HEALING_SERVICES
 from osrlib.crawl.party import Party
@@ -161,6 +179,7 @@ __all__ = [
     "MemberEffectView",
     "MemberView",
     "ObjectiveView",
+    "PileItemView",
     "PileView",
     "PlayerView",
     "QuestView",
@@ -234,17 +253,23 @@ class MemberView(_Model):
     `worn_armour`, `shield`, `wielded`, and `rings`. Mundane items appear as the inventory
     serializes them.
 
-    A magic item is masked until it's identified. An unidentified one has a `display` name in
-    place of its true name, like `"a potion"`, or `"a dagger with a faint aura"` for a magic
-    weapon. When the display name refers to a weapon, the entry also has the `qualities` of that
-    plain weapon, as an identified one does, so you can tell a melee attack from a missile
-    attack without revealing the weapon's bonus or curse. It has a `missile_ranges` key only
-    when the rules give the weapon ranges, so on a sword the key is absent rather than empty.
-    Every magic staff displays as `"a staff"` and has the staff's `qualities`. Any other item
-    whose display name comes from its category, like `"a wand"`, has neither key, because its
-    display name doesn't refer to a weapon. An identified item
-    shows its `name`, its `template_id`, and whether a curse has been revealed. Charges never
-    appear."""
+    A magic item is masked until it's identified. An unidentified one has a `display` name in place of its true
+    name, like `"a potion"`, or `"a dagger with a faint aura"` for a magic weapon. An enchanted weapon, suit of
+    armour, or shield is named after one unit of the mundane item underneath it, its
+    [`display_name`][osrlib.core.items.WeaponTemplate.display_name] with an article, so enchanted arrows display as
+    `"an arrow with a faint aura"` and enchanted chainmail as `"a suit of chainmail with a faint aura"`. A suit of
+    enchanted armour with no mundane item recorded displays as `"a suit of armour with a faint aura"`. When the
+    display name refers to a weapon, the entry also has the `qualities` of that plain weapon, as an identified one
+    does, so you can tell a melee attack from a missile attack without revealing the weapon's bonus or curse. It has
+    a `missile_ranges` key only when the rules give the weapon ranges, so on a sword the key is absent rather than
+    empty. Every magic staff displays as `"a staff"` and has the staff's `qualities`. Any other item whose display
+    name comes from its category, like `"a wand"`, has neither key, because its display name doesn't refer to a
+    weapon. An identified item shows its `name`, its `template_id`, and whether a curse has been revealed. Charges
+    never appear.
+
+    To name an item in a sentence, look up the id it has here in
+    [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names]: a mundane item's
+    `template.id`, and a magic item's or a valuable's `instance_id`."""
     memorized_spells: tuple[dict, ...]
     """The prepared spells, one dumped
     [`MemorizedSpell`][osrlib.core.spells.MemorizedSpell] per copy, in memorization
@@ -436,6 +461,27 @@ class EdgeView(_Model):
     a door."""
 
 
+class PileItemView(_Model):
+    """One thing in a dropped pile, by the id the events name it by, with its count.
+
+    You get these from [`PileView.contents`][osrlib.crawl.views.PileView.contents]. Look `item_id` up
+    in [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] and
+    [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural] to name it.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    item_id: str
+    """The catalog id of a mundane stack, like `"holy_water"`, or the instance id of a magic item,
+    like `"magic-item-0003"`, or of a gem or piece of jewellery, like `"valuable-0007"`. It's the form
+    of id that [`ItemsDroppedEvent.item_ids`][osrlib.crawl.events.ItemsDroppedEvent.item_ids] and the
+    other item events use, and an unidentified magic item's template id never appears here."""
+    quantity: int = 1
+    """How many units: the size of a mundane stack, the
+    [`quantity`][osrlib.core.items.MagicItemInstance.quantity] of a magic item, which is more than 1
+    only for enchanted ammunition, and always 1 for a gem or piece of jewellery."""
+
+
 class PileView(_Model):
     """A known dropped pile in explored space.
 
@@ -455,6 +501,14 @@ class PileView(_Model):
     """The pile's coins, as their value in whole gold pieces, rounded down."""
     coins: Coins = Coins()
     """The pile's coins by denomination, so a pile of copper alone isn't mistaken for an empty one."""
+    contents: tuple[PileItemView, ...] = ()
+    """One entry per thing in the pile, in the order of `items`, each with the id the events name
+    it by and its count.
+
+    A mundane stack has its catalog id, so a client reads `"holy_water"` and 2 here where `items` has
+    the string `"holy_water×2"`. A magic item and a valuable have their instance ids. Name each entry
+    from [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names], which has a key for
+    every id here."""
 
 
 class DungeonNameView(_Model):
@@ -1093,6 +1147,59 @@ class PlayerView(_Model):
     [`memorized_spells`][osrlib.crawl.views.MemberView.memorized_spells]. A divine caster prepares the
     normal form and chooses the form when casting, so every memorized copy of a reversible spell can be
     cast either way. To offer that choice, show both names."""
+    item_names: dict[str, str] = {}
+    """What to call one of each item whose id the view shows, keyed by that id, like
+    `{"torch": "torch", "holy_water": "vial of holy water", "magic-item-0003": "potion"}`. Show these
+    names, not the ids, and put a number or an article in front of one: "a torch". To word a count,
+    like "6 torches", use `item_names_plural`.
+
+    An item id appears in the view in four forms, and each is a key here:
+
+    - The catalog id of a mundane stack, like `"holy_water"`, in a member's
+      [`inventory`][osrlib.crawl.views.MemberView.inventory] and in a pile's
+      [`contents`][osrlib.crawl.views.PileView.contents]. For a stack a member carries, its name is
+      the [`display_name`][osrlib.core.items.GearTemplate.display_name] of the template the stack
+      embeds, which the session gives the display names of the template its catalog,
+      [`GameSession.effective_equipment`][osrlib.crawl.session.GameSession.effective_equipment], has
+      under that id, as [`ItemInstance.template`][osrlib.core.items.ItemInstance.template] says. So a
+      stack from a save or a party document that osrlib 2.7.0 wrote is named as the catalog names it,
+      and the name here matches the stack's template in `inventory`. A bundled id can't shadow a
+      built-in one, because a session refuses an adventure whose bundled id collides with a built-in
+      id. A carried stack whose id the catalog doesn't have, like an item another adventure bundled,
+      keeps the names its template has. For a pile, the name comes from the catalog, and a pile's
+      catalog id that the catalog doesn't have has no entry.
+    - The instance id of a magic item, like `"magic-item-0003"`, in an inventory and in a pile.
+      Until the party identifies the item, its name is the masked name the inventory shows, without
+      the article: `"potion"`, `"curious device"`, or `"shield with a faint aura"`. So a cursed item
+      and the item it passes for have the same name, and the name tells nothing the inventory
+      doesn't. Once the item is identified, its name is the
+      [`display_name`][osrlib.core.items.MagicItemTemplate.display_name] of its template in the magic
+      item catalog, like `"potion of healing"`.
+    - The template id of an identified magic item, like `"potion_of_healing"`, which the inventory
+      shows once the item is identified, with the same name. A pile shows a magic item by its
+      instance id alone, identified or not, so an identified item's template id is a key only while
+      a member carries it. An unidentified item's template id is never a key.
+    - The instance id of a gem or a piece of jewellery, like `"valuable-0007"`. Its name is its kind,
+      `"gem"` or `"piece of jewellery"`. The players see everything else about it from the moment
+      they take it, its own name and its value in gold pieces included, in the inventory's
+      `valuables`.
+
+    It names no item whose id the view doesn't show. The player-visible item events, like
+    [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent], name items by the same ids. An
+    item the command left in a member's pack or in a pile the view shows is a key in the view you
+    build after the command. An item the command used up, sold, or left behind on a trail is a key
+    in the view from before it. An item that is identified and used up in the same command, like a
+    potion drunk before the party knew it, has its true name on the
+    [`ItemIdentifiedEvent`][osrlib.crawl.events.ItemIdentifiedEvent]."""
+    item_names_plural: dict[str, str] = {}
+    """What to call two or more of each item in `item_names`, with the same keys, like
+    `{"torch": "torches", "holy_water": "vials of holy water", "magic-item-0003": "potions"}`.
+
+    Each value is the plural of the name in `item_names`: the template's
+    [`display_name_plural`][osrlib.core.items.GearTemplate.display_name_plural], the plural of a
+    masked name, like `"shields with a faint aura"`, or `"gems"` or `"pieces of jewellery"`. Use it
+    with a count from a pile's [`contents`][osrlib.crawl.views.PileView.contents], an inventory
+    entry's `quantity`, or the ids an event repeats, one per unit: "2 vials of holy water"."""
     fatigued: bool
     """Whether any member is fatigued."""
     exhausted: bool
@@ -1308,29 +1415,18 @@ class RefereeView(_Model):
     The session removes a generated cache when the party takes it, and its entry leaves with it."""
 
 
-_MASKED_CATEGORY_NAMES = {
-    MagicItemCategory.POTION: "a potion",
-    MagicItemCategory.SCROLL: "a scroll",
-    MagicItemCategory.RING: "a ring",
-    MagicItemCategory.WAND: "a wand",
-    MagicItemCategory.STAFF: "a staff",
-    MagicItemCategory.ROD: "a rod",
-    MagicItemCategory.MISC: "a curious device",
-}
-
-
 def _masked_magic_item(instance: MagicItemInstance) -> dict:
     """One magic item as the player sees it, masked until identified.
 
-    An unidentified item shows its category display name, and an enchanted arm shows its
-    base instead, as in "a sword with a faint aura", the concession made because *detect
-    magic* exists. A display string built from that base weapon already includes the weapon's name,
-    so the unidentified item also shows the `qualities` of the mundane weapon underneath
-    it, exactly as an identified one does, and its `missile_ranges` when the rules give that
-    weapon ranges. A weapon with no printed ranges, a sword among them, gets the `qualities` key
-    and no `missile_ranges` key at all. Every magic staff reads "a staff", and every one is a
-    mundane staff underneath, so the display is the name of the weapon and every staff shows the
-    staff's `qualities`. A wand or other item whose display comes from its category shows
+    An unidentified item shows its category display name, and an enchanted arm shows one unit of
+    its base instead, as in "a sword with a faint aura" or "an arrow with a faint aura", the
+    concession made because *detect magic* exists. A display string built from that base weapon
+    already includes the weapon's name, so the unidentified item also shows the `qualities` of
+    the mundane weapon underneath it, exactly as an identified one does, and its `missile_ranges`
+    when the rules give that weapon ranges. A weapon with no printed ranges, a sword among them,
+    gets the `qualities` key and no `missile_ranges` key at all. Every magic staff reads "a
+    staff", and every one is a mundane staff underneath, so the display is the name of the weapon
+    and every staff shows the staff's `qualities`. A wand or other item whose display comes from its category shows
     neither field, because the display isn't the name of a weapon and the fields would single
     the item out among the items that show the same string.
 
@@ -1344,7 +1440,6 @@ def _masked_magic_item(instance: MagicItemInstance) -> dict:
     level, because by the rules as written charges are undiscoverable.
     """
     from osrlib.core.combat import attack_facet
-    from osrlib.data import load_equipment
 
     template = magic_item_template(instance)
     facet = attack_facet(instance)
@@ -1359,12 +1454,8 @@ def _masked_magic_item(instance: MagicItemInstance) -> dict:
             "cursed": instance.cursed_revealed,
         }
     else:
-        display = _MASKED_CATEGORY_NAMES.get(template.category)
-        if display is None:
-            base_id = instance.base_item_id or template.base_item_id
-            base_name = load_equipment().get(base_id).name.lower() if base_id is not None else "arm"
-            display = f"a {base_name} with a faint aura"
-        elif template.category is not MagicItemCategory.STAFF:
+        display = _with_article(_masked_names(instance)[0])
+        if template.category in _MASKED_CATEGORY_NAMES and template.category is not MagicItemCategory.STAFF:
             # The display came from the category table, not the base weapon, so
             # attaching weapon facts here would single this one item out among the items in its
             # category that show the same string. "A staff" is the name of the weapon under every staff.
@@ -1483,24 +1574,8 @@ def build_player_view(session) -> PlayerView:
     explored = tuple(_explored_levels(session))
     features_here = _features_here_view(session, explored)
     visible_refs = _visible_cell_refs(session)
-    piles = {
-        ref: PileView(
-            items=tuple(
-                (
-                    *(f"{entry.item_id}×{entry.quantity}" for entry in pile.items),
-                    *(
-                        str(_masked_magic_item(item).get("name", _masked_magic_item(item).get("display")))
-                        for item in pile.magic_items
-                    ),
-                    *(valuable.name or valuable.kind for valuable in pile.valuables),
-                )
-            ),
-            coins_gp_value=pile.coins.value_gp,
-            coins=pile.coins,
-        )
-        for ref, pile in session.dungeon_state.piles.items()
-        if ref in visible_refs
-    }
+    known_piles = {ref: pile for ref, pile in session.dungeon_state.piles.items() if ref in visible_refs}
+    piles = {ref: _pile_view(pile) for ref, pile in known_piles.items()}
     fatigued = any(session.ledger.active_on(member.id, FATIGUE_KIND) for member in session.party.members)
     exhausted = any(session.ledger.active_on(member.id, EXHAUSTED_KIND) for member in session.party.members)
     deprivation = {
@@ -1509,6 +1584,7 @@ def build_player_view(session) -> PlayerView:
         if state.worst > 0
     }
     spell_names, reversed_spell_names = _spell_names(session, members, effects)
+    item_names, item_names_plural = _item_names(session, known_piles.values())
     return PlayerView(
         adventure_name=session.adventure.name,
         adventure_description=session.adventure.description,
@@ -1532,6 +1608,8 @@ def build_player_view(session) -> PlayerView:
         effects=effects,
         spell_names=spell_names,
         reversed_spell_names=reversed_spell_names,
+        item_names=item_names,
+        item_names_plural=item_names_plural,
         fatigued=fatigued,
         exhausted=exhausted,
         deprivation=deprivation,
@@ -1560,6 +1638,77 @@ def _spell_names(session, members, effects) -> tuple[dict[str, str], dict[str, s
         if spell.reversed_form is not None:
             reversed_names[spell_id] = spell.reversed_form.name
     return names, reversed_names
+
+
+def _pile_view(pile: DropPile) -> PileView:
+    """One known pile as the players see it, with each entry's display string and its id and count."""
+    magic_items = [_masked_magic_item(item) for item in pile.magic_items]
+    return PileView(
+        items=(
+            *(f"{entry.item_id}×{entry.quantity}" for entry in pile.items),
+            *(str(item.get("name", item.get("display"))) for item in magic_items),
+            *(valuable.name or valuable.kind for valuable in pile.valuables),
+        ),
+        coins_gp_value=pile.coins.value_gp,
+        coins=pile.coins,
+        contents=(
+            *(PileItemView(item_id=entry.item_id, quantity=entry.quantity) for entry in pile.items),
+            *(PileItemView(item_id=item.instance_id, quantity=item.quantity) for item in pile.magic_items),
+            *(PileItemView(item_id=valuable.instance_id) for valuable in pile.valuables),
+        ),
+    )
+
+
+_VALUABLE_NAMES = {"gem": ("gem", "gems"), "jewellery": ("piece of jewellery", "pieces of jewellery")}
+"""What the players call a valuable of each kind, whatever name the piece has."""
+
+
+def _item_names(session, piles: Iterable[DropPile]) -> tuple[dict[str, str], dict[str, str]]:
+    # Each id the inventories and the known piles show gets one entry, from the first place it appears. A
+    # carried stack is named from the template it embeds, which the session gave the catalog's names, and a
+    # pile's stack from the session's catalog, which has the items the adventure bundles. An unidentified magic
+    # item keeps its mask, and a template id is a key only for an identified item a member carries, because a
+    # pile shows a magic item by its instance id alone.
+    names: dict[str, str] = {}
+    plurals: dict[str, str] = {}
+    equipment = session.effective_equipment
+    catalog = {
+        template.id: template
+        for template in (*equipment.weapons, *equipment.armour, *equipment.gear, *equipment.ammunition)
+    }
+
+    def add(item_id: str, singular: str, plural: str) -> None:
+        if item_id not in names:
+            names[item_id] = singular
+            plurals[item_id] = plural
+
+    def add_magic_item(instance: MagicItemInstance, *, carried: bool) -> None:
+        if instance.identified:
+            template = magic_item_template(instance)
+            add(instance.instance_id, template.display_name, template.display_name_plural)
+            if carried:
+                add(instance.template_id, template.display_name, template.display_name_plural)
+        else:
+            add(instance.instance_id, *_masked_names(instance))
+
+    for member in session.party.members:
+        for instance in member.inventory.all_instances():
+            if isinstance(instance, MagicItemInstance):
+                add_magic_item(instance, carried=True)
+            else:
+                add(instance.template.id, instance.template.display_name, instance.template.display_name_plural)
+        for valuable in member.inventory.valuables:
+            add(valuable.instance_id, *_VALUABLE_NAMES[valuable.kind])
+    for pile in piles:
+        for entry in pile.items:
+            template = catalog.get(entry.item_id)
+            if template is not None:
+                add(entry.item_id, template.display_name, template.display_name_plural)
+        for instance in pile.magic_items:
+            add_magic_item(instance, carried=False)
+        for valuable in pile.valuables:
+            add(valuable.instance_id, *_VALUABLE_NAMES[valuable.kind])
+    return names, plurals
 
 
 def _quest_views(session):

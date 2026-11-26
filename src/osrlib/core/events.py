@@ -849,7 +849,11 @@ class EquipmentDestroyedEvent(Event):
     """The entity id of the victim."""
 
     item_names: tuple[str, ...]
-    """The display names of the items that were destroyed."""
+    """The names of the items that were destroyed, as the players know them: a mundane item's
+    `name`, like `"Torches (6)"`, an identified magic item's `name`, and an unidentified magic item's
+    masked name, like `"a sword with a faint aura"`, the `display` that
+    [`MemberView.inventory`][osrlib.crawl.views.MemberView.inventory] showed for it. The event has
+    player visibility, so it never names an unidentified item by its true name."""
 
     saved_items: tuple[str, ...] = ()
     """The instance ids of the magic items that passed their save and still exist. Empty when none survived,

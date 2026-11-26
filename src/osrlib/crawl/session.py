@@ -444,6 +444,45 @@ class DeprivationState(_Model):
         return max(self.food_days, self.water_days)
 
 
+_ITEM_NAME_FIELDS = ("display_name", "display_name_plural")
+
+
+def _take_catalog_item_names(catalog: EquipmentCatalog, character: Character) -> None:
+    """Give each item template the character's stacks embed the display names of the catalog's template with its id.
+
+    A save or a party document from osrlib 2.7.0 embeds templates without display names, so each one validated with
+    the defaults from its price-list `name`. The two names come from the catalog, with the entries of
+    `overrides_applied` that name them, which record where the names came from. The rest of the template is rules data
+    that travels with the character and doesn't change, and a template whose id the catalog lacks keeps its names.
+    The call draws nothing, and calling it again changes nothing.
+    """
+    templates = {
+        template.id: template for template in (*catalog.weapons, *catalog.armour, *catalog.gear, *catalog.ammunition)
+    }
+    for instance in character.inventory.all_instances():
+        if not isinstance(instance, ItemInstance):
+            continue
+        source = templates.get(instance.template.id)
+        if source is None:
+            continue
+        embedded = instance.template
+        kept = tuple(entry for entry in embedded.overrides_applied if entry not in _ITEM_NAME_FIELDS)
+        overrides = (*kept, *(entry for entry in source.overrides_applied if entry in _ITEM_NAME_FIELDS))
+        unchanged = (
+            embedded.display_name == source.display_name
+            and embedded.display_name_plural == source.display_name_plural
+            and set(embedded.overrides_applied) == set(overrides)
+        )
+        if not unchanged:
+            instance.template = embedded.model_copy(
+                update={
+                    "display_name": source.display_name,
+                    "display_name_plural": source.display_name_plural,
+                    "overrides_applied": overrides,
+                }
+            )
+
+
 def _member_id(member: Character) -> str:
     """Return a member's session id, which every member in a session has."""
     if member.id is None:
@@ -680,6 +719,8 @@ class GameSession:
         if lines := item_conflicts.lines("item"):
             raise ContentValidationError("adventure bundles colliding item ids:\n" + "\n".join(lines))
         self._equipment_catalog = equipment
+        for member in party.members:
+            _take_catalog_item_names(equipment, member)
         spells, spell_conflicts = _effective_spells(adventure, load_spells())
         if lines := spell_conflicts.lines("spell"):
             raise ContentValidationError("adventure bundles colliding spell ids:\n" + "\n".join(lines))
@@ -2461,6 +2502,7 @@ def _handle_add_member(session: GameSession, command: AddMember) -> tuple[list[R
         return [Rejection(code="party.add.carries_instances", params={"name": character.name, "item": carried[0]})], []
     # The command keeps the character as it arrived, so the log replays the same addition.
     member = character.model_copy(deep=True)
+    _take_catalog_item_names(session.effective_equipment, member)
     taken = {existing.id for existing in session.party.members}
     member.id = session.allocator.allocate("character")
     while member.id in taken:

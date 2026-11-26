@@ -1794,6 +1794,20 @@ class ItemIdentifiedEvent(Event):
     """The session-scoped id of the item, the same id the earlier events contained."""
     template_id: str
     """What it turned out to be, as its magic item catalog id."""
+    display_name: str = ""
+    """What to call the item now that the party knows it, the template's
+    [`display_name`][osrlib.core.items.MagicItemTemplate.display_name], like `"potion of healing"`.
+
+    It's here because the command that identifies an item can also use it up, like a potion drunk
+    before the party knew what it was. Then no view names it by its true name, because the view built
+    after the command no longer shows the item and the view from before showed it masked. When the
+    item is still carried, the view's
+    [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] has the same name under
+    `instance_id` and `template_id`."""
+    display_name_plural: str = ""
+    """What to call two or more of the item, the template's
+    [`display_name_plural`][osrlib.core.items.MagicItemTemplate.display_name_plural], like
+    `"potions of healing"`."""
 
 
 class CurseRevealedEvent(Event):

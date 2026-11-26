@@ -3778,7 +3778,7 @@
   "master_seed": 39,
   "mode": "victory",
   "party_document": {
-    "engine_version": "2.6.0",
+    "engine_version": "2.7.0",
     "kind": "party",
     "payload": {
       "characters": [
@@ -3810,6 +3810,8 @@
                 "ac_bonus": 1,
                 "category": null,
                 "cost_gp": 10,
+                "display_name": "shield",
+                "display_name_plural": "shields",
                 "id": "shield",
                 "item_type": "armour",
                 "name": "Shield",
@@ -3825,6 +3827,8 @@
                 "template": {
                   "cost_gp": 10,
                   "damage": "1d8",
+                  "display_name": "sword",
+                  "display_name_plural": "swords",
                   "id": "sword",
                   "item_type": "weapon",
                   "material": "standard",
@@ -3847,6 +3851,8 @@
                 "ac_bonus": null,
                 "category": "heavy",
                 "cost_gp": 40,
+                "display_name": "suit of chainmail",
+                "display_name_plural": "suits of chainmail",
                 "id": "chainmail",
                 "item_type": "armour",
                 "name": "Chainmail",
@@ -3901,6 +3907,8 @@
                 "template": {
                   "cost_gp": 5,
                   "damage": "1d6",
+                  "display_name": "mace",
+                  "display_name_plural": "maces",
                   "id": "mace",
                   "item_type": "weapon",
                   "material": "standard",
@@ -3924,6 +3932,8 @@
                 "ac_bonus": null,
                 "category": "heavy",
                 "cost_gp": 40,
+                "display_name": "suit of chainmail",
+                "display_name_plural": "suits of chainmail",
                 "id": "chainmail",
                 "item_type": "armour",
                 "name": "Chainmail",
@@ -3978,6 +3988,8 @@
                 "template": {
                   "cost_gp": 10,
                   "damage": "1d8",
+                  "display_name": "sword",
+                  "display_name_plural": "swords",
                   "id": "sword",
                   "item_type": "weapon",
                   "material": "standard",
@@ -4000,10 +4012,15 @@
                 "ac_bonus": null,
                 "category": "light",
                 "cost_gp": 20,
+                "display_name": "suit of leather armour",
+                "display_name_plural": "suits of leather armour",
                 "id": "leather",
                 "item_type": "armour",
                 "name": "Leather",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "weight_coins": 200
               }
             }
@@ -4054,6 +4071,8 @@
                 "template": {
                   "cost_gp": 3,
                   "damage": "1d4",
+                  "display_name": "dagger",
+                  "display_name_plural": "daggers",
                   "id": "dagger",
                   "item_type": "weapon",
                   "material": "standard",

@@ -128,6 +128,7 @@ from osrlib.crawl.session import (
     GameSession,
     JournalEntry,
     QuestState,
+    _take_catalog_item_names,
 )
 from osrlib.errors import ContentValidationError, ReplayVersionError
 from osrlib.versioning import SCHEMA_VERSION, check_document, engine_version, stamp_document
@@ -470,7 +471,11 @@ def load_game(document: Mapping[str, object]) -> GameSession:
     You don't need to do anything for an older save. The call checks the document, then
     upgrades a copy of the payload through [`MIGRATIONS`][osrlib.persistence.MIGRATIONS], one
     schema version at a time, before it rebuilds anything. The call doesn't change `document`,
-    and the restored session shares nothing with it.
+    and the restored session shares nothing with it. Each item template that a party member's or
+    an NPC adventurer's stack embeds takes the display names of the session's catalog, as
+    [`ItemInstance.template`][osrlib.core.items.ItemInstance.template] describes, so the gear in a
+    save that osrlib 2.7.0 wrote is named as a new session names it, and the next save writes those
+    names. A save that this osrlib wrote loads to a session that saves the same document again.
 
     A newer osrlib can add event types and message codes within the same schema version. The
     call keeps an event as a dict when this osrlib doesn't define its type, or defines the type
@@ -552,6 +557,8 @@ def load_game(document: Mapping[str, object]) -> GameSession:
             if npc.id is None:
                 raise ContentValidationError("an NPC in the save carries no id")
             session.npcs[npc.id] = npc
+        for npc in session.npcs.values():
+            _take_catalog_item_names(session.effective_equipment, npc)
         session.flags = dict(payload["flags"])
         # Both blocks are newer than schema version 3 and load with empty defaults, so an
         # older save restores unchanged, and the session records them from then on.

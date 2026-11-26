@@ -88,10 +88,11 @@ print(torches.quantity, inventory.purse.gp, movement_rate_feet(inventory, Rulese
 ```
 """
 
+import re
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 import osrlib.core
 from osrlib.core._descriptions import _StrEnum
@@ -99,6 +100,7 @@ from osrlib.core.classes import ArmourPolicyKind, ClassDefinition, WeaponPolicyK
 from osrlib.core.dice import parse
 from osrlib.core.effects import ModifierSpec
 from osrlib.core.frozen import FrozenMap, _Model
+from osrlib.core.monsters import _regular_plural
 from osrlib.core.rng import RngStream
 from osrlib.core.ruleset import EncumbranceMode, Ruleset
 from osrlib.core.treasure import MagicItemType, TreasureEntry
@@ -361,6 +363,42 @@ def _check_missile_ranges(qualities: tuple[WeaponQuality, ...], missile_ranges: 
         raise ValueError("missile ranges are present exactly when the missile quality is")
 
 
+_IRREGULAR_PLURALS = {"staff": "staves"}
+"""The plural of every word that names an item and doesn't take the regular English ending."""
+
+_HEAD_NOUN_END = re.compile(r" (?i:of|with|vs) |, | [+-]\d| (?=[IVX]+$)| \(")
+"""Where the words that name an item end and the words that qualify it begin: `of`, `with`, or `vs` in any case, a
+comma, a bonus like `+1`, a closing Roman numeral, or an opening parenthesis."""
+
+_LAST_WORD = re.compile(r"(?P<words>.*?)(?P<noun>\S+)(?P<space>\s*)")
+"""The words before the last word, the last word, and any whitespace after it."""
+
+
+def _item_plural(name: str) -> str:
+    """Return the plural of an item's display name, with the ending on the word that names the item.
+
+    That word is the last one before the first match of `_HEAD_NOUN_END`, or the last word of a name with no match, so
+    `"vial of holy water"` becomes `"vials of holy water"`, `"Staff Of Power"` becomes `"Staves Of Power"`, and
+    `"Lantern (hooded)"` becomes `"Lanterns (hooded)"`. It takes the ending of `_regular_plural`, unless
+    `_IRREGULAR_PLURALS` lists it, and keeps its capital, so `"Staff of the Magi"` becomes `"Staves of the Magi"`.
+    The ending goes straight on the word, and any whitespace after the word stays after the ending, so a name with
+    two spaces before its `of` keeps them after the ending. The SRD compiler writes the plural of every built-in
+    template with this function, and a template written without a plural gets it from this function too.
+    """
+    end = _HEAD_NOUN_END.search(name)
+    head, tail = (name[: end.start()], name[end.start() :]) if end else (name, "")
+    match = _LAST_WORD.fullmatch(head)
+    if match is None:
+        return name
+    noun = match["noun"]
+    irregular = _IRREGULAR_PLURALS.get(noun.lower())
+    if irregular is None:
+        noun = _regular_plural(noun)
+    else:
+        noun = irregular.capitalize() if noun[:1].isupper() else irregular
+    return match["words"] + noun + match["space"] + tail
+
+
 class WeaponTemplate(_Model):
     """A mundane weapon, from the SRD's weapon table.
 
@@ -383,6 +421,29 @@ class WeaponTemplate(_Model):
     """
     name: str
     """The display name, for example `"Sword"`."""
+    display_name: str = Field(default="", validate_default=True)
+    """What to call one of these weapons in a sentence, like `"sword"` or `"two-handed sword"`.
+
+    It's lowercase unless a word is a proper noun or an abbreviation, and it has no article, so put a number or an
+    article in front of it: "a sword", "2 swords".
+    [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] gives it to the players' client.
+
+    A template you write that leaves it out gets its `name`.
+    """
+    display_name_plural: str = Field(default="", validate_default=True)
+    """What to call two or more of these weapons, like `"swords"` or `"staves"`.
+
+    [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural] gives it to the players' client. A
+    template you write that leaves it out gets `display_name` with the regular English ending on the word that names the
+    item: the last word before the first `of`, `with`, or `vs`, a comma, a bonus like `+1`, a closing Roman numeral, or
+    an opening parenthesis, or the last word when the name has none of them. So `"Idol of the drowned saint"` becomes
+    `"Idols of the drowned saint"`, and `"Lantern (hooded)"` becomes `"Lanterns (hooded)"`. The ending is `s`, or `es`
+    after `s`, `x`, `z`, `ch`, or `sh`, or `ies` in place of a `y` that follows a consonant, and `staff` becomes
+    `staves` with its capital kept, so `"Staff of the Magi"` becomes `"Staves of the Magi"`. The connecting words count
+    in any case, so `"Staff Of Power"` becomes `"Staves Of Power"`, and any spaces after the word stay after the ending.
+    The compiled plural of every built-in template follows the same rule. Set it yourself when the name is already
+    plural, like `"Torches (6)"`, or when the plural is irregular.
+    """
     cost_gp: int = Field(ge=0)
     """The listed price in gold pieces, for one weapon."""
     weight_coins: int = Field(ge=0)
@@ -403,6 +464,16 @@ class WeaponTemplate(_Model):
     """Which fields were corrected when this row was compiled from the SRD text, as dotted paths. Empty when none were.
     osrlib doesn't read it during play.
     """
+
+    @field_validator("display_name")
+    @classmethod
+    def _display_name_defaults_to_name(cls, value: str, info: ValidationInfo) -> str:
+        return value or info.data.get("name", "")
+
+    @field_validator("display_name_plural")
+    @classmethod
+    def _plural_defaults_to_regular_ending(cls, value: str, info: ValidationInfo) -> str:
+        return value or _item_plural(info.data.get("display_name", ""))
 
     @field_validator("damage")
     @classmethod
@@ -445,6 +516,29 @@ class ArmourTemplate(_Model):
     index](https://mmacy.github.io/osrlib-python/reference/content-ids/equipment/)."""
     name: str
     """The display name."""
+    display_name: str = Field(default="", validate_default=True)
+    """What to call one of these in a sentence, like `"shield"` or `"suit of chainmail"`.
+
+    Body armour is named as a suit, so a count reads "2 suits of chainmail". It's lowercase unless a
+    word is a proper noun or an abbreviation, and it has no article, so put a number or an article in
+    front of it. [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] gives it to the players' client.
+
+    A template you write that leaves it out gets its `name`.
+    """
+    display_name_plural: str = Field(default="", validate_default=True)
+    """What to call two or more of these, like `"shields"` or `"suits of chainmail"`.
+
+    [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural] gives it to the players' client. A
+    template you write that leaves it out gets `display_name` with the regular English ending on the word that names the
+    item: the last word before the first `of`, `with`, or `vs`, a comma, a bonus like `+1`, a closing Roman numeral, or
+    an opening parenthesis, or the last word when the name has none of them. So `"Idol of the drowned saint"` becomes
+    `"Idols of the drowned saint"`, and `"Lantern (hooded)"` becomes `"Lanterns (hooded)"`. The ending is `s`, or `es`
+    after `s`, `x`, `z`, `ch`, or `sh`, or `ies` in place of a `y` that follows a consonant, and `staff` becomes
+    `staves` with its capital kept, so `"Staff of the Magi"` becomes `"Staves of the Magi"`. The connecting words count
+    in any case, so `"Staff Of Power"` becomes `"Staves Of Power"`, and any spaces after the word stay after the ending.
+    The compiled plural of every built-in template follows the same rule. Set it yourself when the name is already
+    plural, like `"Torches (6)"`, or when the plural is irregular.
+    """
     cost_gp: int = Field(ge=0)
     """The listed price in gold pieces."""
     weight_coins: int = Field(ge=0)
@@ -465,6 +559,16 @@ class ArmourTemplate(_Model):
     """Which fields were corrected when this row was compiled from the SRD text, as dotted paths. Empty when none were.
     osrlib doesn't read it during play.
     """
+
+    @field_validator("display_name")
+    @classmethod
+    def _display_name_defaults_to_name(cls, value: str, info: ValidationInfo) -> str:
+        return value or info.data.get("name", "")
+
+    @field_validator("display_name_plural")
+    @classmethod
+    def _plural_defaults_to_regular_ending(cls, value: str, info: ValidationInfo) -> str:
+        return value or _item_plural(info.data.get("display_name", ""))
 
     @model_validator(mode="after")
     def _body_armour_or_shield(self) -> ArmourTemplate:
@@ -553,6 +657,32 @@ class GearTemplate(_Model):
     """The display name as the price list prints it, which includes the lot size for gear sold in lots:
     `"Torches (6)"`, `"Iron spikes (12)"`.
     """
+    display_name: str = Field(default="", validate_default=True)
+    """What to call one unit of this gear in a sentence, like `"torch"` or `"vial of holy water"`.
+
+    It names one of the units that [`ItemInstance.quantity`][osrlib.core.items.ItemInstance.quantity]
+    counts, not a lot from the price list, so `"Torches (6)"` is `"torch"`, and a stack of six reads
+    "6 torches". Where the price list names a substance, it names the container or the measure the
+    session counts: `"vial of holy water"`, `"flask of oil"`, `"pint of wine"`. It's lowercase unless a
+    word is a proper noun or an abbreviation, and it has no article, so put a number or an article in
+    front of it. [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] gives it to the players' client.
+
+    A template you write that leaves it out gets its `name`.
+    """
+    display_name_plural: str = Field(default="", validate_default=True)
+    """What to call two or more units, like `"torches"` or `"vials of holy water"`.
+
+    [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural] gives it to the players' client. A
+    template you write that leaves it out gets `display_name` with the regular English ending on the word that names the
+    item: the last word before the first `of`, `with`, or `vs`, a comma, a bonus like `+1`, a closing Roman numeral, or
+    an opening parenthesis, or the last word when the name has none of them. So `"Idol of the drowned saint"` becomes
+    `"Idols of the drowned saint"`, and `"Lantern (hooded)"` becomes `"Lanterns (hooded)"`. The ending is `s`, or `es`
+    after `s`, `x`, `z`, `ch`, or `sh`, or `ies` in place of a `y` that follows a consonant, and `staff` becomes
+    `staves` with its capital kept, so `"Staff of the Magi"` becomes `"Staves of the Magi"`. The connecting words count
+    in any case, so `"Staff Of Power"` becomes `"Staves Of Power"`, and any spaces after the word stay after the ending.
+    The compiled plural of every built-in template follows the same rule. Set it yourself when the name is already
+    plural, like `"Torches (6)"`, or when the plural is irregular.
+    """
     cost_gp: int = Field(ge=0)
     """The listed price in gold pieces, for one lot."""
     lot_size: int = Field(default=1, ge=1)
@@ -576,6 +706,16 @@ class GearTemplate(_Model):
     osrlib doesn't read it during play.
     """
 
+    @field_validator("display_name")
+    @classmethod
+    def _display_name_defaults_to_name(cls, value: str, info: ValidationInfo) -> str:
+        return value or info.data.get("name", "")
+
+    @field_validator("display_name_plural")
+    @classmethod
+    def _plural_defaults_to_regular_ending(cls, value: str, info: ValidationInfo) -> str:
+        return value or _item_plural(info.data.get("display_name", ""))
+
 
 class AmmunitionTemplate(_Model):
     """Ammunition for a missile weapon: arrows, quarrels, sling stones.
@@ -596,6 +736,30 @@ class AmmunitionTemplate(_Model):
     [the equipment id index](https://mmacy.github.io/osrlib-python/reference/content-ids/equipment/)."""
     name: str
     """The display name as the price list prints it, which includes the lot: `"Arrows (quiver of 20)"`."""
+    display_name: str = Field(default="", validate_default=True)
+    """What to call one unit of this ammunition in a sentence, like `"arrow"` or `"crossbow bolt"`.
+
+    It names one of the units that [`ItemInstance.quantity`][osrlib.core.items.ItemInstance.quantity]
+    counts, not the lot, so `"Arrows (quiver of 20)"` is `"arrow"`, and a full quiver reads "20 arrows".
+    It's lowercase unless a word is a proper noun or an abbreviation, and it has no article.
+    [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] gives it to the players' client.
+
+    A template you write that leaves it out gets its `name`.
+    """
+    display_name_plural: str = Field(default="", validate_default=True)
+    """What to call two or more units, like `"arrows"` or `"crossbow bolts"`.
+
+    [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural] gives it to the players' client. A
+    template you write that leaves it out gets `display_name` with the regular English ending on the word that names the
+    item: the last word before the first `of`, `with`, or `vs`, a comma, a bonus like `+1`, a closing Roman numeral, or
+    an opening parenthesis, or the last word when the name has none of them. So `"Idol of the drowned saint"` becomes
+    `"Idols of the drowned saint"`, and `"Lantern (hooded)"` becomes `"Lanterns (hooded)"`. The ending is `s`, or `es`
+    after `s`, `x`, `z`, `ch`, or `sh`, or `ies` in place of a `y` that follows a consonant, and `staff` becomes
+    `staves` with its capital kept, so `"Staff of the Magi"` becomes `"Staves of the Magi"`. The connecting words count
+    in any case, so `"Staff Of Power"` becomes `"Staves Of Power"`, and any spaces after the word stay after the ending.
+    The compiled plural of every built-in template follows the same rule. Set it yourself when the name is already
+    plural, like `"Torches (6)"`, or when the plural is irregular.
+    """
     cost_gp: int = Field(ge=0)
     """The listed price in gold pieces, for one lot. 0 for sling stones."""
     lot_size: int = Field(default=1, ge=1)
@@ -612,6 +776,16 @@ class AmmunitionTemplate(_Model):
     """Which fields were corrected when this row was compiled from the SRD text, as dotted paths. Empty when none were.
     osrlib doesn't read it during play.
     """
+
+    @field_validator("display_name")
+    @classmethod
+    def _display_name_defaults_to_name(cls, value: str, info: ValidationInfo) -> str:
+        return value or info.data.get("name", "")
+
+    @field_validator("display_name_plural")
+    @classmethod
+    def _plural_defaults_to_regular_ending(cls, value: str, info: ValidationInfo) -> str:
+        return value or _item_plural(info.data.get("display_name", ""))
 
 
 ItemTemplate = Annotated[
@@ -957,6 +1131,36 @@ class MagicItemTemplate(_Model):
     index](https://mmacy.github.io/osrlib-python/reference/content-ids/magic-items/)."""
     name: str
     """The display name. Show this only once the instance is identified."""
+    display_name: str = Field(default="", validate_default=True)
+    """What to call one of these items in a sentence once the party knows what it is, like
+    `"potion of healing"` or `"sword +1"`.
+
+    It's lowercase unless a word is a proper noun or an abbreviation, like the `ESP` of
+    `"potion of ESP"`, and it has no article, so put a number or an article in front of it. For
+    enchanted ammunition it names one of the units that
+    [`MagicItemInstance.quantity`][osrlib.core.items.MagicItemInstance.quantity] counts, so
+    `"Arrows +1 (3d10 arrows)"` is `"arrow +1"`. Footwear and gloves are named as a pair, like
+    `"pair of boots of speed"`, so a count reads "2 pairs of boots of speed".
+
+    Like `name`, show it only once the instance is identified. Until then,
+    [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] names the item by its masked name.
+
+    A template you construct yourself that leaves it out gets its `name`.
+    """
+    display_name_plural: str = Field(default="", validate_default=True)
+    """What to call two or more of these items, like `"potions of healing"` or `"swords +1"`.
+
+    [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural] gives it to the players' client. A
+    template you construct yourself that leaves it out gets `display_name` with the regular English ending on the word
+    that names the item: the last word before the first `of`, `with`, or `vs`, a comma, a bonus like `+1`, a closing
+    Roman numeral, or an opening parenthesis, or the last word when the name has none of them. So `"Idol of the drowned
+    saint"` becomes `"Idols of the drowned saint"`, and `"Lantern (hooded)"` becomes `"Lanterns (hooded)"`. The ending
+    is `s`, or `es` after `s`, `x`, `z`, `ch`, or `sh`, or `ies` in place of a `y` that follows a consonant, and `staff`
+    becomes `staves` with its capital kept, so `"Staff of the Magi"` becomes `"Staves of the Magi"`. The connecting
+    words count in any case, so `"Staff Of Power"` becomes `"Staves Of Power"`, and any spaces after the word stay after
+    the ending. The compiled plural of every built-in template follows the same rule. Set it yourself when the name is
+    already plural, like `"Torches (6)"`, or when the plural is irregular.
+    """
     category: MagicItemCategory
     """What kind of item it is. See [`MagicItemCategory`][osrlib.core.items.MagicItemCategory]."""
     base_item_id: str | None = None
@@ -1026,6 +1230,16 @@ class MagicItemTemplate(_Model):
     """Which fields were corrected when this item was compiled from the SRD text, as dotted paths. Empty when none were.
     osrlib doesn't read it during play.
     """
+
+    @field_validator("display_name")
+    @classmethod
+    def _display_name_defaults_to_name(cls, value: str, info: ValidationInfo) -> str:
+        return value or info.data.get("name", "")
+
+    @field_validator("display_name_plural")
+    @classmethod
+    def _plural_defaults_to_regular_ending(cls, value: str, info: ValidationInfo) -> str:
+        return value or _item_plural(info.data.get("display_name", ""))
 
     @field_validator("charges_dice", "quantity_dice")
     @classmethod
@@ -1783,6 +1997,16 @@ class ItemInstance(_Model):
     """The item itself, one of the four equipment templates. See [`ItemTemplate`][osrlib.core.items.ItemTemplate]. The
     whole template is embedded rather than referenced by id, so an instance of an item an adventure bundled stays
     readable without that adventure.
+
+    A session gives an embedded template the display names of the template its catalog,
+    [`GameSession.effective_equipment`][osrlib.crawl.session.GameSession.effective_equipment], has under the same id.
+    It does this to every stack a party member or an NPC adventurer carries when the session starts, when
+    [`load_game`][osrlib.persistence.load_game] restores it, and when [`AddMember`][osrlib.crawl.commands.AddMember]
+    adds a member. Only `display_name` and `display_name_plural` change, with the entries of `overrides_applied` that
+    name those two fields, which record where the names came from. The rest of the template is rules data that travels
+    with the character. So a stack from a save or a party document that osrlib 2.7.0 wrote, whose
+    template has no display names, is named as the catalog names it, in the views and in the next save. A template
+    whose id the catalog doesn't have, like an item another adventure bundled, keeps the names it has.
     """
     quantity: int = Field(default=1, ge=1)
     """How many units the stack contains, counting individual items rather than lots: buying one lot of torches gives
@@ -2273,6 +2497,52 @@ def magic_item_template(instance: MagicItemInstance) -> MagicItemTemplate:
     from osrlib.data import load_magic_items
 
     return load_magic_items().get(instance.template_id)
+
+
+_MASKED_CATEGORY_NAMES = {
+    MagicItemCategory.POTION: ("potion", "potions"),
+    MagicItemCategory.SCROLL: ("scroll", "scrolls"),
+    MagicItemCategory.RING: ("ring", "rings"),
+    MagicItemCategory.WAND: ("wand", "wands"),
+    MagicItemCategory.STAFF: ("staff", "staves"),
+    MagicItemCategory.ROD: ("rod", "rods"),
+    MagicItemCategory.MISC: ("curious device", "curious devices"),
+}
+"""What the players call an unidentified item of each category that isn't an enchanted arm."""
+
+
+def _masked_names(instance: MagicItemInstance) -> tuple[str, str]:
+    """Return what the players call an unidentified magic item, for one and for two or more, with no article.
+
+    An item whose category has a name in `_MASKED_CATEGORY_NAMES` gets that name, like `"potion"`. An enchanted
+    weapon, piece of ammunition, suit of armour, or shield is named after one unit of the mundane item underneath it,
+    its `display_name` followed by "with a faint aura", the concession made because *detect magic* exists: `"arrow
+    with a faint aura"`, `"suit of chainmail with a faint aura"`. A suit of enchanted armour with no mundane item
+    recorded is `"suit of armour with a faint aura"`.
+
+    The name depends on the category and the base alone, so a cursed item has the names of the item it passes for,
+    and neither the bonus nor the curse shows.
+    """
+    from osrlib.data import load_equipment
+
+    template = magic_item_template(instance)
+    category_names = _MASKED_CATEGORY_NAMES.get(template.category)
+    if category_names is not None:
+        return category_names
+    base_id = instance.base_item_id or template.base_item_id
+    if base_id is not None:
+        base = load_equipment().get(base_id)
+        singular, plural = base.display_name, base.display_name_plural
+    elif template.category is MagicItemCategory.ARMOUR:
+        singular, plural = "suit of armour", "suits of armour"
+    else:
+        singular, plural = "weapon", "weapons"
+    return f"{singular} with a faint aura", f"{plural} with a faint aura"
+
+
+def _with_article(name: str) -> str:
+    """Return `name` after the indefinite article, `"an"` before a vowel and `"a"` otherwise."""
+    return f"{'an' if name[:1].lower() in ('a', 'e', 'i', 'o', 'u') else 'a'} {name}"
 
 
 def _shield_ac_parts(shield: AnyInstance | None, *, ascending: bool) -> tuple[int | None, int]:
