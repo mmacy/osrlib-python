@@ -470,6 +470,64 @@ class MemberView(_Model):
     (`session.command.member_incapacitated`). Learning one spell can fill the book at that spell's
     level, so read the view again after each `LearnSpell`. To show a spell's name, look its id up in
     [`PlayerView.spell_names`][osrlib.crawl.views.PlayerView.spell_names]."""
+    reverses_at: Literal["memorize", "cast"] | None = None
+    """When the member chooses the form of a spell that reverses: `"memorize"`, `"cast"`, or `None` for a
+    class that casts nothing.
+
+    It comes from the kind of caster the class is, as
+    [`caster_profile`][osrlib.core.spells.caster_profile] reads it from
+    [`Character.definition`][osrlib.core.character.Character.definition], so it's right for a custom class
+    too, whatever its spell list and whether or not the member has a spell book. The OSE SRD says of arcane
+    casters that "The normal or reversed form of a spell must be selected when the spell is memorized", and
+    of divine casters that they "can cast the reversed version of a spell by speaking the words and
+    performing the gestures backwards when it is cast."
+
+    - `"memorize"`, for an arcane caster: a [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells] may
+      select the reversed form of a spell that has an entry in
+      [`PlayerView.reversed_spell_names`][osrlib.crawl.views.PlayerView.reversed_spell_names], and each
+      memorized copy is cast in the form its `reversed` in `memorized_spells` gives.
+    - `"cast"`, for a divine caster: the session refuses a reversed selection with
+      `magic.memorize.divine_reverses_at_cast`, and every memorized copy of a spell that reverses can be cast
+      in either form, with the `reversed` of [`CastSpell`][osrlib.crawl.commands.CastSpell] or of a `cast`
+      [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration].
+
+    So offer a reversed copy in a prepare dialog only when it's `"memorize"`, and offer both forms of a
+    memorized copy in a cast dialog only when it's `"cast"`."""
+    can_prepare_now: bool = False
+    """Whether the session accepts a [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells] from the member
+    now, with selections that fit `preparable_spells` and `spell_slots`. Read it to offer or withhold a
+    prepare dialog.
+
+    It's false exactly when one of the refusals that belong to the moment applies to the member:
+
+    - `session.command.wrong_mode`: the session isn't in town or exploring.
+    - `session.command.member_incapacitated`: the member can't act.
+    - `magic.memorize.needs_sleep`: the party hasn't slept since the member last prepared, which
+      `needs_sleep_to_prepare` gives by itself.
+
+    It's also false for a class that casts nothing, which the session refuses with
+    `magic.memorize.not_a_caster`. It doesn't depend on the slots, so it's true for a 1st-level cleric who
+    has slept, whose `preparable_spells` is empty and who can prepare only an empty selection.
+
+    The session reads the moment from its own state, never from the event log, so the field is right in a
+    session restored from a save. A [`Rest`][osrlib.crawl.commands.Rest], a `PrepareSpells`, an encounter,
+    or a condition can change it, so read the view again after each command."""
+    needs_sleep_to_prepare: bool = False
+    """Whether the member has to sleep before they can prepare spells again. Read it to tell the table which
+    casters need a night's rest.
+
+    It's true exactly when the party hasn't slept since the member last prepared, the rule by which the
+    session refuses a [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells] with
+    `magic.memorize.needs_sleep`. So it's true for every caster in a new session, before the party's first
+    sleep, and for a caster who has prepared, until the party sleeps again. A `night` or `day`
+    [`Rest`][osrlib.crawl.commands.Rest] that a wandering encounter doesn't interrupt is sleep. The OSE SRD
+    says "A spell caster can memorize new spells once a day, after an uninterrupted night’s sleep."
+
+    It reads the party's sleeps and the member's last preparation alone. During an encounter or a battle,
+    and while the member can't act, the session refuses the command with `session.command.wrong_mode` or
+    `session.command.member_incapacitated` before it checks the sleep, and this field still says whether the
+    member will need to sleep. It's false for a class that casts nothing, which the session refuses with
+    `magic.memorize.not_a_caster` whether or not the party has slept."""
     thief_skills: dict[str, int] = {}
     """The member's chance at each thief skill at their level, keyed by the skill field names of
     [`ThiefSkillRow`][osrlib.core.classes.ThiefSkillRow], like `"open_locks"` and `"move_silently"`.
@@ -531,7 +589,10 @@ class PileItemView(_Model):
 
     You get these from [`PileView.contents`][osrlib.crawl.views.PileView.contents]. Look `item_id` up
     in [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] and
-    [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural] to name it.
+    [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural] to name it. A gem or
+    piece of jewellery that has a name of its own has it in
+    [`PlayerView.valuable_names`][osrlib.crawl.views.PlayerView.valuable_names] too. Show that name as
+    written, with no article.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -1262,7 +1323,9 @@ class PlayerView(_Model):
     - The instance id of a gem or a piece of jewellery, like `"valuable-0007"`. Its name is its kind,
       `"gem"` or `"piece of jewellery"`. The players see everything else about it from the moment
       they take it, its own name and its value in gold pieces included, in the inventory's
-      `valuables`.
+      `valuables`. A piece that has a name of its own, like `"Prior's chain of office"`, has it in
+      `valuable_names` under the same id. Show that name as written, with no article, in place of
+      the kind.
 
     It names no item whose id the view doesn't show. The player-visible item events, like
     [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent], name items by the same ids. An
@@ -1280,6 +1343,24 @@ class PlayerView(_Model):
     masked name, like `"shields with a faint aura"`, or `"gems"` or `"pieces of jewellery"`. Use it
     with a count from a pile's [`contents`][osrlib.crawl.views.PileView.contents], an inventory
     entry's `quantity`, or the ids an event repeats, one per unit: "2 vials of holy water"."""
+    valuable_names: dict[str, str] = {}
+    """The own name of each gem and piece of jewellery that has one, keyed by its instance id, like
+    `{"valuable-0007": "Prior's chain of office"}`. Show it as written, with no article: "Sam takes
+    Prior's chain of office." For an id that isn't a key, use the kind in `item_names`, with an
+    article: "Sam takes a gem."
+
+    A piece has a name of its own when its `name` is neither empty nor the plain name that treasure
+    generation gives its kind, `"Gem"` or `"Jewellery"`. So a piece an adventure places in a cache
+    with a named [`ValuableSpec`][osrlib.crawl.dungeon.ValuableSpec] is a key, and neither a piece
+    the session rolls on the treasure tables nor a placed piece whose `name` is empty is a key.
+
+    The keys are the instance ids of those pieces in the members'
+    [`inventory`][osrlib.crawl.views.MemberView.inventory] `valuables` and in the
+    [`contents`][osrlib.crawl.views.PileView.contents] of the known piles. Each value is the name that
+    the inventory's `valuables` give the piece, and the string at the same place in the pile's
+    [`items`][osrlib.crawl.views.PileView.items]. A piece in a pile the party doesn't know, or in a
+    cache the party hasn't emptied, isn't a key, as it isn't one in `item_names`. Every key here is
+    also a key in `item_names`."""
     fatigued: bool
     """Whether any member is fatigued."""
     exhausted: bool
