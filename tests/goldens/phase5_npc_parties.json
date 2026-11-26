@@ -1173,16 +1173,20 @@
               }
             },
             {
-              "base_item_id": "shield",
-              "charges_remaining": null,
-              "cursed_revealed": false,
-              "identified": false,
-              "instance_id": "magic-item-0007",
-              "instance_type": "magic_item",
+              "instance_type": "item",
               "quantity": 1,
-              "sentience": null,
-              "state": {},
-              "template_id": "cursed_shield_minus_2"
+              "template": {
+                "ac": null,
+                "ac_ascending": null,
+                "ac_bonus": 1,
+                "category": null,
+                "cost_gp": 10,
+                "id": "shield",
+                "item_type": "armour",
+                "name": "Shield",
+                "overrides_applied": [],
+                "weight_coins": 100
+              }
             },
             {
               "base_item_id": null,
@@ -1206,20 +1210,16 @@
           },
           "rings": [],
           "shield": {
-            "instance_type": "item",
+            "base_item_id": "shield",
+            "charges_remaining": null,
+            "cursed_revealed": false,
+            "identified": false,
+            "instance_id": "magic-item-0007",
+            "instance_type": "magic_item",
             "quantity": 1,
-            "template": {
-              "ac": null,
-              "ac_ascending": null,
-              "ac_bonus": 1,
-              "category": null,
-              "cost_gp": 10,
-              "id": "shield",
-              "item_type": "armour",
-              "name": "Shield",
-              "overrides_applied": [],
-              "weight_coins": 100
-            }
+            "sentience": null,
+            "state": {},
+            "template_id": "cursed_shield_minus_2"
           },
           "valuables": [],
           "wielded": [
