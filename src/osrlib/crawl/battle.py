@@ -2275,7 +2275,10 @@ class BattleRoundPreview(_Model):
 
     [`preview_battle_round`][osrlib.crawl.battle.preview_battle_round] returns one. Read `rejections`
     to grey out a choice the session would refuse, and read `advance_feet` and `front_rank` to show
-    where the members would stand once their declared moves are made. The model is frozen.
+    where the members would stand once their declared moves are made. Read `can_hide` and
+    `can_back_stab` to offer a member a `hide` or a back-stab the session would accept beside the
+    choices already made. The model is frozen. A preview without `can_hide` or `can_back_stab`,
+    like one built by osrlib 2.7.0, parses with each of them empty.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -2301,6 +2304,35 @@ class BattleRoundPreview(_Model):
     within 5' of it once the planned moves are made, in marching order. It means what
     [`EncounterGroupView.front_rank`][osrlib.crawl.views.EncounterGroupView.front_rank] means, after the
     moves."""
+    can_hide: tuple[str, ...] = ()
+    """The declarers who could declare `hide` in this round beside the other planned declarations, in
+    marching order. It's what [`EncounterView.can_hide`][osrlib.crawl.views.EncounterView.can_hide]
+    means, judged where the members would stand once the other members' planned moves are made, as
+    the session judges a `hide`. So a thief in the front rank is here once another member's planned
+    `close` takes their place in it, and a thief behind the front rank isn't here once another
+    member's planned fighting withdrawal leaves them in it.
+
+    A member declares one action in a round, so each member is judged as if the `hide` took the
+    place of their own planned declaration. A member's own planned move never takes them out of the
+    list, and a member whose planned declaration is the `hide` is here exactly when `rejections`
+    accepts it. For every declarer, membership matches what this function returns for the same plan
+    with that member's declaration replaced by a `hide`: the member is here exactly when that
+    preview has no rejection for them. When the plan makes no move, the list is the view's
+    `can_hide`."""
+    can_back_stab: tuple[str, ...] = ()
+    """The declarers who could declare an `attack` with
+    [`BattleDeclaration.back_stab`][osrlib.crawl.commands.BattleDeclaration.back_stab] in this round
+    beside the other planned declarations, in marching order. It's what
+    [`EncounterView.can_back_stab`][osrlib.crawl.views.EncounterView.can_back_stab] means, and the
+    same rejection codes bound it: a member here never gets `battle.declaration.back_stab_no_ability`
+    or `battle.declaration.back_stab_target_aware`, and a declarer outside it always gets one of
+    them.
+
+    The session judges every declaration of a round before any of them resolves, and neither check
+    reads where the members stand, so the planned declarations don't change the list and it's
+    always the view's `can_back_stab`. A member whose planned declaration is a `hide` hasn't hidden
+    yet, so outside the party's free round they're here only when they were already hiding. A
+    hiding member whose planned move will end the attempt when it comes up is still here."""
 
 
 def preview_battle_round(session, declarations: Sequence[BattleDeclaration]) -> BattleRoundPreview:
@@ -2336,6 +2368,13 @@ def preview_battle_round(session, declarations: Sequence[BattleDeclaration]) -> 
     because the session decides that after it rolls initiative. So when the monsters act first, a
     member's `close` can fall short of where the preview put them.
 
+    The result's `can_hide` and `can_back_stab` list the members who could still declare a `hide`
+    or a back-stab beside the declarations planned so far. Each member is judged as if that
+    declaration took the place of their own, so a thief who has planned to close stays in
+    `can_hide`, and a thief behind the front rank leaves it once another member's planned fighting
+    withdrawal would put them in the front rank. Offer the choice to the members in the list, and
+    call this function again once the player picks it.
+
     The call reads the session and changes nothing. It takes no random number and no game time, so
     calling it after every choice costs the game nothing.
 
@@ -2346,7 +2385,8 @@ def preview_battle_round(session, declarations: Sequence[BattleDeclaration]) -> 
 
     Returns:
         A [`BattleRoundPreview`][osrlib.crawl.battle.BattleRoundPreview] with each declaration's
-            rejections, each living member's projected advance, and each group's projected front rank.
+            rejections, each living member's projected advance, each group's projected front rank,
+            and who could hide or back-stab beside the plan.
 
     Raises:
         ValueError: If no battle is running, a declaration names a member who isn't in

@@ -500,5 +500,11 @@ class TestTheDryRun:
 
 def test_the_preview_result_has_the_fields_a_battle_screen_reads():
     """A guard on the stub's shape, which passes before and after the chunk."""
-    assert set(BattleRoundPreview.model_fields) == {"rejections", "advance_feet", "front_rank"}
+    assert set(BattleRoundPreview.model_fields) == {
+        "rejections",
+        "advance_feet",
+        "front_rank",
+        "can_hide",
+        "can_back_stab",
+    }
     assert BattleRoundPreview.model_config.get("frozen") is True
