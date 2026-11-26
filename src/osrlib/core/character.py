@@ -109,8 +109,10 @@ from osrlib.core.items import (
     Inventory,
     ItemInstance,
     ItemTemplate,
+    MagicItemInstance,
     equip,
     equipped_item_modifiers,
+    magic_item_template,
     movement_rate_feet,
     purchase,
     validate_purchase,
@@ -809,6 +811,10 @@ class Character(_Model):
             raise ContentValidationError(f"character document payload failed validation: {error}") from error
 
 
+_TESTS_AS: Final = {"shield": "shield_plus_1", "worn_armour": "armour_plus_1"}
+"""The +1 template that every test shows for a cursed item worn in each armour slot."""
+
+
 def _armour_as_tested(member: Character) -> Character:
     """Return the member as every test shows their armour, for an armour class that knows no more than a player does.
 
@@ -823,7 +829,20 @@ def _armour_as_tested(member: Character) -> Character:
     changes. The player view's armour class and the equipment choice of a generated NPC both read this, and the
     attack rolls and every other rule read the member's real armour class.
     """
-    raise NotImplementedError("chunk: npc-cursed-armour")
+    inventory = member.inventory
+    masked = {}
+    for slot, lookalike in _TESTS_AS.items():
+        worn = getattr(inventory, slot)
+        if (
+            isinstance(worn, MagicItemInstance)
+            and not worn.identified
+            and not worn.cursed_revealed
+            and magic_item_template(worn).cursed
+        ):
+            masked[slot] = worn.model_copy(update={"template_id": lookalike})
+    if not masked:
+        return member
+    return member.model_copy(update={"inventory": inventory.model_copy(update=masked)})
 
 
 def party_to_document(characters: Sequence[Character]) -> dict[str, object]:

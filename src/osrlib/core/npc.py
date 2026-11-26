@@ -74,7 +74,7 @@ from pydantic import ConfigDict
 
 from osrlib.core.abilities import AbilityScore
 from osrlib.core.alignment import Alignment
-from osrlib.core.character import Character, roll_ability_scores
+from osrlib.core.character import Character, _armour_as_tested, roll_ability_scores
 from osrlib.core.classes import ClassDefinition, level_up
 from osrlib.core.dice import roll
 from osrlib.core.frozen import _Model
@@ -281,9 +281,11 @@ def _item_usable(member: Character, definition: ClassDefinition, instance: Magic
 def _maybe_equip_upgrade(member: Character, definition: ClassDefinition, instance: MagicItemInstance) -> None:
     """Equip a rolled weapon or piece of armour when it beats the one from the kit.
 
-    Better means a higher armour class for armour and shields, or any enchantment at all over a
-    mundane weapon. A cursed item tests as though it were a +1, which is what it appears to be, so
-    it gets equipped like any other, and the curse comes out in play.
+    Better means a lower armour class for armour and shields, or any enchantment at all over a
+    mundane weapon. An NPC knows no more than a player does, so it compares the armour class that
+    every test shows, which `osrlib.core.character._armour_as_tested` returns. A cursed shield or
+    suit tests as though it were a +1, which is what it appears to be, so the NPC equips it wherever
+    it would equip that +1, and the curse comes out in play.
     """
     template = magic_item_template(instance)
     inventory = member.inventory
@@ -294,13 +296,13 @@ def _maybe_equip_upgrade(member: Character, definition: ClassDefinition, instanc
         return
     if template.category != "armour":
         return
-    before = member.armour_class
+    before = _armour_as_tested(member).armour_class
     slot = "shield" if (instance.base_item_id or template.base_item_id) == "shield" else "worn_armour"
     previous = getattr(inventory, slot)
     if validate_equip(definition, instance, inventory):
         return
     equip(inventory, definition, instance)
-    if member.armour_class >= before:
+    if _armour_as_tested(member).armour_class >= before:
         # Not better: put things back the way they were.
         from osrlib.core.items import unequip
 
