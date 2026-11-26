@@ -33,8 +33,6 @@ from osrlib.data import load_equipment, load_magic_items
 from osrlib.persistence import load_game
 from test_loot_and_traps import breath_kill
 
-XFAIL = pytest.mark.xfail(reason="chunk: view-item-names")
-
 FIGHTER = "character-0001"
 
 TEMPLE_IDOL = GearTemplate.model_validate(
@@ -154,7 +152,6 @@ def _shown_ids(view: PlayerView) -> set[str]:
 # ---------------------------------------------------------------------- what the party carries
 
 
-@XFAIL
 def test_every_item_a_member_carries_is_named_singular_and_plural():
     """The reliquary's contents, spread across the party's packs.
 
@@ -182,7 +179,6 @@ def test_every_item_a_member_carries_is_named_singular_and_plural():
     }
 
 
-@XFAIL
 def test_every_id_an_acquisition_names_is_a_key_in_the_view_after_it():
     """`ItemAcquiredEvent.item_ids` repeats a catalog id once per unit, and each id is named after the command."""
     game, acquired = _looted()
@@ -194,7 +190,6 @@ def test_every_id_an_acquisition_names_is_a_key_in_the_view_after_it():
     assert sum(event.item_ids.count("holy_water") for event in acquired) == 2
 
 
-@XFAIL
 def test_the_view_names_exactly_the_ids_it_shows():
     """Every key is an id the inventories or the piles' contents show, and every such id is a key.
 
@@ -218,7 +213,6 @@ def test_the_view_names_exactly_the_ids_it_shows():
     assert set(view.item_names_plural) == set(view.item_names)
 
 
-@XFAIL
 def test_an_identified_item_in_a_pile_is_named_by_its_instance_id_alone():
     """A wand of cold, identified and then dropped in the dungeon.
 
@@ -252,7 +246,6 @@ def test_a_party_that_carries_nothing_has_no_item_names():
 # ---------------------------------------------------------------------- what lies in a pile
 
 
-@XFAIL
 def test_a_piles_contents_give_each_entrys_id_and_count_beside_the_strings():
     """The whole haul dropped on the party's cell. The strings stay as they were, and `contents` follows their order.
 
@@ -278,7 +271,6 @@ def test_a_piles_contents_give_each_entrys_id_and_count_beside_the_strings():
             assert item_id in view.item_names, item_id
 
 
-@XFAIL
 def test_a_bundled_item_in_a_pile_is_named_from_the_sessions_catalog():
     """Nobody carries the idol once it's dropped, so its name comes from `effective_equipment`, not a pack."""
     game, acquired = _looted()
@@ -317,7 +309,6 @@ def _entry(view: PlayerView, instance_id: str, member_id: str = FIGHTER) -> dict
     return next(entry for entry in member.inventory["items"] if entry.get("instance_id") == instance_id)
 
 
-@XFAIL
 @pytest.mark.parametrize(
     ("template_id", "names"),
     [
@@ -342,7 +333,6 @@ def test_an_unidentified_item_is_named_by_its_category_mask(template_id: str, na
     assert template_id not in view.model_dump_json()
 
 
-@XFAIL
 def test_an_unidentified_items_true_name_never_reaches_the_view():
     """Neither the potion's catalog id nor its true name, in either case, appears anywhere in the view."""
     game = _town()
@@ -355,7 +345,6 @@ def test_an_unidentified_items_true_name_never_reaches_the_view():
     assert '"potion"' in blob
 
 
-@XFAIL
 @pytest.mark.parametrize(
     ("cursed", "lookalike", "base", "names"),
     [
@@ -418,7 +407,6 @@ def test_a_cursed_item_and_its_lookalike_have_the_same_names(cursed, lookalike, 
             "an arrow with a faint aura",
             ("arrow with a faint aura", "arrows with a faint aura"),
             id="arrows",
-            marks=XFAIL,
         ),
         pytest.param(
             "crossbow_bolts_plus_2",
@@ -426,7 +414,6 @@ def test_a_cursed_item_and_its_lookalike_have_the_same_names(cursed, lookalike, 
             "a crossbow bolt with a faint aura",
             ("crossbow bolt with a faint aura", "crossbow bolts with a faint aura"),
             id="crossbow_bolts",
-            marks=XFAIL,
         ),
         # Body armour is a suit. Today it reads "a chainmail with a faint aura".
         pytest.param(
@@ -435,7 +422,6 @@ def test_a_cursed_item_and_its_lookalike_have_the_same_names(cursed, lookalike, 
             "a suit of chainmail with a faint aura",
             ("suit of chainmail with a faint aura", "suits of chainmail with a faint aura"),
             id="chainmail",
-            marks=XFAIL,
         ),
         # A suit with no mundane item recorded. Today it reads "a arm with a faint aura".
         pytest.param(
@@ -444,7 +430,6 @@ def test_a_cursed_item_and_its_lookalike_have_the_same_names(cursed, lookalike, 
             "a suit of armour with a faint aura",
             ("suit of armour with a faint aura", "suits of armour with a faint aura"),
             id="no_base",
-            marks=XFAIL,
         ),
         # The names a single word gives are unchanged in `display`, and these two already hold.
         pytest.param("shield_plus_1", "shield", "a shield with a faint aura", None, id="shield"),
@@ -467,7 +452,6 @@ def test_an_enchanted_arm_is_named_after_one_unit_of_its_base(template_id, base,
         assert (view.item_names["magic-item-9001"], view.item_names_plural["magic-item-9001"]) == names
 
 
-@XFAIL
 def test_an_identified_item_is_named_by_its_template_under_both_ids():
     """Once identified, the inventory shows the template id, and it and the instance id have the true names."""
     game = _town()
@@ -482,7 +466,6 @@ def test_an_identified_item_is_named_by_its_template_under_both_ids():
     assert view.item_names_plural == {instance_id: "potions of healing", "potion_of_healing": "potions of healing"}
 
 
-@XFAIL
 def test_the_identification_event_names_the_item():
     """`IdentifyItem` leaves the potion in the pack, and the event and the view give the same names."""
     game = _town()
@@ -495,7 +478,6 @@ def test_the_identification_event_names_the_item():
     assert _player_view(game).item_names[instance_id] == event.display_name
 
 
-@XFAIL
 def test_a_potion_identified_by_drinking_it_is_named_only_by_its_event():
     """Drinking an unidentified potion identifies it and uses it up in one command.
 
@@ -522,7 +504,6 @@ def test_a_potion_identified_by_drinking_it_is_named_only_by_its_event():
 # ---------------------------------------------------------------------- valuables
 
 
-@XFAIL
 def test_a_valuable_is_named_by_its_kind_whatever_its_own_name():
     """A gem the treasure tables roll is named `"Gem"`, and a piece of jewellery can have any name an author gives it.
 
@@ -560,7 +541,6 @@ def test_a_valuable_is_named_by_its_kind_whatever_its_own_name():
 # ---------------------------------------------------------------------- destroyed equipment
 
 
-@XFAIL
 def test_a_destroyed_unidentified_item_is_named_by_its_mask():
     """A hellhound's breath kills a member whose pack holds one unidentified Sword +1, which fails its save.
 
@@ -633,7 +613,6 @@ def test_the_2_7_0_fixtures_embed_templates_without_display_names():
         assert all("display_name" not in template for template in templates)
 
 
-@XFAIL
 def test_a_2_7_0_save_names_built_in_items_from_the_catalog():
     """Each carried stack is named by the session's catalog, never by the template the save embedded.
 
@@ -653,7 +632,6 @@ def test_a_2_7_0_save_names_built_in_items_from_the_catalog():
     assert _names(view) == {**CATALOG_NAMES, "temple_idol": UNNAMED_IDOL, "magic-item-0001": ("potion", "potions")}
 
 
-@XFAIL
 def test_a_2_7_0_party_document_starts_a_session_with_catalog_names():
     """The party document goes into a new session of an adventure whose idol has names its author wrote.
 
@@ -671,7 +649,6 @@ def test_a_2_7_0_party_document_starts_a_session_with_catalog_names():
     }
 
 
-@XFAIL
 def test_a_carried_item_the_catalog_lacks_is_named_from_its_embedded_template():
     """The same party in an adventure that bundles no idol: the catalog has no `temple_idol`.
 

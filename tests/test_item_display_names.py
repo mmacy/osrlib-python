@@ -20,8 +20,6 @@ from osrlib.crawl.adventure import Adventure, TownSpec
 from osrlib.crawl.dungeon import DungeonSpec, LevelSpec
 from osrlib.data import load_equipment, load_magic_items
 
-XFAIL = pytest.mark.xfail(reason="chunk: view-item-names")
-
 MUNDANE = {
     # Gear. A lot from the price list becomes one unit, and a substance becomes its container or measure.
     "backpack": ("backpack", "backpacks"),
@@ -122,7 +120,6 @@ def test_the_table_covers_every_compiled_equipment_template():
     assert set(_equipment()) == set(MUNDANE)
 
 
-@XFAIL
 @pytest.mark.parametrize(("item_id", "names"), sorted(MUNDANE.items()))
 def test_each_compiled_equipment_template_has_its_display_names(item_id: str, names: tuple[str, str]):
     template = _equipment()[item_id]
@@ -130,7 +127,6 @@ def test_each_compiled_equipment_template_has_its_display_names(item_id: str, na
     assert (template.display_name, template.display_name_plural) == names
 
 
-@XFAIL
 @pytest.mark.parametrize(("item_id", "names"), sorted(MAGIC.items()))
 def test_a_compiled_magic_item_template_has_its_display_names(item_id: str, names: tuple[str, str]):
     template = load_magic_items().get(item_id)
@@ -138,7 +134,6 @@ def test_a_compiled_magic_item_template_has_its_display_names(item_id: str, name
     assert (template.display_name, template.display_name_plural) == names
 
 
-@XFAIL
 def test_every_compiled_magic_item_has_display_names_a_sentence_can_use():
     """Each one is filled, starts in lowercase, drops the printed parenthesis, and has a distinct plural."""
     for template in load_magic_items().items:
@@ -170,19 +165,16 @@ BLADE = {
             GearTemplate.model_validate({"id": "crypt_key", "name": "Crypt key", "cost_gp": 0}),
             ("Crypt key", "Crypt keys"),
             id="gear",
-            marks=XFAIL,
         ),
         pytest.param(
             GearTemplate.model_validate({"id": "compass", "name": "Brass compass", "cost_gp": 0}),
             ("Brass compass", "Brass compasses"),
             id="gear_es",
-            marks=XFAIL,
         ),
         pytest.param(
             AmmunitionTemplate.model_validate({"id": "dart", "name": "Barbed dart", "cost_gp": 0}),
             ("Barbed dart", "Barbed darts"),
             id="ammunition",
-            marks=XFAIL,
         ),
         pytest.param(
             WeaponTemplate.model_validate(
@@ -197,7 +189,6 @@ BLADE = {
             ),
             ("Drowned blade", "Drowned blades"),
             id="weapon",
-            marks=XFAIL,
         ),
         pytest.param(
             ArmourTemplate.model_validate(
@@ -213,20 +204,17 @@ BLADE = {
             ),
             ("Saint's scale", "Saint's scales"),
             id="armour",
-            marks=XFAIL,
         ),
         pytest.param(
             MagicItemTemplate.model_validate({"id": "orb", "name": "Gleaming orb", "category": "misc"}),
             ("Gleaming orb", "Gleaming orbs"),
             id="magic_item",
-            marks=XFAIL,
         ),
         # A consonant before the y: "ies".
         pytest.param(
             GearTemplate.model_validate({"id": "reliquary", "name": "Reliquary", "cost_gp": 0}),
             ("Reliquary", "Reliquaries"),
             id="gear_ies",
-            marks=XFAIL,
         ),
         # A name written for one keeps a plural written for two or more. This holds before the chunk too.
         pytest.param(
@@ -249,82 +237,69 @@ BLADE = {
             ),
             ("jade idol", "jade idols"),
             id="written_singular",
-            marks=XFAIL,
         ),
         pytest.param(
             GearTemplate.model_validate({"id": "idol", "name": "Idol of the drowned saint", "cost_gp": 0}),
             ("Idol of the drowned saint", "Idols of the drowned saint"),
             id="of",
-            marks=XFAIL,
         ),
         # "staff" becomes "staves", as the compiler makes it, and keeps its capital.
         pytest.param(
             WeaponTemplate.model_validate({**BLADE, "id": "magi_staff", "name": "Staff of the Magi"}),
             ("Staff of the Magi", "Staves of the Magi"),
             id="staff_of",
-            marks=XFAIL,
         ),
         pytest.param(
             WeaponTemplate.model_validate({**BLADE, "id": "oaken_staff", "name": "Oaken staff"}),
             ("Oaken staff", "Oaken staves"),
             id="staff_last",
-            marks=XFAIL,
         ),
         pytest.param(
             GearTemplate.model_validate({"id": "hooded_lantern", "name": "Lantern (hooded)", "cost_gp": 0}),
             ("Lantern (hooded)", "Lanterns (hooded)"),
             id="parenthesis",
-            marks=XFAIL,
         ),
         pytest.param(
             GearTemplate.model_validate({"id": "blue_lamp", "name": "Lamp with a blue flame", "cost_gp": 0}),
             ("Lamp with a blue flame", "Lamps with a blue flame"),
             id="with",
-            marks=XFAIL,
         ),
         pytest.param(
             GearTemplate.model_validate({"id": "silver_ring", "name": "Ring, silver", "cost_gp": 0}),
             ("Ring, silver", "Rings, silver"),
             id="comma",
-            marks=XFAIL,
         ),
         pytest.param(
             GearTemplate.model_validate({"id": "ward", "name": "Charm vs evil", "cost_gp": 0}),
             ("Charm vs evil", "Charms vs evil"),
             id="vs",
-            marks=XFAIL,
         ),
         pytest.param(
             GearTemplate.model_validate({"id": "map_iv", "name": "Map fragment IV", "cost_gp": 0}),
             ("Map fragment IV", "Map fragments IV"),
             id="numeral",
-            marks=XFAIL,
         ),
         pytest.param(
             MagicItemTemplate.model_validate({"id": "seeing_orb", "name": "Orb of Seeing", "category": "misc"}),
             ("Orb of Seeing", "Orbs of Seeing"),
             id="magic_item_of",
-            marks=XFAIL,
         ),
         # An author often writes a name in title case, so "Of" and "With" mark the head noun as "of" and "with" do.
         pytest.param(
             MagicItemTemplate.model_validate({"id": "power_staff", "name": "Staff Of Power", "category": "staff"}),
             ("Staff Of Power", "Staves Of Power"),
             id="title_case_of",
-            marks=XFAIL,
         ),
         pytest.param(
             GearTemplate.model_validate({"id": "gem_lamp", "name": "Lamp With A Gem", "cost_gp": 0}),
             ("Lamp With A Gem", "Lamps With A Gem"),
             id="title_case_with",
-            marks=XFAIL,
         ),
         # A doubled space in a written name doesn't put a space before the ending.
         pytest.param(
             GearTemplate.model_validate({"id": "rock_box", "name": "Box  of rocks", "cost_gp": 0}),
             ("Box  of rocks", "Boxes  of rocks"),
             id="doubled_space",
-            marks=XFAIL,
         ),
     ],
 )
@@ -332,7 +307,6 @@ def test_a_template_you_write_without_the_fields_gets_them(template, names: tupl
     assert (template.display_name, template.display_name_plural) == names
 
 
-@XFAIL
 def test_a_bundled_items_display_names_survive_the_adventure_document():
     """An adventure document round-trips the names its author wrote, and one written without them still loads."""
     idol = GearTemplate.model_validate(
@@ -366,7 +340,6 @@ def test_a_bundled_items_display_names_survive_the_adventure_document():
     }
 
 
-@XFAIL
 def test_a_written_name_that_is_already_plural_keeps_its_parenthesis_last():
     """An author's `"Torches (6)"` takes the ending on `"Torches"`, before the parenthesis, never after it.
 
@@ -381,7 +354,6 @@ def test_a_written_name_that_is_already_plural_keeps_its_parenthesis_last():
     assert not template.display_name_plural.endswith(")s")
 
 
-@XFAIL
 def test_every_compiled_plural_is_the_default_plural_of_its_display_name():
     """The compiler and a template written without a plural follow one rule.
 
