@@ -215,7 +215,7 @@ assert "name-the-dead" not in blob  # a hidden objective has no view at all
 assert "pattern_type" not in blob and "crypt.lever" not in blob
 
 # The flag that objective watches: the quest completes it, journals its beat, and
-# reports the beat through its own event — no journal event follows.
+# reports the beat through its own event, so no journal event follows.
 lit = session.execute(SetFlag(key="crypt.lever", value=True))
 codes = [event.code for event in lit.events]
 assert "session.quest.objective_completed" in codes
