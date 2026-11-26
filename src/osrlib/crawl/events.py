@@ -906,11 +906,16 @@ class EncounterStartedEvent(Event):
     [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty]. The session mode becomes
     `encounter`, where the party can talk, run, wait, or fight.
 
-    It contains only what the party can see: a name, a count, and a distance. The dice
-    behind the meeting are on the
+    It contains only what the party can see: a name and a count for each group, and a distance.
+    The dice behind the meeting are on the
     [`SurpriseRolledEvent`][osrlib.crawl.events.SurpriseRolledEvent]s and the reaction
     roll's kernel event, both at referee visibility. The two surprise outcomes are here,
     because the party knows when it's caught off guard.
+
+    An encounter can open with more than one group, like goblins and the orcs they march with.
+    `monster_name` and `monster_name_plural` name the first group, and `count` counts the
+    creatures of every group. `group_labels`, `group_labels_plural`, and `group_counts` give
+    each group in the encounter's order, so a line like "2 goblins and 3 orcs" can name them all.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"encounter.started"})
@@ -940,6 +945,17 @@ class EncounterStartedEvent(Event):
     monsters_surprised: bool = False
     """Whether the monsters were caught off guard, which gives the party a free round if the fight
     starts."""
+    group_labels: tuple[str, ...] = ()
+    """The [`label`][osrlib.crawl.encounter.EncounterGroup.label] of each group in the encounter, in
+    the order of [`EncounterState.groups`][osrlib.crawl.encounter.EncounterState.groups]. The first
+    entry is `monster_name`. `group_labels_plural` and `group_counts` line up with this tuple, and
+    the counts add up to `count`. An event loaded from a save written before the field existed has
+    an empty tuple in all three."""
+    group_labels_plural: tuple[str, ...] = ()
+    """Each group's [`label_plural`][osrlib.crawl.encounter.EncounterGroup.label_plural], like
+    `"goblins"`, in the order of `group_labels`."""
+    group_counts: tuple[int, ...] = ()
+    """How many creatures each group has when the encounter opens, in the order of `group_labels`."""
 
     @field_validator("monster_name_plural")
     @classmethod
@@ -1874,8 +1890,8 @@ class MonstersSpawnedEvent(Event):
     result. When no encounter is open, the events of the encounter's opening follow. When
     one is open, the monsters join it as a new group.
 
-    It has referee visibility, and it contains ids rather than a description. The party
-    learns which monsters arrived from
+    It has referee visibility. It names the monsters by catalog id and by the template's display
+    name, and lists the session ids of the new instances. The party learns which monsters arrived from
     [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent] when the
     encounter opens, or from
     [`EncounterGroupJoinedEvent`][osrlib.crawl.events.EncounterGroupJoinedEvent] when the
@@ -1896,6 +1912,15 @@ class MonstersSpawnedEvent(Event):
     monster_ids: tuple[str, ...]
     """The session ids of the new instances, in spawn order. Every later event about
     those creatures refers to them by these ids."""
+    display_name: str = ""
+    """The template's [`display_name`][osrlib.core.monsters.MonsterTemplate.display_name], like
+    `"giant centipede"` for `centipede_giant`, for a line about one monster. An event loaded from a
+    save written before the field existed has an empty string, and
+    [`format_message`][osrlib.messages.format_message] names the monsters by `template_id`."""
+    display_name_plural: str = ""
+    """The template's [`display_name_plural`][osrlib.core.monsters.MonsterTemplate.display_name_plural],
+    like `"giant centipedes"`, for a line about more than one. It's empty on an event loaded from a
+    save written before the field existed."""
 
 
 class XpAwardedEvent(Event):

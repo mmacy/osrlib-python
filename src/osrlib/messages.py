@@ -278,6 +278,13 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "magic.device.fizzled": lambda event: (
         f"{event.actor_id}'s use of {event.item_id} fizzles. The device keeps its charge."
     ),
+    "magic.potion.fizzled": lambda event: (
+        f"{event.actor_id} can't give {event.item_id} to {event.target_id or 'another member'} to drink, "
+        "and keeps the potion."
+    ),
+    "battle.give.fizzled": lambda event: (
+        f"{event.actor_id} can't hand {event.item_id} to {event.target_id or 'another member'}, and keeps it."
+    ),
     "magic.turning.fizzled": lambda event: f"{event.actor_id}'s attempt to turn undead fizzles.",
     "battle.melee.fizzled": lambda event: (
         f"{event.actor_id} "

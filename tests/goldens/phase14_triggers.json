@@ -209,6 +209,9 @@
       "count": 2,
       "distance_feet": 40,
       "event_type": "encounter_started",
+      "group_counts": [],
+      "group_labels": [],
+      "group_labels_plural": [],
       "monster_name": "goblin",
       "monster_name_plural": "goblins",
       "monsters_surprised": false,
@@ -248,6 +251,8 @@
     },
     {
       "code": "session.monsters.spawned",
+      "display_name": "",
+      "display_name_plural": "",
       "event_type": "monsters_spawned",
       "monster_ids": [
         "monster-0003"
