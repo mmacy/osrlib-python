@@ -1871,8 +1871,10 @@ class UseItem(Command):
         - Devices: `items.device.inert` (no charges left),
           `items.use.target_required` (an area device used in an encounter needs a
           `target_id`), `items.use.unknown_target`, `items.use.target_cannot_be_healed` (a
-          staff of healing used on a creature that's dead or turned to stone), and
-          `items.use.battle_only` (a staff whose only power is its strike, like the staff of
+          staff of healing used on a creature that's dead or turned to stone),
+          `items.use.target_healed_today` (a staff of healing used on a creature it already
+          healed today, because the OSE SRD's staff "Is effective on any individual at most once
+          per day"), and `items.use.battle_only` (a staff whose only power is its strike, like the staff of
           striking, works only as a battle declaration).
 
     Events:
@@ -1914,7 +1916,8 @@ class UseItem(Command):
     group's [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] for a device that
     covers an area. A healing device with `None` heals the member using it. The session refuses a
     healing device on a creature that's dead or turned to stone with
-    `items.use.target_cannot_be_healed`."""
+    `items.use.target_cannot_be_healed`, and one on a creature it already healed today with
+    `items.use.target_healed_today`."""
     spell_id: str | None = None
     """Which spell to read off a scroll that has more than one, by its id (see the
     [spell id index](https://mmacy.github.io/osrlib-python/reference/content-ids/spells/)).
@@ -2774,30 +2777,36 @@ class BattleDeclaration(_Model):
     session refuses the cast with `combat.attack.out_of_reach`, whose `target` param is the
     monster's id.
 
-    Three other declarations read one id from this field:
+    Three other declarations read one id from this field. The session refuses a declaration of
+    one of them with any other number of ids with `battle.declaration.target_count`, whose
+    `expected` param is 1 and whose `supplied` param is the number of ids you gave. A potion
+    and a staff of healing take an empty field as the member who uses them, and a `give_item`
+    needs exactly one id.
 
     - For a `use_item` of a potion, it's the id of the member who drinks it. Leave it empty, or
-      give the carrier's id, and the carrier drinks. The session refuses an id that isn't a party member's, or
-      more than one id, with `items.use.target_not_allowed`, a member who is dead or turned to
+      give the carrier's id, and the carrier drinks. The session refuses an id that isn't a party
+      member's with `items.use.target_not_allowed`, a member who is dead or turned to
       stone with `items.use.target_cannot_drink`, and a member out of reach with
       `battle.declaration.member_out_of_reach`. A member who is asleep or paralysed can be given
       a potion to drink.
     - For a `use_item` of a staff of healing, it's the id of the creature the staff touches.
       Leave it empty, and the member using it is healed. The session refuses an id that matches no
-      creature, or more than one id, with `items.use.unknown_target`, a creature that's dead or
-      turned to stone with `items.use.target_cannot_be_healed`, and another member out of reach with
+      creature with `items.use.unknown_target`, a creature that's dead or turned to stone with
+      `items.use.target_cannot_be_healed`, a creature the staff already healed today with
+      `items.use.target_healed_today`, and another member out of reach with
       `battle.declaration.member_out_of_reach`. A monster's group has to stand within 5' of the
       member, or the use gets `combat.attack.out_of_reach`. A touch on a monster then follows the
       rule for melee, as a touch spell's does.
     - For a `give_item`, it's the id of the member who takes the item. The session refuses the giver with
-      `exploration.give.same_member`, an id that isn't a party member's, an empty field, or more
-      than one id with `session.command.unknown_member`, a member who can't act with
+      `exploration.give.same_member`, an id that isn't a party member's with
+      `session.command.unknown_member`, a member who can't act with
       `session.command.member_incapacitated`, and a member out of reach with
       `battle.declaration.member_out_of_reach`.
 
-    `battle.declaration.member_out_of_reach` has the declaring member's id as its `character`
-    param and the named member's id as `target`, and so do a `give_item`'s
-    `session.command.unknown_member` and `session.command.member_incapacitated`."""
+    `battle.declaration.member_out_of_reach` and `battle.declaration.target_count` have the
+    declaring member's id as their `character` param. The first has the named member's id as
+    `target`, and so do a `give_item`'s `session.command.unknown_member` and
+    `session.command.member_incapacitated`."""
     move: Literal["close", "fighting_withdrawal", "retreat"] | None = None
     """Which movement this member makes this round, with a `move` action or, for `close` only, with an
     `attack`.
@@ -3135,12 +3144,16 @@ class ResolveBattleRound(Command):
           `magic.cast.caster_incapacitated`, `magic.cast.caster_restrained`,
           `magic.cast.anti_magic_shell`). A thrown item can also get the `validate_attack` checks
           listed for attack declarations. A potion given to another member to drink gets
+          `battle.declaration.target_count` for more than one id in `targets`,
           `items.use.target_not_allowed`, `items.use.target_cannot_drink`, and
           `battle.declaration.member_out_of_reach`. A staff of healing's touch gets
-          `items.use.unknown_target`, `items.use.target_cannot_be_healed` on a creature that's dead
-          or turned to stone, and `battle.declaration.member_out_of_reach` on another member. On a
-          monster, it gets the checks of a touch spell on a monster.
-        - Hand-over declarations, `give_item`: `exploration.give.same_member`,
+          `battle.declaration.target_count`, `items.use.unknown_target`,
+          `items.use.target_cannot_be_healed` on a creature that's dead or turned to stone,
+          `items.use.target_healed_today` on a creature the staff already healed today, and
+          `battle.declaration.member_out_of_reach` on another member. On a monster, it gets the
+          checks of a touch spell on a monster.
+        - Hand-over declarations, `give_item`: `battle.declaration.target_count` for anything
+          but one id in `targets`, `exploration.give.same_member`,
           `session.command.unknown_member`, `session.command.member_incapacitated`,
           `items.curse.stuck`, `exploration.item.not_carried`, and
           `battle.declaration.member_out_of_reach`, in that order.
@@ -3178,9 +3191,10 @@ class ResolveBattleRound(Command):
         engine picks the spell's targets,
         [`SpellDisruptedEvent`][osrlib.core.events.SpellDisruptedEvent],
         [`DeclarationFizzledEvent`][osrlib.core.events.DeclarationFizzledEvent] when a
-        device use or a turning fails the check the session makes just before it resolves,
-        and at `battle.melee.fizzled` when a melee attack can't resolve when it comes up,
-        because its group has no monster left to strike or because of where the member stands,
+        device use, a potion given to another member, a hand-over, or a turning fails the
+        check the session makes just before it resolves, and at `battle.melee.fizzled` when
+        a melee attack can't resolve when it comes up, because its group has no monster left
+        to strike or because of where the member stands,
         [`MagicDispelledEvent`][osrlib.core.events.MagicDispelledEvent],
         [`UndeadTurnedEvent`][osrlib.core.events.UndeadTurnedEvent], and the effects
         a spell leaves behind

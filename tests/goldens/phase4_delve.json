@@ -1998,9 +1998,15 @@
       "count": 6,
       "distance_feet": 10,
       "event_type": "encounter_started",
-      "group_counts": [],
-      "group_labels": [],
-      "group_labels_plural": [],
+      "group_counts": [
+        6
+      ],
+      "group_labels": [
+        "goblin"
+      ],
+      "group_labels_plural": [
+        "goblins"
+      ],
       "monster_name": "goblin",
       "monster_name_plural": "goblins",
       "monsters_surprised": false,
@@ -2570,9 +2576,15 @@
       "count": 8,
       "distance_feet": 10,
       "event_type": "encounter_started",
-      "group_counts": [],
-      "group_labels": [],
-      "group_labels_plural": [],
+      "group_counts": [
+        8
+      ],
+      "group_labels": [
+        "trader"
+      ],
+      "group_labels_plural": [
+        "traders"
+      ],
       "monster_name": "trader",
       "monster_name_plural": "traders",
       "monsters_surprised": false,
@@ -3437,9 +3449,15 @@
       "count": 4,
       "distance_feet": 10,
       "event_type": "encounter_started",
-      "group_counts": [],
-      "group_labels": [],
-      "group_labels_plural": [],
+      "group_counts": [
+        4
+      ],
+      "group_labels": [
+        "skeleton"
+      ],
+      "group_labels_plural": [
+        "skeletons"
+      ],
       "monster_name": "skeleton",
       "monster_name_plural": "skeletons",
       "monsters_surprised": false,
@@ -4313,9 +4331,15 @@
       "count": 3,
       "distance_feet": 10,
       "event_type": "encounter_started",
-      "group_counts": [],
-      "group_labels": [],
-      "group_labels_plural": [],
+      "group_counts": [
+        3
+      ],
+      "group_labels": [
+        "goblin"
+      ],
+      "group_labels_plural": [
+        "goblins"
+      ],
       "monster_name": "goblin",
       "monster_name_plural": "goblins",
       "monsters_surprised": false,
@@ -4493,9 +4517,15 @@
       "count": 3,
       "distance_feet": 10,
       "event_type": "encounter_started",
-      "group_counts": [],
-      "group_labels": [],
-      "group_labels_plural": [],
+      "group_counts": [
+        3
+      ],
+      "group_labels": [
+        "goblin"
+      ],
+      "group_labels_plural": [
+        "goblins"
+      ],
       "monster_name": "goblin",
       "monster_name_plural": "goblins",
       "monsters_surprised": false,

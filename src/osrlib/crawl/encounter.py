@@ -686,6 +686,9 @@ def _open_encounter(
             distance_feet=distance_feet,
             party_surprised=party_surprised,
             monsters_surprised=monsters_surprised,
+            group_labels=tuple(group.label for group in group_models),
+            group_labels_plural=tuple(group.label_plural for group in group_models),
+            group_counts=tuple(len(group.monster_ids) for group in group_models),
         )
     )
     if party_surprised:

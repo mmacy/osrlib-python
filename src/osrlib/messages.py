@@ -174,6 +174,45 @@ def _listed(parts: list[str]) -> str:
     return parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
 
 
+def _series(parts: list[str]) -> str:
+    """Parts joined as an English list with a serial comma, like `"a and b"` or `"a, b, and c"`."""
+    if len(parts) <= 2:
+        return " and ".join(parts)
+    return ", ".join(parts[:-1]) + ", and " + parts[-1]
+
+
+def _encounter_started(event: Any) -> str:
+    """The encounter line, which names each group, like `"Encounter: 2 goblins and 3 orcs at 40'."`.
+
+    An event recorded before osrlib 2.7.0 has no group fields, so its line names the first group and counts the
+    creatures of every group.
+    """
+    if event.group_labels:
+        groups = zip(event.group_counts, event.group_labels, event.group_labels_plural, strict=True)
+        seen = _series([f"{count} {label if count == 1 else plural}" for count, label, plural in groups])
+    else:
+        seen = f"{event.count} {event.monster_name if event.count == 1 else event.monster_name_plural}"
+    return (
+        f"Encounter: {seen} at {event.distance_feet}'"
+        + ("; the party is surprised" if event.party_surprised else "")
+        + ("; the monsters are surprised" if event.monsters_surprised else "")
+        + "."
+    )
+
+
+def _monsters_spawned(event: Any) -> str:
+    """The referee line for a spawn, like `"Spawned 2 goblins: monster-0001 and monster-0002."`.
+
+    An event recorded before osrlib 2.7.0 has no display name, so its line names the template by its id.
+    """
+    count = len(event.monster_ids)
+    if event.display_name:
+        what = f"{count} {event.display_name if count == 1 else event.display_name_plural}"
+    else:
+        what = f"{count} {'monster' if count == 1 else 'monsters'} from the {event.template_id} template"
+    return f"Spawned {what}: {_series(list(event.monster_ids))}."
+
+
 def _coin_parts(event: Any) -> list[str]:
     """The coins an event moved, one part per denomination, like `["3 gp", "4 sp"]`, or `[]` for none.
 
@@ -382,13 +421,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
         f"Wandering check: {event.roll if event.roll is not None else 'skipped'} vs {event.chance}-in-6. "
         + ("An encounter!" if event.encounter else "Nothing comes.")
     ),
-    "encounter.started": lambda event: (
-        f"Encounter: {event.count} {event.monster_name if event.count == 1 else event.monster_name_plural}"
-        f" at {event.distance_feet}'"
-        + ("; the party is surprised" if event.party_surprised else "")
-        + ("; the monsters are surprised" if event.monsters_surprised else "")
-        + "."
-    ),
+    "encounter.started": _encounter_started,
     "encounter.group.joined": lambda event: (
         f"More monsters join the encounter: {event.count} {event.label if event.count == 1 else event.label_plural}"
         f" at {event.distance_feet}'."
@@ -477,9 +510,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     ),
     "town.healing.purchased": _healing_purchased,
     "session.flag.set": lambda event: f"Flag {event.key} = {event.value!r}.",
-    "session.monsters.spawned": lambda event: (
-        f"Spawned {len(event.monster_ids)} × {event.template_id}: {', '.join(event.monster_ids)}."
-    ),
+    "session.monsters.spawned": _monsters_spawned,
     "session.xp.awarded": _xp_awarded,
     "session.level.gained": lambda event: (
         f"{event.character_id} advances to level {event.level_after}"

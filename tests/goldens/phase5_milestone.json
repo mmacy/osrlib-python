@@ -977,9 +977,15 @@
       "count": 2,
       "distance_feet": 20,
       "event_type": "encounter_started",
-      "group_counts": [],
-      "group_labels": [],
-      "group_labels_plural": [],
+      "group_counts": [
+        2
+      ],
+      "group_labels": [
+        "goblin"
+      ],
+      "group_labels_plural": [
+        "goblins"
+      ],
       "monster_name": "goblin",
       "monster_name_plural": "goblins",
       "monsters_surprised": true,
@@ -1635,9 +1641,15 @@
       "count": 2,
       "distance_feet": 20,
       "event_type": "encounter_started",
-      "group_counts": [],
-      "group_labels": [],
-      "group_labels_plural": [],
+      "group_counts": [
+        2
+      ],
+      "group_labels": [
+        "adventurer"
+      ],
+      "group_labels_plural": [
+        "adventurers"
+      ],
       "monster_name": "adventurer",
       "monster_name_plural": "adventurers",
       "monsters_surprised": false,
@@ -2371,9 +2383,15 @@
       "count": 2,
       "distance_feet": 20,
       "event_type": "encounter_started",
-      "group_counts": [],
-      "group_labels": [],
-      "group_labels_plural": [],
+      "group_counts": [
+        2
+      ],
+      "group_labels": [
+        "adventurer"
+      ],
+      "group_labels_plural": [
+        "adventurers"
+      ],
       "monster_name": "adventurer",
       "monster_name_plural": "adventurers",
       "monsters_surprised": true,
