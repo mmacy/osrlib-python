@@ -32,6 +32,8 @@ assert "current_hp" not in player_group.model_dump()
 
 Each party member appears in `PlayerView.party` as a [`MemberView`][osrlib.crawl.views.MemberView] containing every stat needed to render a B/X character sheet: ID, name, race, class id and class name (`class_name`, which is right for a custom class too), level, title, alignment, XP and next-level XP threshold, current and maximum hit points, conditions, ability scores and modifiers, THAC0 and attack bonus, descending and ascending AC, saving throws, movement rate, languages, inventory, spell book, memorized spells, and thief skill chances.
 
+A member's spell book and memorized spells name each spell by id, and so does the `kind` of a spell's effect in `PlayerView.effects`. Show the names in [`PlayerView.spell_names`][osrlib.crawl.views.PlayerView.spell_names], keyed by those ids, and the names of reversed forms, like *darkness* for *light*, in [`PlayerView.reversed_spell_names`][osrlib.crawl.views.PlayerView.reversed_spell_names]. The view reads both from the session's catalog, so a spell the adventure bundles has its name there too. Neither includes a spell that is absent from the rest of the view, like one on a scroll.
+
 Derived combat and exploration stats include bonuses from worn equipment (such as armour, a shield, or a ring of protection), even before the party identifies a magic item:
 
 - **Armour class**: `armour_class` and `armour_class_ascending` reflect worn magic armour or shields immediately, because monsters roll against that AC, while `inventory` still displays a masked description such as `"a shield with a faint aura"`.

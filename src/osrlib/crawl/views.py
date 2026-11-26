@@ -236,7 +236,10 @@ class MemberView(_Model):
     memorized_spells: tuple[dict, ...]
     """The prepared spells, one dumped
     [`MemorizedSpell`][osrlib.core.spells.MemorizedSpell] per copy, in memorization
-    order. Empty for a class that casts nothing."""
+    order. Empty for a class that casts nothing. To show a copy's name, look its `spell_id` up in
+    [`PlayerView.spell_names`][osrlib.crawl.views.PlayerView.spell_names], or in
+    [`PlayerView.reversed_spell_names`][osrlib.crawl.views.PlayerView.reversed_spell_names] for a copy
+    whose `reversed` is true."""
     encounter_rate_feet: int = 0
     """How far the member can move in one round of a battle or an encounter, in feet.
 
@@ -344,7 +347,8 @@ class MemberView(_Model):
     """The ids of the spells in the member's spell book, as in
     [`Character.spell_book`][osrlib.core.character.Character.spell_book]. They're the spells the member
     can choose from in a [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells]. Empty for a class that
-    has no spell book."""
+    has no spell book. To show a spell's name, look its id up in
+    [`PlayerView.spell_names`][osrlib.crawl.views.PlayerView.spell_names]."""
     thief_skills: dict[str, int] = {}
     """The member's chance at each thief skill at their level, keyed by the skill field names of
     [`ThiefSkillRow`][osrlib.core.classes.ThiefSkillRow], like `"open_locks"` and `"move_silently"`.
@@ -367,7 +371,10 @@ class MemberEffectView(_Model):
     [`MemberView.id`][osrlib.crawl.views.MemberView]."""
     kind: str
     """The effect kind, like `"light"` or `"fatigue"`. It's the same string an
-    [`EffectActiveCondition`][osrlib.crawl.gates.EffectActiveCondition] checks for."""
+    [`EffectActiveCondition`][osrlib.crawl.gates.EffectActiveCondition] checks for. A spell's effect
+    has the spell's id as its kind unless the spell's data gives it a kind of its own, and
+    [`PlayerView.spell_names`][osrlib.crawl.views.PlayerView.spell_names] contains the name for a kind
+    that is a spell id."""
     remaining_rounds: int | None
     """Rounds left before the effect expires, never below zero. `None` when the effect has no
     expiry, and for any effect a potion gave, because by the rules the referee tracks a potion's
@@ -1337,6 +1344,7 @@ def build_player_view(session) -> PlayerView:
         for member_id, state in session.deprivation.items()
         if state.worst > 0
     }
+    spell_names, reversed_spell_names = _spell_names(session, members, effects)
     return PlayerView(
         adventure_name=session.adventure.name,
         adventure_description=session.adventure.description,
@@ -1357,6 +1365,8 @@ def build_player_view(session) -> PlayerView:
         piles=piles,
         emptied_caches=tuple(session.dungeon_state.emptied_caches),
         effects=effects,
+        spell_names=spell_names,
+        reversed_spell_names=reversed_spell_names,
         fatigued=fatigued,
         exhausted=exhausted,
         deprivation=deprivation,
@@ -1364,6 +1374,27 @@ def build_player_view(session) -> PlayerView:
         quests=tuple(_quest_views(session)),
         encounter=_encounter_view(session),
     )
+
+
+def _spell_names(session, members, effects) -> tuple[dict[str, str], dict[str, str]]:
+    # Only the ids the view already shows are named, so a scroll's spells stay hidden. An id the
+    # session's catalog lacks, and an effect kind that is no spell's id, get no entry.
+    catalog = {spell.id: spell for spell in session.effective_spells.spells}
+    shown = [
+        *(spell_id for member in members for spell_id in member.spell_book),
+        *(copy["spell_id"] for member in members for copy in member.memorized_spells),
+        *(effect.kind for effect in effects),
+    ]
+    names: dict[str, str] = {}
+    reversed_names: dict[str, str] = {}
+    for spell_id in shown:
+        spell = catalog.get(spell_id)
+        if spell is None or spell_id in names:
+            continue
+        names[spell_id] = spell.name
+        if spell.reversed_form is not None:
+            reversed_names[spell_id] = spell.reversed_form.name
+    return names, reversed_names
 
 
 def _quest_views(session):

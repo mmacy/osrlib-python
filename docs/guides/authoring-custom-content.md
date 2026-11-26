@@ -256,7 +256,7 @@ miri = create_character(
 assert miri.spell_book == ("frost_dart",)
 ```
 
-Once the session starts, [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells], [`LearnSpell`][osrlib.crawl.commands.LearnSpell], [`CastSpell`][osrlib.crawl.commands.CastSpell], and battle `cast` declarations resolve bundled spells alongside built-in spells. Because [`MemberView`][osrlib.crawl.views.MemberView] lists `spell_book` and `memorized_spells` by spell ID (such as `"frost_dart"`), look up display names in `session.effective_spells` rather than `load_spells()`:
+Once the session starts, [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells], [`LearnSpell`][osrlib.crawl.commands.LearnSpell], [`CastSpell`][osrlib.crawl.commands.CastSpell], and battle `cast` declarations resolve bundled spells alongside built-in spells. [`MemberView`][osrlib.crawl.views.MemberView] lists `spell_book` and `memorized_spells` by spell ID (such as `"frost_dart"`), and [`PlayerView.spell_names`][osrlib.crawl.views.PlayerView.spell_names] contains the name of each one, read from `session.effective_spells`, so show those names rather than looking the ids up in `load_spells()`, which lacks the spells the adventure bundles:
 
 ```{.python .no-run}
 bran = Character(
