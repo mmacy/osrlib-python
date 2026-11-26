@@ -86,7 +86,7 @@ print(party.members[0].name, party.members[0].max_hp, party.members[0].armour_cl
 """
 
 from collections.abc import Mapping, Sequence
-from typing import Final
+from typing import Final, Literal
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
@@ -978,12 +978,25 @@ class AbilityScoreRolls(_Model):
     model_config = ConfigDict(frozen=True)
 
     scores: dict[AbilityScore, int]
-    """The total of each ability's three dice, keyed by [`AbilityScore`][osrlib.core.abilities.AbilityScore]. All six
-    abilities are present, each from 3 to 18.
+    """The total of each ability's three counted dice, keyed by [`AbilityScore`][osrlib.core.abilities.AbilityScore].
+    All six abilities are present, each from 3 to 18.
     """
 
     rolls: dict[AbilityScore, tuple[int, int, int]]
-    """The three d6 results behind each score, keyed the same way, in the order they were rolled."""
+    """The three d6 results that count towards each score, keyed the same way, in the order they were thrown.
+
+    Each score is the sum of its three dice. With the `"4d6_drop_lowest"` method, the die dropped
+    from an ability's four is in `dropped` instead, and the other three keep their order here.
+    """
+
+    dropped: dict[AbilityScore, int] = {}
+    """The die that didn't count towards each score, keyed the same way.
+
+    A `"4d6_drop_lowest"` roll has an entry for all six abilities: the lowest of the four dice, or the
+    first of them thrown when two or more tie for lowest. A `"3d6"` roll drops nothing, so this is
+    empty, and so is a roll that osrlib 2.8.0 or earlier recorded. Read an ability with no entry as one
+    with no die dropped. To show all four dice of an ability, show its three `rolls` and this die.
+    """
 
 
 class HitPointRoll(_Model):
@@ -1000,11 +1013,23 @@ class HitPointRoll(_Model):
     """Every die result, before the CON modifier, in the order thrown.
 
     With the `hp_reroll_at_first_level` option of [`Ruleset`][osrlib.core.ruleset.Ruleset] on, the 1s and 2s that were
-    thrown again are here too, and the last entry is the die that counts. Otherwise there's one entry.
+    thrown again are here too, and the last entry is the die that counts. Otherwise there's one entry. The
+    `max_hp_at_first_level` option doesn't change what's thrown, so with both options on, the 1s and 2s set aside and
+    the last die are all here, and `maximized` says the hit points come from the die's size instead.
     """
 
     hit_points: int = Field(ge=1)
-    """The hit points the character starts with: the last die plus the CON modifier, and at least 1."""
+    """The hit points the character starts with, and at least 1.
+
+    They're the last die plus the CON modifier, or with `maximized` true, the hit die's size plus the CON modifier.
+    """
+
+    maximized: bool = False
+    """Whether the hit die counted as its maximum, because `max_hp_at_first_level` was on in the ruleset.
+
+    When it's true, `hit_points` is the die's size plus the CON modifier, whatever the last entry of `rolls` shows, so
+    a client can say why. It's false for a roll that osrlib 2.8.0 or earlier recorded.
+    """
 
 
 class CharacterCreationResult(_Model):
@@ -1035,8 +1060,8 @@ class CharacterCreationResult(_Model):
     """
 
 
-def roll_ability_scores(stream: RngStream) -> AbilityScoreRolls:
-    """Roll 3d6 for each of the six abilities, in the SRD's order: STR, INT, WIS, DEX, CON, CHA.
+def roll_ability_scores(stream: RngStream, *, method: Literal["3d6", "4d6_drop_lowest"] = "3d6") -> AbilityScoreRolls:
+    """Roll the six ability scores, in the SRD's order: STR, INT, WIS, DEX, CON, CHA.
 
     This is the first step of creating a character one step at a time. Show the result to the
     player, then pass the scores to
@@ -1046,16 +1071,31 @@ def roll_ability_scores(stream: RngStream) -> AbilityScoreRolls:
     and apply it with [`apply_adjustment`][osrlib.core.abilities.apply_adjustment].
 
     Call [`create_character`][osrlib.core.character.create_character] instead when the choices are
-    already known and you want only the finished character.
+    already known and you want only the finished character. It passes the `ability_score_method` of
+    its ruleset as `method`.
 
-    The same stream at the same position always gives the same six scores.
+    With `"3d6"`, the SRD's method, each ability throws three d6 and the score is their sum. With
+    `"4d6_drop_lowest"`, a house rule that the SRD doesn't print, each ability throws four d6 and the
+    lowest one doesn't count. When two or more of the four tie for lowest, the first of them thrown is
+    the one dropped. The result's `rolls` keeps the three dice that count, in the order thrown, and
+    `dropped` has the one that doesn't.
+
+    The same stream at the same position and the same method always give the same six scores.
 
     Args:
         stream: The stream to draw from, usually `streams.get(CHARACTER_CREATION_STREAM)`. It
-            advances by 18 dice.
+            advances by 18 dice with `"3d6"` and by 24 with `"4d6_drop_lowest"`, all of them for
+            STR before any for INT, and so on.
+        method: How to roll each score: `"3d6"` or `"4d6_drop_lowest"`. Store it beside a seed if
+            you roll the same scores again later, because the two methods give different scores from
+            the same stream.
 
     Returns:
-        The six scores and the three dice behind each.
+        The six scores, the three dice that count towards each, and any die dropped.
+
+    Raises:
+        ValueError: If `method` is neither `"3d6"` nor `"4d6_drop_lowest"`. The function checks it
+            before the first draw, so the stream doesn't advance.
 
     Examples:
         ```python
@@ -1068,13 +1108,21 @@ def roll_ability_scores(stream: RngStream) -> AbilityScoreRolls:
         # {'str': 14, 'int': 6, 'wis': 9, 'dex': 10, 'con': 11, 'cha': 11}
         ```
     """
+    if method not in ("3d6", "4d6_drop_lowest"):
+        raise ValueError(f"unknown ability score method {method!r}: use '3d6' or '4d6_drop_lowest'")
     scores: dict[AbilityScore, int] = {}
     rolls: dict[AbilityScore, tuple[int, int, int]] = {}
+    dropped: dict[AbilityScore, int] = {}
     for ability in ABILITY_ROLL_ORDER:
-        result = roll("3d6", stream)
-        scores[ability] = result.total
-        rolls[ability] = (result.rolls[0], result.rolls[1], result.rolls[2])
-    return AbilityScoreRolls(scores=scores, rolls=rolls)
+        if method == "3d6":
+            thrown = list(roll("3d6", stream).rolls)
+        else:
+            thrown = list(roll("4d6", stream).rolls)
+            # `index` finds the first of the lowest dice thrown, so a tie drops the earliest one.
+            dropped[ability] = thrown.pop(thrown.index(min(thrown)))
+        scores[ability] = sum(thrown)
+        rolls[ability] = (thrown[0], thrown[1], thrown[2])
+    return AbilityScoreRolls(scores=scores, rolls=rolls, dropped=dropped)
 
 
 def validate_class_choice(scores: dict[AbilityScore, int], definition: ClassDefinition) -> list[Rejection]:
@@ -1149,11 +1197,17 @@ def roll_hit_points(
     again until it shows 3 or more. The test is on the die before the CON modifier, and the result
     includes every throw.
 
+    With `max_hp_at_first_level` on, a house rule that the SRD doesn't print, the hit points are the
+    die's size plus the CON modifier, and at least 1, and the result's `maximized` is true. The
+    function still throws exactly the dice it throws with the option off, so the stream ends in the
+    same place, and `hp_reroll_at_first_level` changes only what `rolls` lists, never the hit points.
+
     Args:
         definition: The character's class. Its first-level progression row gives the hit die.
         con_modifier: The CON hit point modifier for the final scores. It may be negative, and the
             hit points are at least 1 either way.
-        ruleset: The ruleset in play, read for the `hp_reroll_at_first_level` option.
+        ruleset: The ruleset in play, read for the `hp_reroll_at_first_level` and
+            `max_hp_at_first_level` options.
         stream: The stream to draw from, usually `streams.get(CHARACTER_CREATION_STREAM)`.
 
     Returns:
@@ -1169,12 +1223,12 @@ def roll_hit_points(
         fighter = load_classes().get("fighter")
         stream = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
         print(roll_hit_points(fighter, 0, Ruleset(), stream))
-        # rolls=(2,) hit_points=2
+        # rolls=(2,) hit_points=2 maximized=False
 
         rerolling = Ruleset(hp_reroll_at_first_level=True)
         stream = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
         print(roll_hit_points(fighter, 0, rerolling, stream))
-        # rolls=(2, 8) hit_points=8
+        # rolls=(2, 8) hit_points=8 maximized=False
         ```
     """
     die = definition.row(1).hit_dice.die
@@ -1182,7 +1236,14 @@ def roll_hit_points(
     if ruleset.hp_reroll_at_first_level:
         while rolls[-1] <= 2:
             rolls.append(stream.randbelow(die) + 1)
-    return HitPointRoll(rolls=tuple(rolls), hit_points=max(1, rolls[-1] + con_modifier))
+    # The maximum replaces only the counted value, after every die has been thrown, so the draws are
+    # the same with the option on or off.
+    counted = die if ruleset.max_hp_at_first_level else rolls[-1]
+    return HitPointRoll(
+        rolls=tuple(rolls),
+        hit_points=max(1, counted + con_modifier),
+        maximized=ruleset.max_hp_at_first_level,
+    )
 
 
 def validate_extra_languages(definition: ClassDefinition, int_score: int, choices: Sequence[str]) -> list[Rejection]:
@@ -1493,8 +1554,10 @@ def create_character(
             index](https://mmacy.github.io/osrlib-python/reference/content-ids/classes/). For a class
             you wrote, it's the `id` of `custom_class`.
         alignment: Lawful, neutral, or chaotic.
-        ruleset: The ruleset in play. When its `hp_reroll_at_first_level` flag is on, a hit die
-            showing 1 or 2 is thrown again.
+        ruleset: The ruleset in play. Its `ability_score_method` sets how the scores are rolled.
+            When its `hp_reroll_at_first_level` flag is on, a hit die showing 1 or 2 is thrown
+            again. When its `max_hp_at_first_level` flag is on, the hit die counts as its maximum,
+            and the dice thrown, and so the gold roll after them, stay the same.
         stream: The stream for the creation draws, usually
             `streams.get(`[`CHARACTER_CREATION_STREAM`][osrlib.core.character.CHARACTER_CREATION_STREAM]`)`.
         custom_class: The definition of a class you wrote, or `None` to play a class osrlib
@@ -1594,7 +1657,7 @@ def create_character(
     # `validate_purchase` refuses it.
     covered = sum(template.cost_gp * lots for template, lots in bought if lots > 0)
     _outfit(Inventory(purse=CoinPurse(gp=covered)), definition, bought, equip_ids)
-    ability_rolls = roll_ability_scores(stream)
+    ability_rolls = roll_ability_scores(stream, method=ruleset.ability_score_method)
     choice_rejections = validate_class_choice(ability_rolls.scores, definition)
     if choice_rejections:
         raise ValueError(f"illegal class choice: {[rejection.code for rejection in choice_rejections]}")

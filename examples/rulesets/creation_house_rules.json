@@ -1,0 +1,18 @@
+{
+  "hp_reroll_at_first_level": false,
+  "max_hp_at_first_level": true,
+  "ability_score_method": "4d6_drop_lowest",
+  "encumbrance": "basic",
+  "variable_weapon_damage": true,
+  "individual_initiative": false,
+  "thac0_arithmetic": false,
+  "weapon_reload": false,
+  "hd5_counts_as_magical": false,
+  "magic_item_death_save": true,
+  "xp_award_timing": "on_return",
+  "deprivation_penalties": false,
+  "aoe_friendly_fire": true,
+  "formation_width_limit": true,
+  "failed_trap_removal_springs": true,
+  "back_stab_needs_both_skills": true
+}

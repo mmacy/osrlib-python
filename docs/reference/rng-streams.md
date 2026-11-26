@@ -28,7 +28,7 @@ The table below lists every key, the constant for it, and what it governs.
 
 Character creation and in-play advancement are split into two separate streams so that changing one never disturbs the other's draws.
 
-The [`CHARACTER_CREATION_STREAM`][osrlib.core.character.CHARACTER_CREATION_STREAM] (key `"character_creation"`) covers one-time creation draws: rolling ability scores, first-level hit points, and starting gold.
+The [`CHARACTER_CREATION_STREAM`][osrlib.core.character.CHARACTER_CREATION_STREAM] (key `"character_creation"`) covers one-time creation draws: rolling ability scores, first-level hit points, and starting gold. The ability scores take 18 d6 draws with the default `"3d6"` method and 24 with the `"4d6_drop_lowest"` house rule of `Ruleset.ability_score_method`, so the hit die and the gold that follow come from different draws under the two methods. The `max_hp_at_first_level` house rule changes no draw.
 
 The [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM] (key `"advancement"`) covers hit point rolls when a character levels up during play, and the hit point rolls for the levels or Hit Dice that energy drain takes away.
 

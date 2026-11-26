@@ -1,0 +1,179 @@
+{
+ "engine_version": "2.8.0",
+ "kind": "save",
+ "payload": {
+  "adventure": {
+   "description": "",
+   "dungeons": [
+    {
+     "id": "crypt",
+     "levels": [
+      {
+       "areas": [],
+       "edges": {},
+       "entrance": [
+        0,
+        0
+       ],
+       "features": [],
+       "guidance": "",
+       "height": 1,
+       "number": 1,
+       "transitions": [],
+       "wandering": {
+        "chance_in_six": 1,
+        "interval_turns": 2,
+        "table": null
+       },
+       "width": 1
+      }
+     ],
+     "name": "The Crypt"
+    }
+   ],
+   "hooks": [],
+   "items": [],
+   "monsters": [],
+   "name": "A Delve",
+   "party": null,
+   "quests": [],
+   "spells": [],
+   "town": {
+    "description": "",
+    "healing_prices": {},
+    "name": "Threshold",
+    "services": [],
+    "travel_turns": {}
+   },
+   "triggers": []
+  },
+  "allocator": {
+   "counters": {
+    "character": 1
+   }
+  },
+  "battle": null,
+  "clock_rounds": 0,
+  "command_log": [],
+  "death_records": {},
+  "defeated_monsters": [],
+  "deprivation": {},
+  "dungeon_state": {
+   "doors": {},
+   "emptied_caches": [],
+   "explored": {},
+   "found_traps": [],
+   "found_tricks": [],
+   "generated_caches": {},
+   "generated_lair_hoards": [],
+   "generated_treasure_areas": [],
+   "inspect_attempts": {},
+   "listen_attempts": {},
+   "location": {
+    "dungeon_id": null,
+    "facing": null,
+    "kind": "town",
+    "level_number": null,
+    "position": null
+   },
+   "lock_failures": {},
+   "piles": {},
+   "removal_attempts": {},
+   "removed_traps": [],
+   "resolved_encounters": [],
+   "search_attempts": {},
+   "seen": {},
+   "sprung_traps": []
+  },
+  "encounter": null,
+  "event_log": [],
+  "exploration": {
+   "alerted_areas": [],
+   "heard_areas": [],
+   "last_prepared_sleep": {},
+   "noise_since_check": false,
+   "odometer_thirds": 0,
+   "provisions_day": 0,
+   "sleep_count": 0,
+   "turns_since_rest": 0,
+   "wandering_counter": 0
+  },
+  "fired_triggers": [],
+  "flags": {},
+  "journal": [],
+  "ledger": {
+   "effects": []
+  },
+  "listener_state": {},
+  "master_seed": 7,
+  "mode": "town",
+  "monsters": [],
+  "npcs": [],
+  "party": {
+   "members": [
+    {
+     "alignment": "neutral",
+     "carrying_treasure": false,
+     "class_id": "thief",
+     "conditions": [],
+     "current_hp": 3,
+     "custom_class": null,
+     "extra_languages": [],
+     "id": "character-0001",
+     "inventory": {
+      "items": [],
+      "purse": {
+       "cp": 0,
+       "ep": 0,
+       "gp": 60,
+       "pp": 0,
+       "sp": 0
+      },
+      "rings": [],
+      "shield": null,
+      "valuables": [],
+      "wielded": [],
+      "worn_armour": null
+     },
+     "level": 1,
+     "max_hp": 3,
+     "memorized_spells": [],
+     "name": "Wren",
+     "nonregen_damage": 0,
+     "race": "human",
+     "scores": {
+      "cha": 11,
+      "con": 11,
+      "dex": 10,
+      "int": 6,
+      "str": 14,
+      "wis": 9
+     },
+     "spell_book": [],
+     "stat_modifiers": [],
+     "xp": 0
+    }
+   ]
+  },
+  "quests": {},
+  "rng_streams": {},
+  "ruleset": {
+   "aoe_friendly_fire": true,
+   "back_stab_needs_both_skills": true,
+   "deprivation_penalties": false,
+   "encumbrance": "basic",
+   "failed_trap_removal_springs": true,
+   "formation_width_limit": true,
+   "hd5_counts_as_magical": false,
+   "hp_reroll_at_first_level": true,
+   "individual_initiative": false,
+   "magic_item_death_save": true,
+   "thac0_arithmetic": false,
+   "variable_weapon_damage": true,
+   "weapon_reload": false,
+   "xp_award_timing": "on_return"
+  },
+  "treasure_snapshot_cp": null
+ },
+ "schema_version": 4
+}
