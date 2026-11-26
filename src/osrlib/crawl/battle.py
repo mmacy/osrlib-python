@@ -844,7 +844,8 @@ class ScriptedPolicy:
     members [`group_front_rank`][osrlib.crawl.battle.group_front_rank] lists. It leaves out invisible
     members, and members whose *protection from evil* bars that monster. It passes over a thief whose
     hide in shadows roll passed, as [`BattleState.hiding`][osrlib.crawl.battle.BattleState.hiding]
-    records, while another target is left, and finds the thief when the thief is the only target. When no target
+    records, while a target that isn't stone is left, and finds the thief when every other target is stone or
+    none is left. When no target
     is left, the monster takes a `hold` action and does nothing that round. The members behind the
     front rank are out of the group's reach. Every monster with a target gets a `melee` action, but the session
     resolves only those of the monsters' front rank, the group's first living monsters, as many as
@@ -1054,7 +1055,8 @@ class NpcPartyPolicy:
     Like a monster, an NPC who picks one member to cast at, shoot at, or attack passes over a thief
     whose hide in shadows roll passed, as
     [`BattleState.hiding`][osrlib.crawl.battle.BattleState.hiding] records, while it can pick another
-    member, and finds the thief when the thief is the only member it can pick.
+    member who isn't turned to stone, and finds the thief when every other member it could pick is
+    stone or none is left.
 
     The NPC group has a front rank as a monster group does: its first living NPCs in the group's
     order, as many as the formation width allows (see
@@ -1293,16 +1295,22 @@ def _passing_over_hidden(session, targets: list) -> list:
 
     `BattleDeclaration.back_stab` states the rule. The monsters haven't noticed such a member, so when the session
     or a built-in policy picks one member for a monster or an NPC adventurer to attack, shoot at, cast at, or
-    breathe on, it passes them over. When
-    every target is such a member, the whole list comes back, and the monster finds them. A member whose roll
-    failed has been noticed and stays in the list. The targets stay in order, and with nobody hiding the list
-    comes back unchanged, so a draw over it stays the same. The call reads state and takes no draw.
+    breathe on, it passes them over. A member turned to stone is never another member the monster could pick,
+    so when every other target is stone, only the unnoticed members come back, and the monster finds them. When
+    every target is unnoticed, the whole list comes back. A member whose roll failed has been noticed and stays
+    in the list. The targets stay in order, and with nobody hiding the list comes back unchanged, so a draw over
+    it stays the same. The call reads state and takes no draw.
     """
     hiding = session.battle.hiding if session.battle is not None else {}
     if not hiding:
         return targets
-    noticed = [target for target in targets if not hiding.get(target.id, False)]
-    return noticed or targets
+    unnoticed = [target for target in targets if hiding.get(target.id, False)]
+    if not unnoticed:
+        return targets
+    others = [target for target in targets if not hiding.get(target.id, False)]
+    if any(not has_condition(target, Condition.PETRIFIED) for target in others):
+        return others
+    return unnoticed
 
 
 def _passing_over_statues(targets: list) -> list:
@@ -3935,9 +3943,10 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
         state.fired_last_round = fired_this_round
         events.extend(session.advance_rounds(1))
         _note_damage(session, events[tail:])
-        # A member who can't act at the end of the round stops hiding.
+        # A member who can't act, or is confused, at the end of the round stops hiding.
         for member_id in list(state.hiding):
-            if incapacitated(session.member(member_id)):
+            hider = session.member(member_id)
+            if incapacitated(hider) or has_condition(hider, Condition.CONFUSED):
                 _stop_hiding(session, member_id)
         end = _check_ends(session, party_retreating=formation == "retreat")
         if end is not None:
