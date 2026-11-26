@@ -1475,7 +1475,8 @@ class HideAttemptedEvent(Event):
     skill in secret, as the OSE SRD's "the thief does not immediately know if the attempt was
     successful" says, and reports the roll to the referee in a
     [`DetectionRolledEvent`][osrlib.crawl.events.DetectionRolledEvent] of kind
-    `"hide_in_shadows"`. The players learn how it went from the
+    `"hide_in_shadows"`. That event comes right after this one, so each member who hides adds
+    the two events in this order, before the next member's. The players learn how it went from the
     [`AttackRolledEvent.back_stab`][osrlib.core.events.AttackRolledEvent.back_stab] of the
     member's back-stab from hiding.
     """

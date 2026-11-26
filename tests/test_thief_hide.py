@@ -478,6 +478,7 @@ class TestWhatThePlayersSee:
         attempts = [event for event in events if isinstance(event, HideAttemptedEvent)]
         assert [attempt.character_id for attempt in attempts] == [sable]
         (roll,) = _rolls(events, "hide_in_shadows", sable)
+        assert _index(events, roll) == _index(events, attempts[0]) + 1, "the player's event, then the referee's roll"
         assert roll.visibility is Visibility.REFEREE
         assert roll.chance == HS_AT_7
         assert roll.roll is not None and roll.passed is (roll.roll <= HS_AT_7)
@@ -1082,6 +1083,37 @@ class TestTheApproach:
         assert all(_index(events, event) < _index(events, move_roll) for event in goblin_attacks)
         assert _index(events, move_roll) < _index(events, attack)
         assert not _attacks_on(events, sable)
+
+    def test_a_slow_ordinary_attack_from_hiding_keeps_the_attempt_through_the_monsters_block(self):
+        """Sable swings a battle axe without `back_stab` from beside Hild, and stays hiding until the blow resolves.
+
+        The test takes six seeds on which the party acts first, so the melee step queues the slow blow before the
+        goblins act. Sable's hide in shadows passed, so the goblins pass over her in every one. If the attempt ended
+        when the blow was queued, each goblin would pick Sable or Hild at random, and twelve goblin turns would all
+        pick Hild once in 4,096 runs.
+        """
+        cases = 0
+        for game, _ in _hidden_seeds(passed=True, weapons=("battle_axe",)):
+            sable, hild = _sable(game), _named(game, "Hild")
+            _play(game, _withdraw(game, "Brakk"))
+            if _encounter(game).hiding != (sable,) or set(_encounter(game).groups[0].front_rank) != {sable, hild}:
+                continue
+            events = _play(game, _stab(game, back_stab=False))
+            if not _initiative_party_first(game, events):
+                continue
+            (attack,) = _attacks_by(events, sable)
+            goblin_attacks = [event for event in events if isinstance(event, AttackRolledEvent) and event is not attack]
+            assert len(goblin_attacks) == 2, "precondition: both goblins attacked this round"
+
+            assert all(_index(events, event) < _index(events, attack) for event in goblin_attacks)
+            assert not _attacks_on(events, sable)
+            assert not _rolls(events, "move_silently", sable), "an ordinary attack rolls no move silently"
+            assert attack.back_stab is False
+            assert game.mode is not SessionMode.BATTLE or _encounter(game).hiding == ()
+            cases += 1
+            if cases == 6:
+                return
+        raise AssertionError(f"precondition: six party-first rounds with Sable hidden beside Hild, found {cases}")
 
     @pytest.mark.xfail(reason=CHUNK)
     def test_a_hasted_back_stab_from_hiding_rolls_once_and_both_swings_agree(self):

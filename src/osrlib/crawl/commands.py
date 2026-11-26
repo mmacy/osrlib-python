@@ -3088,8 +3088,14 @@ class BattleDeclaration(_Model):
 
     - The member's next declaration other than `hold` or `hide` comes up in its step of the round.
       A `hold` keeps the attempt, so a thief can stay hidden for several rounds. A second `hide`
-      replaces it with a new hide in shadows roll.
-    - The member takes damage.
+      replaces it with a new hide in shadows roll. An `attack` comes up in the missile or the melee
+      step, not in the movement step, so a `close` on any attack, a back-stab or an ordinary one,
+      doesn't end the attempt. An attack with a slow weapon, a back-stab or an ordinary one, comes
+      up when its blow resolves after both sides' blocks, so the member is still hiding through the
+      monsters' block before it, and passed over there if their hide in shadows roll passed.
+    - The member takes damage: a [`DamageDealtEvent`][osrlib.core.events.DamageDealtEvent] on them
+      with an `amount` above 0. One with an `amount` of 0 doesn't end the attempt, because the
+      member took no damage.
     - A monster or an NPC adventurer attacks the member, shoots at them, or casts a spell at them
       alone, when that action resolves.
     - The member can't act, or is confused, at the end of a round.
@@ -3293,9 +3299,9 @@ class ResolveBattleRound(Command):
         who falls back alone trades places in the marching order with the member they named,
         and a [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent] each time a group's
         distance from the party line changes, when monsters close or run, and when the whole
-        party moves in a formation move. After the moves, a
-        [`HideAttemptedEvent`][osrlib.crawl.events.HideAttemptedEvent] for each member who
-        hides, with the referee's
+        party moves in a formation move. After the moves, for each member who hides, in
+        marching order, a [`HideAttemptedEvent`][osrlib.crawl.events.HideAttemptedEvent]
+        followed by the referee's
         [`DetectionRolledEvent`][osrlib.crawl.events.DetectionRolledEvent] of their hide in
         shadows roll. A hiding member's back-stab adds the referee's `DetectionRolledEvent` of
         their move silently roll before its first attack roll.
