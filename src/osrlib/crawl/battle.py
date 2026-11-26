@@ -2418,6 +2418,44 @@ def preview_battle_round(session, declarations: Sequence[BattleDeclaration]) -> 
             for group in session.encounter.groups
             if not group.fled
         },
+        can_hide=tuple(member.id for member in declarers if _could_hide(session, declarers, declarations, member)),
+        can_back_stab=_back_stabbers(session, declarers),
+    )
+
+
+def _could_hide(session, declarers, declarations: Sequence[BattleDeclaration], member) -> bool:
+    """Whether the round would accept a `hide` by `member` in place of their own declaration in `declarations`.
+
+    It judges the plan with the member's declaration replaced by a `hide`, with `_judge_round`, so the
+    `hide` is judged where the other members' planned moves would leave the party, without the member's
+    own planned declaration. The member could hide when that judgement gives them no rejection, neither on
+    the `hide` nor on a trade of marching-order places. The call reads state and takes no draw.
+    """
+    hide = BattleDeclaration(character_id=member.id, action="hide")
+    plan = [*(declaration for declaration in declarations if declaration.character_id != member.id), hide]
+    judgement = _judge_round(session, declarers, plan)
+    traded = any(rejection.params.get("character") == member.id for rejection in judgement.trade_rejections)
+    return not judgement.rejections[member.id] and not traded
+
+
+def _back_stabbers(session, declarers) -> tuple[str, ...]:
+    """The declarers whose back-stab the round wouldn't refuse for the member, in the order of `declarers`.
+
+    Each declarer is judged by `_back_stab_rejection` on a bare-handed `attack` that sets `back_stab`, so
+    the list is who passes `battle.declaration.back_stab_no_ability` and
+    `battle.declaration.back_stab_target_aware`, the two checks that read the member and not the
+    declaration. Neither check reads where the members stand, so the round's planned moves don't change
+    the list. [`EncounterView.can_back_stab`][osrlib.crawl.views.EncounterView.can_back_stab] and
+    [`BattleRoundPreview.can_back_stab`][osrlib.crawl.battle.BattleRoundPreview.can_back_stab] both come
+    from here. The call reads state and takes no draw.
+    """
+    return tuple(
+        member.id
+        for member in declarers
+        if _back_stab_rejection(
+            session, BattleDeclaration(character_id=member.id, action="attack", back_stab=True), member
+        )
+        is None
     )
 
 

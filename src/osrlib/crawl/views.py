@@ -1766,10 +1766,11 @@ def _encounter_view(session) -> EncounterView | None:
     from osrlib.core.combat import cannot_move
     from osrlib.crawl.battle import (
         _able_declarers,
+        _back_stabbers,
         _formation_width,
         _front_rank_toward_nearest,
-        _front_rows,
         _group_lit,
+        _hide_rejection,
         _members_seeing,
         _placement,
         _reachable_front_rank,
@@ -1836,11 +1837,13 @@ def _encounter_view(session) -> EncounterView | None:
     fired = battle.fired_last_round if battle is not None and session.ruleset.weapon_reload else ()
     can_hide: tuple[str, ...] = ()
     hiding: tuple[str, ...] = ()
+    can_back_stab: tuple[str, ...] = ()
     if battle is not None:
+        # The lists come from the checks the round runs, so the view never offers what the session refuses.
+        can_hide = tuple(member.id for member in declarers if _hide_rejection(session, member, placement) is None)
         # The player view lists who is hiding. How each roll went stays in `BattleState.hiding`, for the referee.
-        front = _front_rows(session, placement)
-        can_hide = tuple(member.id for member in declarers if member.definition.thief_skills and member.id not in front)
         hiding = tuple(member.id for member in session.party.members if member.id in battle.hiding)
+        can_back_stab = _back_stabbers(session, declarers)
     return EncounterView(
         groups=tuple(groups),
         stance=state.stance,
@@ -1853,6 +1856,7 @@ def _encounter_view(session) -> EncounterView | None:
         reloading=tuple(fired),
         can_hide=can_hide,
         hiding=hiding,
+        can_back_stab=can_back_stab,
         advance_feet=(
             {member_id: battle.advance_feet.get(member_id, 0) for member_id in living_ids} if battle is not None else {}
         ),

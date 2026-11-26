@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- [`EncounterView.can_back_stab`][osrlib.crawl.views.EncounterView.can_back_stab] lists the members who can declare an `attack` with [`back_stab`][osrlib.crawl.commands.BattleDeclaration.back_stab] this round: those whose class has the `back_stab` ability, in the party's free round or while they're hiding (#319). The session never refuses a back-stab by a member in it with `battle.declaration.back_stab_no_ability` or `battle.declaration.back_stab_target_aware`, and always refuses one by any other declarer with one of them, because the list comes from the same checks. So a client no longer needs to combine the class catalog, `party_free_round`, and `hiding`, and the list is also correct for a custom class, which isn't in the catalog. [`BattleRoundPreview.can_hide`][osrlib.crawl.battle.BattleRoundPreview.can_hide] and [`BattleRoundPreview.can_back_stab`][osrlib.crawl.battle.BattleRoundPreview.can_back_stab] give the two lists beside the declarations planned so far, judging each member as if the `hide` or the back-stab took the place of their own planned declaration. So another member's planned fighting withdrawal can take a thief out of `can_hide`, and another member's planned `close` can put one in it. A preview with no planned move gives the view's lists. Building the lists takes no draw, and each new field has an empty default, so a view or a preview from 2.7.0 still parses.
+
 ## [2.7.0] - 2026-11-25
 
 ### Added

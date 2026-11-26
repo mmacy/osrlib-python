@@ -3036,6 +3036,13 @@ class BattleDeclaration(_Model):
       `close`, if the declaration sets one, decide that, as
       [`weapon_id`][osrlib.crawl.commands.BattleDeclaration.weapon_id] describes.
 
+    You don't need to combine the second and third conditions yourself.
+    [`EncounterView.can_back_stab`][osrlib.crawl.views.EncounterView.can_back_stab] lists the members
+    who meet both this round, and
+    [`BattleRoundPreview.can_back_stab`][osrlib.crawl.battle.BattleRoundPreview.can_back_stab] lists
+    them beside a planned round. The first and last conditions depend on the declaration, so check
+    them with [`preview_battle_round`][osrlib.crawl.battle.preview_battle_round].
+
     A thief can close on a group and back-stab in the same round: declare `attack` with
     `move="close"` and `back_stab=True`. The session judges the back-stab at the distance the move
     will reach. So a thief reaches a group up to their encounter rate plus 5' away. That's 35' for a
