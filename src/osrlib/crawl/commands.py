@@ -3219,16 +3219,18 @@ class ResolveBattleRound(Command):
 
         A round that ends the battle adds a
         [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent], after the
-        `MonsterEscapedEvent` when an escape ended it, and the events of the
-        encounter's end
+        `MonsterEscapedEvent` when an escape ended it. A group whose living members are all
+        turned or afraid, and which stands past `FLEE_EXIT_FEET` without a move of its own,
+        gets away as the battle ends, and its `MonsterEscapedEvent` comes right before the
+        `BattleEndedEvent`. The events of the encounter's end follow
         ([`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent],
         [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent]s, a
         [`LootDroppedEvent`][osrlib.crawl.events.LootDroppedEvent] when the slain leave
         anything on the floor, and, under the immediate XP timing,
         [`XpAwardedEvent`][osrlib.crawl.events.XpAwardedEvent] and
-        [`CharacterLeveledUpEvent`][osrlib.crawl.events.CharacterLeveledUpEvent]),
-        or [`GameOverEvent`][osrlib.crawl.events.GameOverEvent] when every party member is
-        dead or turned to stone.
+        [`CharacterLeveledUpEvent`][osrlib.crawl.events.CharacterLeveledUpEvent]). When every
+        party member is dead or turned to stone, a
+        [`GameOverEvent`][osrlib.crawl.events.GameOverEvent] follows instead.
 
     Examples:
         A fighter and a cleric meet three goblins 30 feet away. Each round, each member in

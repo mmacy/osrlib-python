@@ -98,7 +98,9 @@ You follow the battle through events from [`osrlib.crawl.events`][osrlib.crawl.e
   and leaves the battle, right after the `GroupMovedEvent` that takes it past
   [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET]. A group with a morale score of 2 gets
   away as it enters the battle, so its `MonsterEscapedEvent` comes right after its
-  `MonsterFledEvent`.
+  `MonsterFledEvent`. A group whose living members are all turned or afraid, and which stands
+  past `FLEE_EXIT_FEET` without a move of its own when the battle ends, gets away as the battle
+  ends, so its `MonsterEscapedEvent` comes right before the `BattleEndedEvent`.
 - [`MonstersLeftBehindEvent`][osrlib.crawl.events.MonstersLeftBehindEvent] for helpless members a
   fleeing group leaves behind.
 - [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent] with victory, defeat, or flight.
@@ -454,6 +456,12 @@ victory.
 
 A group whose living members are all afraid or turned, but which didn't fail a morale check, also
 counts as gone for ending the battle once it stands farther than this from every living member.
+It can get there without a move of its own: a group turned where it stands 130' away, or a group
+the party leaves behind by falling back before the group's next move. When the battle ends with
+such a group, the session marks it fled and emits its `MonsterEscapedEvent` right before the
+[`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent]. The group then ends the encounter as
+it would have after a move of its own took it out: its members are routed, they count for the
+experience award, and they keep their treasure.
 """
 
 
@@ -2419,7 +2427,18 @@ def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
     groups = session.encounter.groups
     done = all(group.fled or not _living_monsters(session, group) or _all_routed(session, group) for group in groups)
     if done:
-        return [BattleEndedEvent(code="battle.ended.victory"), *encounter_module.end_encounter(session, "victory")]
+        # A wholly turned or afraid group past FLEE_EXIT_FEET has got away too, even when its own move never took it
+        # out, so it ends the battle marked fled, as it would have after its next move.
+        escaped: list[Event] = []
+        for group in groups:
+            if not group.fled and _all_routed(session, group):
+                group.fled = True
+                escaped.append(MonsterEscapedEvent(group_id=group.id))
+        return [
+            *escaped,
+            BattleEndedEvent(code="battle.ended.victory"),
+            *encounter_module.end_encounter(session, "victory"),
+        ]
     if party_retreating:
         from osrlib.crawl.encounter import PursuitState
 
