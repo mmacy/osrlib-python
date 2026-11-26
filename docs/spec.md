@@ -46,7 +46,7 @@ osrlib/
 │   ├── rng.py           # named PCG64 streams forked from a master seed
 │   ├── clock.py         # time units (round, turn, day), game clock, tick scheduling
 │   ├── events.py        # event base class + kernel event types
-│   ├── ruleset.py       # Ruleset model: optional-rule and adaptation flags
+│   ├── ruleset.py       # Ruleset model: optional-rule, adaptation, and house-rule flags
 │   ├── abilities.py     # ability scores, modifiers, checks, prime requisite rules
 │   ├── classes.py       # class definitions, level progression, XP, leveling & drain
 │   ├── character.py     # PC model: scores, class, HP, inventory, spells, conditions
@@ -282,8 +282,8 @@ Pipeline rules:
 
 The kernel implements B/X procedures rules-as-written:
 
-- Ability scores 3d6, modifiers, prime requisite XP bonuses/penalties; the creation-time adjustment step (lower STR/INT/WIS two-for-one into a prime requisite, floor 9, class restrictions such as thieves keeping STR); ability checks (1d20, equal-or-under succeeds, ±4 easy/hard modifiers; natural 1 succeeds, natural 20 fails — inverted from attack rolls) and STR-based open-doors checks
-- Character creation, starting gold and equipment, alignment, languages; optional re-roll of 1–2 starting hp as a `Ruleset` flag
+- Ability scores 3d6, with 4d6 drop lowest as a `Ruleset` house rule, modifiers, prime requisite XP bonuses/penalties; the creation-time adjustment step (lower STR/INT/WIS two-for-one into a prime requisite, floor 9, class restrictions such as thieves keeping STR); ability checks (1d20, equal-or-under succeeds, ±4 easy/hard modifiers; natural 1 succeeds, natural 20 fails, inverted from attack rolls) and STR-based open-doors checks
+- Character creation, starting gold and equipment, alignment, languages; optional re-roll of 1 or 2 starting hp as a `Ruleset` flag, and maximum first-level hp as a `Ruleset` house rule that throws the same dice
 - The attack matrix shipped as data (its clamping differs from plain THAC0 arithmetic, which becomes the `Ruleset` variant); natural 20 always hits, natural 1 always misses, minimum 1 damage on a hit; descending and ascending AC both supported
 - Combat round sequence: declaration, side initiative (individual as option), movement, missile, magic, melee; slow weapons act last; weapon qualities executed in resolution — two-handed (no shield), brace and charge doubling, optional reload, and splash weapons: burning oil (must be lit; creatures with fire attacks are immune) and holy water (harms only undead), dousing the target for two rounds as a timed effect; unarmed attacks (1d2)
 - Range bands with missile modifiers (+1 short, −1 long, impossible beyond long); melee only at 5' or less; fighting withdrawal (half speed) and retreat (attacker gains +2 and ignores the shield)
@@ -324,7 +324,7 @@ Out of scope for 1.0 (tracked for later): wilderness and sea adventuring, strong
 
 ## The Ruleset
 
-`core/ruleset.py` defines the `Ruleset` model: every SRD optional rule and every documented adaptation is a named flag with a default. The 1.0 flag set:
+`core/ruleset.py` defines the `Ruleset` model: every SRD optional rule, every documented adaptation, and every house rule is a named flag with a default. A house rule is a change the SRD doesn't print, and its default is the SRD's procedure, so `Ruleset()` is the SRD as written. The 1.0 flag set, with the flags added since:
 
 - `variable_weapon_damage` (default on) — SRD optional rule; off means every weapon deals 1d6
 - `individual_initiative` (default off) — DEX-modified individual initiative instead of side-based
@@ -332,6 +332,8 @@ Out of scope for 1.0 (tracked for later): wilderness and sea adventuring, strong
 - `encumbrance` (default `basic`) — `none` / `basic` / `detailed`
 - `weapon_reload` (default off) — SRD optional rule: crossbows fire every other round
 - `hp_reroll_at_first_level` (default off) — re-roll starting hp results of 1–2
+- `max_hp_at_first_level` (default off), a house rule: a first-level character's hit die counts as its maximum. The dice are still thrown, so the starting gold roll after them doesn't change
+- `ability_score_method` (default `3d6`), a house rule: `3d6` per the SRD, or `4d6_drop_lowest`, which throws four d6 per ability and drops the lowest. NPC adventurers always roll 3d6
 - `hd5_counts_as_magical` (default off) — SRD optional rule: 5+ HD monsters bypass magic-only immunity
 - `magic_item_death_save` (default on) — the referee-optional save for magic items on destructive death
 - `deprivation_penalties` (default off) — adaptation: penalties for going without food/water

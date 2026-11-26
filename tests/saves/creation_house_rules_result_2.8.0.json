@@ -1,0 +1,103 @@
+{
+ "ability_rolls": {
+  "rolls": {
+   "cha": [
+    3,
+    6,
+    2
+   ],
+   "con": [
+    3,
+    6,
+    2
+   ],
+   "dex": [
+    2,
+    2,
+    6
+   ],
+   "int": [
+    4,
+    1,
+    1
+   ],
+   "str": [
+    2,
+    6,
+    6
+   ],
+   "wis": [
+    3,
+    5,
+    1
+   ]
+  },
+  "scores": {
+   "cha": 11,
+   "con": 11,
+   "dex": 10,
+   "int": 6,
+   "str": 14,
+   "wis": 9
+  }
+ },
+ "character": {
+  "alignment": "neutral",
+  "carrying_treasure": false,
+  "class_id": "thief",
+  "conditions": [],
+  "current_hp": 3,
+  "custom_class": null,
+  "extra_languages": [],
+  "id": "character-0001",
+  "inventory": {
+   "items": [],
+   "purse": {
+    "cp": 0,
+    "ep": 0,
+    "gp": 60,
+    "pp": 0,
+    "sp": 0
+   },
+   "rings": [],
+   "shield": null,
+   "valuables": [],
+   "wielded": [],
+   "worn_armour": null
+  },
+  "level": 1,
+  "max_hp": 3,
+  "memorized_spells": [],
+  "name": "Wren",
+  "nonregen_damage": 0,
+  "race": "human",
+  "scores": {
+   "cha": 11,
+   "con": 11,
+   "dex": 10,
+   "int": 6,
+   "str": 14,
+   "wis": 9
+  },
+  "spell_book": [],
+  "stat_modifiers": [],
+  "xp": 0
+ },
+ "gold_roll": {
+  "modifier": 0,
+  "multiplier": 10,
+  "rolls": [
+   3,
+   2,
+   1
+  ],
+  "total": 60
+ },
+ "hit_point_roll": {
+  "hit_points": 3,
+  "rolls": [
+   2,
+   3
+  ]
+ }
+}

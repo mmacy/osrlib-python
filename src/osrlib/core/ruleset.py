@@ -8,14 +8,16 @@ uses one ruleset from start to finish. The rules functions read its flags on eve
 call, so there's no setup step. A save contains the ruleset, so a loaded game uses the
 rules it began with.
 
-`Ruleset()` with no arguments gives you the SRD rules as written. Each flag is either an
-optional rule or an adaptation. An optional rule is an alternative the SRD prints beside
-its default procedure. An adaptation is a default osrlib chooses for a decision that the
-tabletop game leaves to a human referee. A program that runs without a referee has to
-make that decision.
-The two enum flags, [`EncumbranceMode`][osrlib.core.ruleset.EncumbranceMode] and
-[`XpAwardTiming`][osrlib.core.ruleset.XpAwardTiming], pick among alternatives instead of
-switching one behavior on and off.
+`Ruleset()` with no arguments gives you the SRD rules as written. Each flag is an optional
+rule, an adaptation, or a house rule. An optional rule is an alternative the SRD prints
+beside its default procedure. An adaptation is a default osrlib chooses for a decision that
+the tabletop game leaves to a human referee. A program that runs without a referee has to
+make that decision. A house rule changes a procedure in a way the SRD doesn't print, and
+it's off unless you turn it on.
+Three flags pick among alternatives instead of switching one behavior on and off: the two
+enum flags, [`EncumbranceMode`][osrlib.core.ruleset.EncumbranceMode] and
+[`XpAwardTiming`][osrlib.core.ruleset.XpAwardTiming], and the string flag
+`ability_score_method`.
 
 Each flag is a field of [`Ruleset`][osrlib.core.ruleset.Ruleset], documented there and in
 [the ruleset options guide](https://mmacy.github.io/osrlib-python/guides/ruleset-options/)
@@ -43,6 +45,8 @@ assert house_rules.variable_weapon_damage is True
 
 # Code reads every flag here. Don't add a flag before the code that reads it exists.
 # Adding a flag with a default doesn't require a schema_version bump.
+
+from typing import Literal
 
 from pydantic import ConfigDict
 
@@ -124,10 +128,11 @@ class Ruleset(_Model):
     unknown field name raises a pydantic `ValidationError`, so a misspelled flag fails
     instead of doing nothing.
 
-    Each flag is one of two kinds. An optional rule is an alternative the SRD prints
+    Each flag is one of three kinds. An optional rule is an alternative the SRD prints
     beside its standard procedure, and osrlib's default is the book's. An adaptation is a
     default osrlib supplies where the tabletop game leaves the decision to a human
-    referee. [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)
+    referee. A house rule is a change the SRD doesn't print, and its default is the SRD's
+    procedure. [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)
     gives the reasoning behind each one.
 
     Examples:
@@ -151,6 +156,33 @@ class Ruleset(_Model):
     Turn it on and osrlib rerolls the raw die until it shows 3 or more, before the CON
     modifier is added, so a first-level character starts with at least 3 hit points before
     that modifier.
+    """
+
+    max_hp_at_first_level: bool = False
+    """Count a first-level character's hit die as its maximum. A house rule, off by default.
+
+    The SRD doesn't print this rule. Its character creation has you roll the class's hit die. Turn
+    the flag on and a first-level character's hit points are the hit die's size plus the CON
+    modifier, and at least 1, so a fighter with CON 7 starts with 8 - 1 = 7.
+    [`roll_hit_points`][osrlib.core.character.roll_hit_points] still throws the dice it throws with
+    the flag off, so the creation stream ends in the same place and the starting gold roll after it is
+    the same. With `hp_reroll_at_first_level` also on, a die showing 1 or 2 is still thrown again and
+    [`HitPointRoll.rolls`][osrlib.core.character.HitPointRoll.rolls] lists every die, but the
+    reroll can't change the hit points. The flag affects only the hit points rolled at character
+    creation. [`level_up`][osrlib.core.classes.level_up] rolls each later level's hit die as usual.
+    """
+
+    ability_score_method: Literal["3d6", "4d6_drop_lowest"] = "3d6"
+    """How a new character's ability scores are rolled. `"3d6"` by default, the SRD's method.
+
+    `"4d6_drop_lowest"` is a house rule, not an SRD rule. With it, each ability throws four d6 and
+    the lowest die doesn't count, so the score is the sum of the other three, from 3 to 18.
+    [`create_character`][osrlib.core.character.create_character] passes the method to
+    [`roll_ability_scores`][osrlib.core.character.roll_ability_scores], and the result lists the
+    dropped die of each ability in
+    [`AbilityScoreRolls.dropped`][osrlib.core.character.AbilityScoreRolls.dropped]. The method
+    affects only the characters you create. The NPC adventurers that encounters generate always
+    roll 3d6.
     """
 
     encumbrance: EncumbranceMode = EncumbranceMode.BASIC
