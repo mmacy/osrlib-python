@@ -431,7 +431,7 @@ def build_gated_adventure() -> Adventure:
             FeatureSpec(
                 id="vault",
                 kind="treasure_cache",
-                description="A ferryman's strongbox.",
+                description="An iron strongbox.",
                 cell=(1, 0),
                 item_ids=("silver_seal",),
             ),
