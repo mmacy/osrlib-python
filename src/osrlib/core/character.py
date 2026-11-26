@@ -109,8 +109,10 @@ from osrlib.core.items import (
     Inventory,
     ItemInstance,
     ItemTemplate,
+    MagicItemInstance,
     equip,
     equipped_item_modifiers,
+    magic_item_template,
     movement_rate_feet,
     purchase,
     validate_purchase,
@@ -807,6 +809,40 @@ class Character(_Model):
             return cls.model_validate(payload)
         except ValueError as error:
             raise ContentValidationError(f"character document payload failed validation: {error}") from error
+
+
+_TESTS_AS: Final = {"shield": "shield_plus_1", "worn_armour": "armour_plus_1"}
+"""The +1 template that every test shows for a cursed item worn in each armour slot."""
+
+
+def _armour_as_tested(member: Character) -> Character:
+    """Return the member as every test shows their armour, for an armour class that knows no more than a player does.
+
+    The OSE SRD says "All types of tests indicate that a cursed shield or suit of armour is enchanted with a +1
+    bonus. It is only when the armour is used in deadly combat that the curse is revealed." So in the copy this
+    returns, each worn cursed shield or suit that is unidentified and whose curse isn't revealed becomes a copy of
+    itself made from the +1 template, `shield_plus_1` or `armour_plus_1`, keeping its base item. Read
+    `armour_class` or `armour_class_ascending` from the copy for the number the item tests as. Everything else the
+    member wears counts as usual.
+
+    With nothing to mask, it returns the member itself. The copy is shallow and only read, so the member never
+    changes. The player view's armour class and the equipment choice of a generated NPC both read this, and the
+    attack rolls and every other rule read the member's real armour class.
+    """
+    inventory = member.inventory
+    masked = {}
+    for slot, lookalike in _TESTS_AS.items():
+        worn = getattr(inventory, slot)
+        if (
+            isinstance(worn, MagicItemInstance)
+            and not worn.identified
+            and not worn.cursed_revealed
+            and magic_item_template(worn).cursed
+        ):
+            masked[slot] = worn.model_copy(update={"template_id": lookalike})
+    if not masked:
+        return member
+    return member.model_copy(update={"inventory": inventory.model_copy(update=masked)})
 
 
 def party_to_document(characters: Sequence[Character]) -> dict[str, object]:

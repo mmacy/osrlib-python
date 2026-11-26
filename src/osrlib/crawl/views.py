@@ -114,7 +114,7 @@ from typing import Literal
 from pydantic import ConfigDict, Field, SerializeAsAny, ValidationInfo, field_validator
 
 from osrlib.core.abilities import AbilityScore
-from osrlib.core.character import Character
+from osrlib.core.character import Character, _armour_as_tested
 from osrlib.core.classes import level_title
 from osrlib.core.effects import Condition, EffectsLedger, has_condition
 from osrlib.core.events import Event
@@ -1681,36 +1681,6 @@ def _canonical_edge(cell: Position, direction: Direction) -> str:
     from osrlib.crawl.dungeon import edge_key
 
     return edge_key(cell, direction)
-
-
-_TESTS_AS = {"shield": "shield_plus_1", "worn_armour": "armour_plus_1"}
-"""The +1 template that every test shows for a cursed item worn in each armour slot."""
-
-
-def _armour_as_tested(member: Character) -> Character:
-    """Return the member as the players know their armour, for the armour class on the sheet.
-
-    The OSE SRD says every test shows a cursed shield or suit of armour as enchanted with a +1
-    bonus until the curse is revealed. So in the copy this returns, each worn cursed shield or suit
-    that is unidentified and whose curse isn't revealed becomes a copy of itself made from the +1
-    template, keeping its base item. The copy's armour class then comes from the rules that compute
-    the member's, and everything else the member wears counts as usual. With nothing to mask, it
-    returns the member itself. The copy is shallow and only read, so the member never changes.
-    """
-    inventory = member.inventory
-    masked = {}
-    for slot, lookalike in _TESTS_AS.items():
-        worn = getattr(inventory, slot)
-        if (
-            isinstance(worn, MagicItemInstance)
-            and not worn.identified
-            and not worn.cursed_revealed
-            and magic_item_template(worn).cursed
-        ):
-            masked[slot] = worn.model_copy(update={"template_id": lookalike})
-    if not masked:
-        return member
-    return member.model_copy(update={"inventory": inventory.model_copy(update=masked)})
 
 
 def _member_view(session, member) -> MemberView:
