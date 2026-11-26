@@ -32,8 +32,6 @@ from osrlib.core.ruleset import Ruleset
 from osrlib.data import load_classes
 from osrlib.persistence import load_game
 
-CHUNK = "chunk: creation-house-rules"
-
 SAVES = Path(__file__).parent / "saves"
 SAVE_2_8_0 = SAVES / "creation_house_rules_save_2.8.0.json"
 """A save that osrlib 2.8.0 wrote, kept as written.
@@ -259,7 +257,6 @@ FOUR_D6 = {
 }
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize("seed", sorted(FOUR_D6))
 def test_4d6_drop_lowest_counts_three_dice_and_names_the_dropped_one(seed):
     expected = FOUR_D6[seed]
@@ -274,7 +271,6 @@ def test_4d6_drop_lowest_counts_three_dice_and_names_the_dropped_one(seed):
         assert rolled.dropped[ability] <= min(rolled.rolls[ability])
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize("seed", sorted(FOUR_D6))
 def test_4d6_drop_lowest_throws_the_draws_in_order_and_advances_24_dice(seed):
     creation = stream(seed)
@@ -288,7 +284,6 @@ def test_4d6_drop_lowest_throws_the_draws_in_order_and_advances_24_dice(seed):
     assert creation.export_state() == replay.export_state()
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_4d6_drop_lowest_scores_range_from_3_to_18():
     for seed in range(60):
         rolled = roll_ability_scores(stream(seed), method="4d6_drop_lowest")
@@ -296,7 +291,6 @@ def test_4d6_drop_lowest_scores_range_from_3_to_18():
         assert all(3 <= score <= 18 for score in rolled.scores.values())
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_an_unknown_method_raises_before_the_first_draw():
     creation = stream(7)
     before = creation.export_state()
@@ -307,7 +301,6 @@ def test_an_unknown_method_raises_before_the_first_draw():
     assert creation.export_state() == before
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_create_character_rolls_with_the_rulesets_method():
     # Seed 2's 4d6 scores, from FOUR_D6, are STR 10, INT 14, WIS 15, DEX 13, CON 7, and CHA 14. After
     # the 24 ability dice, the fighter's d8 hit die is draw 25 and shows 6. CON 7 has a -1 hit
@@ -340,7 +333,6 @@ THIEF_HIT_DICE = {False: (2,), True: (2, 3)}
 THIEF_GOLD = {False: ((5, 3, 2), 100), True: ((3, 2, 1), 60)}
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize("reroll", [False, True])
 def test_the_maximum_draws_what_the_roll_draws_so_the_gold_is_the_same(reroll):
     rolled, rolled_stream = create(7, "thief", Ruleset(hp_reroll_at_first_level=reroll))
@@ -360,7 +352,6 @@ def test_the_maximum_draws_what_the_roll_draws_so_the_gold_is_the_same(reroll):
     assert rolled.hit_point_roll.maximized is False
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_with_the_maximum_and_the_reroll_on_the_set_aside_dice_are_still_listed():
     # The reroll still throws: the 2 is set aside and the 3 is the last die. The maximum replaces the
     # last die's value in the hit points only, so they're the d4's 4 plus a modifier of 0.
@@ -376,7 +367,6 @@ def test_with_the_maximum_and_the_reroll_on_the_set_aside_dice_are_still_listed(
 HIT_DIE = {"cleric": 6, "dwarf": 8, "elf": 6, "fighter": 8, "halfling": 6, "magic_user": 4, "thief": 4}
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize("class_id", sorted(HIT_DIE))
 @pytest.mark.parametrize("con_modifier", [-5, -4, -3, -1, 0, 1, 3])
 def test_the_maximum_is_the_die_size_plus_the_modifier_and_at_least_1(class_id, con_modifier):
@@ -400,7 +390,6 @@ def test_the_maximum_is_the_die_size_plus_the_modifier_and_at_least_1(class_id, 
 # ---------------------------------------------------------------------- both options together
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_both_options_in_one_create_character_call():
     # The scores and the dice are seed 2's 4d6 drop lowest from FOUR_D6. CON 7 gives -1. The fighter's
     # d8 is draw 25, a 6, and the maximum counts it as 8, so the fighter has 8 - 1 = 7 hit points. The
@@ -463,7 +452,6 @@ def test_the_example_readme_says_what_the_ruleset_changes_and_how_to_load_it():
     assert "not the SRD" in readme
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_character_created_with_the_example_ruleset_has_4d6_scores_and_the_maximum():
     # The same draws as test_both_options_in_one_create_character_call: seed 2's 4d6 drop lowest
     # scores, and the fighter's d8 at its maximum, 8, with CON 7's -1, for 7 hit points.
@@ -480,7 +468,6 @@ def test_a_character_created_with_the_example_ruleset_has_4d6_scores_and_the_max
 # ---------------------------------------------------------------------- the changelog
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_changelog_bullet_names_both_options_and_both_fields():
     bullets = [line for line in CHANGELOG.read_text(encoding="utf-8").splitlines() if "(#341)" in line]
     assert len(bullets) == 1

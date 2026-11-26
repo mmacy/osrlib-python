@@ -4,7 +4,7 @@ Configure optional B/X rules, referee adaptations, and house rules by constructi
 
 ## Construct a `Ruleset`
 
-Call `Ruleset()` with no arguments for the default B/X configuration, the SRD as written with no house rule on, or override specific flags such as [`EncumbranceMode`][osrlib.core.ruleset.EncumbranceMode] to change how functions such as [`Character.movement_rate`][osrlib.core.character.Character.movement_rate] behave:
+Call `Ruleset()` with no arguments for the default B/X configuration, which is the SRD as written with no house rule on. You can also override specific flags such as [`EncumbranceMode`][osrlib.core.ruleset.EncumbranceMode] to change how functions such as [`Character.movement_rate`][osrlib.core.character.Character.movement_rate] behave:
 
 ```python
 from pydantic import ValidationError
