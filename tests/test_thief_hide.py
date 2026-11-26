@@ -86,8 +86,6 @@ from osrlib.data import load_classes
 from osrlib.messages import format_message
 from osrlib.persistence import load_game, replay_game, save_game, session_state
 
-CHUNK = "chunk: thief-hide"
-
 SEEDS = range(0, 400)
 """Seeds the helpers scan for a setup they need, like a battle in which neither side was surprised."""
 
@@ -372,7 +370,6 @@ class TestTheFields:
 class TestTheRefusals:
     """Each hide refusal and the back-stab's new third check, each refusing the round before it costs anything."""
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_fighter_cannot_hide(self):
         game = _battle(roster=(FIGHTER, THIEF, SECOND_FIGHTER))
         hild = _named(game, "Hild")
@@ -380,7 +377,6 @@ class TestTheRefusals:
 
         assert _refused(game, _hide(game, hild)) == [(NOT_A_THIEF, {"character": hild})]
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_thief_in_the_front_rank_cannot_hide(self):
         game = _battle(roster=DUO)
         sable = _sable(game)
@@ -388,14 +384,12 @@ class TestTheRefusals:
 
         assert _refused(game, _hide(game)) == [(IN_FRONT_RANK, {"character": sable})]
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_fighter_in_the_front_rank_gets_not_a_thief(self):
         game = _battle(roster=DUO)
         brakk = _named(game, "Brakk")
 
         assert _refused(game, _hide(game, brakk)) == [(NOT_A_THIEF, {"character": brakk})]
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_the_front_rank_is_judged_after_the_rounds_moves(self):
         """Brakk falls back alone this round, which leaves Sable beside Hild in the first row."""
         game = _battle()
@@ -426,7 +420,6 @@ class TestTheRefusals:
 
         assert _refused(game, _stab(game)) == [(TARGET_AWARE, {"character": _sable(game)})]
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_back_stab_after_the_attempt_ended_is_refused_as_aware(self):
         game = _battle()
         sable = _sable(game)
@@ -437,7 +430,6 @@ class TestTheRefusals:
 
         assert _refused(game, _stab(game)) == [(TARGET_AWARE, {"character": sable})]
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_hiding_thiefs_attack_without_back_stab_needs_the_front_rank(self):
         game = _battle()
         sable = _sable(game)
@@ -455,7 +447,6 @@ class TestTheRefusals:
 class TestWhatThePlayersSee:
     """The player view says who can hide and who is hiding, and nothing the players see tells how a hide went."""
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_thief_behind_the_front_rank_can_hide(self):
         game = _battle()
 
@@ -468,7 +459,6 @@ class TestWhatThePlayersSee:
 
         assert _encounter(game).can_hide == ()
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_hide_shows_the_member_hiding_and_reports_the_roll_to_the_referee(self):
         game = _battle()
         sable = _sable(game)
@@ -486,7 +476,6 @@ class TestWhatThePlayersSee:
         assert _encounter(game).hiding == (sable,)
         assert game.battle.hiding == {sable: roll.passed}
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_the_players_see_the_same_whether_the_hide_passed_or_failed(self):
         """The same battle with Sable at level 1 and at level 14, where a hide passes 10% and 99% of the time.
 
@@ -594,7 +583,6 @@ EITHER_ENOUGH = {(True, True): True, (True, False): True, (False, True): True, (
 class TestTheRolls:
     """Each roll's time, stream, and visibility, and how each setting combines them."""
 
-    @pytest.mark.xfail(reason=CHUNK)
     @pytest.mark.parametrize("first_seed", [0, 7, 10, 22, 31])
     def test_the_hide_draws_from_the_combat_stream_alone(self, first_seed):
         """The same battle with Sable hiding and with Sable holding: no stream but the combat stream differs.
@@ -619,7 +607,6 @@ class TestTheRolls:
         }
         assert roll.roll in _d100s_between(before, hiding.streams.get(COMBAT_STREAM).export_state())
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_back_stab_from_hiding_rolls_move_silently_before_its_attack(self):
         game, events, (_, move_roll) = _hide_then_stab(SEEDS.start, Ruleset())
         sable = _sable(game)
@@ -631,7 +618,6 @@ class TestTheRolls:
         assert _index(events, move_roll) < _index(events, attack)
         assert not _rolls(events, "hide_in_shadows", sable), "the attack rolls move silently alone"
 
-    @pytest.mark.xfail(reason=CHUNK)
     @pytest.mark.parametrize(
         ("ruleset", "outcomes"), [(Ruleset(), BOTH_NEEDED), (HOUSE_RULE, EITHER_ENOUGH)], ids=["default", "house"]
     )
@@ -642,7 +628,6 @@ class TestTheRolls:
             assert len(attacks) == 1
             assert attacks[0].back_stab is outcomes[combination], combination
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_both_settings_draw_the_same(self):
         """The same declarations from the same seed under both settings draw the same numbers from every stream.
 
@@ -732,7 +717,6 @@ NO_HIDE_BREATH_DIGEST = (0, "e4852b638ca671f4ccefef7a15b537c4dc3850fa4f08f9e8688
 class TestTheArithmetic:
     """A back-stab from hiding uses the kernel's arithmetic: +4 to hit, and the whole damage sum doubled."""
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_the_house_rules_back_stab_adds_four_and_doubles_the_whole_sum(self):
         """Sable has STR 16, which adds 2 to melee attack and damage rolls, as `STR_16` gives.
 
@@ -787,7 +771,6 @@ class TestTheMonstersTargets:
     within the goblins' reach. With both fighters fallen back, Sable stands alone in it.
     """
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_hidden_thief_is_passed_over_while_another_member_is_in_reach(self):
         game, _ = _hidden(passed=True)
         sable, hild = _sable(game), _named(game, "Hild")
@@ -802,7 +785,6 @@ class TestTheMonstersTargets:
         assert _encounter(game).hiding == (sable,)
         assert game.battle.hiding == {sable: True}
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_noticed_thief_can_be_attacked_and_the_attack_ends_the_attempt(self):
         for game, _ in _hidden_seeds(passed=False):
             sable = _sable(game)
@@ -816,7 +798,6 @@ class TestTheMonstersTargets:
                 events = _play(game)
         raise AssertionError("precondition: no seed's goblins attacked the noticed thief")
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_the_monsters_find_a_hidden_thief_who_is_the_only_member_in_reach(self):
         game, _ = _hidden(passed=True)
         sable = _sable(game)
@@ -835,7 +816,6 @@ class TestTheMonstersTargets:
 class TestWhatEndsTheAttempt:
     """Each way an attempt ends, and the ways it carries on."""
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_hold_keeps_the_attempt_and_a_later_back_stab_takes_it(self):
         game = _battle()
         sable = _sable(game)
@@ -850,7 +830,6 @@ class TestWhatEndsTheAttempt:
         assert len(_attacks_by(events, sable)) == 1
         assert game.mode is not SessionMode.BATTLE or _encounter(game).hiding == ()
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_another_declaration_ends_the_attempt(self):
         game = _battle()
         _play(game, _hide(game))
@@ -861,7 +840,6 @@ class TestWhatEndsTheAttempt:
         assert _encounter(game).hiding == ()
         assert game.battle.hiding == {}
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_second_hide_replaces_the_attempt_with_a_new_roll(self):
         game = _battle()
         sable = _sable(game)
@@ -873,7 +851,6 @@ class TestWhatEndsTheAttempt:
         assert _encounter(game).hiding == (sable,)
         assert game.battle.hiding == {sable: roll.passed}
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_thief_can_hide_again_after_attacking(self):
         game = _battle()
         sable = _sable(game)
@@ -887,7 +864,6 @@ class TestWhatEndsTheAttempt:
         assert len(_rolls(events, "hide_in_shadows", sable)) == 1
         assert _encounter(game).hiding == (sable,)
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_damage_ends_the_attempt(self):
         """A red dragon's breath covers the party's ranks from the front, Sable's second rank among them.
 
@@ -915,7 +891,6 @@ class TestWhatEndsTheAttempt:
             return
         raise AssertionError("precondition: no seed's dragon breathed on Sable after Sable hid")
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_thief_who_cant_act_at_the_end_of_a_round_stops_hiding(self):
         game = _battle()
         sable = _sable(game)
@@ -933,7 +908,6 @@ class TestWhatEndsTheAttempt:
         assert _encounter(game).hiding == ()
         assert game.battle.hiding == {}
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_the_attempt_ends_with_the_battle(self):
         """The fighters kill the goblins while Sable holds in hiding, and the next battle starts with nobody hiding."""
         game = _battle(count=1)
@@ -963,7 +937,6 @@ class TestWhatEndsTheAttempt:
 class TestSavesAndReplays:
     """An attempt survives a save and load, and a battle with a hide replays exactly."""
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_save_in_the_middle_of_an_attempt_keeps_it(self):
         game, _ = _hidden(passed=True)
         sable = _sable(game)
@@ -992,7 +965,6 @@ class TestSavesAndReplays:
         assert restored.battle.hiding == {}
         assert _encounter(restored).hiding == ()
 
-    @pytest.mark.xfail(reason=CHUNK)
     @pytest.mark.parametrize("ruleset", [Ruleset(), HOUSE_RULE], ids=["default", "house"])
     def test_a_battle_with_a_hide_replays_from_its_command_log(self, ruleset):
         game = _battle(ruleset=ruleset)
@@ -1035,7 +1007,6 @@ class TestTheApproach:
         assert 5 < distance <= rate + 5, "precondition: out of reach, and within a close of Sable's rate"
         return game, sable, distance
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_back_stab_from_hiding_at_a_group_out_of_reach_is_refused(self):
         game, sable, distance = self._hidden_far()
 
@@ -1043,7 +1014,6 @@ class TestTheApproach:
             ("combat.attack.out_of_reach", {"distance_feet": distance, "character": sable})
         ]
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_close_with_a_back_stab_from_hiding_keeps_the_attempt_to_the_attack(self):
         game, sable, _ = self._hidden_far()
         stab = _declare(sable, "attack", target_group_id=_group_id(game), back_stab=True, move="close")
@@ -1061,7 +1031,6 @@ class TestTheApproach:
             if moves:
                 assert _encounter(game).advance_feet[sable] == moves[-1].advance_feet, "Sable stays where she closed"
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_slow_back_stab_from_hiding_rolls_after_the_monsters_and_is_passed_over_until_then(self):
         """Sable swings a battle axe, which is slow, from beside Hild in the goblins' reach.
 
@@ -1115,7 +1084,6 @@ class TestTheApproach:
                 return
         raise AssertionError(f"precondition: six party-first rounds with Sable hidden beside Hild, found {cases}")
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_hasted_back_stab_from_hiding_rolls_once_and_both_swings_agree(self):
         """Under *haste*, as in the free round, every swing of a back-stab declaration is a back-stab or none is."""
         for combination, (seed, _, _) in _combinations(Ruleset()).items():
@@ -1143,7 +1111,6 @@ HASTE = EffectDefinition(kind="haste", params={"attacks_multiplier": 2, "movemen
 class TestAnAttemptThatEndsBeforeTheAttack:
     """A back-stab accepted from hiding whose attempt ends before it comes up is an ordinary attack, unrefused."""
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_damage_before_the_attack_leaves_an_ordinary_attack_from_the_second_rank(self):
         """A red dragon 5' away breathes before Sable hides, and again before her back-stab comes up.
 
@@ -1172,7 +1139,6 @@ class TestAnAttemptThatEndsBeforeTheAttack:
             return
         raise AssertionError("precondition: no seed's dragon breathed on Sable before her back-stab came up")
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_an_attack_on_the_thief_before_the_back_stab_leaves_an_ordinary_attack(self):
         """Both fighters fall back while the goblins act first, and in the next round the goblins find Sable first."""
         for game, _ in _hidden_seeds(passed=True):
@@ -1205,7 +1171,6 @@ class TestTheOtherDeclarationsThatEndAnAttempt:
     `turn_undead` aren't reachable here.
     """
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_drinking_a_potion_ends_the_attempt(self):
         game = _battle(items=("potion_of_healing",))
         sable = _sable(game)
@@ -1217,7 +1182,6 @@ class TestTheOtherDeclarationsThatEndAnAttempt:
 
         assert _encounter(game).hiding == ()
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_handing_over_an_item_ends_the_attempt(self):
         game = _battle(items=("oil_flask",))
         sable, hild = _sable(game), _named(game, "Hild")
@@ -1228,7 +1192,6 @@ class TestTheOtherDeclarationsThatEndAnAttempt:
 
         assert _encounter(game).hiding == ()
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_missile_attack_without_back_stab_ends_the_attempt(self):
         """A missile attack takes no rank check, so it's legal from the second rank."""
         game = _battle(weapons=("short_bow",), items=("arrows",))
@@ -1242,7 +1205,6 @@ class TestTheOtherDeclarationsThatEndAnAttempt:
         assert not _rolls(events, "move_silently", sable)
         assert _encounter(game).hiding == ()
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_an_npc_adventurers_attack_on_a_noticed_thief_ends_the_attempt(self):
         """Sable's hide in shadows failed, and she stands beside Hild in the NPC party's reach or line of fire."""
         for game, _ in _hidden_seeds(passed=False, npc_party=True, count=4, distance_feet=30):
@@ -1305,7 +1267,6 @@ class TestPassingOverEverywhere:
                     targets.append(action.target_id)
         return targets
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_npc_adventurers_pass_over_a_hidden_thief(self):
         game, sable, _ = _beside_hild(passed=True, npc_party=True, count=4, distance_feet=30)
 
@@ -1314,13 +1275,11 @@ class TestPassingOverEverywhere:
         assert targets, "precondition: the NPC adventurers aim at someone"
         assert sable not in targets
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_npc_adventurers_can_pick_a_noticed_thief(self):
         game, sable, _ = _beside_hild(passed=False, npc_party=True, count=4, distance_feet=30)
 
         assert sable in self._npc_targets(game)
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_confused_monster_passes_over_a_hidden_thief(self):
         game, sable, hild = _beside_hild(passed=True)
         for monster_id in game.encounter.groups[0].monster_ids:
@@ -1332,7 +1291,6 @@ class TestPassingOverEverywhere:
         assert not _attacks_on(events, sable)
         assert _encounter(game).hiding == (sable,)
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_confused_monster_can_pick_a_noticed_thief(self):
         game, sable, _ = _beside_hild(passed=False)
         for monster_id in game.encounter.groups[0].monster_ids:
@@ -1342,7 +1300,6 @@ class TestPassingOverEverywhere:
 
         assert _attacks_on(events, sable)
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_breath_that_hits_one_member_passes_over_a_hidden_thief(self):
         """A hellhound's breath hits one member of the first row, which allows a save, and its bite picks one too."""
         game, sable, hild = _beside_hild(passed=True, template_id="hellhound_3", count=1)
@@ -1357,7 +1314,6 @@ class TestPassingOverEverywhere:
         assert not [event for event in events if getattr(event, "target_id", None) == sable]
         assert not _attacks_on(events, sable)
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_statue_is_passed_over_before_a_hidden_thief(self):
         """With Hild turned to stone beside her, Sable is the only member the goblins could pick, so they find her."""
         game, sable, hild = _beside_hild(passed=True)
@@ -1379,7 +1335,6 @@ STONE = EffectDefinition(kind="petrification", permanent=True, condition=Conditi
 class TestPreviewsOrderAndTheFreeRound:
     """The preview judges a hide as the round does, thieves hide in marching order, and a hide works in any round."""
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_the_preview_refuses_a_hide_from_the_front_rank_as_the_round_does(self):
         game = _battle(roster=DUO)
         sable = _sable(game)
@@ -1393,7 +1348,6 @@ class TestPreviewsOrderAndTheFreeRound:
         ]
         assert _refused(game, _hide(game)) == [(IN_FRONT_RANK, {"character": sable})]
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_the_preview_accepts_a_hide_and_a_back_stab_from_hiding_and_changes_nothing(self):
         game = _battle()
         before = _state_without_logs(game)
@@ -1406,7 +1360,6 @@ class TestPreviewsOrderAndTheFreeRound:
         assert not any(preview_battle_round(game, [_stab(game)]).rejections.values())
         assert _state_without_logs(game) == before
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_two_thieves_hide_in_marching_order_whatever_order_they_declare_in(self):
         game = _battle(roster=(*TRIO, ("Wren", "thief")))
         sable, wren = _sable(game), _named(game, "Wren")
@@ -1419,7 +1372,6 @@ class TestPreviewsOrderAndTheFreeRound:
         assert rolls == attempts == [sable, wren]
         assert _encounter(game).hiding == (sable, wren)
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_thief_can_hide_in_the_free_round_and_back_stab_from_hiding_after_it(self):
         game = _battle(monsters_surprised=True)
         sable = _sable(game)
@@ -1432,7 +1384,6 @@ class TestPreviewsOrderAndTheFreeRound:
         assert len(_rolls(events, "move_silently", sable)) == 1
         assert len(_attacks_by(events, sable)) == 1
 
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_battle_that_ends_in_the_round_of_the_hide_leaves_nobody_hiding(self):
         """The fighters kill the lone goblin in the round Sable hides, and the next battle starts with nobody hiding."""
         seed = SEEDS.start
@@ -1461,7 +1412,6 @@ class TestPreviewsOrderAndTheFreeRound:
 
 
 class TestConfusionEndsTheAttempt:
-    @pytest.mark.xfail(reason=CHUNK)
     def test_a_hiding_thief_who_is_confused_at_the_end_of_a_round_stops_hiding(self):
         game = _battle()
         sable = _sable(game)
@@ -1481,7 +1431,6 @@ class TestConfusionEndsTheAttempt:
 class TestTheDefaultFormatter:
     """A percentile thief roll reads as a percentage, not as a chance in six."""
 
-    @pytest.mark.xfail(reason=CHUNK)
     @pytest.mark.parametrize("kind", ["hide_in_shadows", "move_silently", "open_locks", "treasure_traps"])
     def test_a_percentile_detection_roll_reads_as_a_percentage(self, kind):
         event = DetectionRolledEvent(character_id="character-0003", kind=kind, chance=45, roll=38, passed=True)
