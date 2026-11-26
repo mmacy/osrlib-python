@@ -36,6 +36,7 @@ from pydantic import BaseModel, TypeAdapter
 
 from osrlib.core._descriptions import _StrEnum
 from osrlib.core.events import DamageDealtEvent, Event, Visibility
+from osrlib.core.frozen import _Model
 from osrlib.crawl.adventure import TownSpec
 from osrlib.crawl.commands import AnyCommand, PurchaseEquipment
 from osrlib.crawl.views import PlayerView
@@ -315,3 +316,77 @@ def test_an_openapi_document_follows_the_rule() -> None:
     }
     assert offenders == {}
     assert schemas["PurchaseEquipment"]["description"] == _PURCHASE_EQUIPMENT
+
+
+# The edge cases below are models and enums a library user could define. Each docstring is a plain string with escapes,
+# because a formatter strips the whitespace that some of them need.
+
+
+# `Modes:` is a section, because the line after it is indented, but its body is only spaces.
+class EmptyKeptSection(_Model):
+    "Lead.\n\nModes:\n    \nEvents:\n    The party moves."
+
+
+# `inspect.cleandoc` measures the indentation from the second line on, so the second line keeps four spaces and the
+# third line has none. The second line makes `Attributes:` a section, the third line belongs to it, and the docstring
+# has nothing a description keeps. The enum below is built the same way.
+class OnlyDroppedSections(_Model):
+    "Attributes:\n            value: The value.\n        Set it to 1 or more."
+
+    value: int = 1
+    """The value."""
+
+
+class OnlyDroppedKind(_StrEnum):
+    "Examples:\n            ```python\n        OnlyDroppedKind.ONE\n        ```"
+
+    ONE = "one"
+
+
+class HoldsTheKind(_Model):
+    """A model with a field of the enum whose docstring has nothing a description keeps."""
+
+    kind: OnlyDroppedKind = OnlyDroppedKind.ONE
+    """The kind."""
+
+
+@_CHUNK
+def test_a_kept_section_with_an_empty_body_is_left_out() -> None:
+    # A label with nothing under it says nothing on the wire, and alone it would read as the start of the next part.
+    assert EmptyKeptSection.model_json_schema()["description"] == "Lead.\n\nEvents:\n\nThe party moves."
+
+
+@_CHUNK
+@pytest.mark.parametrize("mode", ["validation", "serialization"])
+def test_a_model_whose_docstring_reduces_to_nothing_has_no_description(mode: str) -> None:
+    # A model with no docstring has no `description` key, so neither does one whose docstring the rule empties.
+    assert "description" not in OnlyDroppedSections.model_json_schema(mode=mode)
+    assert OnlyDroppedSections.model_json_schema(mode=mode)["properties"]["value"]["description"] == "The value."
+
+
+@_CHUNK
+@pytest.mark.parametrize("mode", ["validation", "serialization"])
+def test_an_enum_whose_docstring_reduces_to_nothing_has_no_description(mode: str) -> None:
+    assert "description" not in TypeAdapter(OnlyDroppedKind).json_schema(mode=mode)
+    assert "description" not in HoldsTheKind.model_json_schema(mode=mode)["$defs"]["OnlyDroppedKind"]
+
+
+# Two or more spaces between two characters that aren't spaces. Indentation at the start of a line, like a list
+# item's continuation, doesn't match.
+_SPACE_RUN = re.compile(r"\S {2,}\S")
+
+# A code span or a fenced code block, inside which spaces are code.
+_CODE = re.compile(r"```.*?```|~~~.*?~~~|``.+?``|`[^`\n]+`", re.DOTALL)
+
+
+@pytest.mark.parametrize("mode", ["validation", "serialization"])
+def test_no_description_has_a_run_of_spaces_between_words(mode: str) -> None:
+    # A paragraph break in a description is a blank line, `"\n\n"`. A viewer that shows each line break as a space
+    # shows it as two spaces, but the description itself has a single space between any two words.
+    offenders = {
+        f"{_name(cls)}{path}": runs
+        for cls in [*_MODELS, *_ENUMS]
+        for path, text in _descriptions(TypeAdapter(cls).json_schema(mode=mode))
+        if (runs := _SPACE_RUN.findall(_CODE.sub("code", text)))
+    }
+    assert offenders == {}
