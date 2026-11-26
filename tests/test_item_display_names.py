@@ -306,6 +306,26 @@ BLADE = {
             id="magic_item_of",
             marks=XFAIL,
         ),
+        # An author often writes a name in title case, so "Of" and "With" mark the head noun as "of" and "with" do.
+        pytest.param(
+            MagicItemTemplate.model_validate({"id": "power_staff", "name": "Staff Of Power", "category": "staff"}),
+            ("Staff Of Power", "Staves Of Power"),
+            id="title_case_of",
+            marks=XFAIL,
+        ),
+        pytest.param(
+            GearTemplate.model_validate({"id": "gem_lamp", "name": "Lamp With A Gem", "cost_gp": 0}),
+            ("Lamp With A Gem", "Lamps With A Gem"),
+            id="title_case_with",
+            marks=XFAIL,
+        ),
+        # A doubled space in a written name doesn't put a space before the ending.
+        pytest.param(
+            GearTemplate.model_validate({"id": "rock_box", "name": "Box  of rocks", "cost_gp": 0}),
+            ("Box  of rocks", "Boxes  of rocks"),
+            id="doubled_space",
+            marks=XFAIL,
+        ),
     ],
 )
 def test_a_template_you_write_without_the_fields_gets_them(template, names: tuple[str, str]):
