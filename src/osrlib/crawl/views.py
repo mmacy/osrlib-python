@@ -504,7 +504,12 @@ class MapFeatureView(_Model):
     kind: Literal["treasure_cache", "construction_trick", "custom", "generated_cache"] = "custom"
     """The feature's public kind. Generated caches use `"generated_cache"`."""
     description: str = ""
-    """The authored description, or an empty string for a generated cache."""
+    """The feature's authored [`FeatureSpec.description`][osrlib.crawl.dungeon.FeatureSpec.description],
+    or an empty string for a generated cache. It's written for the players to read. The view shows
+    it from the moment the feature comes into view, and for a cache, before anyone opens it and
+    after the party empties it. The feature's
+    [`FeatureSpec.referee_notes`][osrlib.crawl.dungeon.FeatureSpec.referee_notes] never appear in
+    the player view."""
     cell: Position | None = None
     """The feature's cell, or `None` when an area feature applies to the whole entered area."""
     area_id: str | None = None
