@@ -41,12 +41,17 @@ hand-curated in `_MAGIC_ITEM_MECHANICS` (the `_SPELL_MECHANICS` precedent) for
 exactly the Phase 5 wired census; everything else ships `manual`-tagged prose.
 `Helm_of_Telepathy.md` is truncated mid-sentence in the SRD dump — its description
 completes via `overrides/magic_items.json` with provenance.
+
+Every item gets the names a sentence uses for one and for two or more, from `display_names`.
+The two items that are a set rather than one thing, the drums of panic and the elven cloak and
+boots, get theirs from `overrides/magic_items.json`.
 """
 
 import re
 from pathlib import Path
 from urllib.parse import quote
 
+from .equipment import TRAILING_PARENTHESIS, plural
 from .pipetable import slugify, strip_emphasis, strip_links, tables_after_heading
 from .treasure import parse_treasure_segment
 
@@ -600,6 +605,52 @@ def _apply_mechanics(template: dict[str, object]) -> None:
             template[key] = value
 
 
+_SPELL_COUNT = re.compile(r"(?P<name>.+) \((?P<count>\d+ spells?)\)")
+_ROMAN_NUMERAL = re.compile(r"[IVX]+")
+_PAIRS = ("boots", "gauntlets")
+
+
+def display_names(printed_name: str, category: str, base_item_id: str | None) -> dict[str, str]:
+    """Return an item's `display_name` and `display_name_plural` fields, from its printed name.
+
+    The SRD prints names for a table, so the compiler rewrites them for a sentence:
+
+    - A spell scroll's parenthesis says how many spells it holds, so it becomes a `with` phrase:
+      `Spell Scroll (1 spell)` is "spell scroll with 1 spell". Any other trailing parenthesis goes,
+      like the generated count in `Arrows +1 (3d10 arrows)`.
+    - A label after a colon moves to the front, `Elemental Summoning Device: Air` becoming "air
+      elemental summoning device", except a treasure map's Roman numeral, which stays at the end.
+    - Every word is lowercase, except a word printed all in capitals, which is an abbreviation or
+      a Roman numeral: "potion of ESP", "treasure map II".
+    - Enchanted ammunition names one unit, so `Arrows +1` is "arrow +1".
+    - Enchanted body armour is named as a suit, "suit of armour +1", and boots and gauntlets as a
+      pair, "pair of boots of speed".
+
+    The plural comes from [`plural`][tools.srd_compile.equipment.plural].
+
+    Args:
+        printed_name: The item's `name`, like `"Potion of Healing"`.
+        category: The item's category.
+        base_item_id: The mundane item the enchantment overlays, or `None`.
+
+    Returns:
+        The two fields.
+    """
+    spells = _SPELL_COUNT.fullmatch(printed_name)
+    name = f"{spells['name']} with {spells['count']}" if spells else TRAILING_PARENTHESIS.sub("", printed_name)
+    head, colon, label = name.partition(": ")
+    if colon:
+        name = f"{head} {label}" if _ROMAN_NUMERAL.fullmatch(label) else f"{label} {head}"
+    singular = " ".join(word if word.isupper() else word.lower() for word in name.split(" "))
+    if base_item_id in _AMMUNITION_BASES:
+        singular = re.sub(r"s(?= [+-]\d)", "", singular, count=1)
+    if category == "armour" and base_item_id != "shield":
+        singular = f"suit of {singular}"
+    elif singular.startswith(_PAIRS):
+        singular = f"pair of {singular}"
+    return {"display_name": singular, "display_name_plural": plural(singular)}
+
+
 def _template(
     item_id: str,
     name: str,
@@ -609,9 +660,11 @@ def _template(
     weight_coins: int = 0,
     **fields: object,
 ) -> dict[str, object]:
+    base_item_id = fields.get("base_item_id")
     template: dict[str, object] = {
         "id": item_id,
         "name": name,
+        **display_names(name, category, base_item_id if isinstance(base_item_id, str) else None),
         "category": category,
         "manual": manual or [],
         "weight_coins": weight_coins,

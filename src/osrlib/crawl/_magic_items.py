@@ -42,7 +42,14 @@ def _identify_item_events(session, member, instance: MagicItemInstance) -> list:
     events: list[Event] = []
     if not instance.identified:
         instance.identified = True
-        events.append(ItemIdentifiedEvent(instance_id=instance.instance_id, template_id=instance.template_id))
+        events.append(
+            ItemIdentifiedEvent(
+                instance_id=instance.instance_id,
+                template_id=instance.template_id,
+                display_name=template.display_name,
+                display_name_plural=template.display_name_plural,
+            )
+        )
     if template.cursed and not instance.cursed_revealed:
         instance.cursed_revealed = True
         events.append(

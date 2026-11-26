@@ -173,7 +173,9 @@ from osrlib.core.items import (
     MissileRanges,
     WeaponQuality,
     WeaponTemplate,
+    _masked_names,
     _shield_ac_parts,
+    _with_article,
     equipped_item_modifiers,
     magic_item_template,
 )
@@ -2099,7 +2101,8 @@ def destroy_equipment(
     items that save stay in the inventory's `items` list, no longer equipped. The saving
     throws report no events of their own. The function returns one
     [`EquipmentDestroyedEvent`][osrlib.core.events.EquipmentDestroyedEvent], which lists
-    the items destroyed and the items saved. In a
+    the items destroyed and the items saved. It names an unidentified magic item by its masked
+    name, like `"a sword with a faint aura"`, because the players see the event. In a
     [`GameSession`][osrlib.crawl.session.GameSession], that event's page says where a dead
     party member's saved items go.
 
@@ -2176,7 +2179,8 @@ def destroy_equipment(
                 if save_stream.randbelow(20) + 1 + best_bonus >= required:
                     saved.append(instance)
                     continue
-            destroyed.append(template.name)
+            # The event has player visibility, so an unidentified item is named as the inventory shows it.
+            destroyed.append(template.name if instance.identified else _with_article(_masked_names(instance)[0]))
         else:
             destroyed.append(instance.template.name)
     inventory.items = list(saved)

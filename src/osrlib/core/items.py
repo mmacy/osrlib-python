@@ -91,7 +91,7 @@ print(torches.quantity, inventory.purse.gp, movement_rate_feet(inventory, Rulese
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 import osrlib.core
 from osrlib.core._descriptions import _StrEnum
@@ -99,6 +99,7 @@ from osrlib.core.classes import ArmourPolicyKind, ClassDefinition, WeaponPolicyK
 from osrlib.core.dice import parse
 from osrlib.core.effects import ModifierSpec
 from osrlib.core.frozen import FrozenMap, _Model
+from osrlib.core.monsters import _regular_plural
 from osrlib.core.rng import RngStream
 from osrlib.core.ruleset import EncumbranceMode, Ruleset
 from osrlib.core.treasure import MagicItemType, TreasureEntry
@@ -421,6 +422,16 @@ class WeaponTemplate(_Model):
     osrlib doesn't read it during play.
     """
 
+    @field_validator("display_name")
+    @classmethod
+    def _display_name_defaults_to_name(cls, value: str, info: ValidationInfo) -> str:
+        return value or info.data.get("name", "")
+
+    @field_validator("display_name_plural")
+    @classmethod
+    def _plural_defaults_to_regular_ending(cls, value: str, info: ValidationInfo) -> str:
+        return value or _regular_plural(info.data.get("display_name", ""))
+
     @field_validator("damage")
     @classmethod
     def _damage_must_parse(cls, value: str) -> str:
@@ -500,6 +511,16 @@ class ArmourTemplate(_Model):
     """Which fields were corrected when this row was compiled from the SRD text, as dotted paths. Empty when none were.
     osrlib doesn't read it during play.
     """
+
+    @field_validator("display_name")
+    @classmethod
+    def _display_name_defaults_to_name(cls, value: str, info: ValidationInfo) -> str:
+        return value or info.data.get("name", "")
+
+    @field_validator("display_name_plural")
+    @classmethod
+    def _plural_defaults_to_regular_ending(cls, value: str, info: ValidationInfo) -> str:
+        return value or _regular_plural(info.data.get("display_name", ""))
 
     @model_validator(mode="after")
     def _body_armour_or_shield(self) -> ArmourTemplate:
@@ -632,6 +653,16 @@ class GearTemplate(_Model):
     osrlib doesn't read it during play.
     """
 
+    @field_validator("display_name")
+    @classmethod
+    def _display_name_defaults_to_name(cls, value: str, info: ValidationInfo) -> str:
+        return value or info.data.get("name", "")
+
+    @field_validator("display_name_plural")
+    @classmethod
+    def _plural_defaults_to_regular_ending(cls, value: str, info: ValidationInfo) -> str:
+        return value or _regular_plural(info.data.get("display_name", ""))
+
 
 class AmmunitionTemplate(_Model):
     """Ammunition for a missile weapon: arrows, quarrels, sling stones.
@@ -686,6 +717,16 @@ class AmmunitionTemplate(_Model):
     """Which fields were corrected when this row was compiled from the SRD text, as dotted paths. Empty when none were.
     osrlib doesn't read it during play.
     """
+
+    @field_validator("display_name")
+    @classmethod
+    def _display_name_defaults_to_name(cls, value: str, info: ValidationInfo) -> str:
+        return value or info.data.get("name", "")
+
+    @field_validator("display_name_plural")
+    @classmethod
+    def _plural_defaults_to_regular_ending(cls, value: str, info: ValidationInfo) -> str:
+        return value or _regular_plural(info.data.get("display_name", ""))
 
 
 ItemTemplate = Annotated[
@@ -1124,6 +1165,16 @@ class MagicItemTemplate(_Model):
     """Which fields were corrected when this item was compiled from the SRD text, as dotted paths. Empty when none were.
     osrlib doesn't read it during play.
     """
+
+    @field_validator("display_name")
+    @classmethod
+    def _display_name_defaults_to_name(cls, value: str, info: ValidationInfo) -> str:
+        return value or info.data.get("name", "")
+
+    @field_validator("display_name_plural")
+    @classmethod
+    def _plural_defaults_to_regular_ending(cls, value: str, info: ValidationInfo) -> str:
+        return value or _regular_plural(info.data.get("display_name", ""))
 
     @field_validator("charges_dice", "quantity_dice")
     @classmethod
@@ -2371,6 +2422,52 @@ def magic_item_template(instance: MagicItemInstance) -> MagicItemTemplate:
     from osrlib.data import load_magic_items
 
     return load_magic_items().get(instance.template_id)
+
+
+_MASKED_CATEGORY_NAMES = {
+    MagicItemCategory.POTION: ("potion", "potions"),
+    MagicItemCategory.SCROLL: ("scroll", "scrolls"),
+    MagicItemCategory.RING: ("ring", "rings"),
+    MagicItemCategory.WAND: ("wand", "wands"),
+    MagicItemCategory.STAFF: ("staff", "staves"),
+    MagicItemCategory.ROD: ("rod", "rods"),
+    MagicItemCategory.MISC: ("curious device", "curious devices"),
+}
+"""What the players call an unidentified item of each category that isn't an enchanted arm."""
+
+
+def _masked_names(instance: MagicItemInstance) -> tuple[str, str]:
+    """Return what the players call an unidentified magic item, for one and for two or more, with no article.
+
+    An item whose category has a name in `_MASKED_CATEGORY_NAMES` gets that name, like `"potion"`. An enchanted
+    weapon, piece of ammunition, suit of armour, or shield is named after one unit of the mundane item underneath it,
+    its `display_name` followed by "with a faint aura", the concession made because *detect magic* exists: `"arrow
+    with a faint aura"`, `"suit of chainmail with a faint aura"`. A suit of enchanted armour with no mundane item
+    recorded is `"suit of armour with a faint aura"`.
+
+    The name depends on the category and the base alone, so a cursed item has the names of the item it passes for,
+    and neither the bonus nor the curse shows.
+    """
+    from osrlib.data import load_equipment
+
+    template = magic_item_template(instance)
+    category_names = _MASKED_CATEGORY_NAMES.get(template.category)
+    if category_names is not None:
+        return category_names
+    base_id = instance.base_item_id or template.base_item_id
+    if base_id is not None:
+        base = load_equipment().get(base_id)
+        singular, plural = base.display_name, base.display_name_plural
+    elif template.category is MagicItemCategory.ARMOUR:
+        singular, plural = "suit of armour", "suits of armour"
+    else:
+        singular, plural = "weapon", "weapons"
+    return f"{singular} with a faint aura", f"{plural} with a faint aura"
+
+
+def _with_article(name: str) -> str:
+    """Return `name` after the indefinite article, `"an"` before a vowel and `"a"` otherwise."""
+    return f"{'an' if name[:1].lower() in ('a', 'e', 'i', 'o', 'u') else 'a'} {name}"
 
 
 def _shield_ac_parts(shield: AnyInstance | None, *, ascending: bool) -> tuple[int | None, int]:

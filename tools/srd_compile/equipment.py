@@ -16,10 +16,19 @@ detailed-encumbrance flat 80 coins); sling stones cost `Free` compiles to cost 0
 size 1; `Stakes (3) and mallet` is one kit item; the ammunition table has no weight
 column and compiles to weight 0 — per the SRD, missile weapon weights already include
 the ammunition and its container.
+
+Every entry gets the names a sentence uses for one unit and for two or more. The display name
+is the printed name in lowercase with a trailing parenthesis dropped, and body armour is named
+as a suit. Ammunition names one unit, so its plural ending goes too: `Arrows (quiver of 20)` is
+"arrow". The plural comes from `plural`. Gear whose printed name is a lot or a substance, like
+`Torches (6)` and `Holy water (vial)`, and the armour the SRD prints as `Leather`, get the name
+of the unit the session counts from `overrides/equipment.json`.
 """
 
 import re
 from pathlib import Path
+
+from osrlib.core.monsters import _regular_plural
 
 from .pipetable import parse_range, section_prose, slugify, tables_after_heading
 
@@ -117,6 +126,40 @@ _QUALITY_MAP = {
 
 _MISSILE_PATTERN = re.compile(r"Missile \(([^)]*)\)")
 
+TRAILING_PARENTHESIS = re.compile(r"\s*\([^)]*\)$")
+
+# The plural of every head noun that doesn't take the regular English ending.
+_IRREGULAR_PLURALS = {"staff": "staves"}
+
+# Where the words that name the item end and the words that qualify it begin: "of", "with", or
+# "vs", a comma, a bonus like "+1", or a closing Roman numeral.
+_HEAD_END = re.compile(r" (?:of|with|vs) |, | [+-]\d| (?=[IVX]+$)")
+
+
+def plural(singular: str) -> str:
+    """Return what to call two or more of an item, from its display name.
+
+    The ending goes on the last word of the words that name the item, before any `of`, `with`,
+    `vs`, comma, bonus, or Roman numeral, so `"vial of holy water"` becomes `"vials of holy
+    water"` and `"sword +1"` becomes `"swords +1"`. The word takes the regular English ending
+    unless `_IRREGULAR_PLURALS` lists it.
+
+    Args:
+        singular: The display name, like `"potion of healing"`.
+
+    Returns:
+        The plural, like `"potions of healing"`.
+    """
+    end = _HEAD_END.search(singular)
+    head, tail = (singular[: end.start()], singular[end.start() :]) if end else (singular, "")
+    *words, noun = head.split(" ")
+    return " ".join([*words, _IRREGULAR_PLURALS.get(noun) or _regular_plural(noun)]) + tail
+
+
+def display_names(singular: str) -> dict[str, str]:
+    """Return an entry's `display_name` and `display_name_plural` fields for a display name."""
+    return {"display_name": singular, "display_name_plural": plural(singular)}
+
 
 def _weapon_id(name: str) -> str:
     return name.lower().replace("-", "_").replace(" ", "_")
@@ -181,6 +224,7 @@ def compile_equipment(srd_dir: Path) -> dict[str, object]:
         weapon: dict[str, object] = {
             "id": _weapon_id(name),
             "name": name,
+            **display_names(name.lower()),
             "cost_gp": _parse_cost(cost_cell),
             "weight_coins": int(weight_cell),
             "damage": damage,
@@ -203,6 +247,7 @@ def compile_equipment(srd_dir: Path) -> dict[str, object]:
             {
                 "id": ammunition_id,
                 "name": name,
+                **display_names(TRAILING_PARENTHESIS.sub("", name).lower().removesuffix("s")),
                 "cost_gp": _parse_cost(cost_cell),
                 "lot_size": lot_size,
                 "weight_coins": 0,
@@ -223,7 +268,9 @@ def compile_equipment(srd_dir: Path) -> dict[str, object]:
         bonus_match = re.fullmatch(r"\+(\d+) bonus", ac_cell)
         if bonus_match:
             entry["ac_bonus"] = int(bonus_match[1])
+            entry.update(display_names(name.lower()))
         else:
+            entry.update(display_names(f"suit of {name.lower()}"))
             ac_match = re.fullmatch(r"(\d+) \[(\d+)\]", ac_cell)
             if ac_match is None:
                 raise ValueError(f"unparseable AC cell {ac_cell!r}")
@@ -250,6 +297,7 @@ def compile_equipment(srd_dir: Path) -> dict[str, object]:
         entry = {
             "id": gear_id,
             "name": name,
+            **display_names(TRAILING_PARENTHESIS.sub("", name).lower()),
             "cost_gp": _parse_cost(cost_cell),
             "lot_size": _GEAR_LOT_SIZES.get(gear_id, 1),
         }
