@@ -15,6 +15,7 @@ exactly as before.
 """
 
 import pytest
+from pydantic import ValidationError
 
 import positions_fixtures as pf
 from osrlib.core.clock import TimeUnit
@@ -445,3 +446,63 @@ def test_a_staff_use_that_becomes_useless_by_its_step_fizzles(monkeypatch):
     assert hit_points(game, "Hild") == HURT
     assert staff.identified is False
     assert game.streams.get(MAGIC_STREAM).export_state() == draws
+
+
+# ------------------------------------------------------------------------------- findings from the chunk's review
+
+
+@pytest.mark.xfail(reason=CHUNK)
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"group_labels": ("goblin",), "group_labels_plural": (), "group_counts": ()},
+        {"group_labels": ("goblin", "orc"), "group_labels_plural": ("goblins", "orcs"), "group_counts": (2,)},
+        {"group_labels": (), "group_labels_plural": ("goblins",), "group_counts": (2,)},
+    ],
+    ids=["a label alone", "a count missing", "no label"],
+)
+def test_an_encounter_event_refuses_group_fields_of_different_lengths(fields):
+    # The three fields have one entry for each group, so an event whose tuples differ in length describes no
+    # encounter. It's refused when it's built or loaded, and `format_message` never sees it.
+    with pytest.raises(ValidationError):
+        EncounterStartedEvent(monster_name="goblin", monster_name_plural="goblins", count=5, distance_feet=40, **fields)
+
+
+def test_an_encounter_event_with_matching_or_empty_group_fields_is_accepted():
+    old = EncounterStartedEvent(monster_name="goblin", monster_name_plural="goblins", count=5, distance_feet=40)
+    assert old.group_labels == old.group_labels_plural == old.group_counts == ()
+    new = EncounterStartedEvent(
+        monster_name="goblin",
+        monster_name_plural="goblins",
+        count=5,
+        distance_feet=40,
+        group_labels=("goblin", "orc"),
+        group_labels_plural=("goblins", "orcs"),
+        group_counts=(2, 3),
+    )
+    assert EncounterStartedEvent.model_validate(new.model_dump(mode="json")) == new
+
+
+@pytest.mark.xfail(reason=CHUNK)
+@pytest.mark.parametrize("item_id", ["magic-item-9999", "oil_flask"], ids=["an unknown id", "gear not carried"])
+def test_a_use_of_an_item_the_member_doesnt_carry_names_the_item_before_the_group(item_id):
+    # With a group named, the session already refuses this with `battle.declaration.item_unusable` and the item.
+    # With no group it answered `battle.declaration.unknown_group`, which sends a player looking for a group
+    # when the item is what's wrong. The item is judged first.
+    game = fight()
+    tam = pf.named(game, "Tam")
+
+    rejections = pf.refused(game, pf.declare(tam, "use_item", item_id=item_id))
+
+    assert rejections == [("battle.declaration.item_unusable", {"character": tam, "item": item_id})]
+
+
+def test_a_thrown_flask_with_no_group_is_still_refused_for_the_group():
+    # A flask the member does carry is usable, so the missing group is what's wrong.
+    game = fight()
+    tam = pf.named(game, "Tam")
+    grant(game, "Tam", "oil_flask")
+
+    rejections = pf.refused(game, pf.declare(tam, "use_item", item_id="oil_flask"))
+
+    assert [code for code, _ in rejections] == ["battle.declaration.unknown_group"]
