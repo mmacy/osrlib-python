@@ -16,8 +16,6 @@ from osrlib.core.rng import RngStream
 from osrlib.core.treasure import TREASURE_STREAM, instantiate_magic_item
 from osrlib.data import load_magic_items
 
-CHUNK = "chunk: magic-armour-base"
-
 GENERIC_ARMOUR = (
     "armour_plus_1",
     "armour_plus_2",
@@ -33,14 +31,12 @@ INVALID_UPDATES = (
 )
 
 
-@pytest.mark.xfail(reason=CHUNK, strict=True)
 @pytest.mark.parametrize("template_id", GENERIC_ARMOUR)
 def test_a_hand_built_generic_suit_requires_a_base(template_id):
     with pytest.raises(ValidationError):
         MagicItemInstance(instance_id="magic-item-0001", template_id=template_id)
 
 
-@pytest.mark.xfail(reason=CHUNK, strict=True)
 @pytest.mark.parametrize("template_id", ("armour_plus_1", "cursed_armour_minus_1"))
 def test_json_cannot_load_a_generic_suit_without_a_base(template_id):
     document = json.dumps({"instance_id": "magic-item-0001", "template_id": template_id, "base_item_id": None})
@@ -48,7 +44,6 @@ def test_json_cannot_load_a_generic_suit_without_a_base(template_id):
         MagicItemInstance.model_validate_json(document)
 
 
-@pytest.mark.xfail(reason=CHUNK, strict=True)
 @pytest.mark.parametrize(("template_id", "base", "field", "value"), INVALID_UPDATES)
 def test_a_copy_cannot_remove_a_suits_base(template_id, base, field, value):
     item = MagicItemInstance(instance_id="magic-item-0001", template_id=template_id, base_item_id=base)
@@ -62,7 +57,6 @@ def test_a_copy_cannot_remove_a_suits_base(template_id, base, field, value):
     assert item.model_fields_set == fields_set
 
 
-@pytest.mark.xfail(reason=CHUNK, strict=True)
 @pytest.mark.parametrize(("template_id", "base", "field", "value"), INVALID_UPDATES)
 def test_a_refused_assignment_keeps_the_valid_item(template_id, base, field, value):
     item = MagicItemInstance(instance_id="magic-item-0001", template_id=template_id, base_item_id=base)

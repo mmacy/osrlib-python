@@ -1125,13 +1125,15 @@ def instantiate_magic_item(
     row_params: Mapping[str, Any] = params if params is not None else {}
     catalog = load_magic_items()
     template = catalog.get(item_id)
+    instance_id = allocator.allocate("magic-item")
+    base_item_id = template.base_item_id
+    if template.category is osrlib.core.items.MagicItemCategory.ARMOUR and base_item_id is None:
+        base_item_id = catalog.armour_type.base_for_roll(stream.randbelow(8) + 1)
     instance = osrlib.core.items.MagicItemInstance(
-        instance_id=allocator.allocate("magic-item"),
+        instance_id=instance_id,
         template_id=item_id,
-        base_item_id=template.base_item_id,
+        base_item_id=base_item_id,
     )
-    if template.category is osrlib.core.items.MagicItemCategory.ARMOUR and template.base_item_id is None:
-        instance.base_item_id = catalog.armour_type.base_for_roll(stream.randbelow(8) + 1)
     if template.charges_dice is not None:
         instance.charges_remaining = roll(template.charges_dice, stream).total
     quantity_dice = row_params.get("quantity_dice", template.quantity_dice)
