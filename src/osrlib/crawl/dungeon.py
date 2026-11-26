@@ -991,7 +991,8 @@ class FeatureSpec(_Model):
     Attributes:
         id: The feature's id, unique across its level.
         kind: Which sort of feature it is.
-        description: Text describing the feature.
+        description: What the players read about the feature.
+        referee_notes: What the referee reads about the feature, and the players never do.
         cell: The cell it is on, or `None` to bind it to a whole area.
         item_ids: Ordinary items in a cache.
         magic_item_ids: Magic items in a cache.
@@ -1024,18 +1025,49 @@ class FeatureSpec(_Model):
 
     id: str
     """The feature's id. It has to be unique across the level, counting the features on the level
-    and on all its areas together. A player client uses the opaque
-    [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id] in feature commands. Current
-    callers can still pass this raw id when it is unambiguous. The id `"pile"` is reserved for
-    the drop pile on a cell, and
+    and on all its areas together. The id `"pile"` is reserved for the drop pile on a cell, and
     [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] reports a feature that
-    uses it."""
+    uses it.
+
+    The `feature_id` of [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure],
+    [`InspectTreasure`][osrlib.crawl.commands.InspectTreasure], and
+    [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap] takes either this id or the
+    opaque `feature:` handle in [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id], and
+    both forms stay supported. A player client sends the handle, because the player view lists
+    only handles. A referee tool can send this id. Both forms resolve against the same features,
+    the ones the party can reach where it stands, so this id reaches and reveals nothing that a
+    handle doesn't. A command that names a feature on another cell or level, or a construction
+    trick the party hasn't found, gets the same `exploration.feature.unknown` rejection as an id
+    that no feature has. A handle always names one feature. This id names two when a cache the
+    session generated on the same cell has the same id, like `"cache-0001"`, and the session
+    refuses it with that rejection too."""
     kind: Literal["treasure_cache", "construction_trick", "custom"]
     """What kind of feature this is. osrlib runs `"treasure_cache"` for the party. You decide what
     `"construction_trick"` and `"custom"` do."""
     description: str = ""
-    """Text to show when the party finds the feature. Events contain the feature's id, not its text,
-    so look the text up here."""
+    """What the players read about the feature. The player view shows it as
+    [`MapFeatureView.description`][osrlib.crawl.views.MapFeatureView.description] once the feature
+    comes into view. A feature without a `cell` comes into view when the party enters its area,
+    and a feature on a cell comes into view when that cell is on the party's map, because the party
+    has walked it, remembers seeing it, or lights it now. A construction trick also has to be found
+    first.
+
+    The players read a cache's description before anyone opens it, and they still read it after
+    the party empties it. So write what the party sees from outside, like "A banded chest under
+    the altar", and never what's inside or a trap the party hasn't found. Put the contents in the
+    cache's `item_ids`, `magic_item_ids`, `coins`, and `valuables`, the trap in `trap`, and
+    anything else meant for the referee alone in `referee_notes`.
+
+    Events contain the feature's id, not its text, so look the text up here."""
+    referee_notes: str = ""
+    """What the referee reads about the feature, and the players never do: what a cache holds, how
+    its trap is hidden, or what a module's author tells the referee about it. Empty means you
+    wrote none.
+
+    osrlib never reads it, no event includes it, and no rule depends on it. It's in the adventure
+    document, so a save and the referee view's
+    [`RefereeView.adventure`][osrlib.crawl.views.RefereeView.adventure] have it, and the player
+    view never does. Write what the players may read in `description`."""
     cell: Position | None = None
     """The cell the feature is on. A feature listed on a level needs one. A feature listed on an area
     can leave it `None`, and then the party can reach it from any cell of the area. When you set it

@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- [`FeatureSpec.referee_notes`][osrlib.crawl.dungeon.FeatureSpec.referee_notes] is a new string field for what the referee reads about a feature and the players never do, such as what a cache holds or how its trap is hidden (#318). osrlib never reads it, no event includes it, and no rule depends on it. It's in the adventure document, so a save and [`RefereeView.adventure`][osrlib.crawl.views.RefereeView.adventure] have it, but the player view doesn't include it. It defaults to an empty string, so an adventure document written before this release loads unchanged, and [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] stays 4.
+
+### Fixed
+
+- The docstrings of [`FeatureSpec.description`][osrlib.crawl.dungeon.FeatureSpec.description] and [`MapFeatureView.description`][osrlib.crawl.views.MapFeatureView.description], and the guide to authoring custom content, say who reads a feature's description (#318). Since 2.6.0, the player view shows a cache's authored description as soon as the cache comes into view, before anyone opens it and after the party empties it. Before 2.6.0, only a referee read that text, but neither the 2.6.0 changelog nor the docstring, which called it "Text to show when the party finds the feature", said that the players now read it. If you wrote an adventure before 2.6.0, check each cache's description for its contents, the identity of a magic item the players see masked, and a trap the party hasn't found. Leave in `description` what the party sees from outside the cache, and move the rest: the contents to the cache's `item_ids`, `magic_item_ids`, `coins`, and `valuables`, the trap to its `trap`, and what only the referee reads to the new `referee_notes`.
+- The docstrings of [`FeatureSpec.id`][osrlib.crawl.dungeon.FeatureSpec.id] and of the `feature_id` field of [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure], [`InspectTreasure`][osrlib.crawl.commands.InspectTreasure], and [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap] say that both forms of feature id stay supported, the `feature:` handle from [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id] and the raw id (#318). A player client sends the handle, because the player view lists only handles, and a referee tool can send the raw id. Both forms resolve against the same features, the ones the party can reach where it stands, so a raw id reaches only the features that a handle reaches and reveals nothing more. Before, the docstrings called the raw id a form that current callers could still pass for compatibility, and didn't say what it could reach.
+
 ## [2.7.0] - 2026-11-25
 
 ### Added
