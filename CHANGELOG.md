@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- [`MapFeatureView.emptied`][osrlib.crawl.views.MapFeatureView.emptied] is true for an authored treasure cache the party has emptied (#316). The cache stays in `features` under the same `id` and description, so a client can draw it opened, and the flag is true exactly when `TakeTreasure` would refuse the cache with `exploration.feature.emptied`. Before, the view's feature list didn't mark an emptied cache, so a client kept offering it.
+- [`EnteredAreaView.trap_state`][osrlib.crawl.views.EnteredAreaView.trap_state] is `"found"` or `"sprung"` once the party has found or sprung the room's trap, with the values and meaning of [`MapFeatureView.trap_state`][osrlib.crawl.views.MapFeatureView.trap_state] (#316). It's `None` before then and for a room with no trap, so a room whose trap the party hasn't met looks the same as one without a trap. Before, a room trap showed only in the events of the command that found or sprang it, so a client that loaded the view later, after a reconnect or a restored save, couldn't show it.
+- [`PlayerView.features_here`][osrlib.crawl.views.PlayerView.features_here] lists the handles that [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure], [`InspectTreasure`][osrlib.crawl.commands.InspectTreasure], and [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap] accept from where the party stands, in the order of the level's `features` (#316). The list comes from the resolution the commands run, so the session refuses any cache the list leaves out with `exploration.feature.unknown`. It's empty unless the session is exploring. Before, a client had to copy the session's rule for which features are in reach.
+- [`MapFeatureView.area_id`][osrlib.crawl.views.MapFeatureView.area_id] of a generated cache names the area that owns the cache's cell once the party has entered that area, as it does for an authored feature (#316). Before, it was always `None` for a generated cache.
+- [`RefereeView.feature_handles`][osrlib.crawl.views.RefereeView.feature_handles] maps each feature's save reference to the player handle the player view shows for it, for every authored feature and every generated cache, including a lair cache the players can't see yet (#318). A referee tool can use it to show a referee the feature the players see, and to send the same `feature_id` they do. The player-handle key stays out of both views. The session derives the five fields from state a save already contains, so a 2.7.0 save loads with them filled in, every new field has a default, and [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] stays 4.
+
 ## [2.7.0] - 2026-11-25
 
 ### Added
