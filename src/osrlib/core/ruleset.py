@@ -275,3 +275,21 @@ class Ruleset(_Model):
     party can, and the trap still gets its 2-in-6 chance to spring when someone takes the
     treasure.
     """
+
+    back_stab_needs_both_skills: bool = True
+    """Require both of a hiding thief's skill rolls for a back-stab. An adaptation, on by default.
+
+    A thief can hide during a battle with a `hide` declaration and then back-stab from hiding, as
+    [`BattleDeclaration.back_stab`][osrlib.crawl.commands.BattleDeclaration.back_stab] describes.
+    The session rolls the thief's hide in shadows skill when the hide resolves, and move silently
+    when the back-stab comes up. With the flag on, the attack is a back-stab only when both rolls
+    passed. Turn it off and either roll passing is enough. The session makes both rolls under
+    either setting, so the flag changes no draw. The monsters' choice of targets reads the hide in
+    shadows roll alone under either setting.
+
+    The SRD says hide in shadows "Requires the thief to be motionless—attacking or moving while
+    hiding is not possible", and that with move silently "A thief may attempt to sneak past
+    enemies unnoticed". Neither setting is the rules as written.
+    [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) has the
+    reasoning.
+    """

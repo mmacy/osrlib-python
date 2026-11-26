@@ -124,6 +124,7 @@ def sample_event(event_class, code):
             character_id="pc-1", move="close", advance_feet=25, group_id="group-1", distance_feet=5
         ),
         "MemberWithdrewEvent": dict(character_id="pc-1", replacement_id="pc-3"),
+        "HideAttemptedEvent": dict(character_id="pc-1"),
         "MonsterFledEvent": dict(group_id="group-1"),
         "MonsterEscapedEvent": dict(group_id="group-1"),
         "MonstersLeftBehindEvent": dict(group_id="group-2", source_group_id="group-1", count=2),

@@ -111,6 +111,7 @@ __all__ = [
     "GameOverEvent",
     "GroupMovedEvent",
     "HealingPurchasedEvent",
+    "HideAttemptedEvent",
     "HoardGeneratedEvent",
     "ItemAcquiredEvent",
     "ItemConsumedEvent",
@@ -404,6 +405,9 @@ class DetectionRolledEvent(Event):
     [`InspectTreasure`][osrlib.crawl.commands.InspectTreasure], and
     [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap], ahead of any
     player-visible result, and whenever a trap gets its chance to spring.
+    [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] emits it for a thief's
+    hide in shadows roll when a `hide` resolves, and for the move silently roll when a
+    back-stab from hiding comes up.
 
     The session rolls the die for a search or a listen whether or not there's anything to
     find, so a failed roll and an empty cell look the same to the players. That is why this
@@ -425,12 +429,14 @@ class DetectionRolledEvent(Event):
     go off."""
     kind: str
     """What was being checked: `"listening"`, one of the search kinds
-    (`"secret_doors"`, `"room_traps"`, `"construction"`), `"open_locks"`, `"treasure_traps"`, or
-    `"trap_spring"` for a trap's chance to fire."""
+    (`"secret_doors"`, `"room_traps"`, `"construction"`), `"open_locks"`, `"treasure_traps"`,
+    `"hide_in_shadows"`, `"move_silently"`, or `"trap_spring"` for a trap's chance to fire."""
     chance: int
     """The number the roll had to come in at or under. The listening, search, and trap-spring
-    kinds are X-in-6 chances rolled on a d6. The thief skills `open_locks` and `treasure_traps`
-    are percentages rolled on d100."""
+    kinds are X-in-6 chances rolled on a d6. The thief skills `open_locks`, `treasure_traps`,
+    `hide_in_shadows`, and `move_silently` are percentages rolled on d100. The default message
+    from [`format_message`][osrlib.messages.format_message] gives a percentage as one, like
+    `38 vs 45%`, and an X-in-6 chance as one, like `1 vs 2-in-6`."""
     roll: int | None = None
     """What came up, or `None` when the chance was zero and no die was rolled, as for a character
     with no chance at all of noticing construction tricks."""
@@ -1455,6 +1461,38 @@ class MemberWithdrewEvent(Event):
     replacement_id: str
     """The member they named, by party member id. They now have the withdrawing member's place in
     the marching order."""
+
+
+class HideAttemptedEvent(Event):
+    """A party member tried to hide in shadows during a battle.
+
+    Emitted by [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] in the party's
+    movement step, after the members' moves, once for each member whose `hide` declaration
+    resolves, in marching order. The member is then hiding, as
+    [`EncounterView.hiding`][osrlib.crawl.views.EncounterView.hiding] shows.
+
+    The event says only that the member tried. The session rolls the member's hide in shadows
+    skill in secret, as the OSE SRD's "the thief does not immediately know if the attempt was
+    successful" says, and reports the roll to the referee in a
+    [`DetectionRolledEvent`][osrlib.crawl.events.DetectionRolledEvent] of kind
+    `"hide_in_shadows"`. That event comes right after this one, so each member who hides adds
+    the two events in this order, before the next member's. The players learn how it went from the
+    [`AttackRolledEvent.back_stab`][osrlib.core.events.AttackRolledEvent.back_stab] of the
+    member's back-stab from hiding.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"battle.hide.attempted"})
+    """The only message code this event uses."""
+
+    event_type: Literal["hide_attempted"] = "hide_attempted"
+    """The event type, `hide_attempted`, which identifies this class in serialized form."""
+    code: str = "battle.hide.attempted"
+    """The message code, always `battle.hide.attempted`."""
+    visibility: Visibility = Visibility.PLAYER
+    """Player visibility: the party sees its own member slip into the shadows, but not whether the
+    monsters noticed."""
+    character_id: str
+    """The member who tried to hide, by party member id."""
 
 
 class MonsterFledEvent(Event):
@@ -2524,6 +2562,7 @@ CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     GroupMovedEvent,
     MemberMovedEvent,
     MemberWithdrewEvent,
+    HideAttemptedEvent,
     MonsterFledEvent,
     MonsterEscapedEvent,
     MonstersLeftBehindEvent,

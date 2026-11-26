@@ -999,7 +999,9 @@ def thief_skill_check(
     door, or picking a pocket. It rolls and returns the result, and does nothing else. It emits no
     events, and it doesn't decide what the players may see. If you show players only what their
     characters know, you decide what to reveal. In a session, the engine calls it and emits the
-    events for you when it resolves commands like [`PickLock`][osrlib.crawl.commands.PickLock].
+    events for you when it resolves commands like [`PickLock`][osrlib.crawl.commands.PickLock], and
+    when a thief hides and back-stabs in a battle round, as
+    [`BattleDeclaration.back_stab`][osrlib.crawl.commands.BattleDeclaration.back_stab] describes.
 
     For a skill in [`PERCENTILE_THIEF_SKILLS`][osrlib.core.classes.PERCENTILE_THIEF_SKILLS], it
     rolls d%, and the check succeeds on a roll equal to or under the chance for the thief's level.
@@ -1019,9 +1021,11 @@ def thief_skill_check(
             `"hear_noise"`.
         modifier_pct: A percentage added to the chance before rolling. Make it negative to make
             the attempt harder. Ignored for `"hear_noise"`.
-        stream: The stream to draw from, usually the one a session uses for these checks,
-            `streams.get(`[`EXPLORATION_STREAM`][osrlib.crawl.session.EXPLORATION_STREAM]`)`.
-            It advances by one draw.
+        stream: The stream to draw from. A session draws a thief check outside a battle from
+            `streams.get(`[`EXPLORATION_STREAM`][osrlib.crawl.session.EXPLORATION_STREAM]`)`, and a
+            battle's hide in shadows and move silently rolls from
+            `streams.get(`[`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM]`)`. It advances by one
+            draw.
 
     Returns:
         The roll, the chance it was checked against, and whether it succeeded.

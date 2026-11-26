@@ -3,13 +3,13 @@
 The OSE SRD's thief entry says "When attacking an unaware opponent from behind, a thief receives a +4 bonus to hit
 and doubles any damage dealt." The kernel already applies that to an `AttackContext` that sets both `behind_target`
 and `target_unaware` for an attacker whose class has the `back_stab` ability. These tests check the contract that
-lets a session's battle ask for it, which the adaptations register states under "A back-stab needs monsters the
-party surprised".
+lets a session's battle ask for it in the free round, which the adaptations register states.
 
 **The reading.** osrlib has no facing in battle, so "an unaware opponent from behind" is a monster the party
-surprised, in the round it can't act. A member sets `BattleDeclaration.back_stab` on an `attack`, and the session
-accepts it only while `BattleState.monsters_hold_rounds` is above zero as it accepts the round. Every attack roll the
-declaration makes that round is a back-stab, even when the monsters win initiative and their held turn passes first.
+surprised, in the round it can't act, or a monster a hiding thief strikes. These tests cover the first. A member sets
+`BattleDeclaration.back_stab` on an `attack`, and the session accepts it while `BattleState.monsters_hold_rounds` is
+above zero as it accepts the round. Every attack roll the declaration makes that round is a back-stab, even when the
+monsters win initiative and their held turn passes first. `test_thief_hide.py` covers the back-stab from hiding.
 
 **The attack.** An accepted back-stab hits the monster an ordinary melee attack would. It resolves through
 `AttackContext(behind_target=True, target_unaware=True)`: +4 to hit and double damage from the class's `back_stab`
@@ -21,7 +21,8 @@ that applies, with the member's id as the `character` param:
 
 1. `battle.declaration.back_stab_not_attack`, on any action but `attack`, before the action's own checks.
 2. `battle.declaration.back_stab_no_ability`, for a class with no `back_stab` ability.
-3. `battle.declaration.back_stab_target_aware`, in any round the monsters aren't held by surprise.
+3. `battle.declaration.back_stab_target_aware`, in any round the monsters aren't held by surprise, by a member who
+   isn't hiding. No member in these tests hides.
 4. The attack's group and weapon checks: `unknown_group`, `no_target`, and `weapon_not_wielded`.
 5. `battle.declaration.back_stab_not_melee`, when the attack the session would resolve is a missile attack.
 6. The melee checks, like `not_in_front_rank` and `combat.attack.out_of_reach`.
