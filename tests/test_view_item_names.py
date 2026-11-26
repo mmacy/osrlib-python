@@ -13,17 +13,24 @@ Shields page says "All types of tests indicate that a cursed shield or suit of a
 which is why `tests/test_unrevealed_curse_view.py` pins a cursed shield to the view of a shield +1.
 """
 
+import json
+from pathlib import Path
+
 import pytest
 
 from crawl_fixtures import build_party
+from osrlib.core.character import party_from_document
 from osrlib.core.events import Visibility
 from osrlib.core.items import GearTemplate, MagicItemInstance, ValuableInstance
 from osrlib.crawl.adventure import Adventure, TownSpec
 from osrlib.crawl.commands import DropItems, EnterDungeon, GrantItem, IdentifyItem, TakeTreasure, UseItem
 from osrlib.crawl.dungeon import AreaSpec, DungeonSpec, FeatureSpec, LevelSpec, ValuableSpec
 from osrlib.crawl.events import ItemAcquiredEvent, ItemIdentifiedEvent, ItemsDroppedEvent
+from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession
 from osrlib.crawl.views import PileItemView, PlayerView
+from osrlib.data import load_equipment, load_magic_items
+from osrlib.persistence import load_game
 from test_loot_and_traps import breath_kill
 
 XFAIL = pytest.mark.xfail(reason="chunk: view-item-names")
@@ -189,14 +196,47 @@ def test_every_id_an_acquisition_names_is_a_key_in_the_view_after_it():
 
 @XFAIL
 def test_the_view_names_exactly_the_ids_it_shows():
-    """Every key is an id the inventories or the piles' contents show, and every such id is a key."""
+    """Every key is an id the inventories or the piles' contents show, and every such id is a key.
+
+    The state holds an identified magic item in each place: a ring of protection the fighter carries, which shows
+    its template id, and the reliquary's potion, identified and then dropped, which a pile shows by its instance id
+    alone. Without the identified potion in the pile, a view that keyed a pile item's template id would pass.
+    """
     game, acquired = _looted()
     potion, _, _ = _ids_of(acquired)
+    ring = _granted(game, "ring_of_protection")
+    for instance_id in (ring, potion):
+        holder = _holders(game, instance_id)[0]
+        identified = game.execute(IdentifyItem(character_id=holder, item_id=instance_id))
+        assert identified.accepted, [rejection.code for rejection in identified.rejections]
     _drop_everything(game, ["holy_water", potion])
     view = _player_view(game)
 
+    assert "ring_of_protection" in _shown_ids(view)
+    assert potion in _shown_ids(view) and "potion_of_healing" not in _shown_ids(view)
     assert set(view.item_names) == _shown_ids(view)
     assert set(view.item_names_plural) == set(view.item_names)
+
+
+@XFAIL
+def test_an_identified_item_in_a_pile_is_named_by_its_instance_id_alone():
+    """A wand of cold, identified and then dropped in the dungeon.
+
+    The pile shows it by its instance id and its true name, never its template id, so `wand_of_cold` is no key.
+    """
+    game = _town()
+    instance_id = _granted(game, "wand_of_cold")
+    assert game.execute(IdentifyItem(character_id=FIGHTER, item_id=instance_id)).accepted
+    assert game.execute(EnterDungeon(dungeon_id="shrine")).accepted
+    dropped = game.execute(DropItems(character_id=FIGHTER, item_ids=(instance_id,)))
+    assert dropped.accepted, [rejection.code for rejection in dropped.rejections]
+
+    view = _player_view(game)
+
+    (pile,) = view.piles.values()
+    assert pile.contents == (PileItemView(item_id=instance_id, quantity=1),)
+    assert view.item_names == {instance_id: "wand of cold"}
+    assert view.item_names_plural == {instance_id: "wands of cold"}
 
 
 def test_a_party_that_carries_nothing_has_no_item_names():
@@ -531,3 +571,220 @@ def test_a_destroyed_unidentified_item_is_named_by_its_mask():
 
     assert event.visibility is Visibility.PLAYER
     assert event.item_names == ("a sword with a faint aura",)
+
+
+# ---------------------------------------------------------------------- saves and parties from 2.7.0
+
+SAVES = Path(__file__).parent / "saves"
+
+SAVE_2_7_0 = SAVES / "view_item_names_2.7.0.json"
+"""A save that osrlib 2.7.0 wrote, before the templates had display names. It's kept as 2.7.0 wrote it.
+
+The adventure bundles `temple_idol`, named "Idol of the drowned saint", with no display names. The fighter carries
+2 vials of holy water, 6 torches, 20 arrows, a short bow, an idol, and an unidentified potion of healing, and wears
+chainmail and wields a sword. The party stands on the shrine's one cell, where the fighter dropped 2 flasks of oil
+and the second idol.
+"""
+
+PARTY_2_7_0 = SAVES / "view_item_names_party_2.7.0.json"
+"""The same party as a party document that osrlib 2.7.0 wrote, in town, before the drop: the fighter also carries
+the 2 flasks of oil and both idols."""
+
+CATALOG_NAMES = {
+    "holy_water": ("vial of holy water", "vials of holy water"),
+    "torch": ("torch", "torches"),
+    "arrows": ("arrow", "arrows"),
+    "short_bow": ("short bow", "short bows"),
+    "chainmail": ("suit of chainmail", "suits of chainmail"),
+    "sword": ("sword", "swords"),
+    "oil_flask": ("flask of oil", "flasks of oil"),
+}
+"""The compiled catalog's names for the built-in items the fixtures hold, as `test_item_display_names.py` pins them."""
+
+UNNAMED_IDOL = ("Idol of the drowned saint", "Idols of the drowned saint")
+"""The names a template written without them gets: its `name`, and the ending on the word before " of "."""
+
+
+def _embedded_templates(document) -> list[dict]:
+    """Every template a document embeds in a mundane stack, wherever it sits."""
+    found = []
+    if isinstance(document, dict):
+        if document.get("instance_type") == "item":
+            found.append(document["template"])
+        for value in document.values():
+            found += _embedded_templates(value)
+    elif isinstance(document, list):
+        for value in document:
+            found += _embedded_templates(value)
+    return found
+
+
+def _names(view: PlayerView) -> dict[str, tuple[str, str]]:
+    return {item_id: (view.item_names[item_id], view.item_names_plural.get(item_id, "")) for item_id in view.item_names}
+
+
+def test_the_2_7_0_fixtures_embed_templates_without_display_names():
+    """The precondition for the two tests below: osrlib 2.7.0 wrote them, so no embedded template has the fields."""
+    for path in (SAVE_2_7_0, PARTY_2_7_0):
+        document = json.loads(path.read_text(encoding="utf-8"))
+        assert document["engine_version"] == "2.7.0"
+        templates = _embedded_templates(document)
+        assert {template["id"] for template in templates} >= {"holy_water", "torch", "chainmail", "temple_idol"}
+        assert all("display_name" not in template for template in templates)
+
+
+@XFAIL
+def test_a_2_7_0_save_names_built_in_items_from_the_catalog():
+    """Each carried stack is named by the session's catalog, never by the template the save embedded.
+
+    Named from the embedded template, holy water would read "Holy water (vial)", with the plural
+    "Holy water (vial)s". The bundled idol has no display names in the save's adventure either, so the catalog's
+    template gets the defaults, and the carried idol and the one in the pile read the same.
+    """
+    game = load_game(json.loads(SAVE_2_7_0.read_text(encoding="utf-8")))
+
+    view = _player_view(game)
+
+    (pile,) = view.piles.values()
+    assert pile.contents == (
+        PileItemView(item_id="oil_flask", quantity=2),
+        PileItemView(item_id="temple_idol", quantity=1),
+    )
+    assert _names(view) == {**CATALOG_NAMES, "temple_idol": UNNAMED_IDOL, "magic-item-0001": ("potion", "potions")}
+
+
+@XFAIL
+def test_a_2_7_0_party_document_starts_a_session_with_catalog_names():
+    """The party document goes into a new session of an adventure whose idol has names its author wrote.
+
+    The carried idol embeds 2.7.0's template, with no names, and the view names it as the catalog does.
+    """
+    party = Party(members=party_from_document(json.loads(PARTY_2_7_0.read_text(encoding="utf-8"))))
+    game = GameSession.new(party, _adventure(), seed=5)
+
+    view = _player_view(game)
+
+    assert _names(view) == {
+        **CATALOG_NAMES,
+        "temple_idol": ("idol of the drowned saint", "idols of the drowned saint"),
+        "magic-item-0001": ("potion", "potions"),
+    }
+
+
+@XFAIL
+def test_a_carried_item_the_catalog_lacks_is_named_from_its_embedded_template():
+    """The same party in an adventure that bundles no idol: the catalog has no `temple_idol`.
+
+    The view still names the carried idol, from the template it embeds, with the defaults a template written without
+    names gets. Every built-in item still comes from the catalog.
+    """
+    party = Party(members=party_from_document(json.loads(PARTY_2_7_0.read_text(encoding="utf-8"))))
+    level = LevelSpec(number=1, width=1, height=1, entrance=(0, 0))
+    adventure = Adventure(
+        name="An Empty Crypt",
+        town=TownSpec(name="Threshold"),
+        dungeons=(DungeonSpec(id="crypt", name="Crypt", levels=(level,)),),
+    )
+    game = GameSession.new(party, adventure, seed=5)
+
+    view = _player_view(game)
+
+    assert _names(view) == {**CATALOG_NAMES, "temple_idol": UNNAMED_IDOL, "magic-item-0001": ("potion", "potions")}
+
+
+# ---------------------------------------------------------------------- masks that changed from 2.7.0
+
+MASKS_2_7_0_BY_BASE = {
+    None: "a arm with a faint aura",
+    "battle_axe": "a battle axe with a faint aura",
+    "club": "a club with a faint aura",
+    "crossbow": "a crossbow with a faint aura",
+    "dagger": "a dagger with a faint aura",
+    "hand_axe": "a hand axe with a faint aura",
+    "javelin": "a javelin with a faint aura",
+    "lance": "a lance with a faint aura",
+    "long_bow": "a long bow with a faint aura",
+    "mace": "a mace with a faint aura",
+    "pole_arm": "a pole arm with a faint aura",
+    "short_bow": "a short bow with a faint aura",
+    "short_sword": "a short sword with a faint aura",
+    "silver_dagger": "a silver dagger with a faint aura",
+    "sling": "a sling with a faint aura",
+    "spear": "a spear with a faint aura",
+    "staff": "a staff with a faint aura",
+    "sword": "a sword with a faint aura",
+    "two_handed_sword": "a two-handed sword with a faint aura",
+    "war_hammer": "a war hammer with a faint aura",
+    "chainmail": "a chainmail with a faint aura",
+    "leather": "a leather with a faint aura",
+    "plate_mail": "a plate mail with a faint aura",
+    "shield": "a shield with a faint aura",
+    "arrows": "a arrows (quiver of 20) with a faint aura",
+    "crossbow_bolts": "a crossbow bolts (case of 30) with a faint aura",
+    "silver_tipped_arrow": "a silver tipped arrow (1) with a faint aura",
+    "sling_stones": "a sling stones with a faint aura",
+}
+"""The `display` osrlib 2.7.0 gave an unidentified enchanted weapon, suit of armour, or shield, by its base item.
+
+The base is the instance's `base_item_id`, or the template's when the instance has none. Computed by running 2.7.0's
+masking over every magic item of the armour, sword, and weapon categories with no base and with each mundane weapon,
+armour, and ammunition id as its base: 1,433 instances in all, each giving the string its base gives here.
+"""
+
+MASKS_2_7_0_BY_CATEGORY = {
+    "misc": "a curious device",
+    "potion": "a potion",
+    "ring": "a ring",
+    "rod": "a rod",
+    "scroll": "a scroll",
+    "staff": "a staff",
+    "wand": "a wand",
+}
+"""The `display` osrlib 2.7.0 gave every unidentified magic item of the other categories, whatever its base."""
+
+CHANGED_MASKS = {
+    "a arm with a faint aura": "a suit of armour with a faint aura",
+    "a arrows (quiver of 20) with a faint aura": "an arrow with a faint aura",
+    "a chainmail with a faint aura": "a suit of chainmail with a faint aura",
+    "a crossbow bolts (case of 30) with a faint aura": "a crossbow bolt with a faint aura",
+    "a leather with a faint aura": "a suit of leather armour with a faint aura",
+    "a plate mail with a faint aura": "a suit of plate mail with a faint aura",
+    "a silver tipped arrow (1) with a faint aura": "a silver tipped arrow with a faint aura",
+    "a sling stones with a faint aura": "a sling stone with a faint aura",
+}
+"""Every 2.7.0 mask that reads differently now, and what it reads as. Every other mask is unchanged."""
+
+ARM_CATEGORIES = ("armour", "sword", "weapon")
+
+
+def test_the_masks_that_changed_from_2_7_0_are_exactly_these():
+    """Every unidentified magic item, with every base an arm can have, shows the 2.7.0 mask or its replacement.
+
+    The instances sit in one fighter's pack, and the test reads each `display` from the player view.
+    """
+    equipment = load_equipment()
+    bases = [None, *(template.id for template in (*equipment.weapons, *equipment.armour, *equipment.ammunition))]
+    game = _town()
+    pack = game.member(FIGHTER).inventory.items
+    expected: dict[str, str] = {}
+    changed: dict[str, str] = {}
+    for template in load_magic_items().items:
+        arm = template.category.value in ARM_CATEGORIES
+        for base in bases if arm else [None]:
+            instance_id = f"magic-item-{len(expected) + 1:05d}"
+            pack.append(MagicItemInstance(instance_id=instance_id, template_id=template.id, base_item_id=base))
+            if arm:
+                old = MASKS_2_7_0_BY_BASE[base or template.base_item_id]
+            else:
+                old = MASKS_2_7_0_BY_CATEGORY[template.category.value]
+            expected[instance_id] = CHANGED_MASKS.get(old, old)
+            if old in CHANGED_MASKS:
+                changed[old] = CHANGED_MASKS[old]
+
+    view = _player_view(game)
+
+    assert len(expected) == 1433
+    (member,) = (member for member in view.party if member.id == FIGHTER)
+    shown = {entry["instance_id"]: entry["display"] for entry in member.inventory["items"]}
+    assert shown == expected
+    assert changed == CHANGED_MASKS

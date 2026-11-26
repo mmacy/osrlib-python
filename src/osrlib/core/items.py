@@ -397,9 +397,14 @@ class WeaponTemplate(_Model):
     """What to call two or more of these weapons, like `"swords"` or `"staves"`.
 
     [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural] gives it to the players'
-    client. A template you write that leaves it out gets `display_name` with the regular English ending: `s`, or
-    `es` after `s`, `x`, `z`, `ch`, or `sh`, or `ies` in place of a `y` that follows a consonant. Set it yourself
-    when the plural is irregular.
+    client. A template you write that leaves it out gets `display_name` with the regular English ending on the word
+    that names the item: the last word before the first `of`, `with`, or `vs`, a comma, a bonus like `+1`, a
+    closing Roman numeral, or an opening parenthesis, or the last word when the name has none of them. So `"Idol of
+    the drowned saint"` becomes `"Idols of the drowned saint"`, and `"Lantern (hooded)"` becomes `"Lanterns
+    (hooded)"`. The ending is `s`, or `es` after `s`, `x`, `z`, `ch`, or `sh`, or `ies` in place of a `y` that
+    follows a consonant, and `staff` becomes `staves` with its capital kept, so `"Staff of the Magi"` becomes
+    `"Staves of the Magi"`. The compiled plural of every built-in template follows the same rule. Set it yourself
+    when the name is already plural, like `"Torches (6)"`, or when the plural is irregular.
     """
     cost_gp: int = Field(ge=0)
     """The listed price in gold pieces, for one weapon."""
@@ -486,10 +491,14 @@ class ArmourTemplate(_Model):
     """What to call two or more of these, like `"shields"` or `"suits of chainmail"`.
 
     [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural] gives it to the players'
-    client. A template you write that leaves it out gets `display_name` with the regular English ending on its last
-    word: `s`, or `es` after `s`, `x`, `z`, `ch`, or `sh`, or `ies` in place of a `y` that follows a consonant. Set
-    it yourself when the plural is irregular, or when the word that takes the ending isn't the last, as in `"suits
-    of chainmail"`.
+    client. A template you write that leaves it out gets `display_name` with the regular English ending on the word
+    that names the item: the last word before the first `of`, `with`, or `vs`, a comma, a bonus like `+1`, a
+    closing Roman numeral, or an opening parenthesis, or the last word when the name has none of them. So `"Idol of
+    the drowned saint"` becomes `"Idols of the drowned saint"`, and `"Lantern (hooded)"` becomes `"Lanterns
+    (hooded)"`. The ending is `s`, or `es` after `s`, `x`, `z`, `ch`, or `sh`, or `ies` in place of a `y` that
+    follows a consonant, and `staff` becomes `staves` with its capital kept, so `"Staff of the Magi"` becomes
+    `"Staves of the Magi"`. The compiled plural of every built-in template follows the same rule. Set it yourself
+    when the name is already plural, like `"Torches (6)"`, or when the plural is irregular.
     """
     cost_gp: int = Field(ge=0)
     """The listed price in gold pieces."""
@@ -625,10 +634,14 @@ class GearTemplate(_Model):
     """What to call two or more units, like `"torches"` or `"vials of holy water"`.
 
     [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural] gives it to the players'
-    client. A template you write that leaves it out gets `display_name` with the regular English ending on its last
-    word: `s`, or `es` after `s`, `x`, `z`, `ch`, or `sh`, or `ies` in place of a `y` that follows a consonant. Set
-    it yourself when the plural is irregular, or when the word that takes the ending isn't the last, as in `"vials
-    of holy water"`.
+    client. A template you write that leaves it out gets `display_name` with the regular English ending on the word
+    that names the item: the last word before the first `of`, `with`, or `vs`, a comma, a bonus like `+1`, a
+    closing Roman numeral, or an opening parenthesis, or the last word when the name has none of them. So `"Idol of
+    the drowned saint"` becomes `"Idols of the drowned saint"`, and `"Lantern (hooded)"` becomes `"Lanterns
+    (hooded)"`. The ending is `s`, or `es` after `s`, `x`, `z`, `ch`, or `sh`, or `ies` in place of a `y` that
+    follows a consonant, and `staff` becomes `staves` with its capital kept, so `"Staff of the Magi"` becomes
+    `"Staves of the Magi"`. The compiled plural of every built-in template follows the same rule. Set it yourself
+    when the name is already plural, like `"Torches (6)"`, or when the plural is irregular.
     """
     cost_gp: int = Field(ge=0)
     """The listed price in gold pieces, for one lot."""
@@ -697,9 +710,14 @@ class AmmunitionTemplate(_Model):
     """What to call two or more units, like `"arrows"` or `"crossbow bolts"`.
 
     [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural] gives it to the players'
-    client. A template you write that leaves it out gets `display_name` with the regular English ending on its last
-    word: `s`, or `es` after `s`, `x`, `z`, `ch`, or `sh`, or `ies` in place of a `y` that follows a consonant. Set
-    it yourself when the plural is irregular.
+    client. A template you write that leaves it out gets `display_name` with the regular English ending on the word
+    that names the item: the last word before the first `of`, `with`, or `vs`, a comma, a bonus like `+1`, a
+    closing Roman numeral, or an opening parenthesis, or the last word when the name has none of them. So `"Idol of
+    the drowned saint"` becomes `"Idols of the drowned saint"`, and `"Lantern (hooded)"` becomes `"Lanterns
+    (hooded)"`. The ending is `s`, or `es` after `s`, `x`, `z`, `ch`, or `sh`, or `ies` in place of a `y` that
+    follows a consonant, and `staff` becomes `staves` with its capital kept, so `"Staff of the Magi"` becomes
+    `"Staves of the Magi"`. The compiled plural of every built-in template follows the same rule. Set it yourself
+    when the name is already plural, like `"Torches (6)"`, or when the plural is irregular.
     """
     cost_gp: int = Field(ge=0)
     """The listed price in gold pieces, for one lot. 0 for sling stones."""
@@ -1091,10 +1109,15 @@ class MagicItemTemplate(_Model):
     display_name_plural: str = Field(default="", validate_default=True)
     """What to call two or more of these items, like `"potions of healing"` or `"swords +1"`.
 
-    The ending goes on the word that names the item, which is often not the last word. A template you
-    construct yourself that leaves it out gets `display_name` with the regular English ending on its
-    last word: `s`, or `es` after `s`, `x`,
-    `z`, `ch`, or `sh`, or `ies` in place of a `y` that follows a consonant. Set it yourself when that isn't the plural.
+    [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural] gives it to the players'
+    client. A template you construct yourself that leaves it out gets `display_name` with the regular English ending
+    on the word that names the item: the last word before the first `of`, `with`, or `vs`, a comma, a bonus
+    like `+1`, a closing Roman numeral, or an opening parenthesis, or the last word when the name has none of them.
+    So `"Idol of the drowned saint"` becomes `"Idols of the drowned saint"`, and `"Lantern (hooded)"` becomes
+    `"Lanterns (hooded)"`. The ending is `s`, or `es` after `s`, `x`, `z`, `ch`, or `sh`, or `ies` in place of a `y`
+    that follows a consonant, and `staff` becomes `staves` with its capital kept, so `"Staff of the Magi"` becomes
+    `"Staves of the Magi"`. The compiled plural of every built-in template follows the same rule. Set it yourself
+    when the name is already plural, like `"Torches (6)"`, or when the plural is irregular.
     """
     category: MagicItemCategory
     """What kind of item it is. See [`MagicItemCategory`][osrlib.core.items.MagicItemCategory]."""

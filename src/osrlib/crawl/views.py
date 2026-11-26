@@ -1077,21 +1077,28 @@ class PlayerView(_Model):
 
     - The catalog id of a mundane stack, like `"holy_water"`, in a member's
       [`inventory`][osrlib.crawl.views.MemberView.inventory] and in a pile's
-      [`contents`][osrlib.crawl.views.PileView.contents]. Its name is the template's
-      [`display_name`][osrlib.core.items.GearTemplate.display_name]. For a stack a member carries,
-      it's read from the template the stack embeds, and for a pile, from the session's catalog,
-      [`GameSession.effective_equipment`][osrlib.crawl.session.GameSession.effective_equipment], so an
-      item the adventure bundles is named. A pile's catalog id that the session's catalog doesn't
-      have has no entry.
+      [`contents`][osrlib.crawl.views.PileView.contents]. Its name is the
+      [`display_name`][osrlib.core.items.GearTemplate.display_name] of the template the session's
+      catalog, [`GameSession.effective_equipment`][osrlib.crawl.session.GameSession.effective_equipment],
+      has under that id, so an item the adventure bundles is named. The catalog's template is used
+      even for a stack a member carries, which embeds a template of its own, because a stack from a
+      save or a party document that osrlib 2.7.0 wrote embeds a template without display names. A
+      bundled id can't shadow a built-in one, because a session refuses an adventure whose bundled
+      id collides with a built-in id. A
+      carried stack whose id the catalog doesn't have, like an item another adventure bundled, is
+      named from the template the stack embeds. A pile's catalog id that the catalog doesn't have has
+      no entry.
     - The instance id of a magic item, like `"magic-item-0003"`, in an inventory and in a pile.
       Until the party identifies the item, its name is the masked name the inventory shows, without
       the article: `"potion"`, `"curious device"`, or `"shield with a faint aura"`. So a cursed item
       and the item it passes for have the same name, and the name tells nothing the inventory
-      doesn't. Once the item is identified, its name is the template's
-      [`display_name`][osrlib.core.items.MagicItemTemplate.display_name], like `"potion of healing"`.
+      doesn't. Once the item is identified, its name is the
+      [`display_name`][osrlib.core.items.MagicItemTemplate.display_name] of its template in the magic
+      item catalog, like `"potion of healing"`.
     - The template id of an identified magic item, like `"potion_of_healing"`, which the inventory
-      shows once the item is identified, with the same name. An unidentified item's template id is
-      never a key.
+      shows once the item is identified, with the same name. A pile shows a magic item by its
+      instance id alone, identified or not, so an identified item's template id is a key only while
+      a member carries it. An unidentified item's template id is never a key.
     - The instance id of a gem or a piece of jewellery, like `"valuable-0007"`. Its name is its kind,
       `"gem"` or `"piece of jewellery"`. The players see everything else about it from the moment
       they take it, its own name and its value in gold pieces included, in the inventory's

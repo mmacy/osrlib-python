@@ -149,10 +149,23 @@ def test_every_compiled_magic_item_has_display_names_a_sentence_can_use():
         assert singular != plural, (template.id, singular)
 
 
+BLADE = {
+    "id": "blade",
+    "name": "Drowned blade",
+    "cost_gp": 0,
+    "weight_coins": 60,
+    "damage": "1d8",
+    "qualities": ("melee",),
+}
+"""The fields a weapon template needs besides its names."""
+
+
 @pytest.mark.parametrize(
     ("template", "names"),
     [
-        # A template written without the fields gets its name, and the regular ending on the last word.
+        # A template written without the fields gets its name, and the regular ending on the word that names the
+        # item: the last word before " of ", " with ", " vs ", a comma, a bonus, a closing Roman numeral, or an
+        # opening parenthesis, or the last word when the name has none.
         pytest.param(
             GearTemplate.model_validate({"id": "crypt_key", "name": "Crypt key", "cost_gp": 0}),
             ("Crypt key", "Crypt keys"),
@@ -238,6 +251,61 @@ def test_every_compiled_magic_item_has_display_names_a_sentence_can_use():
             id="written_singular",
             marks=XFAIL,
         ),
+        pytest.param(
+            GearTemplate.model_validate({"id": "idol", "name": "Idol of the drowned saint", "cost_gp": 0}),
+            ("Idol of the drowned saint", "Idols of the drowned saint"),
+            id="of",
+            marks=XFAIL,
+        ),
+        # "staff" becomes "staves", as the compiler makes it, and keeps its capital.
+        pytest.param(
+            WeaponTemplate.model_validate({**BLADE, "id": "magi_staff", "name": "Staff of the Magi"}),
+            ("Staff of the Magi", "Staves of the Magi"),
+            id="staff_of",
+            marks=XFAIL,
+        ),
+        pytest.param(
+            WeaponTemplate.model_validate({**BLADE, "id": "oaken_staff", "name": "Oaken staff"}),
+            ("Oaken staff", "Oaken staves"),
+            id="staff_last",
+            marks=XFAIL,
+        ),
+        pytest.param(
+            GearTemplate.model_validate({"id": "hooded_lantern", "name": "Lantern (hooded)", "cost_gp": 0}),
+            ("Lantern (hooded)", "Lanterns (hooded)"),
+            id="parenthesis",
+            marks=XFAIL,
+        ),
+        pytest.param(
+            GearTemplate.model_validate({"id": "blue_lamp", "name": "Lamp with a blue flame", "cost_gp": 0}),
+            ("Lamp with a blue flame", "Lamps with a blue flame"),
+            id="with",
+            marks=XFAIL,
+        ),
+        pytest.param(
+            GearTemplate.model_validate({"id": "silver_ring", "name": "Ring, silver", "cost_gp": 0}),
+            ("Ring, silver", "Rings, silver"),
+            id="comma",
+            marks=XFAIL,
+        ),
+        pytest.param(
+            GearTemplate.model_validate({"id": "ward", "name": "Charm vs evil", "cost_gp": 0}),
+            ("Charm vs evil", "Charms vs evil"),
+            id="vs",
+            marks=XFAIL,
+        ),
+        pytest.param(
+            GearTemplate.model_validate({"id": "map_iv", "name": "Map fragment IV", "cost_gp": 0}),
+            ("Map fragment IV", "Map fragments IV"),
+            id="numeral",
+            marks=XFAIL,
+        ),
+        pytest.param(
+            MagicItemTemplate.model_validate({"id": "seeing_orb", "name": "Orb of Seeing", "category": "misc"}),
+            ("Orb of Seeing", "Orbs of Seeing"),
+            id="magic_item_of",
+            marks=XFAIL,
+        ),
     ],
 )
 def test_a_template_you_write_without_the_fields_gets_them(template, names: tuple[str, str]):
@@ -276,3 +344,40 @@ def test_a_bundled_items_display_names_survive_the_adventure_document():
         "temple_idol": ("idol of the drowned saint", "idols of the drowned saint"),
         "crypt_key": ("Crypt key", "Crypt keys"),
     }
+
+
+@XFAIL
+def test_a_written_name_that_is_already_plural_keeps_its_parenthesis_last():
+    """An author's `"Torches (6)"` takes the ending on `"Torches"`, before the parenthesis, never after it.
+
+    The rule can't tell that `"Torches"` is already plural, so it adds the ending a word in "s" takes. The template
+    docstrings tell an author to set the plural of such a name. What this pins is where the ending goes: the plural
+    isn't `"Torches (6)s"`, and the lot stays at the end.
+    """
+    template = GearTemplate.model_validate({"id": "torch_bundle", "name": "Torches (6)", "cost_gp": 1})
+
+    assert template.display_name == "Torches (6)"
+    assert template.display_name_plural.endswith(" (6)")
+    assert not template.display_name_plural.endswith(")s")
+
+
+@XFAIL
+def test_every_compiled_plural_is_the_default_plural_of_its_display_name():
+    """The compiler and a template written without a plural follow one rule.
+
+    Each compiled template, rebuilt with its `display_name` and without its plural, gets its compiled plural back.
+    No compiled template differs, because every plural an override in `tools/srd_compile/overrides/` sets is the
+    one the rule gives.
+    """
+    catalog = load_equipment()
+    templates = (*catalog.weapons, *catalog.armour, *catalog.gear, *catalog.ammunition, *load_magic_items().items)
+    differs = {}
+    for template in templates:
+        document = template.model_dump()
+        del document["display_name_plural"]
+        rebuilt = type(template).model_validate(document)
+        if rebuilt.display_name_plural != template.display_name_plural:
+            differs[template.id] = (rebuilt.display_name_plural, template.display_name_plural)
+
+    assert len(templates) == 51 + 164
+    assert differs == {}
