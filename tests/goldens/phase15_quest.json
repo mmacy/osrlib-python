@@ -194,6 +194,13 @@
     {
       "character_id": "character-0001",
       "code": "exploration.item.acquired",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 0,
+        "pp": 0,
+        "sp": 0
+      },
       "coins_gp_value": 0,
       "event_type": "item_acquired",
       "item_ids": [
@@ -285,6 +292,13 @@
     {
       "character_id": "character-0001",
       "code": "exploration.item.acquired",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 100,
+        "pp": 0,
+        "sp": 0
+      },
       "coins_gp_value": 100,
       "event_type": "item_acquired",
       "item_ids": [],
@@ -294,8 +308,10 @@
     {
       "award": 100,
       "character_id": "character-0001",
+      "clamped": false,
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
+      "gained": 100,
       "level_after": 1,
       "modified_award": 100,
       "visibility": "player"
@@ -303,8 +319,10 @@
     {
       "award": 100,
       "character_id": "character-0002",
+      "clamped": false,
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
+      "gained": 100,
       "level_after": 1,
       "modified_award": 100,
       "visibility": "player"
@@ -312,8 +330,10 @@
     {
       "award": 100,
       "character_id": "character-0003",
+      "clamped": false,
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
+      "gained": 105,
       "level_after": 1,
       "modified_award": 105,
       "visibility": "player"
@@ -321,8 +341,10 @@
     {
       "award": 100,
       "character_id": "character-0004",
+      "clamped": false,
       "code": "session.xp.awarded",
       "event_type": "xp_awarded",
+      "gained": 100,
       "level_after": 1,
       "modified_award": 100,
       "visibility": "player"
@@ -337,6 +359,13 @@
     {
       "character_id": "character-0001",
       "code": "exploration.item.acquired",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 0,
+        "pp": 0,
+        "sp": 0
+      },
       "coins_gp_value": 0,
       "event_type": "item_acquired",
       "item_ids": [

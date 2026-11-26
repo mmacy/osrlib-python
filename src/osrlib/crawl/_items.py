@@ -129,6 +129,7 @@ def _apply_give(session, giver, recipient, item_ids: tuple[str, ...], coins: Coi
             recipient_id=recipient.id,
             item_ids=tuple(item_ids),
             coins_gp_value=coins.value_gp,
+            coins=coins,
         )
     )
     return events
@@ -163,7 +164,10 @@ def _apply_drop(session, member, command: DropItems, *, to_pile: bool) -> list[E
         _add_to_pile(session, goods)
     return [
         ItemsDroppedEvent(
-            character_id=member.id, item_ids=tuple(command.item_ids), coins_gp_value=command.coins.value_gp
+            character_id=member.id,
+            item_ids=tuple(command.item_ids),
+            coins_gp_value=command.coins.value_gp,
+            coins=command.coins,
         )
     ]
 

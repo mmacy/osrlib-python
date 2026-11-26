@@ -84,6 +84,7 @@ from typing import Annotated, ClassVar, Literal, Union
 from pydantic import Field, ValidationInfo, field_validator
 
 from osrlib.core.events import KERNEL_EVENT_CLASSES, Event, Visibility, _classes_by_type, _parse_record
+from osrlib.core.items import Coins
 from osrlib.core.monsters import _regular_plural
 
 __all__ = [
@@ -584,6 +585,9 @@ class ItemAcquiredEvent(Event):
     coins_gp_value: int = 0
     """The coins acquired, converted to their value in gold pieces, and zero when only items
     changed hands."""
+    coins: Coins = Coins()
+    """The same coins by denomination, so a client can show the exact amount, and every
+    coin of a small amount that `coins_gp_value` rounds down to zero."""
     origin: str | None = None
     """Where the goods came from: `"treasure"` for a share of a haul taken with
     [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure], `"purchase"` for gear bought with
@@ -654,6 +658,9 @@ class ItemsDroppedEvent(Event):
     instance ids for valuables and magic items."""
     coins_gp_value: int = 0
     """The coins dropped, as their value in gold pieces."""
+    coins: Coins = Coins()
+    """The same coins by denomination, so a client can show the exact amount, and every
+    coin of a small amount that `coins_gp_value` rounds down to zero."""
 
 
 class ItemsLeftBehindEvent(Event):
@@ -681,6 +688,9 @@ class ItemsLeftBehindEvent(Event):
     magic items."""
     coins_gp_value: int = 0
     """The coins left behind, as their value in gold pieces."""
+    coins: Coins = Coins()
+    """The same coins by denomination, so a client can show the exact amount, and every
+    coin of a small amount that `coins_gp_value` rounds down to zero."""
 
 
 class ItemsGivenEvent(Event):
@@ -711,6 +721,9 @@ class ItemsGivenEvent(Event):
     magic items."""
     coins_gp_value: int = 0
     """The coins handed over, as their value in gold pieces."""
+    coins: Coins = Coins()
+    """The same coins by denomination, so a client can show the exact amount, and every
+    coin of a small amount that `coins_gp_value` rounds down to zero."""
 
 
 class LightEvent(Event):
@@ -1155,6 +1168,9 @@ class LootDroppedEvent(Event):
     nature stays hidden."""
     coins_gp_value: int = 0
     """The coins that went into the pile, as their value in gold pieces."""
+    coins: Coins = Coins()
+    """The same coins by denomination, so a client can show the exact amount, and every
+    coin of a small amount that `coins_gp_value` rounds down to zero."""
 
 
 class EncounterEndedEvent(Event):
@@ -1418,18 +1434,22 @@ class MemberWithdrewEvent(Event):
 
 
 class MonsterFledEvent(Event):
-    """A monster group fled the battle.
+    """A monster group broke and ran.
 
     Emitted by [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] when
     a group fails its morale check and flees. When a battle opens, it's also emitted for a
-    group whose morale is so low that it never fights at all.
+    group whose morale is so low that it never fights at all, and that group leaves the
+    battle at once.
 
     When a cleric turns only some of a group, the turned members leave the group and flee as
     a new group, and `group_id` is the new group's id.
 
-    A fleeing group moves away each round. It has left the battle once it's more than
-    [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET] from the party. Its members
-    still count as defeated for the experience award.
+    A group that fails its morale check is still in the battle when this event comes, and
+    [`EncounterGroupView.fleeing`][osrlib.crawl.views.EncounterGroupView.fleeing] is true from
+    then on. It moves away each round, and it has left the battle once it's more than
+    [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET] from the party, when
+    [`EncounterGroupView.fled`][osrlib.crawl.views.EncounterGroupView.fled] becomes true. Its
+    members still count as defeated for the experience award.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"battle.side.fled"})
@@ -1564,6 +1584,9 @@ class HoardGeneratedEvent(Event):
     letters lists both. Treasure rolled on the unguarded-treasure table has `("unguarded",)`."""
     coins_gp_value: int = 0
     """The coins in the hoard, as their value in gold pieces."""
+    coins: Coins = Coins()
+    """The same coins by denomination, so a client can show the exact amount, and every
+    coin of a small amount that `coins_gp_value` rounds down to zero."""
     valuable_ids: tuple[str, ...] = ()
     """The session-scoped instance ids of the gems and jewellery in the hoard."""
     magic_item_ids: tuple[str, ...] = ()
@@ -1905,9 +1928,16 @@ class XpAwardedEvent(Event):
     modified_award: int
     """The award after the class's prime-requisite adjustment, rounded down. The character gains
     this much, except when it would raise them two levels: one award raises a character at most one
-    level, so their total stops one point short of the level after next and the rest is lost."""
+    level, so their total stops one point short of the level after next and the rest is lost. Then
+    `clamped` is true and `gained` says how much the character got."""
     level_after: int
     """The member's level once the award was applied."""
+    gained: int | None = None
+    """The experience the character actually gained. It's less than `modified_award` when
+    `clamped` is true, and `None` in an event recorded before osrlib 2.7.0."""
+    clamped: bool = False
+    """Whether the one-level limit cut the award, so the character gained less than
+    `modified_award` and the rest was lost."""
 
 
 class CharacterLeveledUpEvent(Event):
@@ -2306,6 +2336,9 @@ class ItemsRemovedEvent(Event):
     id of a magic item or a valuable. Empty for a removal of coins."""
     coins_gp_value: int = 0
     """The coins removed, as their value in gold pieces. 0 for a removal of items."""
+    coins: Coins = Coins()
+    """The same coins by denomination, so a client can show the exact amount, and every
+    coin of a small amount that `coins_gp_value` rounds down to zero."""
 
 
 class MemberAddedEvent(Event):

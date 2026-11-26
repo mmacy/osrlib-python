@@ -169,6 +169,39 @@ def _healing_purchased(event: HealingPurchasedEvent) -> str:
     return line + "."
 
 
+def _coins(event: Any) -> str:
+    """The coins an event moved, by denomination, like `"3 gp and 4 sp in coin"`, or `""` for none.
+
+    An event recorded before osrlib 2.7.0 has no `coins`, so the line falls back to its
+    `coins_gp_value`.
+    """
+    parts = [
+        f"{count} {denomination}"
+        for denomination in ("pp", "gp", "ep", "sp", "cp")
+        if (count := getattr(event.coins, denomination))
+    ]
+    if not parts:
+        return f"{event.coins_gp_value} gp in coin" if event.coins_gp_value else ""
+    listed = parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
+    return f"{listed} in coin"
+
+
+def _goods(event: Any) -> str:
+    """The items and coins an event moved, like `"jade-idol and 13 gp in coin"`."""
+    coins = _coins(event)
+    items = ", ".join(event.item_ids)
+    return items + (" and " if items and coins else "") + coins
+
+
+def _xp_awarded(event: Any) -> str:
+    """The award line, which says the rest was lost when the one-level limit cut the award."""
+    gained = event.modified_award if event.gained is None else event.gained
+    line = f"{event.character_id} gains {gained} XP (base {event.award}), now level {event.level_after}."
+    if event.clamped:
+        line += " The rest is lost to the one-level limit."
+    return line
+
+
 def _turning(event: UndeadTurnedEvent, outcome: str) -> str:
     pool = f", {event.hd_pool} HD affected" if event.hd_pool is not None else ""
     return f"{event.caster_id} presents the holy symbol (rolled {event.roll}{pool}) — {outcome}."
@@ -300,34 +333,14 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "exploration.trap.removal_failed": lambda event: (
         (event.character_id or "The party") + f" fails to remove the trap ({event.trap_ref})."
     ),
-    "exploration.item.acquired": lambda event: (
-        f"{event.character_id} acquires "
-        + (", ".join(event.item_ids) if event.item_ids else "")
-        + (" and " if event.item_ids and event.coins_gp_value else "")
-        + (f"{event.coins_gp_value} gp in coin" if event.coins_gp_value else "")
-        + "."
-    ),
+    "exploration.item.acquired": lambda event: f"{event.character_id} acquires " + _goods(event) + ".",
     "exploration.item.consumed": lambda event: f"{event.character_id} uses up {event.item_id}.",
-    "exploration.item.dropped": lambda event: (
-        f"{event.character_id} drops "
-        + (", ".join(event.item_ids) if event.item_ids else "")
-        + (" and " if event.item_ids and event.coins_gp_value else "")
-        + (f"{event.coins_gp_value} gp in coin" if event.coins_gp_value else "")
-        + "."
-    ),
+    "exploration.item.dropped": lambda event: f"{event.character_id} drops " + _goods(event) + ".",
     "exploration.item.left_behind": lambda event: (
-        "The party cannot carry it all — "
-        + (", ".join(event.item_ids) if event.item_ids else "")
-        + (" and " if event.item_ids and event.coins_gp_value else "")
-        + (f"{event.coins_gp_value} gp in coin" if event.coins_gp_value else "")
-        + " stays where it lies."
+        "The party cannot carry it all — " + _goods(event) + " stays where it lies."
     ),
     "exploration.item.given": lambda event: (
-        f"{event.character_id} gives "
-        + (", ".join(event.item_ids) if event.item_ids else "")
-        + (" and " if event.item_ids and event.coins_gp_value else "")
-        + (f"{event.coins_gp_value} gp in coin" if event.coins_gp_value else "")
-        + f" to {event.recipient_id}."
+        f"{event.character_id} gives " + _goods(event) + f" to {event.recipient_id}."
     ),
     "exploration.light.lit": lambda event: f"{event.character_id} lights a {event.source}.",
     "exploration.light.extinguished": lambda event: f"{event.character_id} extinguishes the {event.source}.",
@@ -373,13 +386,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "encounter.pursuit.caught": lambda event: f"Pursuit round {event.round}: the monsters catch the party!",
     "encounter.exhaustion.gained": lambda event: "The party is exhausted from running: -2 to attacks, damage, and AC.",
     "encounter.exhaustion.recovered": lambda event: "The party catches its breath — exhaustion fades.",
-    "encounter.loot.dropped": lambda event: (
-        "The fallen leave behind "
-        + (", ".join(event.item_ids) if event.item_ids else "")
-        + (" and " if event.item_ids and event.coins_gp_value else "")
-        + (f"{event.coins_gp_value} gp in coin" if event.coins_gp_value else "")
-        + "."
-    ),
+    "encounter.loot.dropped": lambda event: "The fallen leave behind " + _goods(event) + ".",
     "encounter.ended": lambda event: f"The encounter ends ({event.outcome}).",
     "battle.started": lambda event: "Battle is joined!",
     "battle.round.started": lambda event: f"Battle round {event.round} begins.",
@@ -398,7 +405,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "battle.member.retreated": lambda event: (
         f"{event.character_id} turns and retreats, and trades places in the marching order with {event.replacement_id}."
     ),
-    "battle.side.fled": lambda event: f"{event.group_id} flees the battle!",
+    "battle.side.fled": lambda event: f"{event.group_id} breaks and runs!",
     "battle.group.left_behind": lambda event: (
         f"{event.source_group_id} leaves {event.count} helpless behind as {event.group_id}."
     ),
@@ -409,7 +416,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "treasure.hoard.generated": lambda event: (
         f"Treasure generated at {event.cache_ref}"
         + (f" ({', '.join(event.treasure_types)})" if event.treasure_types else "")
-        + f": {event.coins_gp_value} gp in coin, {len(event.valuable_ids)} valuable(s), "
+        + f": {_coins(event) or 'no coin'}, {len(event.valuable_ids)} valuable(s), "
         + f"{len(event.magic_item_ids)} magic item(s)."
     ),
     "items.potion.drunk": lambda event: (
@@ -447,9 +454,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "session.monsters.spawned": lambda event: (
         f"Spawned {len(event.monster_ids)} × {event.template_id}: {', '.join(event.monster_ids)}."
     ),
-    "session.xp.awarded": lambda event: (
-        f"{event.character_id} gains {event.modified_award} XP (base {event.award}), now level {event.level_after}."
-    ),
+    "session.xp.awarded": _xp_awarded,
     "session.level.gained": lambda event: (
         f"{event.character_id} advances to level {event.level_after}"
         + (f" ({event.title})" if event.title is not None else "")
@@ -476,13 +481,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     ),
     "session.quest.completed": lambda event: f"Quest complete: {event.name}.",
     "session.adventure.completed": lambda event: f"The adventure is over: {event.name or event.quest_id} is finished.",
-    "session.items.removed": lambda event: (
-        f"{event.character_id} gives up "
-        + (", ".join(event.item_ids) if event.item_ids else "")
-        + (" and " if event.item_ids and event.coins_gp_value else "")
-        + (f"{event.coins_gp_value} gp in coin" if event.coins_gp_value else "")
-        + "."
-    ),
+    "session.items.removed": lambda event: f"{event.character_id} gives up " + _goods(event) + ".",
     "session.member.added": lambda event: (
         f"{event.name}, a level {event.level} {event.class_id}, joins the party as {event.character_id}."
     ),

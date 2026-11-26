@@ -3563,7 +3563,14 @@ def _judge_round(session, declarers, declarations: Sequence[BattleDeclaration]) 
         found = list(_validate_declaration(session, chosen, member, placement=projected))
         if chosen.gaze_defense == "mirror" and member.inventory.carried_item(_MIRROR_ITEM_ID) is None:
             found.append(Rejection(code="battle.declaration.no_mirror", params={"character": member.id}))
-        rejections[member.id] = found
+        # The kernel's checks that `_validate_declaration` passes through don't know who declared,
+        # so the declaring member is named here, and every rejection says whose declaration it was.
+        rejections[member.id] = [
+            rejection
+            if "character" in rejection.params
+            else rejection.model_copy(update={"params": {**rejection.params, "character": member.id}})
+            for rejection in found
+        ]
     # A move that sets `back_stab` gets `back_stab_not_attack` in place of its own trade checks.
     back_stabbers = {
         member.id

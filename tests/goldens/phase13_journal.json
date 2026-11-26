@@ -129,6 +129,13 @@
     {
       "character_id": "character-0001",
       "code": "exploration.item.acquired",
+      "coins": {
+        "cp": 0,
+        "ep": 0,
+        "gp": 0,
+        "pp": 0,
+        "sp": 0
+      },
       "coins_gp_value": 0,
       "event_type": "item_acquired",
       "item_ids": [

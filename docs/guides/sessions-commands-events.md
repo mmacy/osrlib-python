@@ -39,7 +39,7 @@ assert session.clock.rounds == rounds_before
 assert len(session.event_log) == log_len
 ```
 
-Each `Rejection` specifies a dotted `code` and a `params` dict so your front end can format player feedback (see [the rejection code reference](../reference/rejection-codes.md)). Gate refusals (`exploration.door.gate_refused` and `exploration.transition.gate_refused`) also include the adventure author's `refusal` string in `params`, which your front end should display to the player (see [Gates, triggers, and quests](gates-triggers-quests.md)).
+Each `Rejection` specifies a dotted `code` and a `params` dict so your front end can format player feedback (see [the rejection code reference](../reference/rejection-codes.md)). Gate refusals (`exploration.door.gate_refused` and `exploration.transition.gate_refused`) also include the adventure author's `refusal` string in `params`, which your front end should display to the player (see [Gates, triggers, and quests](gates-triggers-quests.md)). When [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] refuses a round, every rejection of a declaration has the declaring member's id as its `character` param, so you can show each player the rejections of their own declaration.
 
 Exceptions signal broken API contracts or invalid data rather than illegal player moves:
 
