@@ -123,11 +123,13 @@ class TestCommandContract:
     check existence and exactness."""
 
     @pytest.fixture(scope="class")
-    def vocabulary(self):
+    @classmethod
+    def vocabulary(cls):
         return set(scan_rejection_codes())
 
     @pytest.fixture(scope="class")
-    def event_names(self):
+    @classmethod
+    def event_names(cls):
         from osrlib.crawl.events import ALL_EVENT_CLASSES
 
         return {cls.__name__ for cls in ALL_EVENT_CLASSES}

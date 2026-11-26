@@ -17,6 +17,7 @@ import pytest
 
 from test_schema_description_sources import _spans_joined_by_a_link
 from test_schema_descriptions import _descriptions, _without_references
+from test_schema_model_descriptions import _model_descriptions, _violations
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -100,6 +101,15 @@ class TestSchemaProse:
             path: found
             for path, text in _descriptions(_schema_document(site, artifact))
             if (found := _spans_joined_by_a_link(text))
+        }
+        assert offenders == {}
+
+    @pytest.mark.parametrize("artifact", ["commands/commands.json", "events/events.json"])
+    def test_model_descriptions_follow_the_rule_for_model_descriptions(self, site: Path, artifact: str):
+        offenders = {
+            path: found
+            for path, text in _model_descriptions(_schema_document(site, artifact)).items()
+            if (found := _violations(text))
         }
         assert offenders == {}
 

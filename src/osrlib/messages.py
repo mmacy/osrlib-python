@@ -144,13 +144,13 @@ def _morale_held(event: MoraleCheckedEvent) -> bool:
 
 
 def _memorized(event: SpellsMemorizedEvent) -> str:
-    prepared = ", ".join(f"{copy.spell_id} (reversed)" if copy.reversed else copy.spell_id for copy in event.prepared)
-    return f"{event.caster_id} memorizes: {prepared or 'nothing'}."
+    prepared = [f"{copy.spell_id} (reversed)" if copy.reversed else copy.spell_id for copy in event.prepared]
+    return f"{event.caster_id} memorizes: {_listed(prepared) or 'nothing'}."
 
 
 def _cast(event: SpellCastEvent) -> str:
     spell = f"{event.spell_id} (reversed)" if event.reversed else event.spell_id
-    at = f" at {', '.join(event.target_ids)}" if event.target_ids else ""
+    at = f" at {_listed(list(event.target_ids))}" if event.target_ids else ""
     manual = ". The effect is narrated, not automated" if event.manual else ""
     return f"{event.caster_id} casts {spell} [{event.mode}]{at}{manual}."
 
@@ -165,13 +165,50 @@ def _healing_purchased(event: HealingPurchasedEvent) -> str:
     line = f"{event.character_id} purchases {event.service} at the temple for {event.cost_gp} gp"
     if len(event.payers) > 1:
         paid = zip(event.payers, event.payments_gp, strict=True)
-        line += ", paid by " + ", ".join(f"{payer} {amount} gp" for payer, amount in paid)
+        line += ", paid by " + _listed([f"{payer} {amount} gp" for payer, amount in paid])
     return line + "."
 
 
 def _listed(parts: list[str]) -> str:
-    """Parts joined as an English list, like `"a, b and c"`, with one "and" before the last part."""
-    return parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
+    """Parts joined as an English list, like `"a and b"` or `"a, b, and c"`, with "and" before the last part.
+
+    A list of three or more parts has a comma before its "and", the serial comma.
+    """
+    if len(parts) <= 2:
+        return " and ".join(parts)
+    return ", ".join(parts[:-1]) + ", and " + parts[-1]
+
+
+def _encounter_started(event: Any) -> str:
+    """The encounter line, which names each group, like `"Encounter: 2 goblins and 3 orcs at 40'."`.
+
+    An event recorded before osrlib 2.7.0 has no group fields, so its line names the first group and counts the
+    creatures of every group.
+    """
+    if event.group_labels:
+        groups = zip(event.group_counts, event.group_labels, event.group_labels_plural, strict=True)
+        seen = _listed([f"{count} {label if count == 1 else plural}" for count, label, plural in groups])
+    else:
+        seen = f"{event.count} {event.monster_name if event.count == 1 else event.monster_name_plural}"
+    return (
+        f"Encounter: {seen} at {event.distance_feet}'"
+        + ("; the party is surprised" if event.party_surprised else "")
+        + ("; the monsters are surprised" if event.monsters_surprised else "")
+        + "."
+    )
+
+
+def _monsters_spawned(event: Any) -> str:
+    """The referee line for a spawn, like `"Spawned 2 goblins: monster-0001 and monster-0002."`.
+
+    An event recorded before osrlib 2.7.0 has no display name, so its line names the template by its id.
+    """
+    count = len(event.monster_ids)
+    if event.display_name:
+        what = f"{count} {event.display_name if count == 1 else event.display_name_plural}"
+    else:
+        what = f"{count} {'monster' if count == 1 else 'monsters'} from the {event.template_id} template"
+    return f"Spawned {what}: {_listed(list(event.monster_ids))}."
 
 
 def _coin_parts(event: Any) -> list[str]:
@@ -197,9 +234,9 @@ def _coins(event: Any) -> str:
 
 
 def _goods(event: Any) -> str:
-    """The items and coins an event moved, like `"jade-idol, 3 pp and 40 cp in coin"`.
+    """The items and coins an event moved, like `"jade-idol, 3 pp, and 40 cp in coin"`.
 
-    With coins, the items and the denominations make one list, with one "and" before the last part. Items
+    With coins, the items and the denominations make one list, with "and" before the last part. Items
     alone make the same kind of list, like `"brass_key and toll_token"`.
     """
     coins = _coin_parts(event)
@@ -256,7 +293,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "combat.death.died": lambda event: f"{event.target_id} is killed.",
     "combat.death.permanent": lambda event: f"{event.target_id} is permanently destroyed.",
     "combat.equipment.destroyed": lambda event: (
-        f"{event.target_id}'s equipment is destroyed: " + ", ".join(event.item_names) + "."
+        f"{event.target_id}'s equipment is destroyed: " + _listed(list(event.item_names)) + "."
     ),
     "combat.drain.drained": lambda event: (
         f"{event.target_id} loses {event.levels_lost} level(s) "
@@ -277,6 +314,13 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     ),
     "magic.device.fizzled": lambda event: (
         f"{event.actor_id}'s use of {event.item_id} fizzles. The device keeps its charge."
+    ),
+    "magic.potion.fizzled": lambda event: (
+        f"{event.actor_id} can't give {event.item_id} to {event.target_id or 'another member'} to drink, "
+        "and keeps the potion."
+    ),
+    "battle.give.fizzled": lambda event: (
+        f"{event.actor_id} can't hand {event.item_id} to {event.target_id or 'another member'}, and keeps it."
     ),
     "magic.turning.fizzled": lambda event: f"{event.actor_id}'s attempt to turn undead fizzles.",
     "battle.melee.fizzled": lambda event: (
@@ -331,7 +375,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
         + ("Success." if event.passed else "Failure.")
     ),
     "exploration.search.found": lambda event: (
-        f"{event.character_id} searches ({event.kind}) and finds: {', '.join(event.found)}."
+        f"{event.character_id} searches ({event.kind}) and finds: {_listed(list(event.found))}."
     ),
     "exploration.search.nothing": lambda event: f"{event.character_id} searches ({event.kind}) and finds nothing.",
     "exploration.trap.sprung": lambda event: (
@@ -375,13 +419,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
         f"Wandering check: {event.roll if event.roll is not None else 'skipped'} vs {event.chance}-in-6. "
         + ("An encounter!" if event.encounter else "Nothing comes.")
     ),
-    "encounter.started": lambda event: (
-        f"Encounter: {event.count} {event.monster_name if event.count == 1 else event.monster_name_plural}"
-        f" at {event.distance_feet}'"
-        + ("; the party is surprised" if event.party_surprised else "")
-        + ("; the monsters are surprised" if event.monsters_surprised else "")
-        + "."
-    ),
+    "encounter.started": _encounter_started,
     "encounter.group.joined": lambda event: (
         f"More monsters join the encounter: {event.count} {event.label if event.count == 1 else event.label_plural}"
         f" at {event.distance_feet}'."
@@ -456,9 +494,11 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     ),
     "encounter.npc_party.spawned": lambda event: (
         f"An NPC party ({event.party_kind}, {event.alignment}) takes the field: "
-        + ", ".join(
-            f"{npc} ({cls} {level})"
-            for npc, cls, level in zip(event.npc_ids, event.class_ids, event.levels, strict=True)
+        + _listed(
+            [
+                f"{npc} ({cls} {level})"
+                for npc, cls, level in zip(event.npc_ids, event.class_ids, event.levels, strict=True)
+            ]
         )
         + "."
     ),
@@ -471,9 +511,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     ),
     "town.healing.purchased": _healing_purchased,
     "session.flag.set": lambda event: f"Flag {event.key} = {event.value!r}.",
-    "session.monsters.spawned": lambda event: (
-        f"Spawned {len(event.monster_ids)} × {event.template_id}: {', '.join(event.monster_ids)}."
-    ),
+    "session.monsters.spawned": _monsters_spawned,
     "session.xp.awarded": _xp_awarded,
     "session.level.gained": lambda event: (
         f"{event.character_id} advances to level {event.level_after}"

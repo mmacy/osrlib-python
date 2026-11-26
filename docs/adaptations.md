@@ -1231,14 +1231,16 @@ Touch:
 - The NPC adventurers of a group stand together, so an NPC cleric's cure spell reaches any member of its group.
 - The Staff of Healing page says the staff "Has the power to heal those touched", so a staff of healing takes the same reach in a battle. Another member has to stand within 5' of its user, or the use gets `battle.declaration.member_out_of_reach`. A monster's group has to stand within 5' of the user, or the use gets `combat.attack.out_of_reach`, and then the touch follows the rule for melee, as a touch spell's does. A target id that matches no creature gets `items.use.unknown_target`.
 - A creature that's dead or turned to stone can't be healed, so the session refuses a staff of healing used on one with `items.use.target_cannot_be_healed`, in a battle and outside one, as it refuses a potion given to such a member. The refused round costs nothing, so the staff stays unidentified.
+- The Staff of Healing page says the staff "Is effective on any individual at most once per day". A use on a creature the staff already healed that day would do nothing, so the session refuses it with `items.use.target_healed_today`, in a battle and outside one, after the check for a creature that's dead or turned to stone. The refusal costs no action, no round, and no draw. The session records the day the staff last healed each creature in the staff's instance state, so the limit resets when the session's day count changes.
+- A potion, a staff of healing, and a hand-over act on one creature, the one id in a declaration's `targets`. A potion and a staff of healing take an empty `targets` as the member who uses them. A hand-over has no default recipient. The session refuses a declaration with any other number of ids with `battle.declaration.target_count`, whose `supplied` param is the number given.
 
 When the step comes:
 
 - A potion given to another member, a hand-over, and a staff of healing's touch are checked again in the magic phase, where the members stand then. The members' moves come earlier in the party's block, but a member who can no longer move when the movement step comes stays where they were, so two members can end up farther apart than the round expected.
-- A potion or a hand-over that fails the check doesn't happen, and the item stays with the member who carries it. That happens when the drinker died or turned to stone, the recipient can no longer act, or the two members no longer reach each other. Nothing reports it, as nothing reports an attack by a member who can no longer act.
+- A potion or a hand-over that fails the check doesn't happen, and the item stays with the member who carries it. That happens when the drinker died or turned to stone, the recipient can no longer act, or the two members no longer reach each other. The session reports a `DeclarationFizzledEvent`, at `magic.potion.fizzled` for the potion and at `battle.give.fizzled` for the hand-over, with the item in `item_id`, the member it was for in `target_id`, and the failed check's rejection code in `reason`. The fizzle costs what a hold costs: no draw, and nothing changes hands. A potion that fizzles isn't identified.
 - A staff of healing that fails the check fizzles with `magic.device.fizzled`, like any other device use.
 
-Locked by `test_member_reach.py`, `test_potion_target.py`, and `test_review_fixes.py`.
+Locked by `test_member_reach.py`, `test_potion_target.py`, `test_review_fixes.py`, and `test_session_reports.py`.
 
 ### A back-stab needs monsters the party surprised
 
@@ -1631,6 +1633,8 @@ A magic item shows a generic name until it's identified: an enchanted weapon or 
 - An attack on a character who wears enchanted defenses, because the bonus shows itself in battle.
 
 A cursed item reveals itself at the same moment and sticks. The engine refuses `UnequipItem` for a cursed sword, weapon, armour, shield, or ring alike, with `items.curse.stuck`, until *remove curse*. A cursed ring reveals itself the moment it's equipped, because its onset is automatic.
+
+Until its curse is revealed, a worn cursed shield or suit of armour shows in the player view's armour class as the +1 item that the SRD says every test shows: its base item with a +1 enchantment. The monsters roll against the real armour class all along, and `Character.armour_class` and the referee view have the real number. Taking the item off before the first battle is legal, because the SRD binds the curse once the armour "has been used". Locked by `test_unrevealed_curse_view.py`.
 
 *Remove curse* frees each member it targets from the cursed items they carry. The item stays cursed and identified, but the member can put it down, and the effects of item curses, like the ring of weakness's, end.
 

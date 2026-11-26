@@ -67,8 +67,8 @@ def test_a_schema_from_an_installation_without_source_has_no_field_descriptions(
     found = json.loads(result.stdout)
     assert found["file"] == str(package / "__init__.pyc")
     assert found["described"] == []
-    # The class docstring is in the bytecode, so the model still has its description.
-    assert found["description"] == _without_references(inspect.cleandoc(MoveParty.__doc__ or ""))
+    # The class docstring is in the bytecode, so the model has the description it has with the source.
+    assert found["description"] == MoveParty.model_json_schema()["description"]
 
 
 class Lantern(_Model):

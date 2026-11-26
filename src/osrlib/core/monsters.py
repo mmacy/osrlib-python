@@ -842,7 +842,10 @@ class MonsterTemplate(_Model):
     [`MonsterCatalog.family`][osrlib.core.monsters.MonsterCatalog.family] to get every form.
 
     A creature with one form is a family of one, and its family id is its `id`. A template you write that
-    leaves this out gets its `id` too.
+    leaves this out gets its `id` too. The player view shows the family id to the players, so a template
+    that disguises one creature as another, like a doppelganger the players see as a goblin, sets this to
+    the family the players should see, `"goblin"`. The players also see the template's `display_name`
+    and its `categories`.
     """
 
     page: str
@@ -879,8 +882,8 @@ class MonsterTemplate(_Model):
     """The dice its hit points are rolled on. See [`MonsterHitDice`][osrlib.core.monsters.MonsterHitDice]."""
 
     attacks: tuple[AttackRoutine, ...] = ()
-    """The sets of attacks it can make, one set per round. See [`AttackRoutine`][osrlib.core.monsters.AttackRoutine].
-    """
+    """The sets of attacks it can make, one set per round.
+    See [`AttackRoutine`][osrlib.core.monsters.AttackRoutine]."""
 
     thac0: int = Field(ge=2, le=20)
     """Its THAC0 ("to hit armour class 0"): the d20 roll it needs to hit armour class 0 under descending armour class.
@@ -941,6 +944,9 @@ class MonsterTemplate(_Model):
 
     Spells and turning check these. *Hold person* affects a monster only when it has `"person"`, and
     turning affects only `"undead"`.
+
+    The player view shows them to the players, in
+    [`EncounterGroupView.categories`][osrlib.crawl.views.EncounterGroupView.categories].
     """
 
     overrides_applied: tuple[str, ...] = ()

@@ -7,9 +7,19 @@ the docstring of its field. To read the docstrings, `_describe` parses the sourc
 model and its base classes. It parses a module only when pydantic builds a schema, and only once, so importing osrlib
 parses nothing.
 
-Pydantic writes an enum's docstring as the description of the enum's schema. Every osrlib enum subclasses `_StrEnum`,
-whose `__get_pydantic_json_schema__` reduces the cross-references in that description each time pydantic builds the
-enum's schema.
+Pydantic writes a model's or an enum's class docstring as the description of its schema. Every osrlib enum subclasses
+`_StrEnum`, whose `__get_pydantic_json_schema__` rewrites that description each time pydantic builds the enum's schema,
+as `_describe` does for a model. A program such as an OpenAPI viewer renders the description as CommonMark, which
+doesn't recognize the Google-style sections of a docstring: it joins the lines under `Attributes:` into one paragraph
+and shows an indented fence as an indented code block. The description is therefore the docstring's text before its
+first section, followed by its `Modes:`, `Rejections:`, and `Events:` sections, which describe what a command does on
+the wire. Each kept section is its label on a line of its own, a blank line, and its body moved to the left margin, so
+its lists and paragraphs render as they do on the documentation site. The other sections, such as `Attributes:`,
+`Raises:`, and `Examples:`, are left out, because each property has its own description and the rest describe Python
+use. A kept section whose body is only whitespace is left out too, and a schema whose description the rule empties has
+no `description` key, as the schema of a class with no docstring has none. A section starts at a line at the left margin
+that is one or more words and a colon when the line after it is indented, so a sentence that ends with a colon and
+introduces text at the left margin isn't a section. Field descriptions keep their whole docstring.
 
 A description reaches its reader as raw text, outside the documentation site, so `_describe` and `_StrEnum` reduce each
 mkdocstrings cross-reference, like ``[`MoveParty`][osrlib.crawl.commands.MoveParty]``, to its label, `` `MoveParty` ``.
@@ -23,6 +33,7 @@ import ast
 import inspect
 import re
 import sys
+import textwrap
 from enum import StrEnum
 from functools import cache
 from itertools import pairwise
@@ -117,6 +128,61 @@ def _reduce(schema: dict[str, Any]) -> None:
         schema["description"] = _plain(description)
 
 
+# A line that starts a docstring section when the line after it is indented: one or more words and a colon.
+_LABEL = re.compile(r"[A-Z][A-Za-z ]*:")
+
+# The sections a model's or an enum's description keeps, because they describe what a command does on the wire.
+_KEPT = frozenset({"Modes", "Rejections", "Events"})
+
+
+def _sectioned(description: str) -> str:
+    """Return a class docstring as CommonMark: its text before the first section, then its wire sections.
+
+    A section starts at a line at the left margin that matches `_LABEL` when the line after it is indented, and it
+    runs to the next section or to the end of the docstring. The `Modes:`, `Rejections:`, and `Events:` sections are
+    kept, in the docstring's order, each as its label on a line of its own, a blank line, and its body moved to the
+    left margin. A kept section whose body is only whitespace is left out, and so is every other section. A docstring
+    with no sections is returned whole. `_sectioned` reduces the cross-references in each part.
+
+    Args:
+        description: The class docstring as pydantic writes it, already cleaned by `inspect.cleandoc`.
+
+    Returns:
+        The description for the class's JSON Schema, which is empty when the docstring has nothing it keeps.
+    """
+    lines = description.split("\n")
+    lead: list[str] = []
+    sections: list[tuple[str, list[str]]] = []
+    for line, following in zip(lines, [*lines[1:], ""], strict=True):
+        if _LABEL.fullmatch(line) and following.startswith(" "):
+            sections.append((line.removesuffix(":"), []))
+        elif sections:
+            sections[-1][1].append(line)
+        else:
+            lead.append(line)
+    if not sections:
+        return _plain(description)
+    parts = [_plain("\n".join(lead)).rstrip()]
+    for label, body in sections:
+        text = _plain(textwrap.dedent("\n".join(body))).strip("\n")
+        if label in _KEPT and text.strip():
+            parts.append(f"{label}:\n\n{text}")
+    return "\n\n".join(part for part in parts if part)
+
+
+def _reduce_class(schema: dict[str, Any]) -> None:
+    """Rewrite a model's or an enum's top-level `description` as `_sectioned` gives it.
+
+    When the rewritten description is empty, the schema has no `description` key, as the schema of a class with no
+    docstring has none.
+    """
+    if isinstance(description := schema.get("description"), str):
+        if text := _sectioned(description):
+            schema["description"] = text
+        else:
+            del schema["description"]
+
+
 def _property_name(name: str, info: FieldInfo, mode: JsonSchemaMode) -> str:
     """Return the name of a field's property in a schema that uses aliases, as pydantic chooses it.
 
@@ -151,7 +217,7 @@ def _describe(cls: type[BaseModel], json_schema: JsonSchemaValue, handler: GetJs
             reference to its definition.
     """
     schema = handler.resolve_ref_schema(json_schema)
-    _reduce(schema)
+    _reduce_class(schema)
     fields = {name: name for name in cls.model_fields}
     # A property named for a field's alias belongs to that field, even when another field has the same name.
     fields.update({_property_name(name, info, handler.mode): name for name, info in cls.model_fields.items()})
@@ -177,5 +243,5 @@ class _StrEnum(StrEnum):
         pydantic builds the definitions of a larger schema.
         """
         json_schema = handler(schema)
-        _reduce(handler.resolve_ref_schema(json_schema))
+        _reduce_class(handler.resolve_ref_schema(json_schema))
         return json_schema

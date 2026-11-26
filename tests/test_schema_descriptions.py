@@ -226,12 +226,9 @@ def test_the_rule_for_a_cross_reference(markdown: str, plain: str) -> None:
     assert _without_references(markdown) == plain
 
 
-def test_a_class_docstring_keeps_the_brackets_in_its_example() -> None:
-    from osrlib.crawl.commands import AnyCommand as commands
-
-    schema = TypeAdapter(commands).json_schema()
-    examples = [text for _, text in _descriptions(schema) if 'inventory["purse"]["gp"]' in text]
-    assert examples, "the description of the command with the inventory example has its code unchanged"
+def test_a_class_docstring_keeps_the_brackets_in_its_code() -> None:
+    schema = TypeAdapter(RefereeView).json_schema()
+    assert 'rebinding `view.flags` raises while `view.flags["key"] = 1`' in schema["description"]
 
 
 def test_a_redeclared_field_has_its_ancestors_docstring() -> None:
