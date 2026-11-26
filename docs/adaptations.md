@@ -78,6 +78,12 @@ With `hp_reroll_at_first_level` on, a first-level character re-rolls their class
 
 The optional rule says a roll of "1 or 2" may be re-rolled, but not whether a re-rolled 1 or 2 is re-rolled again, so osrlib keeps re-rolling. The loop always ends, because the smallest class hit die is a d4, which can show 3 or 4. Locked by `test_character.py::TestRollHitPoints`.
 
+### Sub-par scores are every score 8 or less, or two or more 5 or less
+
+[`scores_are_sub_par`][osrlib.core.character.scores_are_sub_par] and [`AbilityScoreRolls.sub_par`][osrlib.core.character.AbilityScoreRolls.sub_par] say that a set of scores as rolled is sub-par when every score is 8 or less, or when two or more scores are 5 or less. osrlib only reports the fact. `Ruleset` has no flag for it, and `create_character` never refuses or rerolls sub-par scores.
+
+The SRD's "Sub-Par Characters" rule gives two examples of very poor scores: "an 8 or less in every score or an extremely low rating in more than one ability". The first is exact. The second leaves "extremely low" to the referee, so osrlib fixes it at 5 or less, because every ability table in the SRD steps down between 6 and 5. At 5 or less, the STR, WIS, and CON modifiers and DEX's AC and missile modifiers are -2 or worse, INT makes the character illiterate, CHA lowers the maximum number of retainers and their loyalty, and a prime requisite's XP modifier is -20% instead of -10%. Locked by `test_sub_par_scores.py::test_each_clause_at_its_boundary` and `test_sub_par_scores.py::test_any_two_abilities_at_5_meet_the_second_clause`.
+
 ### Adjustment reductions are even per lowered score
 
 When a player lowers ability scores to raise another, each lowered score has to drop by an even amount, and the total raise must be exactly half the total reduction.
