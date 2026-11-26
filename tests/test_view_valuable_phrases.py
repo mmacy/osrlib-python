@@ -318,7 +318,7 @@ def test_a_name_of_whitespace_alone_is_no_name_of_its_own(blank):
         "piece of jewellery",
         "piece of jewellery",
     ]
-    assert view.piles[NAVE].items == ["jewellery", "jewellery"]
+    assert view.piles[NAVE].items == ("jewellery", "jewellery")
 
 
 # ---------------------------------------------------------------------- the haul
