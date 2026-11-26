@@ -1571,8 +1571,8 @@ class MagicItemCatalog(_Model):
     [`ScrollSpellLevelTable`][osrlib.core.items.ScrollSpellLevelTable].
     """
     sentient_swords: SentientSwordTables
-    """The tables for rolling up a sentient sword. See [`SentientSwordTables`][osrlib.core.items.SentientSwordTables].
-    """
+    """The tables for rolling up a sentient sword.
+    See [`SentientSwordTables`][osrlib.core.items.SentientSwordTables]."""
 
     @model_validator(mode="after")
     def _ids_unique_and_rows_resolve(self) -> MagicItemCatalog:
@@ -1694,8 +1694,8 @@ class SwordSentience(_Model):
     extraordinary_powers: tuple[str, ...] = ()
     """The ids of its extraordinary powers, the ones that do things. Look them up the same way."""
     special_purpose: str | None = None
-    """What the sword was made to do, for example `"chaotic_creatures"`, or `None` for a sword with no special purpose.
-    """
+    """What the sword was made to do, for example `"chaotic_creatures"`, or `None` for a sword with no special
+    purpose."""
 
 
 class MagicItemInstance(_Model):
@@ -1900,8 +1900,8 @@ class GeneratedTreasure(_Model):
     valuables: tuple[ValuableInstance, ...] = ()
     """The gems and jewellery. See [`ValuableInstance`][osrlib.core.items.ValuableInstance]."""
     magic_items: tuple[MagicItemInstance, ...] = ()
-    """The magic items, already rolled up as instances. See [`MagicItemInstance`][osrlib.core.items.MagicItemInstance].
-    """
+    """The magic items, already rolled up as instances.
+    See [`MagicItemInstance`][osrlib.core.items.MagicItemInstance]."""
 
 
 class CoinPurse(_Model):
@@ -2083,8 +2083,8 @@ class Inventory(_Model):
     model_config = ConfigDict(validate_assignment=True)
 
     items: list[AnyInstance] = []
-    """What is carried but not in use, in the order it was acquired. See [`AnyInstance`][osrlib.core.items.AnyInstance].
-    """
+    """What is carried but not in use, in the order it was acquired.
+    See [`AnyInstance`][osrlib.core.items.AnyInstance]."""
     purse: CoinPurse = CoinPurse()
     """The coins. See [`CoinPurse`][osrlib.core.items.CoinPurse]."""
     valuables: list[ValuableInstance] = []

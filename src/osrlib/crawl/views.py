@@ -174,14 +174,23 @@ class MemberView(_Model):
     You get these from [`PlayerView.party`][osrlib.crawl.views.PlayerView.party], in marching
     order, and every party member has one, living or dead. The players know everything about
     their characters, so the view has every number on a B/X character sheet, and a client can draw
-    the sheet from it alone. The only thing missing is the identity of an unidentified magic item
-    in the pack.
+    the sheet from it alone. What the view keeps back is what the party hasn't learned about a magic
+    item yet: an unidentified item's name, its bonus, and its curse.
 
     The numbers are the member's current ones, read from the live
     [`Character`][osrlib.core.character.Character]. They count what the member wears right now, like
-    armour, a shield, or a ring of protection. They don't count a timed effect from a spell or a
-    potion, like the *shield* spell. [`PlayerView.effects`][osrlib.crawl.views.PlayerView.effects]
-    lists the timed effects on each member.
+    armour, a shield, or a ring of protection, whether or not the party has identified it, because a
+    B/X magic item works when it's worn. So an unidentified item can change a number while
+    `inventory` still masks its name. They don't count a timed effect from a spell or a potion, like
+    the *shield* spell. [`PlayerView.effects`][osrlib.crawl.views.PlayerView.effects] lists the timed
+    effects on each member.
+
+    Cursed armour and shields are the one exception, because the OSE SRD says "All types of tests
+    indicate that a cursed shield or suit of armour is enchanted with a +1 bonus. It is only when the
+    armour is used in deadly combat that the curse is revealed." Until the session reveals the curse,
+    `armour_class` and `armour_class_ascending` count a worn cursed shield or suit of armour as the +1
+    item it tests as, while the monsters roll against the real armour class. `armour_class` says
+    when the real number appears.
 
     A STR that an item sets counts too. A member who wears gauntlets of ogre power has the numbers
     for STR 18. Six rounds after a member puts on a ring of weakness, the ring's curse takes hold,
@@ -236,7 +245,10 @@ class MemberView(_Model):
     memorized_spells: tuple[dict, ...]
     """The prepared spells, one dumped
     [`MemorizedSpell`][osrlib.core.spells.MemorizedSpell] per copy, in memorization
-    order. Empty for a class that casts nothing."""
+    order. Empty for a class that casts nothing. To show a copy's name, look its `spell_id` up in
+    [`PlayerView.spell_names`][osrlib.crawl.views.PlayerView.spell_names], or in
+    [`PlayerView.reversed_spell_names`][osrlib.crawl.views.PlayerView.reversed_spell_names] for a copy
+    whose `reversed` is true."""
     encounter_rate_feet: int = 0
     """How far the member can move in one round of a battle or an encounter, in feet.
 
@@ -318,16 +330,35 @@ class MemberView(_Model):
     """The bonus the member adds to an attack roll against ascending armour class, as
     [`Character.attack_bonus`][osrlib.core.character.Character.attack_bonus]."""
     armour_class: int = 0
-    """The member's descending armour class, where lower is better, as
-    [`Character.armour_class`][osrlib.core.character.Character.armour_class].
+    """The member's descending armour class, where lower is better, as the players know it.
 
-    It counts everything the member wears, unidentified magic items included, because it's the armour
-    class the monsters roll against. So the armour class can show that a shield is better than a plain
-    one while `inventory` still calls it `"a shield with a faint aura"`."""
+    It counts everything the member wears, unidentified magic items included, because a magic item
+    works when it's worn. So it can show that a shield is better than a plain one while `inventory`
+    still calls it `"a shield with a faint aura"`. It's the number in
+    [`Character.armour_class`][osrlib.core.character.Character.armour_class], the one the monsters
+    roll against, with one exception.
+
+    The exception is a worn cursed shield or suit of armour that the party hasn't identified. The
+    OSE SRD says every test shows such an item as enchanted with a +1 bonus, so until the curse is
+    revealed, this number counts it as its base item with a +1 enchantment, and as setting no armour
+    class of its own. An unarmoured fighter with AC 9 reads 7 with an unidentified cursed shield -2,
+    as with a shield +1, while the monsters roll against the real 10. In cursed chainmail -2 the same
+    fighter reads 4, as in chainmail +1, while the real armour class is 7. Everything else the member
+    wears, and the DEX modifier, count as usual.
+
+    The session reveals the curse and identifies the item at the same moment: the first time the
+    member is attacked in a battle, or when a referee sends
+    [`IdentifyItem`][osrlib.crawl.commands.IdentifyItem]. From then on this is the real number. It
+    stays the real number after *remove curse* frees the member, because the item stays
+    identified."""
     armour_class_ascending: int = 0
-    """The member's ascending armour class, where higher is better, as
-    [`Character.armour_class_ascending`][osrlib.core.character.Character.armour_class_ascending]. It
-    counts the same items as `armour_class`."""
+    """The member's ascending armour class, where higher is better, as the players know it. It
+    describes the same defense as `armour_class` and counts the same items the same way, so it's
+    [`Character.armour_class_ascending`][osrlib.core.character.Character.armour_class_ascending]
+    except while the member wears a cursed shield or suit of armour that the party hasn't
+    identified. Then it counts that item as its base item with a +1 enchantment, so the fighter
+    with AC 9 [10] and an unidentified cursed shield -2 reads 12 here while the monsters roll
+    against the real 9."""
     saves: dict[str, int] = {}
     """The five saving throws, keyed by the field names of
     [`SavingThrows`][osrlib.core.classes.SavingThrows]: `"death"`, `"wands"`, `"paralysis"`, `"breath"`,
@@ -344,7 +375,8 @@ class MemberView(_Model):
     """The ids of the spells in the member's spell book, as in
     [`Character.spell_book`][osrlib.core.character.Character.spell_book]. They're the spells the member
     can choose from in a [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells]. Empty for a class that
-    has no spell book."""
+    has no spell book. To show a spell's name, look its id up in
+    [`PlayerView.spell_names`][osrlib.crawl.views.PlayerView.spell_names]."""
     thief_skills: dict[str, int] = {}
     """The member's chance at each thief skill at their level, keyed by the skill field names of
     [`ThiefSkillRow`][osrlib.core.classes.ThiefSkillRow], like `"open_locks"` and `"move_silently"`.
@@ -367,7 +399,10 @@ class MemberEffectView(_Model):
     [`MemberView.id`][osrlib.crawl.views.MemberView]."""
     kind: str
     """The effect kind, like `"light"` or `"fatigue"`. It's the same string an
-    [`EffectActiveCondition`][osrlib.crawl.gates.EffectActiveCondition] checks for."""
+    [`EffectActiveCondition`][osrlib.crawl.gates.EffectActiveCondition] checks for. A spell's effect
+    has the spell's id as its kind unless the spell's data gives it a kind of its own, and
+    [`PlayerView.spell_names`][osrlib.crawl.views.PlayerView.spell_names] contains the name for a kind
+    that is a spell id."""
     remaining_rounds: int | None
     """Rounds left before the effect expires, never below zero. `None` when the effect has no
     expiry, and for any effect a potion gave, because by the rules the referee tracks a potion's
@@ -564,25 +599,32 @@ class EncounterGroupView(_Model):
 
     The value is the same however the group came to be: from a keyed area, a wandering monster check, or
     a [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters]. So match on it, not on the words in
-    `label`. Pass it to [`MonsterCatalog.family`][osrlib.core.monsters.MonsterCatalog.family] to read
-    what the players' rulebook says about the creature.
+    `label`.
 
-    It reveals no more than the label does. A family is the creature the players see, and it's shared
-    by every form the players can't tell apart, so a group of hellhounds is `"hellhound"` whatever their
-    Hit Dice.
+    The players see this value. A family is the creature the players see, and it's shared by
+    every form the players can't tell apart, so a group of hellhounds is `"hellhound"` whatever their
+    Hit Dice. For a template the adventure bundles in
+    [`Adventure.monsters`][osrlib.crawl.adventure.Adventure.monsters], the value is the template's `id`
+    unless its author set `family_id`. An author who disguises a creature as another, like a
+    doppelganger the players see as a goblin, sets the template's `family_id` to the family the players
+    should see, `"goblin"`, as well as its `display_name`. The players also see the template's
+    [`categories`][osrlib.core.monsters.MonsterTemplate.categories]. A group your code opens with
+    [`start_encounter`][osrlib.crawl.encounter.start_encounter] under a label of its own still reports
+    its templates' family here.
 
-    A group your code opens with [`start_encounter`][osrlib.crawl.encounter.start_encounter] under a
-    label of its own still reports its templates' family here. To show the players a creature under
-    another name, give it a template of its own in
-    [`Adventure.monsters`][osrlib.crawl.adventure.Adventure.monsters]. That template is its own
-    family."""
+    To read what the players' rulebook says about the creature, pass the value to
+    [`MonsterCatalog.family`][osrlib.core.monsters.MonsterCatalog.family] on
+    [`load_monsters`][osrlib.data.load_monsters]. A family that only the adventure bundles has no entry
+    in the rulebook, so it isn't in `load_monsters()`, and `family` raises `ValueError` for it. A session
+    finds it in [`GameSession.effective_monsters`][osrlib.crawl.session.GameSession.effective_monsters]."""
     categories: tuple[str, ...] = ()
     """The categories every member of the group has, like `("undead",)`, as in
     [`MonsterTemplate.categories`][osrlib.core.monsters.MonsterTemplate.categories]. A party of NPC
     adventurers is `("person",)`, because *hold person* and *charm person* affect any character.
 
     Use it to offer what works only against one kind of creature. Turning and holy water affect a group
-    with `"undead"`, and *hold person* affects a group with `"person"`."""
+    with `"undead"`, and *hold person* affects a group with `"person"`. The players see these categories,
+    as they see `family_id`."""
     count: int
     """How many of the group are still alive."""
     distance_feet: int
@@ -908,6 +950,39 @@ class PlayerView(_Model):
     before use."""
     effects: tuple[MemberEffectView, ...]
     """The active effects on party members, in ledger order."""
+    spell_names: dict[str, str] = {}
+    """The name of each spell whose id the view shows, keyed by spell id, like
+    `{"magic_missile": "Magic Missile"}`. Show these names, not the ids.
+
+    A spell id appears in three places in the view: in a member's
+    [`spell_book`][osrlib.crawl.views.MemberView.spell_book], as the `spell_id` of a copy in a member's
+    [`memorized_spells`][osrlib.crawl.views.MemberView.memorized_spells], and as the
+    [`kind`][osrlib.crawl.views.MemberEffectView.kind] of an effect in `effects`, because a spell's
+    effect has the spell's id as its kind unless the spell's data gives it a kind of its own. Every one
+    of those ids that the session's catalog,
+    [`GameSession.effective_spells`][osrlib.crawl.session.GameSession.effective_spells], has is a key
+    here, with the spell's [`name`][osrlib.core.spells.SpellTemplate.name]. A spell the adventure
+    bundles has its name here too, which [`load_spells`][osrlib.data.load_spells] doesn't have. An
+    effect kind that isn't a spell id, like a torch's `"light"`, has no entry.
+
+    It names no spell whose id the view doesn't show, so the spells on a scroll stay hidden. A spell id
+    on a member that the session's catalog doesn't have, like one from a party made for another
+    adventure, has no entry either, and the session refuses to prepare or cast that spell. The name here
+    is always the spell's normal form. For a copy prepared reversed, show its name from
+    `reversed_spell_names`."""
+    reversed_spell_names: dict[str, str] = {}
+    """The name of each spell's reverse, keyed by spell id, like `{"light_mu": "Darkness"}`, for every
+    spell in `spell_names` that has one.
+
+    Each value is the [`name`][osrlib.core.spells.ReversedForm.name] of the spell's
+    [`reversed_form`][osrlib.core.spells.SpellTemplate.reversed_form], read from the same catalog as
+    `spell_names`, so a spell the adventure bundles has the name its author gave the reverse. A spell
+    that doesn't reverse has no entry.
+
+    Show this name for an arcane caster's copy whose `reversed` is true in
+    [`memorized_spells`][osrlib.crawl.views.MemberView.memorized_spells]. A divine caster prepares the
+    normal form and chooses the form when casting, so every memorized copy of a reversible spell can be
+    cast either way. To offer that choice, show both names."""
     fatigued: bool
     """Whether any member is fatigued."""
     exhausted: bool
@@ -1304,6 +1379,7 @@ def build_player_view(session) -> PlayerView:
         for member_id, state in session.deprivation.items()
         if state.worst > 0
     }
+    spell_names, reversed_spell_names = _spell_names(session, members, effects)
     return PlayerView(
         adventure_name=session.adventure.name,
         adventure_description=session.adventure.description,
@@ -1324,6 +1400,8 @@ def build_player_view(session) -> PlayerView:
         piles=piles,
         emptied_caches=tuple(session.dungeon_state.emptied_caches),
         effects=effects,
+        spell_names=spell_names,
+        reversed_spell_names=reversed_spell_names,
         fatigued=fatigued,
         exhausted=exhausted,
         deprivation=deprivation,
@@ -1331,6 +1409,27 @@ def build_player_view(session) -> PlayerView:
         quests=tuple(_quest_views(session)),
         encounter=_encounter_view(session),
     )
+
+
+def _spell_names(session, members, effects) -> tuple[dict[str, str], dict[str, str]]:
+    # Only the ids the view already shows are named, so a scroll's spells stay hidden. An id the
+    # session's catalog lacks, and an effect kind that is no spell's id, get no entry.
+    catalog = {spell.id: spell for spell in session.effective_spells.spells}
+    shown = [
+        *(spell_id for member in members for spell_id in member.spell_book),
+        *(copy["spell_id"] for member in members for copy in member.memorized_spells),
+        *(effect.kind for effect in effects),
+    ]
+    names: dict[str, str] = {}
+    reversed_names: dict[str, str] = {}
+    for spell_id in shown:
+        spell = catalog.get(spell_id)
+        if spell is None or spell_id in names:
+            continue
+        names[spell_id] = spell.name
+        if spell.reversed_form is not None:
+            reversed_names[spell_id] = spell.reversed_form.name
+    return names, reversed_names
 
 
 def _quest_views(session):
@@ -1554,12 +1653,43 @@ def _canonical_edge(cell: Position, direction: Direction) -> str:
     return edge_key(cell, direction)
 
 
+_TESTS_AS = {"shield": "shield_plus_1", "worn_armour": "armour_plus_1"}
+"""The +1 template that every test shows for a cursed item worn in each armour slot."""
+
+
+def _armour_as_tested(member: Character) -> Character:
+    """Return the member as the players know their armour, for the armour class on the sheet.
+
+    The OSE SRD says every test shows a cursed shield or suit of armour as enchanted with a +1
+    bonus until the curse is revealed. So in the copy this returns, each worn cursed shield or suit
+    that is unidentified and whose curse isn't revealed becomes a copy of itself made from the +1
+    template, keeping its base item. The copy's armour class then comes from the rules that compute
+    the member's, and everything else the member wears counts as usual. With nothing to mask, it
+    returns the member itself. The copy is shallow and only read, so the member never changes.
+    """
+    inventory = member.inventory
+    masked = {}
+    for slot, lookalike in _TESTS_AS.items():
+        worn = getattr(inventory, slot)
+        if (
+            isinstance(worn, MagicItemInstance)
+            and not worn.identified
+            and not worn.cursed_revealed
+            and magic_item_template(worn).cursed
+        ):
+            masked[slot] = worn.model_copy(update={"template_id": lookalike})
+    if not masked:
+        return member
+    return member.model_copy(update={"inventory": inventory.model_copy(update=masked)})
+
+
 def _member_view(session, member) -> MemberView:
     """One member's sheet, read from the live character."""
     definition = member.definition
     thief_skills = {}
     if definition.thief_skills:
         thief_skills = definition.thief_skills[member.level - 1].model_dump(exclude={"level"})
+    shown = _armour_as_tested(member)
     return MemberView(
         id=member.id,
         name=member.name,
@@ -1588,8 +1718,8 @@ def _member_view(session, member) -> MemberView:
         open_doors_chance=member.open_doors_chance,
         thac0=member.thac0,
         attack_bonus=member.attack_bonus,
-        armour_class=member.armour_class,
-        armour_class_ascending=member.armour_class_ascending,
+        armour_class=shown.armour_class,
+        armour_class_ascending=shown.armour_class_ascending,
         saves=member.saves.model_dump(),
         movement_rate_feet=member.movement_rate(session.ruleset),
         languages=member.languages,

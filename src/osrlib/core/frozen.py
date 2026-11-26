@@ -218,7 +218,8 @@ class _Model(BaseModel):
     assigning a field enforces.
 
     The class also gives each model's JSON Schema a description for each field: the field's docstring, from the
-    class or from the nearest base class that documents the field.
+    class or from the nearest base class that documents the field. The model's own description is the class
+    docstring's text before its first section, followed by its `Modes:`, `Rejections:`, and `Events:` sections.
     """
 
     def model_copy(self, *, update: Mapping[str, Any] | None = None, deep: bool = False) -> Self:
@@ -259,8 +260,9 @@ class _Model(BaseModel):
         Pydantic calls this each time it builds the model's JSON Schema, for `model_json_schema()` and for a
         `TypeAdapter`. It reduces each mkdocstrings cross-reference in a description to its label. When the model's
         module has no readable source, like one installed as bytecode alone, the schema doesn't have the field
-        docstrings. It still has the descriptions that pydantic writes itself, like the model's docstring, a computed
-        field's docstring, and a `Field(description=...)`.
+        docstrings. It still has the model's description, which the class docstring in the bytecode gives, so it's the
+        same as with the source. It also has the descriptions that pydantic writes itself, from a computed field's
+        docstring and from a `Field(description=...)`.
         """
         json_schema = handler(schema)
         _describe(cls, json_schema, handler)

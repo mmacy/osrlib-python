@@ -7,9 +7,11 @@ and `events.json`, which contain the discriminated-union JSON Schemas an agent f
 API consumer loads directly.
 
 Each schema is the one the library returns, from `model_json_schema()` or
-`TypeAdapter(...).json_schema()`. osrlib gives every property the docstring of its field, and
-reduces each mkdocstrings cross-reference in a description to its label, so the site publishes
-the same schemas that a program using osrlib gets from those calls.
+`TypeAdapter(...).json_schema()`. osrlib gives every property the docstring of its field, gives
+every model and enum the text of its class docstring before the first section followed by its
+`Modes:`, `Rejections:`, and `Events:` sections, and reduces each mkdocstrings cross-reference
+in a description to its label, so the site publishes the same schemas that a program using
+osrlib gets from those calls.
 """
 
 import json
