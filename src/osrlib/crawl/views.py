@@ -126,8 +126,10 @@ from osrlib.core.ruleset import Ruleset
 from osrlib.crawl._feature_handles import (
     _authored_feature_id,
     _cache_available,
+    _current_cache_handles,
     _generated_feature_id,
     _parse_cell_location,
+    _session_feature_handles,
 )
 from osrlib.crawl._light import _light_reveal
 from osrlib.crawl._party_location import _can_travel_to_town
@@ -1263,7 +1265,9 @@ class RefereeView(_Model):
     [`DungeonState.found_traps`][osrlib.crawl.dungeon.DungeonState.found_traps], and every feature the
     adventure authors has one, on a level or in an area, found or not. A generated cache's key is its
     id in [`DungeonState.generated_caches`][osrlib.crawl.dungeon.DungeonState.generated_caches], like
-    `"cache-0001"`, and every cache there has one, including a lair cache the players can't see yet.
+    `"cache-0001"`, and every cache there has one, including a lair cache the players can't see yet,
+    except a cache whose cell reference names no cell of the adventure, which the session never
+    shows or resolves.
 
     Each value is the [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id] that the player view
     shows for the feature once the party knows it. Use it to show a referee the feature the players
@@ -1445,6 +1449,7 @@ def build_player_view(session) -> PlayerView:
         if effect.target_ref in member_ids
     )
     explored = tuple(_explored_levels(session))
+    features_here = _features_here_view(session, explored)
     visible_refs = _visible_cell_refs(session)
     piles = {
         ref: PileView(
@@ -1489,6 +1494,7 @@ def build_player_view(session) -> PlayerView:
         explored=explored,
         dungeons=tuple(_entered_dungeons(session)),
         can_travel_to_town=_can_travel_to_town(session),
+        features_here=features_here,
         piles=piles,
         emptied_caches=tuple(session.dungeon_state.emptied_caches),
         effects=effects,
@@ -1593,6 +1599,22 @@ def _trap_state(session, ref: str, trapped: bool) -> Literal["found", "sprung", 
     return None
 
 
+def _features_here_view(session, explored) -> tuple[str, ...]:
+    """The handles of the caches the feature commands accept here, in the current level's feature order.
+
+    The handles come from the resolution the commands run, and the function keeps only the features
+    the view lists, so the list never shows a handle the players can't already see.
+    """
+    accepted = _current_cache_handles(session)
+    if not accepted:
+        return ()
+    location = session.dungeon_state.location
+    for level in explored:
+        if (level.dungeon_id, level.level_number) == (location.dungeon_id, location.level_number):
+            return tuple(feature.id for feature in level.features if feature.id in accepted)
+    return ()
+
+
 def _authored_feature_views(session, dungeon_id, level_number, level, known, entered_area_ids):
     features = []
     visible_features = [
@@ -1619,12 +1641,13 @@ def _authored_feature_views(session, dungeon_id, level_number, level, known, ent
                 cell=feature.cell,
                 area_id=area.id if area is not None and area.id in entered_area_ids else None,
                 trap_state=_trap_state(session, ref, feature.trap is not None),
+                emptied=feature.kind == "treasure_cache" and ref in session.dungeon_state.emptied_caches,
             )
         )
     return features
 
 
-def _generated_feature_views(session, dungeon_id, level_number, known):
+def _generated_feature_views(session, dungeon_id, level_number, level, known, entered_area_ids):
     features = []
     for cache_id, cache in session.dungeon_state.generated_caches.items():
         location = _parse_cell_location(session, cache.cell_ref)
@@ -1632,13 +1655,14 @@ def _generated_feature_views(session, dungeon_id, level_number, known):
             continue
         if location[2] not in known or not _cache_available(session, cache):
             continue
+        area = level.area_at(location[2])
         features.append(
             MapFeatureView(
                 id=_generated_feature_id(session, dungeon_id, level_number, cache_id),
                 kind="generated_cache",
                 description="",
                 cell=location[2],
-                area_id=None,
+                area_id=area.id if area is not None and area.id in entered_area_ids else None,
                 trap_state=None,
             )
         )
@@ -1685,11 +1709,12 @@ def _explored_levels(session):
                     name=area.name,
                     description=area.description,
                     cells=walked_cells,
+                    trap_state=_trap_state(session, f"{dungeon_id}:{level_number}:{area.id}", area.trap is not None),
                 )
             )
         features = [
             *_authored_feature_views(session, dungeon_id, level_number, level, known, entered_area_ids),
-            *_generated_feature_views(session, dungeon_id, level_number, known),
+            *_generated_feature_views(session, dungeon_id, level_number, level, known, entered_area_ids),
         ]
         transitions = tuple(
             TransitionView(position=transition.position, kind=transition.kind, side=transition.side)
@@ -1996,4 +2021,5 @@ def build_referee_view(session) -> RefereeView:
         battle=session.battle.model_copy(deep=True) if session.battle is not None else None,
         command_log=tuple(session.command_log),
         event_log=tuple(deepcopy(entry) if isinstance(entry, dict) else entry for entry in session.event_log),
+        feature_handles=_session_feature_handles(session),
     )
