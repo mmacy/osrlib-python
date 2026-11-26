@@ -956,9 +956,9 @@ class EncounterStartedEvent(Event):
     """The [`label`][osrlib.crawl.encounter.EncounterGroup.label] of each group in the encounter, in
     the order of [`EncounterState.groups`][osrlib.crawl.encounter.EncounterState.groups]. The first
     entry is `monster_name`. `group_labels_plural` and `group_counts` line up with this tuple, and
-    the counts add up to `count`. The three tuples have the same length, and building or loading an
-    event whose tuples differ in length raises pydantic's `ValidationError`. An event loaded from a
-    save written before the field existed has an empty tuple in all three."""
+    the counts add up to `count`. The three tuples have the same length, and an event whose tuples
+    differ in length is refused when it's built or loaded. An event loaded from a save written before
+    the field existed has an empty tuple in all three."""
     group_labels_plural: tuple[str, ...] = ()
     """Each group's [`label_plural`][osrlib.crawl.encounter.EncounterGroup.label_plural], like
     `"goblins"`, in the order of `group_labels`."""
