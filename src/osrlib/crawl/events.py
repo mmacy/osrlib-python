@@ -81,7 +81,7 @@ from collections.abc import Mapping
 from functools import cache
 from typing import Annotated, ClassVar, Literal, Union
 
-from pydantic import Field, ValidationInfo, field_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 
 from osrlib.core.events import KERNEL_EVENT_CLASSES, Event, Visibility, _classes_by_type, _parse_record
 from osrlib.core.items import Coins
@@ -949,8 +949,9 @@ class EncounterStartedEvent(Event):
     """The [`label`][osrlib.crawl.encounter.EncounterGroup.label] of each group in the encounter, in
     the order of [`EncounterState.groups`][osrlib.crawl.encounter.EncounterState.groups]. The first
     entry is `monster_name`. `group_labels_plural` and `group_counts` line up with this tuple, and
-    the counts add up to `count`. An event loaded from a save written before the field existed has
-    an empty tuple in all three."""
+    the counts add up to `count`. The three tuples have the same length, and building or loading an
+    event whose tuples differ in length raises pydantic's `ValidationError`. An event loaded from a
+    save written before the field existed has an empty tuple in all three."""
     group_labels_plural: tuple[str, ...] = ()
     """Each group's [`label_plural`][osrlib.crawl.encounter.EncounterGroup.label_plural], like
     `"goblins"`, in the order of `group_labels`."""
@@ -961,6 +962,14 @@ class EncounterStartedEvent(Event):
     @classmethod
     def _plural_defaults_to_regular_ending(cls, value: str, info: ValidationInfo) -> str:
         return value or _regular_plural(info.data.get("monster_name", ""))
+
+    @model_validator(mode="after")
+    def _group_fields_line_up(self) -> EncounterStartedEvent:
+        if not len(self.group_labels) == len(self.group_labels_plural) == len(self.group_counts):
+            raise ValueError(
+                "group_labels, group_labels_plural, and group_counts must have one entry for each group"
+            )
+        return self
 
 
 class EncounterGroupJoinedEvent(Event):
