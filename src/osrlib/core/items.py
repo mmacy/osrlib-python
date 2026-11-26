@@ -383,6 +383,23 @@ class WeaponTemplate(_Model):
     """
     name: str
     """The display name, for example `"Sword"`."""
+    display_name: str = Field(default="", validate_default=True)
+    """What to call one of these weapons in a sentence, like `"sword"` or `"two-handed sword"`.
+
+    It's lowercase unless a word is a proper noun or an abbreviation, and it has no article, so put a number or an
+    article in front of it: "a sword", "2 swords".
+    [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] gives it to the players' client.
+
+    A template you write that leaves it out gets its `name`.
+    """
+    display_name_plural: str = Field(default="", validate_default=True)
+    """What to call two or more of these weapons, like `"swords"` or `"staves"`.
+
+    [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural] gives it to the players'
+    client. A template you write that leaves it out gets `display_name` with the regular English ending: `s`, or
+    `es` after `s`, `x`, `z`, `ch`, or `sh`, or `ies` in place of a `y` that follows a consonant. Set it yourself
+    when the plural is irregular.
+    """
     cost_gp: int = Field(ge=0)
     """The listed price in gold pieces, for one weapon."""
     weight_coins: int = Field(ge=0)
@@ -445,6 +462,24 @@ class ArmourTemplate(_Model):
     index](https://mmacy.github.io/osrlib-python/reference/content-ids/equipment/)."""
     name: str
     """The display name."""
+    display_name: str = Field(default="", validate_default=True)
+    """What to call one of these in a sentence, like `"shield"` or `"suit of chainmail"`.
+
+    Body armour is named as a suit, so a count reads "2 suits of chainmail". It's lowercase unless a
+    word is a proper noun or an abbreviation, and it has no article, so put a number or an article in
+    front of it. [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] gives it to the players' client.
+
+    A template you write that leaves it out gets its `name`.
+    """
+    display_name_plural: str = Field(default="", validate_default=True)
+    """What to call two or more of these, like `"shields"` or `"suits of chainmail"`.
+
+    [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural] gives it to the players'
+    client. A template you write that leaves it out gets `display_name` with the regular English ending on its last
+    word: `s`, or `es` after `s`, `x`, `z`, `ch`, or `sh`, or `ies` in place of a `y` that follows a consonant. Set
+    it yourself when the plural is irregular, or when the word that takes the ending isn't the last, as in `"suits
+    of chainmail"`.
+    """
     cost_gp: int = Field(ge=0)
     """The listed price in gold pieces."""
     weight_coins: int = Field(ge=0)
@@ -553,6 +588,27 @@ class GearTemplate(_Model):
     """The display name as the price list prints it, which includes the lot size for gear sold in lots:
     `"Torches (6)"`, `"Iron spikes (12)"`.
     """
+    display_name: str = Field(default="", validate_default=True)
+    """What to call one unit of this gear in a sentence, like `"torch"` or `"vial of holy water"`.
+
+    It names one of the units that [`ItemInstance.quantity`][osrlib.core.items.ItemInstance.quantity]
+    counts, not a lot from the price list, so `"Torches (6)"` is `"torch"`, and a stack of six reads
+    "6 torches". Where the price list names a substance, it names the container or the measure the
+    session counts: `"vial of holy water"`, `"flask of oil"`, `"pint of wine"`. It's lowercase unless a
+    word is a proper noun or an abbreviation, and it has no article, so put a number or an article in
+    front of it. [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] gives it to the players' client.
+
+    A template you write that leaves it out gets its `name`.
+    """
+    display_name_plural: str = Field(default="", validate_default=True)
+    """What to call two or more units, like `"torches"` or `"vials of holy water"`.
+
+    [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural] gives it to the players'
+    client. A template you write that leaves it out gets `display_name` with the regular English ending on its last
+    word: `s`, or `es` after `s`, `x`, `z`, `ch`, or `sh`, or `ies` in place of a `y` that follows a consonant. Set
+    it yourself when the plural is irregular, or when the word that takes the ending isn't the last, as in `"vials
+    of holy water"`.
+    """
     cost_gp: int = Field(ge=0)
     """The listed price in gold pieces, for one lot."""
     lot_size: int = Field(default=1, ge=1)
@@ -596,6 +652,24 @@ class AmmunitionTemplate(_Model):
     [the equipment id index](https://mmacy.github.io/osrlib-python/reference/content-ids/equipment/)."""
     name: str
     """The display name as the price list prints it, which includes the lot: `"Arrows (quiver of 20)"`."""
+    display_name: str = Field(default="", validate_default=True)
+    """What to call one unit of this ammunition in a sentence, like `"arrow"` or `"crossbow bolt"`.
+
+    It names one of the units that [`ItemInstance.quantity`][osrlib.core.items.ItemInstance.quantity]
+    counts, not the lot, so `"Arrows (quiver of 20)"` is `"arrow"`, and a full quiver reads "20 arrows".
+    It's lowercase unless a word is a proper noun or an abbreviation, and it has no article.
+    [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] gives it to the players' client.
+
+    A template you write that leaves it out gets its `name`.
+    """
+    display_name_plural: str = Field(default="", validate_default=True)
+    """What to call two or more units, like `"arrows"` or `"crossbow bolts"`.
+
+    [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural] gives it to the players'
+    client. A template you write that leaves it out gets `display_name` with the regular English ending on its last
+    word: `s`, or `es` after `s`, `x`, `z`, `ch`, or `sh`, or `ies` in place of a `y` that follows a consonant. Set
+    it yourself when the plural is irregular.
+    """
     cost_gp: int = Field(ge=0)
     """The listed price in gold pieces, for one lot. 0 for sling stones."""
     lot_size: int = Field(default=1, ge=1)
@@ -957,6 +1031,30 @@ class MagicItemTemplate(_Model):
     index](https://mmacy.github.io/osrlib-python/reference/content-ids/magic-items/)."""
     name: str
     """The display name. Show this only once the instance is identified."""
+    display_name: str = Field(default="", validate_default=True)
+    """What to call one of these items in a sentence once the party knows what it is, like
+    `"potion of healing"` or `"sword +1"`.
+
+    It's lowercase unless a word is a proper noun or an abbreviation, like the `ESP` of
+    `"potion of ESP"`, and it has no article, so put a number or an article in front of it. For
+    enchanted ammunition it names one of the units that
+    [`MagicItemInstance.quantity`][osrlib.core.items.MagicItemInstance.quantity] counts, so
+    `"Arrows +1 (3d10 arrows)"` is `"arrow +1"`. Footwear and gloves are named as a pair, like
+    `"pair of boots of speed"`, so a count reads "2 pairs of boots of speed".
+
+    Like `name`, show it only once the instance is identified. Until then,
+    [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] names the item by its masked name.
+
+    A template you construct yourself that leaves it out gets its `name`.
+    """
+    display_name_plural: str = Field(default="", validate_default=True)
+    """What to call two or more of these items, like `"potions of healing"` or `"swords +1"`.
+
+    The ending goes on the word that names the item, which is often not the last word. A template you
+    construct yourself that leaves it out gets `display_name` with the regular English ending on its
+    last word: `s`, or `es` after `s`, `x`,
+    `z`, `ch`, or `sh`, or `ies` in place of a `y` that follows a consonant. Set it yourself when that isn't the plural.
+    """
     category: MagicItemCategory
     """What kind of item it is. See [`MagicItemCategory`][osrlib.core.items.MagicItemCategory]."""
     base_item_id: str | None = None

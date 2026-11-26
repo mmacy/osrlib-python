@@ -158,6 +158,7 @@ __all__ = [
     "MemberEffectView",
     "MemberView",
     "ObjectiveView",
+    "PileItemView",
     "PileView",
     "PlayerView",
     "QuestView",
@@ -231,17 +232,23 @@ class MemberView(_Model):
     `worn_armour`, `shield`, `wielded`, and `rings`. Mundane items appear as the inventory
     serializes them.
 
-    A magic item is masked until it's identified. An unidentified one has a `display` name in
-    place of its true name, like `"a potion"`, or `"a dagger with a faint aura"` for a magic
-    weapon. When the display name refers to a weapon, the entry also has the `qualities` of that
-    plain weapon, as an identified one does, so you can tell a melee attack from a missile
-    attack without revealing the weapon's bonus or curse. It has a `missile_ranges` key only
-    when the rules give the weapon ranges, so on a sword the key is absent rather than empty.
-    Every magic staff displays as `"a staff"` and has the staff's `qualities`. Any other item
-    whose display name comes from its category, like `"a wand"`, has neither key, because its
-    display name doesn't refer to a weapon. An identified item
-    shows its `name`, its `template_id`, and whether a curse has been revealed. Charges never
-    appear."""
+    A magic item is masked until it's identified. An unidentified one has a `display` name in place of its true
+    name, like `"a potion"`, or `"a dagger with a faint aura"` for a magic weapon. An enchanted weapon, suit of
+    armour, or shield is named after one unit of the mundane item underneath it, its
+    [`display_name`][osrlib.core.items.WeaponTemplate.display_name] with an article, so enchanted arrows display as
+    `"an arrow with a faint aura"` and enchanted chainmail as `"a suit of chainmail with a faint aura"`. A suit of
+    enchanted armour with no mundane item recorded displays as `"a suit of armour with a faint aura"`. When the
+    display name refers to a weapon, the entry also has the `qualities` of that plain weapon, as an identified one
+    does, so you can tell a melee attack from a missile attack without revealing the weapon's bonus or curse. It has
+    a `missile_ranges` key only when the rules give the weapon ranges, so on a sword the key is absent rather than
+    empty. Every magic staff displays as `"a staff"` and has the staff's `qualities`. Any other item whose display
+    name comes from its category, like `"a wand"`, has neither key, because its display name doesn't refer to a
+    weapon. An identified item shows its `name`, its `template_id`, and whether a curse has been revealed. Charges
+    never appear.
+
+    To name an item in a sentence, look up the id it has here in
+    [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names]: a mundane item's
+    `template.id`, and a magic item's or a valuable's `instance_id`."""
     memorized_spells: tuple[dict, ...]
     """The prepared spells, one dumped
     [`MemorizedSpell`][osrlib.core.spells.MemorizedSpell] per copy, in memorization
@@ -433,6 +440,27 @@ class EdgeView(_Model):
     a door."""
 
 
+class PileItemView(_Model):
+    """One thing in a dropped pile, by the id the events name it by, with its count.
+
+    You get these from [`PileView.contents`][osrlib.crawl.views.PileView.contents]. Look `item_id` up
+    in [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] and
+    [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural] to name it.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    item_id: str
+    """The catalog id of a mundane stack, like `"holy_water"`, or the instance id of a magic item,
+    like `"magic-item-0003"`, or of a gem or piece of jewellery, like `"valuable-0007"`. It's the form
+    of id that [`ItemsDroppedEvent.item_ids`][osrlib.crawl.events.ItemsDroppedEvent.item_ids] and the
+    other item events use, and an unidentified magic item's template id never appears here."""
+    quantity: int = 1
+    """How many units: the size of a mundane stack, the
+    [`quantity`][osrlib.core.items.MagicItemInstance.quantity] of a magic item, which is more than 1
+    only for enchanted ammunition, and always 1 for a gem or piece of jewellery."""
+
+
 class PileView(_Model):
     """A known dropped pile in explored space.
 
@@ -452,6 +480,14 @@ class PileView(_Model):
     """The pile's coins, as their value in whole gold pieces, rounded down."""
     coins: Coins = Coins()
     """The pile's coins by denomination, so a pile of copper alone isn't mistaken for an empty one."""
+    contents: tuple[PileItemView, ...] = ()
+    """One entry per thing in the pile, in the order of `items`, each with the id the events name
+    it by and its count.
+
+    A mundane stack has its catalog id, so a client reads `"holy_water"` and 2 here where `items` has
+    the string `"holy_water×2"`. A magic item and a valuable have their instance ids. Name each entry
+    from [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names], which has a key for
+    every id here."""
 
 
 class DungeonNameView(_Model):
@@ -1013,6 +1049,52 @@ class PlayerView(_Model):
     [`memorized_spells`][osrlib.crawl.views.MemberView.memorized_spells]. A divine caster prepares the
     normal form and chooses the form when casting, so every memorized copy of a reversible spell can be
     cast either way. To offer that choice, show both names."""
+    item_names: dict[str, str] = {}
+    """What to call one of each item whose id the view shows, keyed by that id, like
+    `{"torch": "torch", "holy_water": "vial of holy water", "magic-item-0003": "potion"}`. Show these
+    names, not the ids, and put a number or an article in front of one: "a torch". To word a count,
+    like "6 torches", use `item_names_plural`.
+
+    An item id appears in the view in four forms, and each is a key here:
+
+    - The catalog id of a mundane stack, like `"holy_water"`, in a member's
+      [`inventory`][osrlib.crawl.views.MemberView.inventory] and in a pile's
+      [`contents`][osrlib.crawl.views.PileView.contents]. Its name is the template's
+      [`display_name`][osrlib.core.items.GearTemplate.display_name]. For a stack a member carries,
+      it's read from the template the stack embeds, and for a pile, from the session's catalog,
+      [`GameSession.effective_equipment`][osrlib.crawl.session.GameSession.effective_equipment], so an
+      item the adventure bundles is named. A pile's catalog id that the session's catalog doesn't
+      have has no entry.
+    - The instance id of a magic item, like `"magic-item-0003"`, in an inventory and in a pile.
+      Until the party identifies the item, its name is the masked name the inventory shows, without
+      the article: `"potion"`, `"curious device"`, or `"shield with a faint aura"`. So a cursed item
+      and the item it passes for have the same name, and the name tells nothing the inventory
+      doesn't. Once the item is identified, its name is the template's
+      [`display_name`][osrlib.core.items.MagicItemTemplate.display_name], like `"potion of healing"`.
+    - The template id of an identified magic item, like `"potion_of_healing"`, which the inventory
+      shows once the item is identified, with the same name. An unidentified item's template id is
+      never a key.
+    - The instance id of a gem or a piece of jewellery, like `"valuable-0007"`. Its name is its kind,
+      `"gem"` or `"piece of jewellery"`. The players see everything else about it from the moment
+      they take it, its own name and its value in gold pieces included, in the inventory's
+      `valuables`.
+
+    It names no item whose id the view doesn't show. The player-visible item events, like
+    [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent], name items by the same ids. An
+    item the command left in a member's pack or in a pile the view shows is a key in the view you
+    build after the command. An item the command used up, sold, or left behind on a trail is a key
+    in the view from before it. An item that is identified and used up in the same command, like a
+    potion drunk before the party knew it, has its true name on the
+    [`ItemIdentifiedEvent`][osrlib.crawl.events.ItemIdentifiedEvent]."""
+    item_names_plural: dict[str, str] = {}
+    """What to call two or more of each item in `item_names`, with the same keys, like
+    `{"torch": "torches", "holy_water": "vials of holy water", "magic-item-0003": "potions"}`.
+
+    Each value is the plural of the name in `item_names`: the template's
+    [`display_name_plural`][osrlib.core.items.GearTemplate.display_name_plural], the plural of a
+    masked name, like `"shields with a faint aura"`, or `"gems"` or `"pieces of jewellery"`. Use it
+    with a count from a pile's [`contents`][osrlib.crawl.views.PileView.contents], an inventory
+    entry's `quantity`, or the ids an event repeats, one per unit: "2 vials of holy water"."""
     fatigued: bool
     """Whether any member is fatigued."""
     exhausted: bool
