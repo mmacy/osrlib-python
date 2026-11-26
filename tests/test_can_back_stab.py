@@ -58,7 +58,6 @@ from osrlib.data import load_classes
 
 REPO = Path(__file__).resolve().parent.parent
 
-XFAIL = pytest.mark.xfail(reason="chunk: can-back-stab")
 
 SEEDS = range(0, 400)
 """Seeds the helpers scan for a setup they need, like a battle in which neither side was surprised."""
@@ -319,14 +318,6 @@ wrong: a thief who isn't hiding in an ordinary round, a thief whose attempt ende
 can't act or is dead, and the custom classes that the catalog doesn't have."""
 
 
-def _scenario_params(*, passes_on_the_stub: Callable[[tuple[str, ...], tuple[str, ...]], bool]):
-    """One param per scenario, marked expected-to-fail unless the stub's empty lists already satisfy the test."""
-    return [
-        pytest.param(name, id=name, marks=() if passes_on_the_stub(can_hide, can_back_stab) else XFAIL)
-        for name, (_, can_hide, can_back_stab) in SCENARIOS.items()
-    ]
-
-
 def _ids(game: GameSession, names: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(_named(game, name) for name in names)
 
@@ -335,7 +326,7 @@ def _ids(game: GameSession, names: tuple[str, ...]) -> tuple[str, ...]:
 
 
 class TestTheFields:
-    """The new fields default to empty, so a view or a preview from 2.7.0 still parses. These pass on the stub."""
+    """The new fields default to empty, so a view or a preview from 2.7.0 still parses."""
 
     def test_the_view_starts_with_nobody_able_to_back_stab(self):
         assert EncounterView(groups=(), stance=None, in_battle=True).can_back_stab == ()
@@ -362,7 +353,7 @@ class TestTheFields:
 class TestTheView:
     """`EncounterView.can_back_stab` in each scenario, and its agreement with what the session refuses."""
 
-    @pytest.mark.parametrize("name", _scenario_params(passes_on_the_stub=lambda _, can_back_stab: not can_back_stab))
+    @pytest.mark.parametrize("name", list(SCENARIOS))
     def test_the_lists_in_each_scenario(self, name):
         build, can_hide, can_back_stab = SCENARIOS[name]
         game = build()
@@ -371,7 +362,7 @@ class TestTheView:
         assert view.can_hide == _ids(game, can_hide)
         assert view.can_back_stab == _ids(game, can_back_stab)
 
-    @pytest.mark.parametrize("name", _scenario_params(passes_on_the_stub=lambda _, can_back_stab: not can_back_stab))
+    @pytest.mark.parametrize("name", list(SCENARIOS))
     def test_the_list_is_who_the_session_wouldnt_refuse_for_the_member(self, name):
         """For every declarer, a back-stab gets neither member code exactly when the declarer is in the list.
 
@@ -394,7 +385,6 @@ class TestTheView:
             if member.id in group.front_rank or hiding_in_reach:
                 assert (member.id in view.can_back_stab) is (codes == []), (member.name, codes)
 
-    @XFAIL
     def test_the_free_round_lists_a_thief_who_cant_reach_and_the_session_says_why(self):
         """Where the line falls: in the free round, a back-stab from the second rank is refused for the declaration."""
         game = _free_round()
@@ -405,7 +395,6 @@ class TestTheView:
         assert view.can_back_stab == (sable,)
         assert _codes(preview_battle_round(game, [_stab(game, sable)]), sable) == [NOT_IN_FRONT_RANK]
 
-    @XFAIL
     def test_a_blind_thief_in_hiding_is_listed_and_refused_by_the_attack_check(self):
         """Where the line falls: blindness stops any attack, and the list answers for the back-stab's own checks."""
         game = _hiding_thief()
@@ -421,7 +410,6 @@ class TestTheView:
         assert _encounter(game).can_back_stab == (sable,)
         assert _codes(preview_battle_round(game, [_stab(game, sable)]), sable) == ["combat.attack.attacker_blind"]
 
-    @XFAIL
     def test_the_list_never_tells_how_the_hide_went(self):
         passed, _ = _hidden(passed=True)
         failed, _ = _hidden(passed=False)
@@ -429,7 +417,6 @@ class TestTheView:
         for game in (passed, failed):
             assert _encounter(game).can_back_stab == (_named(game, "Sable"),)
 
-    @XFAIL
     def test_custom_classes_follow_the_abilities_the_session_reads(self):
         """A cutthroat can back-stab in the free round and can't hide. A sneak can hide and can't back-stab."""
         free = _free_round_with_a_cutthroat()
@@ -488,7 +475,7 @@ def _plans(game: GameSession) -> dict[str, list[BattleDeclaration]]:
 class TestThePreview:
     """`BattleRoundPreview.can_hide` and `can_back_stab`, judged beside the planned declarations."""
 
-    @pytest.mark.parametrize("name", _scenario_params(passes_on_the_stub=lambda hide, stab: not hide and not stab))
+    @pytest.mark.parametrize("name", list(SCENARIOS))
     def test_with_no_planned_move_the_lists_are_the_views(self, name):
         game = SCENARIOS[name][0]()
         view = _encounter(game)
@@ -498,7 +485,7 @@ class TestThePreview:
             assert preview.can_hide == view.can_hide
             assert preview.can_back_stab == view.can_back_stab
 
-    @pytest.mark.parametrize("name", _scenario_params(passes_on_the_stub=lambda hide, stab: not hide and not stab))
+    @pytest.mark.parametrize("name", list(SCENARIOS))
     def test_each_list_is_what_the_member_could_declare_in_place_of_their_plan(self, name):
         """For every plan and every declarer, membership matches the preview with that member's declaration replaced.
 
@@ -524,7 +511,6 @@ class TestThePreview:
             assert preview.can_back_stab == tuple(m for m in declarers if m in preview.can_back_stab)
             assert preview.can_back_stab == _encounter(game).can_back_stab, label
 
-    @XFAIL
     def test_another_members_withdrawal_makes_a_hide_illegal(self):
         """Brakk falls back alone, which leaves Sable beside Hild in the first row, so Sable can't hide."""
         game = _ordinary_round()
@@ -536,7 +522,6 @@ class TestThePreview:
         assert withdrawn.can_hide == ()
         assert _codes(preview_battle_round(game, [_withdraw(brakk), _hide(sable)]), sable) == [IN_FRONT_RANK]
 
-    @XFAIL
     def test_another_members_close_makes_a_hide_legal(self):
         """Hild closes on the goblins 30' away and takes Sable's place in the first row, so Sable can hide."""
         game = _battle(SABLE_IN_FRONT, distance_feet=30)
@@ -551,7 +536,6 @@ class TestThePreview:
         )
         assert result.accepted, [rejection.code for rejection in result.rejections]
 
-    @XFAIL
     def test_a_members_own_close_doesnt_take_them_out_of_can_hide(self):
         """Sable plans to close, which would put Sable in the first row, and Sable could still hide instead."""
         game = _battle(distance_feet=30)
@@ -563,7 +547,6 @@ class TestThePreview:
         assert preview.can_hide == (sable,)
         assert _codes(preview_battle_round(game, [_hide(sable)]), sable) == []
 
-    @XFAIL
     def test_a_member_who_plans_a_hide_hasnt_hidden_yet(self):
         """Sable's planned hide is accepted, so Sable is in `can_hide`, and not yet in `can_back_stab`."""
         game = _ordinary_round()
@@ -574,7 +557,6 @@ class TestThePreview:
         assert preview.can_hide == (sable,)
         assert preview.can_back_stab == ()
 
-    @XFAIL
     def test_a_hiding_member_who_plans_a_move_can_still_back_stab_this_round(self):
         """Sable's withdrawal will end the attempt when it comes up, but the round is judged before it resolves."""
         game = _hiding_thief()
@@ -583,7 +565,6 @@ class TestThePreview:
         for plan in ([_withdraw(sable)], [_hide(sable)], [_close(game, _named(game, "Brakk"))]):
             assert preview_battle_round(game, plan).can_back_stab == (sable,), plan
 
-    @XFAIL
     def test_a_planned_move_doesnt_change_who_can_back_stab_in_the_free_round(self):
         game = _free_round_with_a_cutthroat()
         expected = (_named(game, "Nim"), _named(game, "Sable"))
@@ -602,7 +583,6 @@ def _unreleased() -> str:
     return match.group(1)
 
 
-@XFAIL
 def test_the_changelog_records_the_new_lists():
     unreleased = _unreleased()
     bullet = next((line for line in unreleased.splitlines() if "(#319)" in line), "")
@@ -611,7 +591,6 @@ def test_the_changelog_records_the_new_lists():
     assert "BattleRoundPreview.can_back_stab" in bullet
 
 
-@XFAIL
 def test_the_view_guide_points_the_battle_menu_at_the_lists():
     guide = (REPO / "docs" / "guides" / "views-and-visibility.md").read_text()
     assert "[`can_back_stab`][osrlib.crawl.views.EncounterView.can_back_stab]" in guide
