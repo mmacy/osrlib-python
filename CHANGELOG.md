@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-11-25
+
 ### Added
 
 - Every event that reports `coins_gp_value` also reports the exact coins by denomination, as a new `coins` field of type [`Coins`][osrlib.core.items.Coins], and so does [`PileView`][osrlib.crawl.views.PileView] (#285). The events are [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent], [`ItemsDroppedEvent`][osrlib.crawl.events.ItemsDroppedEvent], [`ItemsLeftBehindEvent`][osrlib.crawl.events.ItemsLeftBehindEvent], [`ItemsGivenEvent`][osrlib.crawl.events.ItemsGivenEvent], [`LootDroppedEvent`][osrlib.crawl.events.LootDroppedEvent], [`HoardGeneratedEvent`][osrlib.crawl.events.HoardGeneratedEvent], and [`ItemsRemovedEvent`][osrlib.crawl.events.ItemsRemovedEvent]. `coins_gp_value` keeps its meaning, the value in whole gold pieces rounded down, so 39 cp still reports 0 there and now reports `Coins(cp=39)` in `coins`. When `TakeTreasure` splits a haul, each member's `ItemAcquiredEvent` has the coins that member received, so the shares' `coins` add up to the coins taken. A pile of copper alone has `coins_gp_value` 0 and its copper in `coins`, so a client can tell it from an empty pile. Every field this release adds has a default, so an event or a view from 2.6.0 still parses, and [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] stays 4.
