@@ -89,6 +89,7 @@ print(torches.quantity, inventory.purse.gp, movement_rate_feet(inventory, Rulese
 """
 
 import re
+import unicodedata
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 
@@ -2554,8 +2555,12 @@ def _masked_names(instance: MagicItemInstance) -> tuple[str, str]:
 
 
 def _with_article(name: str) -> str:
-    """Return `name` after the indefinite article, `"an"` before a vowel and `"a"` otherwise."""
-    return f"{'an' if name[:1].lower() in ('a', 'e', 'i', 'o', 'u') else 'a'} {name}"
+    """Return `name` after the indefinite article, `"an"` before a vowel and `"a"` otherwise.
+
+    A vowel with an accent, like the `É` of `"Émeraude"`, counts as a vowel.
+    """
+    first = unicodedata.normalize("NFD", name[:1])[:1].lower()
+    return f"{'an' if first in ('a', 'e', 'i', 'o', 'u') else 'a'} {name}"
 
 
 def _shield_ac_parts(shield: AnyInstance | None, *, ascending: bool) -> tuple[int | None, int]:

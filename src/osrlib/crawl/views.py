@@ -1850,7 +1850,7 @@ def _pile_view(pile: DropPile) -> PileView:
         items=(
             *(f"{entry.item_id}×{entry.quantity}" for entry in pile.items),
             *(str(item.get("name", item.get("display"))) for item in magic_items),
-            *(valuable.name if valuable.name.strip() else valuable.kind for valuable in pile.valuables),
+            *(valuable.name.strip() or valuable.kind for valuable in pile.valuables),
         ),
         coins_gp_value=pile.coins.value_gp,
         coins=pile.coins,
@@ -1873,12 +1873,12 @@ _ARTICLES = frozenset({"the", "a", "an"})
 def _valuable_phrase(valuable: ValuableInstance) -> str:
     """Return what to call a piece with a name of its own in the middle of a sentence.
 
-    The view uses the piece's `phrase` unless it's empty or only whitespace. Otherwise a name whose first word is
-    "the", "a", or "an" keeps its words with that first word in lowercase, and any other name gets its first letter
-    in lowercase and the indefinite article in front.
+    The view uses the piece's `phrase`, trimmed, unless it's empty or only whitespace. Otherwise a name whose first
+    word is "the", "a", or "an" keeps its words with that first word in lowercase, and any other name gets its first
+    character in lowercase and the indefinite article in front. The name is trimmed first.
     """
-    if valuable.phrase.strip():
-        return valuable.phrase
+    if phrase := valuable.phrase.strip():
+        return phrase
     name = valuable.name.strip()
     first = name.split(maxsplit=1)[0]
     if first.lower() in _ARTICLES:
@@ -1913,10 +1913,11 @@ def _item_names(
 
     def add_valuable(valuable: ValuableInstance) -> None:
         add(valuable.instance_id, *_VALUABLE_NAMES[valuable.kind])
-        # A piece has a name of its own unless its name is empty, only whitespace, or the one treasure generation
-        # gives its kind.
-        if valuable.name.strip() and valuable.name != _ROLLED_VALUABLE_NAMES[valuable.kind]:
-            valuable_names[valuable.instance_id] = valuable.name
+        # A piece has a name of its own unless its trimmed name is empty or the one treasure generation gives its
+        # kind.
+        name = valuable.name.strip()
+        if name and name != _ROLLED_VALUABLE_NAMES[valuable.kind]:
+            valuable_names[valuable.instance_id] = name
             valuable_phrases[valuable.instance_id] = _valuable_phrase(valuable)
 
     def add_magic_item(instance: MagicItemInstance, *, carried: bool) -> None:
