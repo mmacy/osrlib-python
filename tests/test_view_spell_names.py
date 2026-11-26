@@ -11,11 +11,12 @@ import pytest
 import positions_fixtures as pf
 from osrlib.core.events import Visibility
 from osrlib.core.items import MagicItemInstance
-from osrlib.core.spells import MemorizedSpell
+from osrlib.core.spells import MemorizedSpell, SpellTemplate
 from osrlib.crawl.commands import CastSpell, PrepareSpells, Rest
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession
 from osrlib.crawl.views import PlayerView
+from osrlib.data import load_spells
 from test_custom_spells import GLIMMER, adventure, custom_spell, prepare, session
 
 pytestmark = pytest.mark.xfail(reason="chunk: view-text")
@@ -23,6 +24,16 @@ pytestmark = pytest.mark.xfail(reason="chunk: view-text")
 # A cleric's spell of the adventure's own: protection from evil under a new id. Its effect
 # sets no kind of its own, so the effect's kind is the spell's id.
 WARDING = custom_spell("protection_from_evil_c", "warding")
+
+
+def _mending() -> SpellTemplate:
+    """A reversible cleric spell of the adventure's own: cure light wounds as "Mending", reversed as "Rending"."""
+    document = custom_spell("cure_light_wounds", "mending").model_dump()
+    document["reversed_form"] = {**document["reversed_form"], "name": "Rending"}
+    return SpellTemplate.model_validate(document)
+
+
+MENDING = _mending()
 
 
 def _player_view(game: GameSession) -> PlayerView:
@@ -50,8 +61,8 @@ def _cleric_prepares(game: GameSession, *spell_ids: str) -> str:
 def test_built_in_spells_in_the_book_and_memorized_have_their_names():
     """The book's ids and the memorized copies' ids are named from the catalog's `name`.
 
-    A reversed copy of *light* casts *darkness*, and its entry is the spell's own name, "Light",
-    because `spell_names` is keyed by id and the copy's `reversed` says which form it casts.
+    A reversed copy of *light* casts *darkness*, and its entry here is the spell's own name, "Light",
+    because `spell_names` always names the normal form. `reversed_spell_names` has "Darkness".
     """
     game = session(book=("magic_missile", "sleep", "light_mu"))
     wren = pf.named(game, "Wren")
@@ -148,3 +159,50 @@ def test_the_spells_on_a_scroll_stay_hidden():
     blob = view.model_dump_json()
     for hidden in ('"sleep"', '"Sleep"', '"web"', '"Web"', '"fire_ball"', '"Fire Ball"'):
         assert hidden not in blob
+
+
+# ---------------------------------------------------------------------- the reverse's name
+
+
+def test_a_reversible_spell_in_a_book_has_its_reverses_name():
+    """*Light* reverses into *darkness*. The book holds `light_mu` and nothing is memorized."""
+    game = session(book=("light_mu", "magic_missile"))
+
+    view = _player_view(game)
+
+    assert view.reversed_spell_names == {"light_mu": load_spells().get("light_mu").reversed_form.name}
+    assert view.reversed_spell_names["light_mu"] == "Darkness"
+    assert view.spell_names["light_mu"] == "Light"
+
+
+def test_a_clerics_unreversed_copy_still_has_its_reverses_name():
+    """A cleric chooses the form when casting, so a copy prepared plain can still be cast as *cause light wounds*."""
+    game = _cleric_session()
+    oswin = _cleric_prepares(game, "cure_light_wounds", "protection_from_evil_c")
+
+    view = _player_view(game)
+
+    member = next(member for member in view.party if member.id == oswin)
+    assert member.memorized_spells[0] == {"spell_id": "cure_light_wounds", "reversed": False}
+    assert view.reversed_spell_names == {"cure_light_wounds": "Cause Light Wounds"}
+
+
+def test_a_spell_with_no_reverse_has_no_reverse_entry():
+    """*Magic missile* and *sleep* don't reverse, so neither has a reverse's name."""
+    game = session(book=("magic_missile", "sleep"))
+
+    view = _player_view(game)
+
+    assert view.spell_names == {"magic_missile": "Magic Missile", "sleep": "Sleep"}
+    assert view.reversed_spell_names == {}
+
+
+def test_a_bundled_reversible_spell_has_the_reverses_name_the_adventure_gave_it():
+    """`load_spells()` has no "mending". The session's catalog does, and its reverse is "Rending"."""
+    game = _cleric_session(MENDING)
+    _cleric_prepares(game, "mending")
+
+    view = _player_view(game)
+
+    assert view.spell_names == {"mending": "Mending"}
+    assert view.reversed_spell_names == {"mending": "Rending"}

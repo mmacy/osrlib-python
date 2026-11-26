@@ -925,9 +925,22 @@ class PlayerView(_Model):
 
     It names no spell whose id the view doesn't show, so the spells on a scroll stay hidden. A spell id
     on a member that the session's catalog doesn't have, like one from a party made for another
-    adventure, has no entry either, and the session refuses to prepare or cast that spell. The name of
-    a copy prepared reversed is the spell's own name, and the copy's `reversed` says which form it
-    casts."""
+    adventure, has no entry either, and the session refuses to prepare or cast that spell. The name here
+    is always the spell's normal form. For a copy prepared reversed, show its name from
+    `reversed_spell_names`."""
+    reversed_spell_names: dict[str, str] = {}
+    """The name of each spell's reverse, keyed by spell id, like `{"light_mu": "Darkness"}`, for every
+    spell in `spell_names` that has one.
+
+    Each value is the [`name`][osrlib.core.spells.ReversedForm.name] of the spell's
+    [`reversed_form`][osrlib.core.spells.SpellTemplate.reversed_form], read from the same catalog as
+    `spell_names`, so a spell the adventure bundles has the name its author gave the reverse. A spell
+    that doesn't reverse has no entry.
+
+    Show this name for an arcane caster's copy whose `reversed` is true in
+    [`memorized_spells`][osrlib.crawl.views.MemberView.memorized_spells]. A divine caster prepares the
+    normal form and chooses the form when casting, so every memorized copy of a reversible spell can be
+    cast either way. To offer that choice, show both names."""
     fatigued: bool
     """Whether any member is fatigued."""
     exhausted: bool
