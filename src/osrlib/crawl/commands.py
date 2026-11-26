@@ -2908,7 +2908,7 @@ class BattleDeclaration(_Model):
     `battle.declaration.move_not_combinable` with a `fighting_withdrawal` or a `retreat`. A `cast`
     that sets any move gets `battle.declaration.cast_cannot_move`, because the OSE SRD says "The
     spell caster cannot move and cast a spell in the same round". A `turn_undead`, a `use_item`, a
-    `give_item`, or a `hold` that sets any move gets `battle.declaration.move_not_combinable`. Each
+    `give_item`, a `hide`, or a `hold` that sets any move gets `battle.declaration.move_not_combinable`. Each
     of these two codes has the member's id as its `character` param. The session checks for them
     after the back-stab checks and before the action's own checks.
     [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/)
@@ -3151,9 +3151,10 @@ class ResolveBattleRound(Command):
           `battle.declaration.unknown_group`, and `battle.declaration.cannot_move`.
         - A `move` set on an action that can't take it: `battle.declaration.cast_cannot_move`
           on a `cast`, and `battle.declaration.move_not_combinable` on a `turn_undead`, a
-          `use_item`, a `give_item`, or a `hold`, and on an `attack` with a `fighting_withdrawal`
-          or a `retreat`. Each has the member's id as its `character` param. The session checks
-          for them after the back-stab checks and before the action's own checks.
+          `use_item`, a `give_item`, a `hide`, or a `hold`, and on an `attack` with a
+          `fighting_withdrawal` or a `retreat`. Each has the member's id as its `character` param.
+          The session checks for them after the back-stab checks and before the action's own
+          checks.
         - `battle.declaration.replacement_unavailable` when a member who makes a
           `fighting_withdrawal` or a `retreat` alone names a member in `replacement_id` who
           isn't a declarer, is the withdrawing member, is withdrawing too, or was named by a
@@ -3179,9 +3180,18 @@ class ResolveBattleRound(Command):
           `battle.declaration.back_stab_target_aware` before the attack checks, and
           `battle.declaration.back_stab_not_melee` after the group and weapon checks and
           before the melee checks. A back-stab gets only the first of these that applies,
-          and each has the member's id as its `character` param.
+          and each has the member's id as its `character` param. A back-stab by a member who
+          is hiding doesn't get `battle.declaration.not_in_front_rank`.
           [`BattleDeclaration.back_stab`][osrlib.crawl.commands.BattleDeclaration.back_stab]
           gives the order in full.
+        - Hide declarations: `battle.declaration.hide_not_a_thief` when the member's class
+          has no thief skills, and `battle.declaration.hide_in_front_rank` when the member will
+          stand in the first row of the party's ranks toward a group still in the fight once
+          the round's moves are made. The session checks them in that order, after the
+          back-stab checks and the check of `move`, and each has the member's id as its
+          `character` param.
+          [`EncounterView.can_hide`][osrlib.crawl.views.EncounterView.can_hide] lists the
+          members who can hide.
         - Cast declarations: `battle.declaration.missing_spell`,
           `battle.declaration.unknown_group`,
           `battle.declaration.invisible_target`, and the cast checks

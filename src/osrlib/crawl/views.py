@@ -1634,6 +1634,7 @@ def _encounter_view(session) -> EncounterView | None:
         _able_declarers,
         _formation_width,
         _front_rank_toward_nearest,
+        _front_rows,
         _group_lit,
         _members_seeing,
         _placement,
@@ -1699,6 +1700,13 @@ def _encounter_view(session) -> EncounterView | None:
         )
     declarers = _able_declarers(session)
     fired = battle.fired_last_round if battle is not None and session.ruleset.weapon_reload else ()
+    can_hide: tuple[str, ...] = ()
+    hiding: tuple[str, ...] = ()
+    if battle is not None:
+        # The player view lists who is hiding. How each roll went stays in `BattleState.hiding`, for the referee.
+        front = _front_rows(session, placement)
+        can_hide = tuple(member.id for member in declarers if member.definition.thief_skills and member.id not in front)
+        hiding = tuple(member.id for member in session.party.members if member.id in battle.hiding)
     return EncounterView(
         groups=tuple(groups),
         stance=state.stance,
@@ -1709,6 +1717,8 @@ def _encounter_view(session) -> EncounterView | None:
         front_rank=tuple(_front_rank_toward_nearest(session, placement)),
         immobile=tuple(member.id for member in declarers if cannot_move(member)),
         reloading=tuple(fired),
+        can_hide=can_hide,
+        hiding=hiding,
         advance_feet=(
             {member_id: battle.advance_feet.get(member_id, 0) for member_id in living_ids} if battle is not None else {}
         ),

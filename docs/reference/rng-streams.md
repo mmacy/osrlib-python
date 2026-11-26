@@ -12,7 +12,7 @@ The table below lists every key, the constant for it, and what it governs.
 | --- | --- | --- |
 | `"character_creation"` | [`CHARACTER_CREATION_STREAM`][osrlib.core.character.CHARACTER_CREATION_STREAM] | Character creation: ability scores, first-level hit points, starting gold. |
 | `"advancement"` | [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM] | In-play advancement: level-up hit point rolls, and the hit points lost to energy drain. |
-| `"combat"` | [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM] | Battle resolution: attack rolls, damage rolls, saving throws, morale checks, initiative, reaction rolls. |
+| `"combat"` | [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM] | Battle resolution: attack rolls, damage rolls, saving throws, morale checks, initiative, reaction rolls, and a thief's hide in shadows and move silently rolls in a battle. |
 | `"effects"` | [`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM] | Draws inside the effects engine: onset and duration dice, revival delays. |
 | `"monster_spawn"` | [`MONSTER_SPAWN_STREAM`][osrlib.core.monsters.MONSTER_SPAWN_STREAM] | Monster spawning: hit point rolls when a monster instance is created. |
 | `"npc_party"` | [`NPC_PARTY_STREAM`][osrlib.core.npc.NPC_PARTY_STREAM] | NPC adventuring-party generation: composition, class and level, ability scores, hit points, spell picks. |
@@ -20,7 +20,7 @@ The table below lists every key, the constant for it, and what it governs.
 | `"treasure"` | [`TREASURE_STREAM`][osrlib.core.treasure.TREASURE_STREAM] | Treasure generation: presence rolls, quantity dice, per-item resolution, magic item rolls. |
 | `"wandering"` | [`WANDERING_STREAM`][osrlib.crawl.session.WANDERING_STREAM] | Wandering monsters: the wandering check, group counts, variant picks. |
 | `"encounter"` | [`ENCOUNTER_STREAM`][osrlib.crawl.session.ENCOUNTER_STREAM] | Encounter setup: surprise, distance, reaction rolls, distraction, and group counts for monsters or NPC parties spawned by command. |
-| `"exploration"` | [`EXPLORATION_STREAM`][osrlib.crawl.session.EXPLORATION_STREAM] | Exploration: forcing doors, listening, searching, traps, tinder, and thief skill checks. |
+| `"exploration"` | [`EXPLORATION_STREAM`][osrlib.crawl.session.EXPLORATION_STREAM] | Exploration: forcing doors, listening, searching, traps, tinder, and thief skill checks outside a battle. |
 | `"monster_action"` | [`MONSTER_ACTION_STREAM`][osrlib.crawl.session.MONSTER_ACTION_STREAM] | Monster action policy during battle: which action a monster group takes each round, which target it picks, and which attack routine a monster uses when it has a free choice. |
 | `"adjudication"` | [`ADJUDICATION_STREAM`][osrlib.crawl.session.ADJUDICATION_STREAM] | The referee's ad-hoc adjudication rolls: freeform dice commanded through the seeded session. |
 
@@ -34,7 +34,7 @@ The [`ADVANCEMENT_STREAM`][osrlib.core.character.ADVANCEMENT_STREAM] (key `"adva
 
 ## Combat and effects streams
 
-The [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM] (key `"combat"`) covers the battle-resolution kernel: attack rolls, damage rolls, saving throws, morale checks, initiative, and reaction rolls made in combat.
+The [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM] (key `"combat"`) covers the battle-resolution kernel: attack rolls, damage rolls, saving throws, morale checks, initiative, and reaction rolls made in combat. It also covers the two thief skills a battle rolls: hide in shadows when a thief's `hide` declaration resolves, and move silently when that thief's back-stab from hiding comes up.
 
 The [`EFFECTS_STREAM`][osrlib.core.effects.EFFECTS_STREAM] (key `"effects"`) is separate from combat and covers draws internal to the effects engine: rolled onset and duration dice for conditions like poison or paralysis, and revival delays. Because effects have a separate stream, a change to how battle resolves never shifts which round an effect ticks or expires.
 
@@ -60,7 +60,7 @@ The [`WANDERING_STREAM`][osrlib.crawl.session.WANDERING_STREAM] (key `"wandering
 
 The [`ENCOUNTER_STREAM`][osrlib.crawl.session.ENCOUNTER_STREAM] (key `"encounter"`) covers everything that happens once an encounter starts: surprise rolls, the distance at which the two sides meet, reaction rolls, and mid-encounter distraction checks. It also covers the group-size roll when a command spawns a monster group or NPC party with dice rather than a fixed count.
 
-The [`EXPLORATION_STREAM`][osrlib.crawl.session.EXPLORATION_STREAM] (key `"exploration"`) covers the rest of dungeon exploration: forcing doors, listening at doors, searching for secret doors or traps, disarming or triggering traps, lighting tinder, and thief skill checks like picking locks.
+The [`EXPLORATION_STREAM`][osrlib.crawl.session.EXPLORATION_STREAM] (key `"exploration"`) covers the rest of dungeon exploration: forcing doors, listening at doors, searching for secret doors or traps, disarming or triggering traps, lighting tinder, and thief skill checks like picking locks. A thief's skill rolls in a battle come from the combat stream instead.
 
 The [`MONSTER_ACTION_STREAM`][osrlib.crawl.session.MONSTER_ACTION_STREAM] (key `"monster_action"`) covers the action policy that drives monster groups during battle: which action a group takes on its turn, which target it selects, and which attack routine a monster uses when its stat block offers a free choice. A monster with only one routine to choose from makes no draw for it. Because the policy has a separate stream, swapping in a different monster action policy never shifts the combat stream's attack and damage rolls.
 

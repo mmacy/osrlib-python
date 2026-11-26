@@ -90,6 +90,8 @@ You follow the battle through events from [`osrlib.crawl.events`][osrlib.crawl.e
   falls back by themselves.
 - [`MemberWithdrewEvent`][osrlib.crawl.events.MemberWithdrewEvent] when a member who falls back
   alone trades places in the marching order with the member they named.
+- [`HideAttemptedEvent`][osrlib.crawl.events.HideAttemptedEvent] when a thief tries to hide in
+  shadows. It doesn't say whether the thief was noticed.
 - [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent] when a group's distance from the party
   line changes.
 - [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] when a group fails its morale check
@@ -112,10 +114,12 @@ A round follows the OSE SRD's combat sequence:
 4. On the party's turn, the session resolves movement, then missile attacks, then magic, then
    melee. In the movement step, the members who fall back alone move first and the members who
    close move next, each in marching order. A fighting withdrawal or a retreat that every declarer
-   makes moves the whole formation instead, by moving the groups back. Each missile attack and each
+   makes moves the whole formation instead, by moving the groups back. The members who declared
+   `hide` then hide, in marching order. Each missile attack and each
    spell is measured from where its member stands after the movement step. A melee attack resolves
    only if the member is within 5' of the group and in its front rank when the attack comes up,
-   or if the group is running and the member was within 5' of it when the round was accepted.
+   or if the group is running and the member was within 5' of it when the round was accepted. A
+   back-stab from hiding needs no place in the front rank.
 5. On the monsters' turn, the session checks each group's morale, then resolves the actions each
    group's policy chose, in order. A group that closes stops within 5' of the nearest member it can
    see, and its monsters can attack in the same round. A monster's melee attack resolves only when
@@ -315,6 +319,7 @@ from typing import Any, NamedTuple, Protocol, cast
 from pydantic import ConfigDict
 
 from osrlib.core.character import ADVANCEMENT_STREAM
+from osrlib.core.classes import thief_skill_check
 from osrlib.core.clock import TimeUnit
 from osrlib.core.combat import (
     COMBAT_STREAM,
@@ -351,6 +356,7 @@ from osrlib.core.effects import (
 )
 from osrlib.core.events import (
     AttackRolledEvent,
+    DamageDealtEvent,
     DeclarationFizzledEvent,
     Event,
     SavingThrowRolledEvent,
@@ -384,7 +390,9 @@ from osrlib.crawl.events import (
     BattleEndedEvent,
     BattleRoundEvent,
     BattleStartedEvent,
+    DetectionRolledEvent,
     GroupMovedEvent,
+    HideAttemptedEvent,
     MemberMovedEvent,
     MemberWithdrewEvent,
     MonsterFledEvent,
@@ -692,6 +700,11 @@ class ActionPolicy(Protocol):
     the group's first living `monster_ids`, as many as the player view's
     [`EncounterView.formation_width`][osrlib.crawl.views.EncounterView.formation_width].
 
+    The session resolves an attack on a thief who is hiding, and the attack ends the thief's attempt.
+    The built-in policies pass over a thief whose hide in shadows roll passed while they can pick
+    another member. To do the same, read
+    [`BattleState.hiding`][osrlib.crawl.battle.BattleState.hiding].
+
     To keep the default tactics and change one thing, wrap a
     [`ScriptedPolicy`][osrlib.crawl.battle.ScriptedPolicy] or a
     [`NpcPartyPolicy`][osrlib.crawl.battle.NpcPartyPolicy] and change the actions its `choose`
@@ -828,9 +841,11 @@ class ScriptedPolicy:
     `melee` action in the same round, aimed at a member of the front rank the move will produce. Once
     the group is within reach, each monster picks a target at random from the group's front rank, the
     members [`group_front_rank`][osrlib.crawl.battle.group_front_rank] lists. It leaves out invisible
-    members, and members whose *protection from evil* bars that monster. When no target is left, the
-    monster takes a `hold` action and does nothing that round. The members behind the front rank are
-    out of the group's reach. Every monster with a target gets a `melee` action, but the session
+    members, and members whose *protection from evil* bars that monster. It passes over a thief whose
+    hide in shadows roll passed, as [`BattleState.hiding`][osrlib.crawl.battle.BattleState.hiding]
+    records, while another target is left, and finds the thief when the thief is the only target. When no target
+    is left, the monster takes a `hold` action and does nothing that round. The members behind the
+    front rank are out of the group's reach. Every monster with a target gets a `melee` action, but the session
     resolves only those of the monsters' front rank, the group's first living monsters, as many as
     the formation width allows (see
     [`MonsterAction.kind`][osrlib.crawl.battle.MonsterAction.kind]). The rest make no attack that
@@ -985,9 +1000,11 @@ class ScriptedPolicy:
                 if arrival is None and not cannot_move(monster):
                     # The session moves the group by the first close of a monster that can move.
                     arrival = _seen_after_close(session, group, placement, _encounter_rate(monster, session))
-                targets = _preferred_targets(monster, _reachable_targets(session, monster, arrival or []))
+                reachable = _reachable_targets(session, monster, arrival or [])
+                targets = _preferred_targets(monster, _passing_over_hidden(session, reachable))
             else:
-                targets = _preferred_targets(monster, _reachable_targets(session, monster, pool))
+                reachable = _reachable_targets(session, monster, pool)
+                targets = _preferred_targets(monster, _passing_over_hidden(session, reachable))
                 if not targets:
                     actions.append(MonsterAction(monster_id=monster.id, kind="hold"))
                     continue
@@ -1032,6 +1049,11 @@ class NpcPartyPolicy:
        invisible members. Like a monster, it passes over a member turned to stone while a target
        that isn't stone is in reach. Unlike a ghoul or a thoul, it doesn't pass over a paralysed
        member.
+
+    Like a monster, an NPC who picks one member to cast at, shoot at, or attack passes over a thief
+    whose hide in shadows roll passed, as
+    [`BattleState.hiding`][osrlib.crawl.battle.BattleState.hiding] records, while it can pick another
+    member, and finds the thief when the thief is the only member it can pick.
 
     The NPC group has a front rank as a monster group does: its first living NPCs in the group's
     order, as many as the formation width allows (see
@@ -1125,7 +1147,7 @@ class NpcPartyPolicy:
         living = _living_monsters(session, group)
         placement = _placement(session)
         nearest = _nearest_seen_distance(session, group, placement)
-        first_row = _first_row_seen(session, group, placement)
+        first_row = _passing_over_hidden(session, _first_row_seen(session, group, placement))
         pool = _seen(session, _reachable_front_rank(group, placement))
         arrival: list | None = None  # the targets once the group's close is made, worked out at its first close
         catalog = session.effective_spells
@@ -1172,9 +1194,11 @@ class NpcPartyPolicy:
                 if arrival is None and not cannot_move(npc):
                     # The session moves the group by the first close of a member who can move.
                     arrival = _seen_after_close(session, group, placement, _encounter_rate(npc, session))
-                targets = _passing_over_statues(_reachable_targets(session, npc, arrival or []))
+                reachable = _reachable_targets(session, npc, arrival or [])
+                targets = _passing_over_statues(_passing_over_hidden(session, reachable))
             else:
-                targets = _passing_over_statues(_reachable_targets(session, npc, pool))
+                reachable = _reachable_targets(session, npc, pool)
+                targets = _passing_over_statues(_passing_over_hidden(session, reachable))
                 if not targets:
                     actions.append(MonsterAction(monster_id=npc.id, kind="hold"))
                     continue
@@ -1261,6 +1285,23 @@ def _preferred_targets(monster: MonsterInstance, targets: list) -> list:
         if active:
             return active
     return targets
+
+
+def _passing_over_hidden(session, targets: list) -> list:
+    """Leave out the hiding members whose hide in shadows roll passed, while another target is left.
+
+    `BattleDeclaration.back_stab` states the rule. The monsters haven't noticed such a member, so when the session
+    or a built-in policy picks one member for a monster or an NPC adventurer to attack, shoot at, cast at, or
+    breathe on, it passes them over. When
+    every target is such a member, the whole list comes back, and the monster finds them. A member whose roll
+    failed has been noticed and stays in the list. The targets stay in order, and with nobody hiding the list
+    comes back unchanged, so a draw over it stays the same. The call reads state and takes no draw.
+    """
+    hiding = session.battle.hiding if session.battle is not None else {}
+    if not hiding:
+        return targets
+    noticed = [target for target in targets if not hiding.get(target.id, False)]
+    return noticed or targets
 
 
 def _passing_over_statues(targets: list) -> list:
@@ -1900,19 +1941,20 @@ def _reachable_front_rank(group, placement: _Placement) -> list[str]:
     return rows[0]
 
 
-def _melee_rejection(member_id: str, group, placement: _Placement) -> Rejection | None:
+def _melee_rejection(member_id: str, group, placement: _Placement, *, front_rank: bool = True) -> Rejection | None:
     """Return why a member can't fight a group hand to hand where `placement` puts them, or None when they can.
 
     A member farther than 5' from the group gets `combat.attack.out_of_reach`, with that distance as
     `distance_feet`. A member within 5' who isn't in the group's front rank gets
     `battle.declaration.not_in_front_rank`, with the member's id as `character`. A melee attack and a staff's
     charged strike take these checks, in this order, and the melee step asks the same question when the attack
-    comes up. The call reads state and takes no draw.
+    comes up. A back-stab from hiding passes `front_rank=False`, which skips the second check, because a hiding
+    thief strikes from where they stand. The call reads state and takes no draw.
     """
     distance = placement.distance(member_id, group)
     if distance > MELEE_RANGE_FEET:
         return Rejection(code="combat.attack.out_of_reach", params={"distance_feet": distance})
-    if member_id not in _reachable_front_rank(group, placement):
+    if front_rank and member_id not in _reachable_front_rank(group, placement):
         return Rejection(code="battle.declaration.not_in_front_rank", params={"character": member_id})
     return None
 
@@ -1938,6 +1980,36 @@ def _front_rank_toward_nearest(session, placement: _Placement) -> list[str]:
     )
     rows = _ranks_toward(nearest, placement)
     return rows[0] if rows else []
+
+
+def _front_rows(session, placement: _Placement) -> frozenset[str]:
+    """The members in the first row of the party's ranks toward any group that hasn't fled and has a living member.
+
+    The row counts at any distance from its group. A member in it can't hide, as `BattleDeclaration.action`
+    states, and the player view's `EncounterView.can_hide` leaves them out. The call reads state and takes no draw.
+    """
+    rows: set[str] = set()
+    for group in session.encounter.groups:
+        if group.fled or not _living_monsters(session, group):
+            continue
+        ranks = _ranks_toward(group, placement)
+        if ranks:
+            rows.update(ranks[0])
+    return frozenset(rows)
+
+
+def _hide_rejection(session, member, placement: _Placement) -> Rejection | None:
+    """Return why a member can't declare `hide` where `placement` puts them, or None when they can.
+
+    A member whose class has no thief skills gets `battle.declaration.hide_not_a_thief`. A member in the first
+    row toward any group still in the fight (see `_front_rows`) gets `battle.declaration.hide_in_front_rank`. Both
+    have the member's id as `character`, and the checks come in that order. The call reads state and takes no draw.
+    """
+    if not member.definition.thief_skills:
+        return Rejection(code="battle.declaration.hide_not_a_thief", params={"character": member.id})
+    if member.id in _front_rows(session, placement):
+        return Rejection(code="battle.declaration.hide_in_front_rank", params={"character": member.id})
+    return None
 
 
 _DEFAULT_INFRAVISION_FEET = 60
@@ -2143,6 +2215,8 @@ def group_front_rank(session, group_id: str) -> tuple[str, ...]:
 
     Call it from a policy of your own: the default policies pick each monster's melee target from these
     members, leaving out invisible members and members whose *protection from evil* bars that monster.
+    They also pass over a thief whose hide in shadows roll passed, as
+    [`BattleState.hiding`][osrlib.crawl.battle.BattleState.hiding] records, while another member is left.
     A client that has only the player view reads the same ids from
     [`EncounterGroupView.front_rank`][osrlib.crawl.views.EncounterGroupView.front_rank].
 
@@ -2611,9 +2685,9 @@ def _combination_rejection(declaration: BattleDeclaration) -> Rejection | None:
 
     A `move` action takes any move, and an `attack` takes a `close`. A `cast` that sets any move gets
     `battle.declaration.cast_cannot_move`, because the OSE SRD says "The spell caster cannot move and cast a
-    spell in the same round". A `turn_undead`, a `use_item`, a `give_item`, or a `hold` that sets any move, and
-    an `attack` with a `fighting_withdrawal` or a `retreat`, get `battle.declaration.move_not_combinable`. Both
-    have the member's id as `character`. The call takes no draw.
+    spell in the same round". A `turn_undead`, a `use_item`, a `give_item`, a `hide`, or a `hold` that sets any
+    move, and an `attack` with a `fighting_withdrawal` or a `retreat`, get `battle.declaration.move_not_combinable`.
+    Both have the member's id as `character`. The call takes no draw.
     """
     if declaration.move is None or declaration.action == "move":
         return None
@@ -2719,10 +2793,13 @@ def _back_stab_rejection(session, declaration: BattleDeclaration, member) -> Rej
     2. `battle.declaration.back_stab_no_ability`: the member's class has no `back_stab` ability.
     3. `battle.declaration.back_stab_target_aware`: the monsters aren't held by the party's surprise,
        so [`BattleState.monsters_hold_rounds`][osrlib.crawl.battle.BattleState.monsters_hold_rounds]
-       is zero.
+       is zero, and the member isn't in
+       [`BattleState.hiding`][osrlib.crawl.battle.BattleState.hiding].
 
     The pre-phase reads `monsters_hold_rounds` before the monster block of the round spends it, so a
-    back-stab accepted in the free round stays a back-stab for every attack roll of that round.
+    back-stab accepted in the free round stays a back-stab for every attack roll of that round. The check
+    reads only whether the member is hiding, never how the hide in shadows roll went, so a refusal
+    reveals nothing the referee keeps from the players.
     """
     if not declaration.back_stab:
         return None
@@ -2731,9 +2808,23 @@ def _back_stab_rejection(session, declaration: BattleDeclaration, member) -> Rej
         return Rejection(code="battle.declaration.back_stab_not_attack", params=params)
     if not any(ability.tag == "back_stab" for ability in member.definition.abilities):
         return Rejection(code="battle.declaration.back_stab_no_ability", params=params)
-    if session.battle.monsters_hold_rounds <= 0:
+    if session.battle.monsters_hold_rounds <= 0 and member.id not in session.battle.hiding:
         return Rejection(code="battle.declaration.back_stab_target_aware", params=params)
     return None
+
+
+def _stabs_from_hiding(session, declaration: BattleDeclaration, member_id: str) -> bool:
+    """Whether a declaration is a back-stab from hiding, as the pre-phase judges it.
+
+    It is when the declaration sets `back_stab`, the monsters aren't held by the party's surprise, and the member is
+    in `BattleState.hiding`. A back-stab in the free round is never one from hiding, and it takes every melee check.
+    A back-stab from hiding skips `battle.declaration.not_in_front_rank` when the round is accepted and when the
+    attack comes up, and the session decides at the attack whether it's a back-stab (see `_back_stab_from_hiding`).
+    The call reads state and takes no draw.
+    """
+    state = session.battle
+    stab = declaration.action == "attack" and declaration.back_stab
+    return stab and state.monsters_hold_rounds <= 0 and member_id in state.hiding
 
 
 def _validate_declaration(
@@ -2781,6 +2872,10 @@ def _validate_declaration(
     any other check. On an attack, `battle.declaration.back_stab_not_melee` comes after the group and
     weapon checks and before the melee checks, as
     [`BattleDeclaration.back_stab`][osrlib.crawl.commands.BattleDeclaration.back_stab] gives the order.
+    A back-stab from hiding (see `_stabs_from_hiding`) skips `battle.declaration.not_in_front_rank`.
+
+    A `hide` takes the checks of `_hide_rejection` against `placement`, after the back-stab checks and the
+    check of `move`.
     """
     state = session.battle
     refused = _back_stab_rejection(session, declaration, member) or _combination_rejection(declaration)
@@ -2788,6 +2883,9 @@ def _validate_declaration(
         return [refused]
     if declaration.action == "hold":
         return []
+    if declaration.action == "hide":
+        hidden = _hide_rejection(session, member, placement or _placement(session))
+        return [] if hidden is None else [hidden]
     if declaration.action == "move":
         if declaration.move is None:
             return [Rejection(code="battle.declaration.missing_move", params={"character": member.id})]
@@ -2821,7 +2919,8 @@ def _validate_declaration(
         if declaration.back_stab and missile:
             return [Rejection(code="battle.declaration.back_stab_not_melee", params={"character": member.id})]
         if not missile:
-            out_of_place = _melee_rejection(member.id, group, placement)
+            front_rank = not _stabs_from_hiding(session, declaration, member.id)
+            out_of_place = _melee_rejection(member.id, group, placement, front_rank=front_rank)
             if out_of_place is not None:
                 return [out_of_place]
         context = AttackContext(
@@ -3664,6 +3763,10 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
     declarations = [declaration for _, declaration in by_member.values()]
     trades = judgement.trades
     formation = judgement.formation
+    # The back-stabs accepted from hiding, read before anything in the round ends an attempt.
+    from_hiding = frozenset(
+        member.id for member, declaration in by_member.values() if _stabs_from_hiding(session, declaration, member.id)
+    )
 
     # The gaze stances last from here to the end of the round, whichever side acts first.
     averting = _avert_eyes(by_member)
@@ -3728,6 +3831,8 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
     def party_block() -> list[Event]:
         block: list[Event] = []
         block.extend(_party_movement(session, by_member, trades, formation))
+        # The movement step ends with the hides, so damage from here on ends an attempt.
+        hidden_at = len(block)
         block.extend(
             _party_attacks(
                 session,
@@ -3738,9 +3843,12 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
                 fire_damaged=fire_damaged_groups,
                 engaged=engaged,
                 closing=closing,
+                from_hiding=from_hiding,
             )
         )
         block.extend(_party_magic(session, by_member, pending_casters, disrupted, acted, state))
+        # An area spell can catch a hiding member before the melee step reads who is hiding.
+        _note_damage(session, block[hidden_at:])
         block.extend(
             _party_attacks(
                 session,
@@ -3751,9 +3859,11 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
                 fire_damaged=fire_damaged_groups,
                 engaged=engaged,
                 closing=closing,
+                from_hiding=from_hiding,
             )
         )
         block.extend(_confused_party_overrides(session, by_member, fire_damaged_groups))
+        _note_damage(session, block[hidden_at:])
         # Party hits and failed saves disrupt declared NPC casters too (the RAW
         # trigger applies to either side).
         _watch_disruption(block, pending_casters, disrupted, acted)
@@ -3788,6 +3898,7 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
 
     # Slow-weapon actors act last, after both sides' blocks (see the adaptations register). A member who can't
     # act by then doesn't, and nothing reports it.
+    tail = len(events)
     if session.battle is not None:
         for member, declaration, missile in slow_attacks:
             if incapacitated(member):
@@ -3805,12 +3916,16 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
                     group,
                     engaged,
                     device_id=declaration.item_id if strike else None,
+                    front_rank=declaration.character_id not in from_hiding,
                 )
             )
             if fizzled is not None:
+                _stop_hiding(session, declaration.character_id)
                 events.append(fizzled)
                 continue
-            events.extend(_resolve_party_attack(session, member, declaration, fired_this_round, fire_damaged_groups))
+            events.extend(
+                _attack_comes_up(session, member, declaration, from_hiding, fired_this_round, fire_damaged_groups)
+            )
         end = _check_ends(session, party_retreating=False)
         if end is not None:
             events.extend(end)
@@ -3818,6 +3933,11 @@ def _handle_resolve_battle_round(session, command: ResolveBattleRound) -> tuple[
     if session.battle is not None:
         state.fired_last_round = fired_this_round
         events.extend(session.advance_rounds(1))
+        _note_damage(session, events[tail:])
+        # A member who can't act at the end of the round stops hiding.
+        for member_id in list(state.hiding):
+            if incapacitated(session.member(member_id)):
+                _stop_hiding(session, member_id)
         end = _check_ends(session, party_retreating=formation == "retreat")
         if end is not None:
             events.extend(end)
@@ -3881,15 +4001,19 @@ def _party_movement(session, by_member, trades: Sequence[_Trade], formation: str
 
     Otherwise each member moves alone, as `_plan_member_moves` plans it from the battle as it stands
     when the step comes: first the members who fall back, then the members who close. Either way, the
-    step ends by moving the party line back when every member the monsters can see stands behind it
-    (see `_move_line_back`).
+    party line then moves back when every member the monsters can see stands behind it (see
+    `_move_line_back`).
 
-    The step takes no draw.
+    A `move` declaration comes up in this step, so it ends its member's attempt to hide. The step ends
+    with the round's hides (see `_hides`), which are its only draws.
 
     Returns:
         The step's events.
     """
     events: list[Event] = []
+    for member, declaration in by_member.values():
+        if declaration.action == "move":
+            _stop_hiding(session, member.id)
     if formation is not None:
         rate = _formation_feet(session, formation)
         for group in session.encounter.groups:
@@ -3901,6 +4025,7 @@ def _party_movement(session, by_member, trades: Sequence[_Trade], formation: str
         declared = {member.id: declaration for member, declaration in by_member.values()}
         events = _members_move(session, _plan_member_moves(session, declared, trades))
     _move_line_back(session)
+    events.extend(_hides(session, by_member))
     return events
 
 
@@ -4080,6 +4205,7 @@ def _party_attacks(
     fire_damaged,
     engaged: Collection[str],
     closing: Collection[str],
+    from_hiding: Collection[str] = frozenset(),
 ) -> list[Event]:
     """Resolve the party's missile or melee attacks, and queue the slow ones for the end of the round.
 
@@ -4106,6 +4232,11 @@ def _party_attacks(
     with the same checks. It fizzles as a device use does, at `magic.device.fizzled` with the staff's instance id,
     so the player learns that the staff keeps its charge. Every staff is slow, so a strike that passes goes into
     `slow_attacks`, and `_resolve_strike` resolves it at the end of the round.
+
+    An attack, a strike, or a throw ends its member's attempt to hide when it comes up here, whether it resolves or
+    fizzles. A slow one ends it at the end of the round instead, when it comes up again. `from_hiding` contains the
+    members whose back-stab from hiding the pre-phase accepted. Such a back-stab skips the front rank check (see
+    `_melee_fizzle`) and gets the move silently roll that decides whether it's a back-stab (see `_attack_comes_up`).
     """
     events: list[Event] = []
     for member, declaration in by_member.values():
@@ -4117,6 +4248,7 @@ def _party_attacks(
         if declaration.action == "use_item" and staff is None:
             if member.inventory.magic_item(declaration.item_id or "") is not None:
                 continue  # magic items resolve in the magic phase (see the adaptations register)
+            _stop_hiding(session, member.id)
             events.extend(_resolve_use_item(session, member, declaration, fire_damaged))
             continue
         group = _group_by_id(session, declaration.target_group_id)
@@ -4131,20 +4263,28 @@ def _party_attacks(
         fizzled = (
             None
             if is_missile
-            else _melee_fizzle(session, member.id, group, engaged, device_id=declaration.item_id if staff else None)
+            else _melee_fizzle(
+                session,
+                member.id,
+                group,
+                engaged,
+                device_id=declaration.item_id if staff else None,
+                front_rank=member.id not in from_hiding,
+            )
         )
         if fizzled is not None:
+            _stop_hiding(session, member.id)
             events.append(fizzled)
             continue
         if WeaponQuality.SLOW in getattr(_declaration_facet(weapon), "qualities", ()):
             slow_attacks.append((member, declaration, is_missile))
             continue
-        events.extend(_resolve_party_attack(session, member, declaration, fired, fire_damaged))
+        events.extend(_attack_comes_up(session, member, declaration, from_hiding, fired, fire_damaged))
     return events
 
 
 def _melee_fizzle(
-    session, member_id: str, group, engaged: Collection[str], *, device_id: str | None = None
+    session, member_id: str, group, engaged: Collection[str], *, device_id: str | None = None, front_rank: bool = True
 ) -> DeclarationFizzledEvent | None:
     """Return the fizzle of a declared melee attack that can't resolve where the member stands now, or None.
 
@@ -4162,7 +4302,8 @@ def _melee_fizzle(
     - `combat.attack.out_of_reach` for a group that ran out of the battle, even for a member in `engaged`.
       Such a group has left the battle space, so nobody can strike it.
 
-    The call reads state and takes no draw.
+    A back-stab from hiding passes `front_rank=False`, which skips `battle.declaration.not_in_front_rank` as the
+    pre-phase skipped it. The call reads state and takes no draw.
     """
     if not _monster_pool(session, group):
         reason = "battle.declaration.no_target"
@@ -4171,7 +4312,7 @@ def _melee_fizzle(
     elif (group.fleeing or _group_all_shaken(session, group)) and member_id in engaged:
         return None
     else:
-        stopped = _melee_rejection(member_id, group, _placement(session))
+        stopped = _melee_rejection(member_id, group, _placement(session), front_rank=front_rank)
         if stopped is None:
             return None
         reason = stopped.code
@@ -4432,6 +4573,106 @@ def _break_invisibility(session, member) -> list[Event]:
     return events
 
 
+def _hides(session, by_member) -> list[Event]:
+    """Resolve the round's `hide` declarations, at the end of the party's movement step, in marching order.
+
+    A member who can't act or is confused when the step comes doesn't hide, and the session draws nothing for them.
+    For each other member, the session rolls hide in shadows on the combat stream and records the result in
+    `BattleState.hiding`, which replaces any attempt the member already had. The players see a `HideAttemptedEvent`,
+    which doesn't say how the roll went. A `DetectionRolledEvent` of kind `"hide_in_shadows"` follows it and
+    reports the roll to the referee.
+
+    Returns:
+        The events, two for each member who hides.
+    """
+    state = session.battle
+    declared = {member.id: declaration for member, declaration in by_member.values()}
+    events: list[Event] = []
+    for member in session.party.living_members():
+        declaration = declared.get(member.id)
+        if declaration is None or declaration.action != "hide":
+            continue
+        if incapacitated(member) or has_condition(member, Condition.CONFUSED):
+            continue
+        check = thief_skill_check(
+            member, member.definition, "hide_in_shadows", stream=session.streams.get(COMBAT_STREAM)
+        )
+        state.hiding[member.id] = check.passed
+        events.append(HideAttemptedEvent(character_id=member.id))
+        events.append(
+            DetectionRolledEvent(
+                character_id=member.id,
+                kind="hide_in_shadows",
+                chance=check.chance,
+                roll=check.roll,
+                passed=check.passed,
+            )
+        )
+    return events
+
+
+def _stop_hiding(session, member_id: str) -> None:
+    """End the member's attempt to hide, if they have one. The call takes no draw and emits no event."""
+    session.battle.hiding.pop(member_id, None)
+
+
+def _note_damage(session, events: Iterable[Event]) -> None:
+    """End the attempt of each hiding member whom one of `events` deals damage to.
+
+    Pass only events that came after the round's hides, so damage a member took before they hid doesn't end the
+    attempt. A `DamageDealtEvent` with an `amount` of 0 doesn't count. The call takes no draw.
+    """
+    hiding = session.battle.hiding
+    if not hiding:
+        return
+    for event in events:
+        if isinstance(event, DamageDealtEvent) and event.amount > 0:
+            hiding.pop(event.target_id, None)
+
+
+def _back_stab_from_hiding(session, member, declaration: BattleDeclaration) -> tuple[BattleDeclaration, list[Event]]:
+    """Decide, as a back-stab from hiding comes up, whether it's a back-stab, and end the member's attempt.
+
+    A member who is still hiding rolls move silently on the combat stream, before the attack's first roll. The session
+    makes the roll whatever the hide in shadows roll was and whichever way the ruleset is set, so both settings draw
+    the same, and the referee sees it in a `DetectionRolledEvent` of kind `"move_silently"`. With the ruleset's
+    `back_stab_needs_both_skills` flag on, the attack is a back-stab when both rolls passed. With it off, either roll
+    is enough. A member whose attempt ended before the attack came up makes no roll, and the attack is ordinary.
+
+    Returns:
+        The declaration with `back_stab` set to the outcome, and the roll's event when there was a roll.
+    """
+    unseen = session.battle.hiding.pop(member.id, None)
+    if unseen is None:
+        return declaration.model_copy(update={"back_stab": False}), []
+    check = thief_skill_check(member, member.definition, "move_silently", stream=session.streams.get(COMBAT_STREAM))
+    rolled = DetectionRolledEvent(
+        character_id=member.id, kind="move_silently", chance=check.chance, roll=check.roll, passed=check.passed
+    )
+    if session.ruleset.back_stab_needs_both_skills:
+        stab = unseen and check.passed
+    else:
+        stab = unseen or check.passed
+    return declaration.model_copy(update={"back_stab": stab}), [rolled]
+
+
+def _attack_comes_up(
+    session, member, declaration: BattleDeclaration, from_hiding: Collection[str], fired, fire_damaged
+) -> list[Event]:
+    """Resolve a party member's attack, or a staff's strike, that has passed its step's checks.
+
+    The attack ends the member's attempt to hide. A back-stab from hiding, by a member in `from_hiding`, first gets
+    the move silently roll that decides whether it's a back-stab (see `_back_stab_from_hiding`).
+    """
+    events: list[Event] = []
+    if member.id in from_hiding:
+        declaration, rolled = _back_stab_from_hiding(session, member, declaration)
+        events.extend(rolled)
+    _stop_hiding(session, member.id)
+    events.extend(_resolve_party_attack(session, member, declaration, fired, fire_damaged))
+    return events
+
+
 def _fizzle_event(caster_id: str, spell_id: str, *, reversed: bool, reason: str) -> SpellDisruptedEvent:
     """Report a declaration the magic phase's re-check refused, at `magic.cast.fizzled`.
 
@@ -4491,6 +4732,9 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
 
     A staff's strike for a charge doesn't resolve here, because it's a blow with a slow weapon (see
     `_resolve_strike`).
+
+    Each declaration that comes up here ends its member's attempt to hide, whether it resolves, fizzles, or is
+    disrupted.
     """
     events: list[Event] = []
     for member, declaration in by_member.values():
@@ -4499,6 +4743,7 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
         if incapacitated(member) or has_condition(member, Condition.CONFUSED):
             continue
         if declaration.action == "give_item":
+            _stop_hiding(session, member.id)
             events.extend(_resolve_hand_over(session, member, declaration))
             acted.add(member.id)
             continue
@@ -4507,6 +4752,7 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
                 continue  # thrown splash gear resolved in the missile phase
             if _strike_staff(member, declaration) is not None:
                 continue  # a staff's charged strike is a blow with a slow weapon (see `_resolve_strike`)
+            _stop_hiding(session, member.id)
             instance = member.inventory.magic_item(declaration.item_id)
             category = magic_item_template(instance).category
             if category in (MagicItemCategory.ROD, MagicItemCategory.STAFF, MagicItemCategory.WAND):
@@ -4531,6 +4777,7 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
                 events.extend(_break_invisibility(session, member))
             acted.add(member.id)
             continue
+        _stop_hiding(session, member.id)  # a turning or a cast comes up here, whatever becomes of it
         if declaration.action == "turn_undead":
             # Turning resolves in the magic phase, but a hit can't disrupt it, because it's
             # a class ability, not a spell (see the adaptations register). It's still checked
@@ -4916,6 +5163,9 @@ def _monster_block(
     evil* bars the monster from the target (see `_reachable_targets`). A monster or NPC that can't act when its
     action comes up doesn't act, whatever its policy chose.
 
+    A `melee` or an `npc_shoot` on a hiding member ends the member's attempt when it resolves, and so does damage
+    to the member (see `_note_damage`), whichever action deals it.
+
     The keyword arguments contain party member ids:
 
     - `retreating`: the members a retreat exposes this round (see `_retreating_members`). Every
@@ -4960,6 +5210,7 @@ def _monster_block(
         else:
             actions = _policy_for(session, group).choose(session, group, session.streams.get(MONSTER_ACTION_STREAM))
         events.extend(_confused_overrides(session, group, retreating=retreating))
+        _note_damage(session, events)
         moved = False
         for action in actions:
             ready = _ready(session, group, action, moved=moved, retreat_reach=retreat_reach)
@@ -4975,12 +5226,14 @@ def _monster_block(
                 _watch_disruption(events, pending_casters, disrupted, acted)
             elif action.kind == "melee":
                 exposed = ready.target.id in retreating
+                _stop_hiding(session, ready.target.id)
                 events.extend(
                     _resolve_melee(session, actor, ready.target, group, retreating=exposed, routine=action.routine)
                 )
                 _watch_disruption(events, pending_casters, disrupted, acted)
             elif action.kind == "npc_shoot":
                 exposed = ready.target.id in retreating
+                _stop_hiding(session, ready.target.id)
                 events.extend(
                     _resolve_npc_attack(session, actor, ready.target, group, missile=True, retreating=exposed)
                 )
@@ -4994,6 +5247,7 @@ def _monster_block(
 
                 potion = ready.target
                 events.extend(_magic_items._use_potion(session, actor, actor, potion, magic_item_template(potion)))
+            _note_damage(session, events)
     return events
 
 
@@ -5089,6 +5343,10 @@ def _resolve_npc_cast(session, npc, group, ready: _Ready, disrupted: set) -> lis
     context = CastContext(in_combat=True, distance_feet=distance)
     if validate_cast(npc, spell, mode.key, profile=profile, targets=targets, context=context, ledger=session.ledger):
         return []
+    if target is not None:
+        # `_npc_cast_ready` sets a target only for a spell with one target, and a spell cast at a hiding member
+        # ends the attempt.
+        _stop_hiding(session, target.id)
     result = cast_spell(
         npc,
         spell,
@@ -5262,7 +5520,8 @@ def _confused_overrides(session, group, *, retreating: Collection[str] = frozens
     A confused member who can't act makes no roll, as a confused party member makes none. Only a confused
     member in the group's front rank can attack the party (see `_in_front_rank`). One behind it that rolls
     an attack on the party makes no pick and attacks no one. An attack on another member of the group
-    needs no place in the front rank.
+    needs no place in the front rank. The pick of a party member passes over a thief hiding unseen while it can
+    pick another member (see `_passing_over_hidden`), and an attack on a hiding member ends the attempt.
     """
     events: list[Event] = []
     for monster in _living_monsters(session, group):
@@ -5294,9 +5553,10 @@ def _confused_overrides(session, group, *, retreating: Collection[str] = frozens
             if not _in_front_rank(session, monster, group):
                 continue  # behind the front rank, it can't reach the party
             pool = _seen(session, _reachable_front_rank(group, _placement(session)))
-            targets = _reachable_targets(session, monster, pool)
+            targets = _passing_over_hidden(session, _reachable_targets(session, monster, pool))
             if targets:
                 target = targets[session.streams.get(COMBAT_STREAM).randbelow(len(targets))]
+                _stop_hiding(session, target.id)
                 events.extend(_resolve_melee(session, monster, target, group, retreating=target.id in retreating))
         elif outcome == "attack_own_group":
             fellows = [other for other in _living_monsters(session, group) if other.id != monster.id]
@@ -5701,19 +5961,21 @@ def _resolve_breath(session, monster, group) -> list[Event]:
     """A breath weapon against the party, resolved through the deterministic rank-coverage footprint.
 
     A breath that hits one target, like the hellhound's, picks with equal chance from the first row toward the
-    group, at any distance, leaving out invisible members (see `_first_row_seen`). The pick is on the
-    monster-action stream. An area breath covers the ranks toward the group from the front, by distance (see
-    `_area_rows`).
+    group, at any distance, leaving out invisible members (see `_first_row_seen`). The pick passes over a thief
+    hiding unseen while it can pick another member (see `_passing_over_hidden`), and a breath at a hiding member
+    ends the attempt. The pick is on the monster-action stream. An area breath covers the ranks toward the group
+    from the front, by distance (see `_area_rows`), a hiding member's rank included.
     """
     params = monster.template.ability("breath_weapon").params
     placement = _placement(session)
     if str(params.get("targeting")) == "single":
         from osrlib.crawl.session import MONSTER_ACTION_STREAM
 
-        pool = _first_row_seen(session, group, placement)
+        pool = _passing_over_hidden(session, _first_row_seen(session, group, placement))
         if not pool:
             return []
         target = pool[session.streams.get(MONSTER_ACTION_STREAM).randbelow(len(pool))]
+        _stop_hiding(session, target.id)
         targets = [target]
     else:
         shape = str(params.get("shape", "cone"))
