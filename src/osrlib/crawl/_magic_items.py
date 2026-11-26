@@ -18,7 +18,7 @@ from osrlib.core.items import MagicItemCategory, MagicItemInstance, magic_item_t
 from osrlib.core.spells import MAGIC_STREAM, cast_from_scroll, caster_profile, validate_scroll_cast
 from osrlib.core.validation import Rejection
 from osrlib.crawl._light import _requires_light
-from osrlib.crawl._party_members import _member_able, _remove_instance
+from osrlib.crawl._party_members import _actable_target, _member_able, _remove_instance, _spell_target
 from osrlib.crawl._spells import _cast_context, _cast_outcomes, _drain_character
 from osrlib.crawl.commands import SessionMode, UseItem
 from osrlib.crawl.events import CurseRevealedEvent, ItemIdentifiedEvent, ItemUsedEvent, LightEvent
@@ -164,10 +164,12 @@ def _potion_drinker(session, carrier, instance: MagicItemInstance, target_id: st
 def _healing_target(session, user, instance: MagicItemInstance, target_id: str | None):
     """Return whom a staff of healing heals, with every reason it can't, as a `(target, rejections)` pair.
 
-    With no `target_id`, or the user's own id, the staff heals its user. Any other id has to be a creature's, or
-    the use gets `items.use.unknown_target` with the id as `target`. A creature that's dead or turned to stone can't
-    be healed, and the use gets `items.use.target_cannot_be_healed`. The OSE SRD's staff "Is effective on any
-    individual at most once per day", so a creature the staff already healed today gets
+    With no `target_id`, or the user's own id, the staff heals its user. Any other id has to be a party member's or
+    a creature's in a group of the open encounter that hasn't fled (see `_party_members._actable_target`), or the
+    use gets `items.use.unknown_target` with the id as `target`, so a creature of an encounter that has ended gets
+    the answer an id that matches nothing gets, alive or dead. A creature the party can act on that's dead or
+    turned to stone can't be healed, and the use gets `items.use.target_cannot_be_healed`. The OSE SRD's staff "Is
+    effective on any individual at most once per day", so a creature the staff already healed today gets
     `items.use.target_healed_today` after that check (see `_healed_today`). Both rejections have the staff's
     instance id as `item` and the creature's id as `target`. [`UseItem`][osrlib.crawl.commands.UseItem] takes
     these checks, and a battle adds checks of reach (see `battle._healing_touch`). The target is None when there
@@ -176,7 +178,7 @@ def _healing_target(session, user, instance: MagicItemInstance, target_id: str |
     if target_id is None or target_id == user.id:
         target = user
     else:
-        target = session.registry().get(target_id)
+        target, _ = _actable_target(session, target_id)
         if target is None:
             return None, [Rejection(code="items.use.unknown_target", params={"target": target_id})]
         if not _stands(target):
@@ -340,7 +342,6 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
     light_rejections = _requires_light(session, member, infravision_suffices=False)
     if light_rejections:
         return light_rejections, []
-    stream = session.streams.get(MAGIC_STREAM)
     events: list[Event] = []
     if template.cursed:
         # Looking at a cursed scroll curses the reader, whatever their class.
@@ -392,6 +393,7 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
             events.extend(attach_events)
         return [], events
     if template.effect is not None and template.effect.kind == "ward":
+        stream = session.streams.get(MAGIC_STREAM)
         _remove_instance(member, instance)
         events.extend(_identify_item_events(session, member, instance))
         events.append(ItemUsedEvent(code="items.scroll.read", character_id=member.id, instance_id=instance.instance_id))
@@ -438,16 +440,16 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
             else:
                 return [Rejection(code="items.scroll.wrong_caster", params={"item": instance.instance_id})], []
         mode = command.mode or spell.modes[0].key
-        registry = session.registry()
         targets: list[Creature | str] = []
         target_refs = command.targets or ((command.target_id,) if command.target_id else ())
         for target_ref in target_refs:
             if target_ref.startswith("cell:"):
                 targets.append(target_ref)
-            elif target_ref in registry:
-                targets.append(registry[target_ref])
-            else:
+                continue
+            target, _ = _spell_target(session, target_ref)
+            if target is None:
                 return [Rejection(code="magic.cast.unknown_target", params={"target": target_ref})], []
+            targets.append(target)
         context = _cast_context(session, targets, in_combat=False)
         # The kernel's pre-check, asked about a caster at the scroll's level, which is
         # the level `cast_from_scroll` resolves at. This handler refuses here what the kernel
@@ -462,6 +464,9 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
         )
         if cast_rejections:
             return cast_rejections, []
+        # Ask for the stream only now, because the first `get` adds it to the session's saved RNG state, and a
+        # refused read must change no state.
+        stream = session.streams.get(MAGIC_STREAM)
         left = tuple(spell for spell in remaining if spell != spell_id) + tuple(
             spell_id for _ in range(remaining.count(spell_id) - 1)
         )
@@ -488,7 +493,7 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
             ledger=session.ledger,
             clock=session.clock,
             allocator=session.allocator,
-            registry=registry,
+            registry=session.registry(),
             ruleset=session.ruleset,
             stream=stream,
             effects_stream=session.streams.get(EFFECTS_STREAM),

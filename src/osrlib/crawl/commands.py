@@ -1043,10 +1043,14 @@ class InspectTreasure(Command):
     member with thief skills can find a treasure trap, and each one gets a single attempt per
     cache."""
     feature_id: str
-    """Which cache to check for a trap. Use a
-    [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id] from the current player view.
-    For compatibility, an unambiguous raw authored id or generated cache id still works. The
-    cache has to be on the party's cell and available to the party."""
+    """Which cache to check for a trap: a `feature:` handle from
+    [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id] in the current player view, or the
+    cache's raw id, an authored [`FeatureSpec.id`][osrlib.crawl.dungeon.FeatureSpec.id] or the id
+    of a cache the engine generated. Both forms stay supported. A player client sends the handle,
+    because the player view lists only handles. Both forms resolve against the same caches, the
+    available ones the party can reach where it stands, so a raw id reaches and reveals
+    nothing that a handle doesn't. A cache anywhere else gets the same
+    `exploration.feature.unknown` rejection as an id that no cache has."""
 
 
 class RemoveTreasureTrap(Command):
@@ -1108,10 +1112,14 @@ class RemoveTreasureTrap(Command):
     [`MemberView.id`][osrlib.crawl.views.MemberView.id]. A failed attempt springs the trap on
     this member."""
     feature_id: str
-    """Which trapped cache to disarm. Use a
-    [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id] from the current player view, or
-    an unambiguous raw authored id. Only an authored cache can be trapped. A cache with no trap,
-    or with a trap nobody has found, gets the same `exploration.feature.unknown` rejection."""
+    """Which trapped cache to disarm: a `feature:` handle from
+    [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id] in the current player view, or the
+    cache's raw [`FeatureSpec.id`][osrlib.crawl.dungeon.FeatureSpec.id], since only an authored
+    cache can be trapped. Both forms stay supported. A player client sends the handle, because the
+    player view lists only handles. Both forms resolve against the same caches, the available
+    ones the party can reach where it stands, so a raw id reaches and reveals nothing that a
+    handle doesn't. A cache anywhere else, a cache with no trap, and a cache whose trap nobody has
+    found all get the same `exploration.feature.unknown` rejection as an id that no cache has."""
 
 
 class TakeTreasure(Command):
@@ -1214,10 +1222,15 @@ class TakeTreasure(Command):
 
     command_type: Literal["take_treasure"] = "take_treasure"
     feature_id: str
-    """What to empty. Use a
-    [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id] from the current player view.
-    For compatibility, an unambiguous raw authored id or generated cache id still works. The
-    literal `"pile"` means the goods dropped on the party's cell, which
+    """What to empty: a `feature:` handle from
+    [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id] in the current player view, or the
+    cache's raw id, an authored [`FeatureSpec.id`][osrlib.crawl.dungeon.FeatureSpec.id] or the id
+    of a cache the engine generated. Both forms stay supported. A player client sends the handle,
+    because the player view lists only handles. Both forms resolve against the same caches, the
+    available ones the party can reach where it stands, so a raw id reaches and reveals
+    nothing that a handle doesn't. A cache anywhere else gets the same
+    `exploration.feature.unknown` rejection as an id that no cache has. The literal `"pile"` means
+    the goods dropped on the party's cell, which
     [`PlayerView.piles`][osrlib.crawl.views.PlayerView.piles] lists by cell reference. The session
     refuses a cache that's already emptied with `exploration.feature.emptied`."""
     recipient_id: str | None = None
@@ -1714,7 +1727,10 @@ class CastSpell(Command):
         - `session.command.member_incapacitated` - the member can't act.
         - `magic.cast.unknown_spell` - `spell_id` matches no spell in the session's catalog.
         - `magic.cast.silenced_area` - a *silence* effect covers the party's cell.
-        - `magic.cast.unknown_target` - a target id matches no entity in the session.
+        - `magic.cast.unknown_target` - a target id isn't a party member's. No encounter is open
+          in this command's modes, so the party can act on no other creature. A monster or an NPC
+          adventurer of an encounter that has ended gets this code, with the same params as an id
+          that matches nothing.
         - `magic.cast.not_memorized` - the caster has no memorized copy. A member who
           can't cast spells at all gets this code too.
         - `magic.cast.caster_incapacitated`, `magic.cast.caster_restrained`,
@@ -1803,13 +1819,16 @@ class CastSpell(Command):
     A divine caster memorizes the normal form and chooses the form here, when casting. The session
     refuses `reversed` on a spell with no reversed form, with `magic.cast.not_reversible`."""
     targets: tuple[str, ...] = ()
-    """Who or what the spell targets, as entity ids: a party member's
-    [`MemberView.id`][osrlib.crawl.views.MemberView.id], a monster's id, or, for a spell that
+    """Who or what the spell targets: a party member's
+    [`MemberView.id`][osrlib.crawl.views.MemberView.id], in any state, or, for a spell that
     affects a place rather than a creature, a cell reference in the
     `cell:{dungeon}:{level}:{x},{y}` form that [`cell_ref`][osrlib.crawl.dungeon.cell_ref]
-    builds. The mode's targeting sets how many targets it takes, and the session refuses the
-    wrong number with `magic.cast.target_count`. The session refuses a cell reference for a
-    mode that works only on creatures with `magic.cast.target_must_be_creature`."""
+    builds. A dead or petrified member can be named, so *raise dead* and *stone to flesh* work on
+    them. The session refuses any other id with `magic.cast.unknown_target`, a monster's or an NPC
+    adventurer's included, even one an earlier event named. The mode's targeting sets how many
+    targets it takes, and the session refuses the wrong number with `magic.cast.target_count`.
+    The session refuses a cell reference for a mode that works only on creatures with
+    `magic.cast.target_must_be_creature`."""
 
 
 class UseItem(Command):
@@ -1821,10 +1840,18 @@ class UseItem(Command):
     any curse. A magic sword that can light up when its wielder says so turns its light on or off.
 
     A device is a wand, a staff, or a rod. `target_id` is the id of whoever the item is used on:
-    the party member who drinks a potion, a party member for a staff of healing's touch, or an
+    the party member who drinks a potion, a creature for a staff of healing's touch, or an
     encounter group for a device that covers an area. When the member reads a scroll with several
     spells on it, choose the spell and its targets with `spell_id`, `mode`, and `targets`. They
     work like the same fields of [`CastSpell`][osrlib.crawl.commands.CastSpell].
+
+    A scroll or a staff of healing names as a target only a creature the party can act on now: a
+    party member, in any state, or a creature in a group of the open encounter that hasn't fled,
+    which the player view lists in
+    [`EncounterGroupView.members`][osrlib.crawl.views.EncounterGroupView.members]. A scroll's
+    spell can't name a dead creature of the encounter, as a battle's `cast` can't. The session
+    refuses any other id with the code it gives an id that matches nothing, so a creature of an
+    encounter that has ended gets the same answer as an id that never existed.
 
     A device whose powers the session doesn't resolve, like a staff of commanding, spends a charge,
     and its [`ItemUsedEvent`][osrlib.crawl.events.ItemUsedEvent] has the device's text in `manual`
@@ -1864,13 +1891,17 @@ class UseItem(Command):
         - Scrolls: `exploration.action.requires_light` (reading needs light, and
           infravision isn't enough), `items.scroll.spent`, `items.scroll.no_such_spell`,
           and `items.scroll.wrong_caster`. A read also gets the checks of a cast, at the
-          scroll's level: `magic.cast.unknown_target`, `magic.cast.unknown_mode`,
+          scroll's level: `magic.cast.unknown_target` (a target that isn't a party member and
+          isn't a living creature in a group of the open encounter that hasn't fled),
+          `magic.cast.unknown_mode`,
           `magic.cast.target_count`, `magic.cast.target_must_be_creature`,
           `magic.cast.out_of_range`, `magic.cast.caster_incapacitated`,
           `magic.cast.caster_restrained`, and `magic.cast.anti_magic_shell`.
         - Devices: `items.device.inert` (no charges left),
           `items.use.target_required` (an area device used in an encounter needs a
-          `target_id`), `items.use.unknown_target`, `items.use.target_cannot_be_healed` (a
+          `target_id`), `items.use.unknown_target` (a group that isn't in the open encounter or
+          has fled, or a staff of healing's target that isn't a party member and isn't in a group
+          of the open encounter that hasn't fled), `items.use.target_cannot_be_healed` (a
           staff of healing used on a creature that's dead or turned to stone),
           `items.use.target_healed_today` (a staff of healing used on a creature it already
           healed today, because the OSE SRD's staff "Is effective on any individual at most once
@@ -1912,10 +1943,12 @@ class UseItem(Command):
     isn't a party member's with `items.use.target_not_allowed`, and a member who is dead or turned
     to stone with `items.use.target_cannot_drink`.
 
-    For a device, pass a party member's id for a device that heals by touch, or an encounter
-    group's [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] for a device that
-    covers an area. A healing device with `None` heals the member using it. The session refuses a
-    healing device on a creature that's dead or turned to stone with
+    For a device, pass a creature's id for a device that heals by touch, or an encounter group's
+    [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] for a device that covers
+    an area. A healing device with `None` heals the member using it. It can touch a party member
+    or a creature in a group of the open encounter that hasn't fled, and the session refuses any
+    other id with `items.use.unknown_target`, a creature of an encounter that has ended included.
+    The session refuses a healing device on a creature that's dead or turned to stone with
     `items.use.target_cannot_be_healed`, and one on a creature it already healed today with
     `items.use.target_healed_today`."""
     spell_id: str | None = None
@@ -1929,8 +1962,10 @@ class UseItem(Command):
     which is right for a spell with one usage."""
     targets: tuple[str, ...] = ()
     """The read spell's targets, named as in
-    [`CastSpell.targets`][osrlib.crawl.commands.CastSpell.targets]. When it's empty, `target_id`
-    is the single target, so a scroll spell with one target needs only `target_id`."""
+    [`CastSpell.targets`][osrlib.crawl.commands.CastSpell.targets]. During an encounter, a target
+    can also be a living creature in a group that hasn't fled, by its
+    [`EncounterMemberView.id`][osrlib.crawl.views.EncounterMemberView.id]. When it's empty,
+    `target_id` is the single target, so a scroll spell with one target needs only `target_id`."""
 
 
 class IdentifyItem(Command):
@@ -3035,6 +3070,13 @@ class BattleDeclaration(_Model):
     - The attack is a melee attack. The weapon and the member's distance to the group after their
       `close`, if the declaration sets one, decide that, as
       [`weapon_id`][osrlib.crawl.commands.BattleDeclaration.weapon_id] describes.
+
+    You don't need to combine the second and third conditions yourself.
+    [`EncounterView.can_back_stab`][osrlib.crawl.views.EncounterView.can_back_stab] lists the members
+    who meet both this round, and
+    [`BattleRoundPreview.can_back_stab`][osrlib.crawl.battle.BattleRoundPreview.can_back_stab] lists
+    them beside a planned round. The first and last conditions depend on the declaration, so check
+    them with [`preview_battle_round`][osrlib.crawl.battle.preview_battle_round].
 
     A thief can close on a group and back-stab in the same round: declare `attack` with
     `move="close"` and `back_stab=True`. The session judges the back-stab at the distance the move

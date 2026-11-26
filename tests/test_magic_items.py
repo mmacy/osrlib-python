@@ -453,28 +453,6 @@ class TestScrollsInPlay:
         assert result.accepted
         assert member.inventory.magic_item(scroll.instance_id) is None  # the last spell burned the scroll
 
-    def test_out_of_battle_scroll_read_keeps_registry_target_lookup(self):
-        session, member, scroll = session_with_item(
-            "spell_scroll_1", state={"spell_list": "magic_user", "spells": ("magic_missile",)}
-        )
-        member.class_id = "magic_user"
-        target = session.spawn("goblin", 1)[0]
-        assert session.encounter is None
-
-        result = session.execute(
-            UseItem(
-                character_id=member.id,
-                item_id=scroll.instance_id,
-                spell_id="magic_missile",
-                mode=scroll_mode("magic_missile"),
-                targets=(target.id,),
-            )
-        )
-
-        assert result.accepted, [rejection.code for rejection in result.rejections]
-        cast = next(event for event in result.events if event.code == "magic.cast.cast")
-        assert cast.target_ids == (target.id,)
-
     def test_wrong_caster_rejected_and_thief_fizzle_wired(self):
         session, member, scroll = session_with_item(
             "spell_scroll_1", state={"spell_list": "magic_user", "spells": ("shield",)}

@@ -54,7 +54,8 @@ The referee view includes everything else the save does, except the random strea
 positions, the master seed, and the player-handle key. Use it for an LLM referee, a debugging panel, or a test. Its
 fields are the groups [`session_state`][osrlib.persistence.session_state] writes, so
 `view.monsters[0].current_hp` and `view.flags["key"]` have the types this reference
-documents, and `view.model_dump(mode="json")` is that save data without those three keys.
+documents, and `view.model_dump(mode="json")` is that save data without those three keys, plus
+`feature_handles`, each feature's player handle, which the session derives from the key.
 Don't send it to a player's client. In a networked game, keep the session and the referee view
 on the server, and send only the player view, or the player-visibility events. The guide [Views
 and visibility](https://mmacy.github.io/osrlib-python/guides/views-and-visibility/) shows both
@@ -134,8 +135,10 @@ from osrlib.core.ruleset import Ruleset
 from osrlib.crawl._feature_handles import (
     _authored_feature_id,
     _cache_available,
+    _current_cache_handles,
     _generated_feature_id,
     _parse_cell_location,
+    _session_feature_handles,
 )
 from osrlib.crawl._light import _light_reveal
 from osrlib.crawl._party_location import _can_travel_to_town
@@ -532,6 +535,16 @@ class EnteredAreaView(_Model):
     """The area's authored description."""
     cells: tuple[Position, ...] = ()
     """Only the area cells the party has walked, in authored order."""
+    trap_state: Literal["found", "sprung", "removed"] | None = None
+    """The room trap's state as the party knows it, with the values and meaning of
+    [`MapFeatureView.trap_state`][osrlib.crawl.views.MapFeatureView.trap_state]: `"found"` once a
+    [`Search`][osrlib.crawl.commands.Search] has found it, and `"sprung"` once it has gone off. No
+    command removes a room trap, so a room never shows `"removed"`.
+
+    It's `None` while the party hasn't met the room's trap, and for a room with no trap, so a room
+    the players know nothing about looks the same whether or not it's trapped. The view lists an area
+    only once the party has entered it, so a trap found or sprung through a door of a room the party
+    hasn't entered shows here once the party walks in."""
 
 
 class MapFeatureView(_Model):
@@ -545,13 +558,31 @@ class MapFeatureView(_Model):
     kind: Literal["treasure_cache", "construction_trick", "custom", "generated_cache"] = "custom"
     """The feature's public kind. Generated caches use `"generated_cache"`."""
     description: str = ""
-    """The authored description, or an empty string for a generated cache."""
+    """The feature's authored [`FeatureSpec.description`][osrlib.crawl.dungeon.FeatureSpec.description],
+    or an empty string for a generated cache. It's written for the players to read. The view shows
+    it from the moment the feature comes into view, and for a cache, before anyone opens it and
+    after the party empties it. The feature's
+    [`FeatureSpec.referee_notes`][osrlib.crawl.dungeon.FeatureSpec.referee_notes] never appear in
+    the player view."""
     cell: Position | None = None
     """The feature's cell, or `None` when an area feature applies to the whole entered area."""
     area_id: str | None = None
-    """The containing area's id after entry, otherwise `None`."""
+    """The id of the area the feature is in, once the party has entered that area, otherwise `None`.
+    For an authored feature, it's the area that lists the feature. For a generated cache, it's the
+    area that owns the cache's cell, the area that
+    [`LevelSpec.area_at`][osrlib.crawl.dungeon.LevelSpec.area_at] returns. It never names an area
+    the party hasn't entered."""
     trap_state: Literal["found", "sprung", "removed"] | None = None
     """The party's known trap state, or `None` when the party knows no trap state."""
+    emptied: bool = False
+    """True for an authored treasure cache the party has emptied with
+    [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure].
+
+    The cache stays in the list under the same `id` and description, so you can draw it opened.
+    Don't offer it to `TakeTreasure`, which refuses it with `exploration.feature.emptied`. It's
+    false for every other feature, and for a cache the party hasn't emptied, however little it
+    holds. A generated cache is never marked emptied, because the session removes it when the
+    party takes it, so it leaves the list."""
 
 
 class TransitionView(_Model):
@@ -801,9 +832,9 @@ class EncounterView(_Model):
     each group in `groups` gives every member's distance to it and the members who can reach it in
     melee. Read those to draw the fight and to offer each member the moves and attacks they can make.
 
-    The id tuples `declarers`, `immobile`, `reloading`, `can_hide`, and `hiding` describe the battle
-    round as the players see it at the table: who is able to act, who is held fast, who is still
-    reloading a crossbow, who can hide, and who is hiding.
+    The id tuples `declarers`, `immobile`, `reloading`, `can_hide`, `hiding`, and `can_back_stab`
+    describe the battle round as the players see it at the table: who is able to act, who is held
+    fast, who is still reloading a crossbow, who can hide, who is hiding, and who can back-stab.
     Each group's [`front_rank`][osrlib.crawl.views.EncounterGroupView.front_rank] says who can attack
     that group in melee this round. Each of these matches a rejection that would refuse the whole
     round, so if you read them, you offer only the declarations the session accepts. To check a
@@ -867,14 +898,17 @@ class EncounterView(_Model):
     `hide` where the members will stand once the round's declared moves are made, so a member in
     this list who would end up in the front rank because of another member's move is refused with
     `battle.declaration.hide_in_front_rank`. A member outside it gets
-    `battle.declaration.hide_not_a_thief` or `battle.declaration.hide_in_front_rank`."""
+    `battle.declaration.hide_not_a_thief` or `battle.declaration.hide_in_front_rank`. To learn who
+    can hide beside the declarations planned so far, read
+    [`BattleRoundPreview.can_hide`][osrlib.crawl.battle.BattleRoundPreview.can_hide]."""
     hiding: tuple[str, ...] = ()
     """The members who are hiding, in marching order: each has declared a `hide` that resolved, and
     the attempt hasn't ended since. Empty outside a battle.
 
     A member here can declare an `attack` with
     [`BattleDeclaration.back_stab`][osrlib.crawl.commands.BattleDeclaration.back_stab] in any round
-    without a place in the front rank, as long as their class has the `back_stab` ability. The
+    without a place in the front rank, as long as their class has the `back_stab` ability and they
+    can act, and `can_back_stab` lists them. The
     back-stab still needs a melee weapon, or bare hands, and a group within 5' of the member, as
     each group's [`member_distance_feet`][osrlib.crawl.views.EncounterGroupView.member_distance_feet]
     shows, or a `close` that brings one within 5'. The list doesn't say
@@ -882,6 +916,29 @@ class EncounterView(_Model):
     [`AttackRolledEvent.back_stab`][osrlib.core.events.AttackRolledEvent.back_stab] tells the players
     whether it was a back-stab. A member leaves the list when the attempt ends, which
     `BattleDeclaration.back_stab` describes."""
+    can_back_stab: tuple[str, ...] = ()
+    """The declarers who can declare an `attack` with
+    [`BattleDeclaration.back_stab`][osrlib.crawl.commands.BattleDeclaration.back_stab] this round, in
+    marching order: those whose class has the `back_stab` ability, as the thief's does, in the
+    party's free round (see `party_free_round`) or while they're in `hiding`. Empty outside a battle.
+
+    The session refuses a back-stab by any other declarer with `battle.declaration.back_stab_no_ability`
+    or `battle.declaration.back_stab_target_aware`, and never refuses one by a member here with
+    either code. A member who can't act isn't a declarer, so they aren't here, even while they're in
+    `hiding`. Like `hiding`, the list holds every member who has hidden, whatever the secret hide in
+    shadows roll was, so it never tells the players whether a hide worked.
+
+    The list doesn't read the declaration, so the session can still refuse a back-stab by a member
+    here for what the declaration says: `battle.declaration.back_stab_not_attack` when the action
+    isn't `attack`, `battle.declaration.back_stab_not_melee` for a missile weapon, or a dagger aimed
+    at a group more than 5' from the member after their `close`, and the checks every attack takes,
+    like `battle.declaration.unknown_group`, `battle.declaration.weapon_not_wielded`,
+    `combat.attack.out_of_reach`, and `combat.attack.attacker_blind`. In the free round, a back-stab
+    takes the melee checks of any attack, so a member outside the group's front rank gets
+    `battle.declaration.not_in_front_rank`. In any other round, a member here is hiding and needs no
+    place in the front rank. To
+    learn who can back-stab beside the declarations planned so far, read
+    [`BattleRoundPreview.can_back_stab`][osrlib.crawl.battle.BattleRoundPreview.can_back_stab]."""
     advance_feet: dict[str, int] = {}
     """Each living member's place on the range track, keyed by member id, in feet forward of the party
     line. Empty outside a battle.
@@ -917,7 +974,8 @@ class EncounterView(_Model):
 
     It's the round in which any thief's back-stab is legal: an `attack` that sets
     [`BattleDeclaration.back_stab`][osrlib.crawl.commands.BattleDeclaration.back_stab]. In other
-    rounds, only the members in `hiding` can back-stab. It's true while
+    rounds, only the members in `hiding` can back-stab. `can_back_stab` lists the members who can
+    back-stab in this round, in either case. It's true while
     [`BattleState.monsters_hold_rounds`][osrlib.crawl.battle.BattleState.monsters_hold_rounds] is above
     zero."""
 
@@ -1020,18 +1078,40 @@ class PlayerView(_Model):
     can_travel_to_town: bool = False
     """Whether the exploring party can use
     [`TravelToTown`][osrlib.crawl.commands.TravelToTown] from its current position."""
+    features_here: tuple[str, ...] = ()
+    """The handles that the feature commands accept in `feature_id` from where the party stands, in
+    the order the current level's [`features`][osrlib.crawl.views.ExploredLevelView.features] lists
+    them. The commands are [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure],
+    [`InspectTreasure`][osrlib.crawl.commands.InspectTreasure], and
+    [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap].
+
+    Each entry is the [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id] of a treasure cache
+    the party can reach: an authored or generated cache on the party's cell, or an authored cache
+    that belongs to the whole of the area the party stands in. The session resolves a command's
+    `feature_id` against the same caches, so a cache that isn't listed here is refused with
+    `exploration.feature.unknown`. It's empty unless the session is exploring, because the commands
+    are legal only then. A custom feature or a construction trick is never listed, because no
+    command acts on one.
+
+    A command can still refuse a listed cache for another reason. `TakeTreasure` refuses an emptied
+    cache with `exploration.feature.emptied`, which
+    [`MapFeatureView.emptied`][osrlib.crawl.views.MapFeatureView.emptied] tells you beforehand.
+    `RemoveTreasureTrap` accepts only a cache whose
+    [`trap_state`][osrlib.crawl.views.MapFeatureView.trap_state] is `"found"`. To take the goods
+    dropped on the party's cell, send `"pile"`, when [`piles`][osrlib.crawl.views.PlayerView.piles]
+    has an entry for the cell."""
     piles: dict[str, PileView]
     """The dropped piles the party knows about, keyed by the cell reference
     [`cell_ref`][osrlib.crawl.dungeon.cell_ref] returns. A pile in a cell the party has
     not walked is left out."""
     emptied_caches: tuple[str, ...]
-    """The treasure caches the party has already emptied, as `"{dungeon}:{level}:{id}"`
-    references, so you can draw a looted cache as looted.
+    """The authored treasure caches the party has emptied, as `"{dungeon}:{level}:{id}"` feature
+    references, in the order the party emptied them.
 
-    These established raw references are a post-use diagnostic for compatibility. New command
-    targets come from [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id]. A raw authored
-    feature id can appear here only after the party has used it, not in the new `features` list
-    before use."""
+    To draw an emptied cache, read
+    [`MapFeatureView.emptied`][osrlib.crawl.views.MapFeatureView.emptied] instead, which marks the
+    cache in `features` under its handle. Command targets come from
+    [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id]."""
     effects: tuple[MemberEffectView, ...]
     """The active effects on party members, in ledger order."""
     spell_names: dict[str, str] = {}
@@ -1198,8 +1278,10 @@ class RefereeView(_Model):
     each field's docstring links the model to read next. The fields are the groups
     [`session_state`][osrlib.persistence.session_state] writes, minus the master seed, the RNG stream
     positions, and the player-handle key, so `view.model_dump(mode="json")` is that save payload
-    without those keys. The seed and stream positions let a player predict every roll to come.
-    The key lets someone reproduce and control the session's opaque feature handles.
+    without those keys, plus one field the save doesn't contain,
+    [`feature_handles`][osrlib.crawl.views.RefereeView.feature_handles]. The seed and stream
+    positions let a player predict every roll to come. The key lets someone reproduce and control the
+    session's opaque feature handles, so the view gives you the handles themselves instead.
 
     The view is a snapshot of the moment it was built. The session's mutable state is copied into it,
     so later play leaves the view as it was, and editing what you find on a view changes nothing on
@@ -1315,6 +1397,22 @@ class RefereeView(_Model):
     subclass that was emitted, including the referee-visibility events a player never sees. An entry
     restored from a save whose event type this library has no class for stays the raw mapping it
     arrived as, so check for a `dict` before reading an entry's attributes."""
+    feature_handles: dict[str, str] = {}
+    """The player handle of every feature in the session, keyed by the reference the save uses for
+    the feature. An authored feature's key is `"{dungeon}:{level}:{feature id}"`, the form in
+    [`DungeonState.emptied_caches`][osrlib.crawl.dungeon.DungeonState.emptied_caches] and
+    [`DungeonState.found_traps`][osrlib.crawl.dungeon.DungeonState.found_traps], and every feature the
+    adventure authors has one, on a level or in an area, found or not. A generated cache's key is its
+    id in [`DungeonState.generated_caches`][osrlib.crawl.dungeon.DungeonState.generated_caches], like
+    `"cache-0001"`, and every cache there has one, including a lair cache the players can't see yet,
+    except a cache whose cell reference names no cell of the adventure, which the session never
+    shows or resolves.
+
+    Each value is the [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id] that the player view
+    shows for the feature once the party knows it. Use it to show a referee the feature the players
+    see, and to send the same `feature_id` they do. This is the one field the save doesn't contain:
+    the session derives each handle from the player-handle key, and neither view contains the key.
+    The session removes a generated cache when the party takes it, and its entry leaves with it."""
 
 
 def _masked_magic_item(instance: MagicItemInstance) -> dict:
@@ -1474,6 +1572,7 @@ def build_player_view(session) -> PlayerView:
         if effect.target_ref in member_ids
     )
     explored = tuple(_explored_levels(session))
+    features_here = _features_here_view(session, explored)
     visible_refs = _visible_cell_refs(session)
     known_piles = {ref: pile for ref, pile in session.dungeon_state.piles.items() if ref in visible_refs}
     piles = {ref: _pile_view(pile) for ref, pile in known_piles.items()}
@@ -1503,6 +1602,7 @@ def build_player_view(session) -> PlayerView:
         explored=explored,
         dungeons=tuple(_entered_dungeons(session)),
         can_travel_to_town=_can_travel_to_town(session),
+        features_here=features_here,
         piles=piles,
         emptied_caches=tuple(session.dungeon_state.emptied_caches),
         effects=effects,
@@ -1682,6 +1782,22 @@ def _trap_state(session, ref: str, trapped: bool) -> Literal["found", "sprung", 
     return None
 
 
+def _features_here_view(session, explored) -> tuple[str, ...]:
+    """The handles of the caches the feature commands accept here, in the current level's feature order.
+
+    The handles come from the resolution the commands run, and the function keeps only the features
+    the view lists, so the list never shows a handle the players can't already see.
+    """
+    accepted = _current_cache_handles(session)
+    if not accepted:
+        return ()
+    location = session.dungeon_state.location
+    for level in explored:
+        if (level.dungeon_id, level.level_number) == (location.dungeon_id, location.level_number):
+            return tuple(feature.id for feature in level.features if feature.id in accepted)
+    return ()
+
+
 def _authored_feature_views(session, dungeon_id, level_number, level, known, entered_area_ids):
     features = []
     visible_features = [
@@ -1708,12 +1824,13 @@ def _authored_feature_views(session, dungeon_id, level_number, level, known, ent
                 cell=feature.cell,
                 area_id=area.id if area is not None and area.id in entered_area_ids else None,
                 trap_state=_trap_state(session, ref, feature.trap is not None),
+                emptied=feature.kind == "treasure_cache" and ref in session.dungeon_state.emptied_caches,
             )
         )
     return features
 
 
-def _generated_feature_views(session, dungeon_id, level_number, known):
+def _generated_feature_views(session, dungeon_id, level_number, level, known, entered_area_ids):
     features = []
     for cache_id, cache in session.dungeon_state.generated_caches.items():
         location = _parse_cell_location(session, cache.cell_ref)
@@ -1721,13 +1838,14 @@ def _generated_feature_views(session, dungeon_id, level_number, known):
             continue
         if location[2] not in known or not _cache_available(session, cache):
             continue
+        area = level.area_at(location[2])
         features.append(
             MapFeatureView(
                 id=_generated_feature_id(session, dungeon_id, level_number, cache_id),
                 kind="generated_cache",
                 description="",
                 cell=location[2],
-                area_id=None,
+                area_id=area.id if area is not None and area.id in entered_area_ids else None,
                 trap_state=None,
             )
         )
@@ -1774,11 +1892,12 @@ def _explored_levels(session):
                     name=area.name,
                     description=area.description,
                     cells=walked_cells,
+                    trap_state=_trap_state(session, f"{dungeon_id}:{level_number}:{area.id}", area.trap is not None),
                 )
             )
         features = [
             *_authored_feature_views(session, dungeon_id, level_number, level, known, entered_area_ids),
-            *_generated_feature_views(session, dungeon_id, level_number, known),
+            *_generated_feature_views(session, dungeon_id, level_number, level, known, entered_area_ids),
         ]
         transitions = tuple(
             TransitionView(position=transition.position, kind=transition.kind, side=transition.side)
@@ -1890,10 +2009,11 @@ def _encounter_view(session) -> EncounterView | None:
     from osrlib.core.combat import cannot_move
     from osrlib.crawl.battle import (
         _able_declarers,
+        _back_stabbers,
         _formation_width,
         _front_rank_toward_nearest,
-        _front_rows,
         _group_lit,
+        _hide_rejection,
         _members_seeing,
         _placement,
         _reachable_front_rank,
@@ -1960,11 +2080,13 @@ def _encounter_view(session) -> EncounterView | None:
     fired = battle.fired_last_round if battle is not None and session.ruleset.weapon_reload else ()
     can_hide: tuple[str, ...] = ()
     hiding: tuple[str, ...] = ()
+    can_back_stab: tuple[str, ...] = ()
     if battle is not None:
+        # The lists come from the checks the round runs, so the view never offers what the session refuses.
+        can_hide = tuple(member.id for member in declarers if _hide_rejection(session, member, placement) is None)
         # The player view lists who is hiding. How each roll went stays in `BattleState.hiding`, for the referee.
-        front = _front_rows(session, placement)
-        can_hide = tuple(member.id for member in declarers if member.definition.thief_skills and member.id not in front)
         hiding = tuple(member.id for member in session.party.members if member.id in battle.hiding)
+        can_back_stab = _back_stabbers(session, declarers)
     return EncounterView(
         groups=tuple(groups),
         stance=state.stance,
@@ -1977,6 +2099,7 @@ def _encounter_view(session) -> EncounterView | None:
         reloading=tuple(fired),
         can_hide=can_hide,
         hiding=hiding,
+        can_back_stab=can_back_stab,
         advance_feet=(
             {member_id: battle.advance_feet.get(member_id, 0) for member_id in living_ids} if battle is not None else {}
         ),
@@ -2010,7 +2133,8 @@ def build_referee_view(session) -> RefereeView:
 
     Returns:
         A frozen [`RefereeView`][osrlib.crawl.views.RefereeView] of the whole session, except the
-            master seed, the random streams' positions, and the player-handle key.
+            master seed, the random streams' positions, and the player-handle key, with each
+            feature's player handle in `feature_handles`.
 
     Examples:
         ```python
@@ -2084,4 +2208,5 @@ def build_referee_view(session) -> RefereeView:
         battle=session.battle.model_copy(deep=True) if session.battle is not None else None,
         command_log=tuple(session.command_log),
         event_log=tuple(deepcopy(entry) if isinstance(entry, dict) else entry for entry in session.event_log),
+        feature_handles=_session_feature_handles(session),
     )

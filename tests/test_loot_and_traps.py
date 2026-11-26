@@ -483,7 +483,7 @@ class TestWorldKnownCaches:
         assert len(generated) == 2
         generated_ids = [feature.id for feature in generated]
         assert generated_ids == sorted(generated_ids)
-        assert all(feature.cell == (1, 0) and feature.area_id is None for feature in generated)
+        assert all(feature.cell == (1, 0) for feature in generated)
         assert not {authored_id, area_cache_id, lair_cache_id} & set(resolved)
         victory.dungeon_state.generated_caches = dict(reversed(tuple(victory.dungeon_state.generated_caches.items())))
         reordered = shared_cache_features(victory)
@@ -492,7 +492,7 @@ class TestWorldKnownCaches:
         assert shared_cache_features(restored_victory) == reordered
         for feature in generated:
             payload = feature.model_dump(mode="json")
-            assert set(payload) == {"id", "kind", "description", "cell", "area_id", "trap_state"}
+            assert set(payload) == {"id", "kind", "description", "cell", "area_id", "trap_state", "emptied"}
             assert all(
                 secret not in payload for secret in ("coins", "valuables", "magic_items", "item_ids", "treasure_types")
             )

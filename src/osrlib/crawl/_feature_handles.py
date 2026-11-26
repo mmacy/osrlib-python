@@ -153,6 +153,58 @@ def _current_feature_candidates(session) -> list[_ResolvedFeature]:
     return candidates
 
 
+def _is_cache(candidate: _ResolvedFeature) -> bool:
+    """Return whether a candidate is a treasure cache, the only feature the feature commands act on.
+
+    The commands resolve a `feature_id` with `_resolve_current_feature` and refuse any other resolved
+    feature with `exploration.feature.unknown`.
+    """
+    return candidate.cache_id is not None or (
+        candidate.feature is not None and candidate.feature.kind == "treasure_cache"
+    )
+
+
+def _current_cache_handles(session) -> set[str]:
+    """Return the handles of the caches the feature commands accept from where the party stands.
+
+    They are the treasure caches among the candidates that `_resolve_current_feature` resolves a
+    command's `feature_id` against, so the player view's `features_here` and the commands agree. The
+    set is empty unless the session is exploring, because the commands are legal only then.
+    """
+    from osrlib.crawl.commands import SessionMode
+
+    location = session.dungeon_state.location
+    if session.mode is not SessionMode.EXPLORING or location.position is None:
+        return set()
+    return {candidate.public_id for candidate in _current_feature_candidates(session) if _is_cache(candidate)}
+
+
+def _session_feature_handles(session) -> dict[str, str]:
+    """Return every feature's player handle, keyed by the reference the save uses for the feature.
+
+    An authored feature's key is `"{dungeon}:{level}:{feature id}"`, for every feature the adventure
+    authors on a level or in an area. A generated cache's key is its id in the session's generated
+    caches, for every cache whose cell reference names a cell of the adventure. A cache whose cell
+    reference names none has no level to derive a handle from, and the session can never show or
+    resolve it.
+    """
+    handles: dict[str, str] = {}
+    for dungeon in session.adventure.dungeons:
+        for level in dungeon.levels:
+            features = [*level.features, *(feature for area in level.areas for feature in area.features)]
+            for feature in features:
+                handles[f"{dungeon.id}:{level.number}:{feature.id}"] = _authored_feature_id(
+                    session, dungeon.id, level.number, feature.id
+                )
+    for cache_id, cache in session.dungeon_state.generated_caches.items():
+        parsed = _parse_cell_location(session, cache.cell_ref)
+        if parsed is None:
+            continue
+        dungeon_id, level_number, _ = parsed
+        handles[cache_id] = _generated_feature_id(session, dungeon_id, level_number, cache_id)
+    return handles
+
+
 def _resolve_current_feature(session, identifier: str) -> _ResolvedFeature | None:
     """Resolve a public handle or unambiguous legacy raw id at the current location."""
     if identifier == "pile":
