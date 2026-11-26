@@ -1,0 +1,493 @@
+{
+ "engine_version": "2.8.0",
+ "kind": "save",
+ "payload": {
+  "adventure": {
+   "description": "",
+   "dungeons": [
+    {
+     "id": "crypt",
+     "levels": [
+      {
+       "areas": [],
+       "edges": {
+        "1,0:west": {
+         "door": null,
+         "kind": "open"
+        }
+       },
+       "entrance": [
+        0,
+        0
+       ],
+       "features": [],
+       "guidance": "",
+       "height": 1,
+       "number": 1,
+       "transitions": [],
+       "wandering": {
+        "chance_in_six": 1,
+        "interval_turns": 2,
+        "table": null
+       },
+       "width": 2
+      }
+     ],
+     "name": "Crypt"
+    }
+   ],
+   "hooks": [],
+   "items": [],
+   "monsters": [],
+   "name": "A",
+   "party": null,
+   "quests": [],
+   "spells": [
+    {
+     "conjured_monster_ids": [],
+     "conjured_monsters": [],
+     "duration": "6 turns +1 per level",
+     "duration_spec": {
+      "amount": 6,
+      "concentration_cap_amount": null,
+      "concentration_cap_unit": null,
+      "dice": null,
+      "kind": "fixed",
+      "per_level": 1,
+      "unit": "turn"
+     },
+     "id": "gloaming",
+     "intro": "This spell has three usages:",
+     "level": 1,
+     "modes": [
+      {
+       "effect": {
+        "condition": null,
+        "cures_conditions": [],
+        "cures_effect_kinds": [],
+        "kind": "attach_only",
+        "modifiers": [],
+        "params": {
+         "brightness": "reading",
+         "effect_kind": "light",
+         "radius_feet": 15
+        }
+       },
+       "key": "illuminate",
+       "manual": false,
+       "prose": "Conjuring light: In a 15\u2019 radius. The magical light is sufficient for reading, but is not as bright as daylight. The spell may be cast upon an object, in which case the light moves with the object.",
+       "save": null,
+       "targeting": {
+        "count": null,
+        "count_dice": null,
+        "dimensions": {},
+        "hd_budget_dice": null,
+        "hd_cap": null,
+        "hd_min": null,
+        "mode": "single",
+        "shape": null
+       }
+      },
+      {
+       "effect": {
+        "condition": "blind",
+        "cures_conditions": [],
+        "cures_effect_kinds": [],
+        "kind": "condition",
+        "modifiers": [],
+        "params": {}
+       },
+       "key": "blind",
+       "manual": false,
+       "prose": "Blinding a creature: By casting the spell upon its eyes. If the target fails a saving throw versus spells, it is blinded for the duration. A blind creature cannot attack.",
+       "save": {
+        "category": "spells",
+        "modifier": 0,
+        "on_save": "negates"
+       },
+       "targeting": {
+        "count": null,
+        "count_dice": null,
+        "dimensions": {},
+        "hd_budget_dice": null,
+        "hd_cap": null,
+        "hd_min": null,
+        "mode": "single",
+        "shape": null
+       }
+      },
+      {
+       "effect": {
+        "condition": null,
+        "cures_conditions": [],
+        "cures_effect_kinds": [
+         "darkness"
+        ],
+        "kind": "cure",
+        "modifiers": [],
+        "params": {}
+       },
+       "key": "cancel",
+       "manual": false,
+       "prose": "Cancelling darkness: Light may cancel a darkness spell (see below).",
+       "save": null,
+       "targeting": {
+        "count": null,
+        "count_dice": null,
+        "dimensions": {},
+        "hd_budget_dice": null,
+        "hd_cap": null,
+        "hd_min": null,
+        "mode": "single",
+        "shape": null
+       }
+      }
+     ],
+     "name": "Gloaming",
+     "overrides_applied": [],
+     "range": "120\u2019",
+     "range_spec": {
+      "feet": 120,
+      "kind": "feet",
+      "per_level_feet": null
+     },
+     "reversed_form": {
+      "duration": null,
+      "duration_spec": null,
+      "modes": [
+       {
+        "effect": {
+         "condition": null,
+         "cures_conditions": [],
+         "cures_effect_kinds": [],
+         "kind": "attach_only",
+         "modifiers": [],
+         "params": {
+          "blocks_infravision": false,
+          "effect_kind": "darkness",
+          "radius_feet": 15
+         }
+        },
+        "key": "darken",
+        "manual": false,
+        "prose": "Creates a 15\u2019 radius area of magical blackness, preventing normal sight (but not infravision). Like light, it may alternatively be used to blind creatures or to dispel a light spell.",
+        "save": null,
+        "targeting": {
+         "count": null,
+         "count_dice": null,
+         "dimensions": {},
+         "hd_budget_dice": null,
+         "hd_cap": null,
+         "hd_min": null,
+         "mode": "single",
+         "shape": null
+        }
+       },
+       {
+        "effect": {
+         "condition": "blind",
+         "cures_conditions": [],
+         "cures_effect_kinds": [],
+         "kind": "condition",
+         "modifiers": [],
+         "params": {}
+        },
+        "key": "blind",
+        "manual": false,
+        "prose": "Creates a 15\u2019 radius area of magical blackness, preventing normal sight (but not infravision). Like light, it may alternatively be used to blind creatures or to dispel a light spell.",
+        "save": {
+         "category": "spells",
+         "modifier": 0,
+         "on_save": "negates"
+        },
+        "targeting": {
+         "count": null,
+         "count_dice": null,
+         "dimensions": {},
+         "hd_budget_dice": null,
+         "hd_cap": null,
+         "hd_min": null,
+         "mode": "single",
+         "shape": null
+        }
+       },
+       {
+        "effect": {
+         "condition": null,
+         "cures_conditions": [],
+         "cures_effect_kinds": [
+          "light"
+         ],
+         "kind": "cure",
+         "modifiers": [],
+         "params": {}
+        },
+        "key": "cancel",
+        "manual": false,
+        "prose": "Creates a 15\u2019 radius area of magical blackness, preventing normal sight (but not infravision). Like light, it may alternatively be used to blind creatures or to dispel a light spell.",
+        "save": null,
+        "targeting": {
+         "count": null,
+         "count_dice": null,
+         "dimensions": {},
+         "hd_budget_dice": null,
+         "hd_cap": null,
+         "hd_min": null,
+         "mode": "single",
+         "shape": null
+        }
+       }
+      ],
+      "name": "Darkness",
+      "prose": "Creates a 15\u2019 radius area of magical blackness, preventing normal sight (but not infravision). Like light, it may alternatively be used to blind creatures or to dispel a light spell."
+     },
+     "spell_list": "magic_user"
+    }
+   ],
+   "town": {
+    "description": "",
+    "healing_prices": {},
+    "name": "Threshold",
+    "services": [],
+    "travel_turns": {
+     "crypt": 1
+    }
+   },
+   "triggers": []
+  },
+  "allocator": {
+   "counters": {
+    "character": 2
+   }
+  },
+  "battle": null,
+  "clock_rounds": 3240,
+  "command_log": [
+   {
+    "command_type": "rest",
+    "hidden": false,
+    "kind": "night",
+    "source": null
+   },
+   {
+    "character_id": "character-0002",
+    "command_type": "prepare_spells",
+    "selections": [
+     {
+      "reversed": true,
+      "spell_id": "gloaming"
+     },
+     {
+      "reversed": false,
+      "spell_id": "light_mu"
+     }
+    ],
+    "source": null
+   }
+  ],
+  "death_records": {},
+  "defeated_monsters": [],
+  "deprivation": {},
+  "dungeon_state": {
+   "doors": {},
+   "emptied_caches": [],
+   "explored": {},
+   "found_traps": [],
+   "found_tricks": [],
+   "generated_caches": {},
+   "generated_lair_hoards": [],
+   "generated_treasure_areas": [],
+   "inspect_attempts": {},
+   "listen_attempts": {},
+   "location": {
+    "dungeon_id": null,
+    "facing": null,
+    "kind": "town",
+    "level_number": null,
+    "position": null
+   },
+   "lock_failures": {},
+   "piles": {},
+   "removal_attempts": {},
+   "removed_traps": [],
+   "resolved_encounters": [],
+   "search_attempts": {},
+   "seen": {},
+   "sprung_traps": []
+  },
+  "encounter": null,
+  "event_log": [
+   {
+    "code": "exploration.rest.rested",
+    "event_type": "rested",
+    "kind": "night",
+    "visibility": "player"
+   },
+   {
+    "caster_id": "character-0002",
+    "code": "magic.memorize.prepared",
+    "event_type": "spells_memorized",
+    "prepared": [
+     {
+      "reversed": true,
+      "spell_id": "gloaming"
+     },
+     {
+      "reversed": false,
+      "spell_id": "light_mu"
+     }
+    ],
+    "visibility": "player"
+   }
+  ],
+  "exploration": {
+   "alerted_areas": [],
+   "heard_areas": [],
+   "last_prepared_sleep": {
+    "character-0002": 1
+   },
+   "noise_since_check": false,
+   "odometer_thirds": 0,
+   "provisions_day": 0,
+   "sleep_count": 1,
+   "turns_since_rest": 0,
+   "wandering_counter": 0
+  },
+  "fired_triggers": [],
+  "flags": {},
+  "journal": [],
+  "ledger": {
+   "effects": []
+  },
+  "listener_state": {},
+  "master_seed": 7,
+  "mode": "town",
+  "monsters": [],
+  "npcs": [],
+  "party": {
+   "members": [
+    {
+     "alignment": "lawful",
+     "carrying_treasure": false,
+     "class_id": "fighter",
+     "conditions": [],
+     "current_hp": 400,
+     "custom_class": null,
+     "extra_languages": [],
+     "id": "character-0001",
+     "inventory": {
+      "items": [],
+      "purse": {
+       "cp": 0,
+       "ep": 0,
+       "gp": 0,
+       "pp": 0,
+       "sp": 0
+      },
+      "rings": [],
+      "shield": null,
+      "valuables": [],
+      "wielded": [],
+      "worn_armour": null
+     },
+     "level": 3,
+     "max_hp": 400,
+     "memorized_spells": [],
+     "name": "Hild",
+     "nonregen_damage": 0,
+     "race": "human",
+     "scores": {
+      "cha": 10,
+      "con": 10,
+      "dex": 10,
+      "int": 10,
+      "str": 10,
+      "wis": 10
+     },
+     "spell_book": [],
+     "stat_modifiers": [],
+     "xp": 4000
+    },
+    {
+     "alignment": "lawful",
+     "carrying_treasure": false,
+     "class_id": "magic_user",
+     "conditions": [],
+     "current_hp": 400,
+     "custom_class": null,
+     "extra_languages": [],
+     "id": "character-0002",
+     "inventory": {
+      "items": [],
+      "purse": {
+       "cp": 0,
+       "ep": 0,
+       "gp": 0,
+       "pp": 0,
+       "sp": 0
+      },
+      "rings": [],
+      "shield": null,
+      "valuables": [],
+      "wielded": [],
+      "worn_armour": null
+     },
+     "level": 3,
+     "max_hp": 400,
+     "memorized_spells": [
+      {
+       "reversed": true,
+       "spell_id": "gloaming"
+      },
+      {
+       "reversed": false,
+       "spell_id": "light_mu"
+      }
+     ],
+     "name": "Wren",
+     "nonregen_damage": 0,
+     "race": "human",
+     "scores": {
+      "cha": 12,
+      "con": 12,
+      "dex": 12,
+      "int": 12,
+      "str": 12,
+      "wis": 12
+     },
+     "spell_book": [
+      "gloaming",
+      "light_mu"
+     ],
+     "stat_modifiers": [],
+     "xp": 5000
+    }
+   ]
+  },
+  "quests": {},
+  "rng_streams": {
+   "effects": {
+    "inc": 110921974297112361420962594425958014099,
+    "state": 323578275112908533770403587567316273018
+   }
+  },
+  "ruleset": {
+   "aoe_friendly_fire": true,
+   "back_stab_needs_both_skills": true,
+   "deprivation_penalties": false,
+   "encumbrance": "basic",
+   "failed_trap_removal_springs": true,
+   "formation_width_limit": true,
+   "hd5_counts_as_magical": false,
+   "hp_reroll_at_first_level": false,
+   "individual_initiative": false,
+   "magic_item_death_save": true,
+   "thac0_arithmetic": false,
+   "variable_weapon_damage": true,
+   "weapon_reload": false,
+   "xp_award_timing": "on_return"
+  },
+  "treasure_snapshot_cp": null
+ },
+ "schema_version": 4
+}
