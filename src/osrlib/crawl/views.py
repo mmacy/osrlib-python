@@ -1364,6 +1364,25 @@ class PlayerView(_Model):
     [`items`][osrlib.crawl.views.PileView.items]. A piece in a pile the party doesn't know, or in a
     cache the party hasn't emptied, isn't a key, as it isn't one in `item_names`. Every key here is
     also a key in `item_names`."""
+    valuable_phrases: dict[str, str] = {}
+    """What to call each piece in `valuable_names` in the middle of a sentence, with its article and its case, keyed
+    by the same instance id, like `{"valuable-0007": "the abbot's seal ring", "valuable-0008": "a silver altar
+    candlestick", "valuable-0009": "Ossor's Eye"}`. Use it as written in a sentence: "Wren takes a silver altar
+    candlestick." Use `valuable_names` in a list, such as an inventory row.
+
+    The keys are exactly the keys of `valuable_names`, for a piece in a member's
+    [`inventory`][osrlib.crawl.views.MemberView.inventory] and for a piece in a known pile alike. Each value is the
+    piece's [`phrase`][osrlib.core.items.ValuableInstance.phrase] when it has one. Otherwise osrlib makes the phrase
+    from the name. A name whose first word is "the", "a", or "an", in any case, keeps its words with that first word in
+    lowercase, so `"The abbot's seal ring"` becomes `"the abbot's seal ring"`. Any other name has its first letter in
+    lowercase and the indefinite article in front, "an" before a vowel and "a" otherwise, so
+    `"Silver altar candlestick"` becomes `"a silver altar candlestick"` and `"Eye of Ossor"` becomes
+    `"an eye of Ossor"`. Only that first letter changes case. A phrase that's only whitespace counts as no phrase.
+
+    A piece from a save that osrlib 2.9.0 wrote has no phrase, so the view makes its phrase from its name, and every
+    key of `valuable_names` is a key here. A `PlayerView` that osrlib 2.9.0 built, such as a stored feed entry, has no
+    `valuable_phrases`, and it validates with this map empty. For such a view, word each name in `valuable_names`
+    yourself."""
     fatigued: bool
     """Whether any member is fatigued."""
     exhausted: bool

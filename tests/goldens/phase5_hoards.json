@@ -57,6 +57,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1100,
             "weight_coins": 10
           },
@@ -65,6 +66,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1500,
             "weight_coins": 10
           },
@@ -73,6 +75,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 900,
             "weight_coins": 10
           },
@@ -81,6 +84,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1400,
             "weight_coins": 10
           },
@@ -89,6 +93,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1200,
             "weight_coins": 10
           },
@@ -97,6 +102,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1000,
             "weight_coins": 10
           },
@@ -105,6 +111,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 700,
             "weight_coins": 10
           },
@@ -113,6 +120,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1000,
             "weight_coins": 10
           },
@@ -121,6 +129,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1400,
             "weight_coins": 10
           },
@@ -129,6 +138,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1000,
             "weight_coins": 10
           },
@@ -137,6 +147,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 800,
             "weight_coins": 10
           },
@@ -145,6 +156,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1600,
             "weight_coins": 10
           },
@@ -153,6 +165,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 900,
             "weight_coins": 10
           },
@@ -161,6 +174,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1500,
             "weight_coins": 10
           },
@@ -169,6 +183,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1400,
             "weight_coins": 10
           },
@@ -177,6 +192,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1200,
             "weight_coins": 10
           },
@@ -185,6 +201,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1200,
             "weight_coins": 10
           },
@@ -193,6 +210,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1100,
             "weight_coins": 10
           },
@@ -201,6 +219,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1300,
             "weight_coins": 10
           },
@@ -209,6 +228,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1100,
             "weight_coins": 10
           },
@@ -217,6 +237,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1000,
             "weight_coins": 10
           },
@@ -225,6 +246,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1100,
             "weight_coins": 10
           },
@@ -233,6 +255,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1000,
             "weight_coins": 10
           },
@@ -241,6 +264,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1600,
             "weight_coins": 10
           },
@@ -249,6 +273,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1200,
             "weight_coins": 10
           }
@@ -269,6 +294,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           }
@@ -289,6 +315,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 700,
             "weight_coins": 10
           }
@@ -419,6 +446,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -427,6 +455,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -435,6 +464,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 10,
             "weight_coins": 1
           },
@@ -443,6 +473,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -451,6 +482,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -459,6 +491,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -467,6 +500,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -475,6 +509,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 1000,
             "weight_coins": 1
           },
@@ -483,6 +518,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -491,6 +527,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -499,6 +536,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -507,6 +545,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -515,6 +554,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -523,6 +563,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -531,6 +572,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -539,6 +581,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 1000,
             "weight_coins": 1
           },
@@ -547,6 +590,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -555,6 +599,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -563,6 +608,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1200,
             "weight_coins": 10
           },
@@ -571,6 +617,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1200,
             "weight_coins": 10
           },
@@ -579,6 +626,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1200,
             "weight_coins": 10
           },
@@ -587,6 +635,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 900,
             "weight_coins": 10
           },
@@ -595,6 +644,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1800,
             "weight_coins": 10
           },
@@ -603,6 +653,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 900,
             "weight_coins": 10
           },
@@ -611,6 +662,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1300,
             "weight_coins": 10
           },
@@ -619,6 +671,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 700,
             "weight_coins": 10
           },
@@ -627,6 +680,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1000,
             "weight_coins": 10
           },
@@ -635,6 +689,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 700,
             "weight_coins": 10
           }
@@ -655,6 +710,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 800,
             "weight_coins": 10
           }
@@ -748,6 +804,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -756,6 +813,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 10,
             "weight_coins": 1
           },
@@ -764,6 +822,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -772,6 +831,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 10,
             "weight_coins": 1
           },
@@ -780,6 +840,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -788,6 +849,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -796,6 +858,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -804,6 +867,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -812,6 +876,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 10,
             "weight_coins": 1
           },
@@ -820,6 +885,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -828,6 +894,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -836,6 +903,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 1000,
             "weight_coins": 1
           },
@@ -844,6 +912,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -852,6 +921,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -860,6 +930,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -868,6 +939,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -876,6 +948,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -884,6 +957,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 10,
             "weight_coins": 1
           },
@@ -892,6 +966,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -900,6 +975,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -908,6 +984,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -916,6 +993,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -924,6 +1002,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -932,6 +1011,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -940,6 +1020,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -948,6 +1029,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -956,6 +1038,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -964,6 +1047,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -972,6 +1056,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 10,
             "weight_coins": 1
           },
@@ -980,6 +1065,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -988,6 +1074,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -996,6 +1083,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 10,
             "weight_coins": 1
           },
@@ -1004,6 +1092,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -1012,6 +1101,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 10,
             "weight_coins": 1
           },
@@ -1020,6 +1110,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -1028,6 +1119,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 10,
             "weight_coins": 1
           },
@@ -1036,6 +1128,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -1044,6 +1137,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -1052,6 +1146,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 10,
             "weight_coins": 1
           },
@@ -1060,6 +1155,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -1068,6 +1164,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 10,
             "weight_coins": 1
           },
@@ -1076,6 +1173,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -1084,6 +1182,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -1092,6 +1191,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -1100,6 +1200,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -1108,6 +1209,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -1116,6 +1218,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -1124,6 +1227,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -1132,6 +1236,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -1140,6 +1245,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -1148,6 +1254,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -1156,6 +1263,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -1164,6 +1272,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -1172,6 +1281,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -1180,6 +1290,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -1188,6 +1299,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -1196,6 +1308,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -1204,6 +1317,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 1000,
             "weight_coins": 1
           },
@@ -1212,6 +1326,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 10,
             "weight_coins": 1
           },
@@ -1220,6 +1335,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -1228,6 +1344,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -1236,6 +1353,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -1244,6 +1362,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -1252,6 +1371,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -1260,6 +1380,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 10,
             "weight_coins": 1
           },
@@ -1268,6 +1389,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 700,
             "weight_coins": 10
           },
@@ -1276,6 +1398,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1200,
             "weight_coins": 10
           },
@@ -1284,6 +1407,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 10
           },
@@ -1292,6 +1416,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 800,
             "weight_coins": 10
           },
@@ -1300,6 +1425,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 700,
             "weight_coins": 10
           },
@@ -1308,6 +1434,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 800,
             "weight_coins": 10
           },
@@ -1316,6 +1443,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1200,
             "weight_coins": 10
           },
@@ -1324,6 +1452,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 800,
             "weight_coins": 10
           },
@@ -1332,6 +1461,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1400,
             "weight_coins": 10
           },
@@ -1340,6 +1470,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1500,
             "weight_coins": 10
           }
@@ -1360,6 +1491,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 900,
             "weight_coins": 10
           },
@@ -1368,6 +1500,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1500,
             "weight_coins": 10
           },
@@ -1376,6 +1509,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1600,
             "weight_coins": 10
           },
@@ -1384,6 +1518,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1200,
             "weight_coins": 10
           },
@@ -1392,6 +1527,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1500,
             "weight_coins": 10
           },
@@ -1400,6 +1536,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 800,
             "weight_coins": 10
           },
@@ -1408,6 +1545,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 10
           }
@@ -1450,6 +1588,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 10,
             "weight_coins": 1
           },
@@ -1458,6 +1597,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           }
@@ -1478,6 +1618,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -1486,6 +1627,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -1494,6 +1636,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -1502,6 +1645,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -1510,6 +1654,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -1518,6 +1663,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -1526,6 +1672,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 10,
             "weight_coins": 1
           },
@@ -1534,6 +1681,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -1542,6 +1690,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -1550,6 +1699,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 10,
             "weight_coins": 1
           }
@@ -1743,6 +1893,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           }
@@ -1763,6 +1914,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -1771,6 +1923,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -1779,6 +1932,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -1787,6 +1941,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -1795,6 +1950,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -1803,6 +1959,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -1811,6 +1968,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -1819,6 +1977,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1100,
             "weight_coins": 10
           },
@@ -1827,6 +1986,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1300,
             "weight_coins": 10
           },
@@ -1835,6 +1995,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1200,
             "weight_coins": 10
           },
@@ -1843,6 +2004,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 900,
             "weight_coins": 10
           },
@@ -1851,6 +2013,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1400,
             "weight_coins": 10
           },
@@ -1859,6 +2022,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 900,
             "weight_coins": 10
           },
@@ -1867,6 +2031,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 900,
             "weight_coins": 10
           },
@@ -1875,6 +2040,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 900,
             "weight_coins": 10
           }
@@ -2036,6 +2202,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -2044,6 +2211,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -2052,6 +2220,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -2060,6 +2229,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -2068,6 +2238,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -2076,6 +2247,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           }
@@ -2183,6 +2355,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 10,
             "weight_coins": 1
           },
@@ -2191,6 +2364,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -2199,6 +2373,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -2207,6 +2382,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -2215,6 +2391,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -2223,6 +2400,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -2231,6 +2409,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 50,
             "weight_coins": 1
           },
@@ -2239,6 +2418,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -2247,6 +2427,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           }
@@ -2278,6 +2459,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 10,
             "weight_coins": 1
           },
@@ -2286,6 +2468,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 1000,
             "weight_coins": 1
           },
@@ -2294,6 +2477,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -2302,6 +2486,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 10,
             "weight_coins": 1
           },
@@ -2310,6 +2495,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 10,
             "weight_coins": 1
           },
@@ -2318,6 +2504,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -2326,6 +2513,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1300,
             "weight_coins": 10
           },
@@ -2334,6 +2522,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1000,
             "weight_coins": 10
           },
@@ -2342,6 +2531,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1300,
             "weight_coins": 10
           },
@@ -2350,6 +2540,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 900,
             "weight_coins": 10
           },
@@ -2358,6 +2549,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 900,
             "weight_coins": 10
           },
@@ -2366,6 +2558,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 700,
             "weight_coins": 10
           },
@@ -2374,6 +2567,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 900,
             "weight_coins": 10
           }
@@ -2416,6 +2610,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 100,
             "weight_coins": 1
           },
@@ -2424,6 +2619,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 10,
             "weight_coins": 1
           },
@@ -2432,6 +2628,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 500,
             "weight_coins": 1
           },
@@ -2440,6 +2637,7 @@
             "instance_type": "valuable",
             "kind": "gem",
             "name": "Gem",
+            "phrase": "",
             "value_gp": 10,
             "weight_coins": 1
           }
@@ -2460,6 +2658,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1200,
             "weight_coins": 10
           },
@@ -2468,6 +2667,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1100,
             "weight_coins": 10
           },
@@ -2476,6 +2676,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 900,
             "weight_coins": 10
           },
@@ -2484,6 +2685,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 300,
             "weight_coins": 10
           },
@@ -2492,6 +2694,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1400,
             "weight_coins": 10
           },
@@ -2500,6 +2703,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 800,
             "weight_coins": 10
           },
@@ -2508,6 +2712,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1200,
             "weight_coins": 10
           },
@@ -2516,6 +2721,7 @@
             "instance_type": "valuable",
             "kind": "jewellery",
             "name": "Jewellery",
+            "phrase": "",
             "value_gp": 1100,
             "weight_coins": 10
           }

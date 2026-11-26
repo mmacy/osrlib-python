@@ -790,6 +790,7 @@ class ValuableSpec(_Model):
     Attributes:
         kind: Whether it is a gem or jewellery.
         name: The name the party sees.
+        phrase: What to call it in the middle of a sentence, if osrlib can't make that from `name`.
         value_gp: What it is worth, in gold pieces.
         weight_coins: What it weighs, in coins.
 
@@ -815,6 +816,21 @@ class ValuableSpec(_Model):
     name: str = ""
     """The name the party sees, like `"The abbot's seal ring"`. Leave it empty for an unnamed
     valuable, like the ones the session rolls on the treasure tables."""
+    phrase: str = ""
+    """What to call the piece in the middle of a sentence, with its article and its case, like
+    `"a silver altar candlestick"`, `"the abbot's seal ring"`, or `"Ossor's Eye"`. A client shows `name` in a list,
+    such as an inventory row, and words a sentence, such as "Wren takes the abbot's seal ring.", with the phrase that
+    [`PlayerView.valuable_phrases`][osrlib.crawl.views.PlayerView.valuable_phrases] gives.
+
+    Leave it empty, and osrlib makes the phrase from `name`. A name whose first word is "the", "a", or "an" has that
+    word in lowercase, so `"The abbot's seal ring"` reads `"the abbot's seal ring"`. Any other name has its first
+    letter in lowercase and "an" or "a" in front, so `"Silver altar candlestick"` reads `"a silver altar candlestick"`.
+    Set the phrase when the piece has a proper name, like `"Ossor's Eye"`, which would read `"an ossor's Eye"`, or
+    when the made phrase reads wrong in any other way, like `"an unicorn-horn cup"`. A phrase that's only whitespace
+    counts as empty.
+
+    Only a piece with a name of its own has a phrase in the view. A piece whose `name` is empty, or is `"Gem"` or
+    `"Jewellery"`, the name treasure generation gives its kind, is named by its kind, whatever `phrase` holds."""
     value_gp: int = Field(ge=0)
     """What the valuable is worth in gold pieces. It sells for this much in town, and it is worth
     this much experience to the party."""
