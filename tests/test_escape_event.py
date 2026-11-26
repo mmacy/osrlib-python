@@ -1,16 +1,22 @@
-"""Acceptance tests for issue 292: an event marks the command in which a monster group gets away.
+"""Acceptance tests for issues 292 and 297: an event marks the command in which a monster group gets away.
 
 A group that fails morale emits `MonsterFledEvent` and keeps running. It leaves the battle once it stands farther than
 `FLEE_EXIT_FEET` (120') from every living party member, and `EncounterGroup.fled` becomes true. A group whose morale
 score is 2 leaves as it enters the battle, because the OSE SRD's morale page says "A score of 2: Means the monster will
-not fight." Those are the only two places `fled` becomes true, and the session emits one `MonsterEscapedEvent`
-(`monster_escaped`, `battle.side.escaped`) for the group in the same command result, and never otherwise:
+not fight." A group whose living members are all turned or afraid, and which stands past 120' without a move of its own,
+counts as gone when the battle ends, and it's marked fled then (#297). In each case the session emits one
+`MonsterEscapedEvent` (`monster_escaped`, `battle.side.escaped`) for the group in the same command result, and never
+otherwise:
 
 - In the monster block, the event comes right after the running group's `GroupMovedEvent`.
 - When the group leaves as it enters the battle, the event comes right after its `MonsterFledEvent`.
+- When the battle ends with a turned or afraid group past 120' that its own move didn't take out, its event comes
+  right before the `BattleEndedEvent`.
 - When the escape ends the battle, the event comes before the `BattleEndedEvent`.
 
-The event is additive within the current `schema_version`, and it takes no draw, no clock time, and changes no state.
+The event is additive within the current `schema_version`, and it takes no draw and no clock time. Marking a turned or
+afraid group fled as the battle ends makes it end the way the same group ends when its own move takes it out: the same
+outcomes, the same experience, and the same treasure.
 
 Every scenario runs through commands, and `execute_checked` checks the invariant on every command it runs: the groups
 named by the result's escape events are exactly the groups whose `fled` turned true in that command, once each.
@@ -27,9 +33,16 @@ import pytest
 
 import test_turned_undead_flee as turned_fixture
 from crawl_fixtures import build_adventure, build_party
-from osrlib.core.events import Event, Visibility
+from osrlib.core.alignment import Alignment
+from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+from osrlib.core.effects import Condition, has_condition
+from osrlib.core.events import Event, InitiativeRolledEvent, UndeadTurnedEvent, Visibility
+from osrlib.core.items import Coins, MagicItemInstance
+from osrlib.core.rng import RngStreams
+from osrlib.core.ruleset import Ruleset
 from osrlib.crawl import battle as battle_module
 from osrlib.crawl import commands as commands_module
+from osrlib.crawl.adventure import Adventure, TownSpec
 from osrlib.crawl.battle import FLEE_EXIT_FEET, MELEE_RANGE_FEET
 from osrlib.crawl.commands import (
     BattleDeclaration,
@@ -43,13 +56,19 @@ from osrlib.crawl.commands import (
     SpawnMonsters,
     TurnUndead,
 )
+from osrlib.crawl.dungeon import DungeonSpec, Edge, EdgeKind, LevelSpec, TreasureBundle
+from osrlib.crawl.encounter import EncounterGroup
 from osrlib.crawl.events import (
     BattleEndedEvent,
+    EncounterEndedEvent,
+    EncounterStartedEvent,
     GroupMovedEvent,
+    MonsterDefeatedEvent,
     MonsterEscapedEvent,
     MonsterFledEvent,
     parse_any_event,
 )
+from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession, SessionMode
 from osrlib.crawl.views import PlayerView
 from osrlib.data import load_monsters
@@ -59,6 +78,7 @@ from test_spawn_into_encounter import craven_session
 
 CHUNK = "chunk: escape-event"
 FIGHTER = "character-0001"
+MAGIC_USER = "character-0004"
 RUNNER_RATE_FEET = 60
 """The movement rate of a goblin and of a skeleton, which a running group of either covers each round."""
 
@@ -69,16 +89,26 @@ SRC = Path(__file__).resolve().parent.parent / "src" / "osrlib"
 
 
 def execute_checked(session: GameSession, command: Command) -> CommandResult:
-    """Execute an accepted command and check that its escape events match the groups whose `fled` turned true."""
+    """Execute an accepted command and check that its escape events match the groups whose `fled` turned true.
+
+    The groups are read from the encounter open before the command, and from the one open after it. A command that
+    opens an encounter and closes it again, like a spawn whose monsters attack and leave at once, leaves no group to
+    read. For that command the check is only that no group escapes twice, and the test asserts the escape it expects.
+    """
     groups = list(session.encounter.groups) if session.encounter is not None else []
     already_fled = {group.id for group in groups if group.fled}
     result = session.execute(command)
     assert result.accepted, [rejection.code for rejection in result.rejections]
+    escaped = sorted(event.group_id for event in result.events if isinstance(event, MonsterEscapedEvent))
+    if session.encounter is None and not groups:
+        opened = any(isinstance(event, EncounterStartedEvent) for event in result.events)
+        assert opened or escaped == [], f"escape events {escaped} with no encounter open before, during, or after"
+        assert len(set(escaped)) == len(escaped), f"a group escaped twice: {escaped}"
+        return result
     if session.encounter is not None:
         known = {group.id for group in groups}
         groups += [group for group in session.encounter.groups if group.id not in known]
     newly_fled = sorted(group.id for group in groups if group.fled and group.id not in already_fled)
-    escaped = sorted(event.group_id for event in result.events if isinstance(event, MonsterEscapedEvent))
     assert escaped == newly_fled, f"escape events {escaped}, groups that got away {newly_fled}"
     return result
 
@@ -362,6 +392,196 @@ def test_a_wholly_turned_group_gets_away_and_ends_the_battle():
     events = list(result.events)
     escape_at = assert_escape_follows_move(events, skeletons.id, 10 + 2 * RUNNER_RATE_FEET)
     assert escape_at < index_of(events, lambda event: isinstance(event, BattleEndedEvent))
+
+
+# ---------------------------------------------------------------------- a turned or afraid group past 120' (#297)
+
+TURNED_SEED = turned_fixture.ALL_TURNED_BATTLE_SEED
+"""Seed 6: the round 1 turning turns all six skeletons, whether they stand 70' or 130' away."""
+
+AFRAID_FIRST_SEED = 14
+"""Seed 14: the party acts first in the round the goblin is left past 120', so the battle ends before it runs."""
+
+AFRAID_REFERENCE_SEED = 1
+"""Seed 1: the goblin acts first in that round, runs past 120', and the monster block marks it fled."""
+
+GROUP_COINS = Coins(gp=50)
+MEMBER_COINS = Coins(sp=7)
+
+
+def give_treasure(group: EncounterGroup) -> None:
+    """Give the group a shared bundle and its first member a bundle of its own, so the endings can be compared."""
+    group.group_treasure = TreasureBundle(coins=GROUP_COINS)
+    group.member_treasure[group.monster_ids[0]] = TreasureBundle(coins=MEMBER_COINS)
+
+
+def skeletons_at(distance_feet: int) -> tuple[GameSession, EncounterGroup]:
+    """Six skeletons `distance_feet` away from a cleric and two fighters, with the battle open.
+
+    Return the session and the skeletons' group, which carries a shared bundle and a bundle for its first member.
+    """
+    draw = RngStreams(master_seed=TURNED_SEED).get(CHARACTER_CREATION_STREAM)
+    members = [
+        create_character(
+            name=f"Member {index}", class_id=class_id, alignment=Alignment.LAWFUL, ruleset=Ruleset(), stream=draw
+        ).character
+        for index, class_id in enumerate(turned_fixture.TRIO)
+    ]
+    level = LevelSpec(number=1, width=2, height=1, entrance=(0, 0), edges={"1,0:west": Edge(kind=EdgeKind.OPEN)})
+    adventure = Adventure(
+        name="Turning",
+        town=TownSpec(name="Town", travel_turns={"crypt": 1}),
+        dungeons=(DungeonSpec(id="crypt", name="Crypt", levels=(level,)),),
+    )
+    session = GameSession.new(Party(members=members), adventure, seed=TURNED_SEED)
+    execute_checked(session, EnterDungeon(dungeon_id="crypt"))
+    execute_checked(session, SpawnMonsters(template_id="skeleton", count_fixed=6, distance_feet=distance_feet))
+    assert session.mode is SessionMode.ENCOUNTER, "precondition: the skeletons did not open battle at once"
+    execute_checked(session, EngageBattle())
+    group = session.encounter.groups[0]
+    give_treasure(group)
+    return session, group
+
+
+def turn_all(session: GameSession) -> CommandResult:
+    """Round 1: the cleric turns, and the fighters hold. Assert the precondition that all six are turned."""
+    cleric = turned_fixture.cleric_of(session)
+    result = hold_round(session, BattleDeclaration(character_id=cleric.id, action="turn_undead"))
+    # The encounter can close in this round and release the turned condition, so the turning is read from its event.
+    (turning,) = [event for event in result.events if isinstance(event, UndeadTurnedEvent)]
+    assert turning.code == "magic.turning.turned", "precondition: the turning succeeded"
+    assert set(turning.affected_ids) == set(session.monsters), "precondition: all six were turned"
+    return result
+
+
+def afraid_goblin(seed: int) -> tuple[GameSession, EncounterGroup, CommandResult]:
+    """A goblin 60' away, made afraid by a wand of fear, that the party leaves behind by falling back.
+
+    In round 1 the goblin closes to 40' and the magic-user's wand makes it afraid. From round 2 every member makes a
+    fighting withdrawal each round, and the goblin runs from them, until the battle ends. Return the session, the
+    goblin's group, and the result of the round that ended the battle.
+    """
+    session = battle_session(count=1, distance=60, seed=seed)
+    session.member(MAGIC_USER).inventory.items.append(
+        MagicItemInstance(
+            instance_id="magic-item-9001", template_id="wand_of_fear", identified=True, charges_remaining=5
+        )
+    )
+    group = session.encounter.groups[0]
+    give_treasure(group)
+    wand = BattleDeclaration(
+        character_id=MAGIC_USER, action="use_item", item_id="magic-item-9001", target_group_id=group.id
+    )
+    hold_round(session, wand)
+    (goblin_id,) = group.monster_ids
+    assert has_condition(session.combatant(goblin_id), Condition.AFRAID), "precondition: the goblin is afraid"
+    for _ in range(5):
+        withdrawal = tuple(
+            BattleDeclaration(character_id=member.id, action="move", move="fighting_withdrawal")
+            for member in session.party.living_members()
+        )
+        result = execute_checked(session, ResolveBattleRound(declarations=withdrawal))
+        if session.mode is not SessionMode.BATTLE:
+            return session, group, result
+    pytest.fail("the battle did not end")
+
+
+def acted_first(events) -> str:
+    return next(event for event in events if isinstance(event, InitiativeRolledEvent)).order[0]
+
+
+@pytest.mark.xfail(reason=CHUNK)
+def test_a_group_turned_past_the_exit_gets_away_as_the_battle_ends():
+    """Six skeletons 130' away, all turned in round 1, are past 120' without a move, and the battle ends at once.
+
+    The session marks the group fled and emits its escape right before the `BattleEndedEvent`.
+    """
+    session, skeletons = skeletons_at(130)
+
+    events = list(turn_all(session).events)
+
+    assert session.mode is SessionMode.EXPLORING
+    assert skeletons.distance_feet == 130
+    assert skeletons.fled is True
+    (escape,) = escapes(events)
+    assert escape.group_id == skeletons.id
+    ended = index_of(events, lambda event: isinstance(event, BattleEndedEvent))
+    assert events.index(escape) == ended - 1
+    assert events[ended].code == "battle.ended.victory"
+
+
+def test_a_group_turned_past_the_exit_ends_as_one_that_runs_out():
+    """The same six skeletons turned at 70' run to 130' in round 1 and are marked fled by the monster block.
+
+    Both endings give each skeleton the `routed` outcome and its 10 XP, and the group keeps its shared bundle and the
+    member its own, because turned monsters flee with their treasure. Nothing drops.
+    """
+    near, near_group = skeletons_at(70)
+    near_events = list(turn_all(near).events)
+    assert near.mode is SessionMode.EXPLORING and near_group.fled, "precondition: the monster block marked it fled"
+    far, far_group = skeletons_at(130)
+    far_events = list(turn_all(far).events)
+
+    near_ending = ending(near, near_group, near_events)
+    assert ending(far, far_group, far_events) == near_ending
+    assert near_ending["records"] == [(monster_id, "routed", 10) for monster_id in near_group.monster_ids]
+    assert near_ending["group_treasure"] == TreasureBundle(coins=GROUP_COINS)
+    assert near_ending["piles"] == {}
+
+
+@pytest.mark.xfail(reason=CHUNK)
+def test_an_afraid_group_left_past_the_exit_gets_away_as_the_battle_ends():
+    """Seed 14: the party falls back first, the afraid goblin is past 120' before it runs, and the battle ends.
+
+    The session marks the group fled and emits its escape right before the `BattleEndedEvent`, and the goblin is
+    routed and worth its 5 XP, as an afraid goblin that runs out is.
+    """
+    session, group, result = afraid_goblin(AFRAID_FIRST_SEED)
+
+    events = list(result.events)
+    assert acted_first(events) != group.id, "precondition: the party acted first in the last round"
+    assert group.fled is True
+    (escape,) = escapes(events)
+    assert escape.group_id == group.id
+    ended = index_of(events, lambda event: isinstance(event, BattleEndedEvent))
+    assert events.index(escape) == ended - 1
+    (goblin_id,) = group.monster_ids
+    assert ending(session, group, events)["defeated"] == [(goblin_id, "routed", 5)]
+
+
+@pytest.mark.xfail(reason=CHUNK)
+def test_an_afraid_group_left_past_the_exit_ends_as_one_that_runs_out():
+    """Seed 1 is the reference: the goblin runs first, past 120', and the monster block marks it fled.
+
+    Both endings route the goblin for its 5 XP, and in both the group keeps its treasure and nothing drops.
+    """
+    reference, reference_group, reference_result = afraid_goblin(AFRAID_REFERENCE_SEED)
+    reference_events = list(reference_result.events)
+    assert acted_first(reference_events) == reference_group.id, "precondition: the goblin acted first"
+    assert_escape_follows_move(reference_events, reference_group.id, reference_group.distance_feet)
+    session, group, result = afraid_goblin(AFRAID_FIRST_SEED)
+
+    expected = ending(reference, reference_group, reference_events)
+    assert ending(session, group, list(result.events)) == expected
+    assert expected["records"] == [(reference_group.monster_ids[0], "routed", 5)]
+    assert expected["group_treasure"] == TreasureBundle(coins=GROUP_COINS)
+    assert expected["piles"] == {}
+
+
+def ending(session: GameSession, group: EncounterGroup, events) -> dict:
+    """What the end of the encounter did with the group: outcomes, experience, and treasure."""
+    view = session.view(Visibility.PLAYER)
+    assert isinstance(view, PlayerView)
+    return {
+        "records": [(record.monster_id, record.outcome, record.xp) for record in session.defeated_monsters],
+        "defeated": [
+            (event.monster_id, event.outcome, event.xp) for event in events if isinstance(event, MonsterDefeatedEvent)
+        ],
+        "encounter_outcome": [event.outcome for event in events if isinstance(event, EncounterEndedEvent)],
+        "group_treasure": group.group_treasure,
+        "member_treasure": dict(group.member_treasure),
+        "piles": view.piles,
+    }
 
 
 # ---------------------------------------------------------------------- the invariant across seeds

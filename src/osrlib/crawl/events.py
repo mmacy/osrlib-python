@@ -1485,6 +1485,13 @@ class MonsterEscapedEvent(Event):
     emits this event right after that group's
     [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent].
 
+    A group whose living members are all turned or afraid can also end up farther than
+    `FLEE_EXIT_FEET` from every living member without a move of its own: a group turned where it
+    stands 130' away, or a group the party leaves behind by falling back before the group's next
+    move. Such a group counts as gone, so once no other group is left fighting, the battle ends.
+    The session then marks each such group fled and emits this event for it right before the
+    [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent].
+
     The session emits one of these events for a group in the same command result in which
     [`EncounterGroupView.fled`][osrlib.crawl.views.EncounterGroupView.fled] becomes true, and
     never in any other result, so you can tell that the group got away from the event stream
