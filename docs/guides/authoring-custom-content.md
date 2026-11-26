@@ -657,7 +657,7 @@ Unlike spells, monsters, and items, custom classes are stored on each character 
 
 Add custom [`WeaponTemplate`][osrlib.core.items.WeaponTemplate], [`ArmourTemplate`][osrlib.core.items.ArmourTemplate], [`GearTemplate`][osrlib.core.items.GearTemplate], and [`AmmunitionTemplate`][osrlib.core.items.AmmunitionTemplate] instances (discriminated by `item_type`) to `Adventure.items`. [`GameSession.effective_equipment`][osrlib.crawl.session.GameSession.effective_equipment] unions `load_equipment()` with `Adventure.items`, resolving bundled IDs in treasure caches (`FeatureSpec.item_ids`), [`GrantItem`][osrlib.crawl.commands.GrantItem], and dropped item piles. Once acquired, [`ItemInstance`][osrlib.core.items.ItemInstance] embeds its template for equipping, encumbrance, combat, item transfers, saves, and replay.
 
-You can also set what the players call a bundled item in a sentence. Set [`display_name`][osrlib.core.items.GearTemplate.display_name] to what to call one, in lowercase with no article, like `"idol of the drowned saint"`, and [`display_name_plural`][osrlib.core.items.GearTemplate.display_name_plural] to what to call two or more. [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] and [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural] give them to the players' client. A template that leaves `display_name` out gets its `name`, and one that leaves `display_name_plural` out gets the display name with the regular English ending on its last word, so set the plural yourself when that ending is wrong, as for "idols of the drowned saint".
+You can also set what the players call a bundled item in a sentence. Set [`display_name`][osrlib.core.items.GearTemplate.display_name] to what to call one, in lowercase with no article, like `"idol of the drowned saint"`, and [`display_name_plural`][osrlib.core.items.GearTemplate.display_name_plural] to what to call two or more. [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] and [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural] give them to the players' client. A template that leaves `display_name` out gets its `name`, and one that leaves `display_name_plural` out gets the display name with the regular English ending on the word that names the item, the last word before the first `of`, `with`, or `vs`, a comma, a bonus such as `+1`, a closing Roman numeral, or an opening parenthesis, or the last word of a name with none of them. So `"idol of the drowned saint"` gets `"idols of the drowned saint"`, and `"Staff of the Magi"` gets `"Staves of the Magi"`. Set the plural yourself when the name is already plural, such as `"Torches (6)"`, or when the plural is irregular.
 
 [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] requires every bundled item ID to be unique across `Adventure.items`, the built-in equipment catalog ([the equipment id index][equipment-index]), and the built-in magic-item catalog (treasure encumbrance row IDs such as `coin`, `gem`, and `jewellery` do not count as item IDs):
 
@@ -714,7 +714,8 @@ BLESSED_STONES = AmmunitionTemplate.model_validate(
     {"id": "blessed_stones", "name": "Blessed sling stones", "cost_gp": 0, "lot_size": 20}
 )
 
-# A template written without display names gets its name and the regular plural.
+# A template written without display names gets its name, and the plural ending on the
+# word that names the item.
 assert (DROWNED_BLADE.display_name, DROWNED_BLADE.display_name_plural) == ("Drowned blade", "Drowned blades")
 
 # Bundle them: the adventure document carries the templates, and a cache places

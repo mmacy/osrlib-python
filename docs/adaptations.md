@@ -161,9 +161,9 @@ The SRD prints item names for a price list or a treasure table, like `Torches (6
 - It names one of the units that the item's `quantity` counts, not a lot. The compiler drops the plural ending from ammunition, so `Arrows (quiver of 20)` is "arrow" and `Arrows +1` is "arrow +1". Gear sold in a lot or as a substance is named by the unit or the container the SRD's descriptions give, so `Torches (6)` is "torch", `Holy water (vial)` is "vial of holy water", and `Oil (1 flask)` is "flask of oil". Those names come from `overrides/equipment.json`, with a reason for each.
 - Body armour is a suit, "suit of chainmail" and "suit of armour +1", and the SRD's `Leather` is "suit of leather armour". Boots and gauntlets are a pair, "pair of boots of speed". The drums of panic and the elven cloak and boots are each a set.
 - A spell scroll keeps its spell count, "spell scroll with 3 spells". The compiler moves a label after a colon to the front, so `Elemental Summoning Device: Air` is "air elemental summoning device", except a treasure map's numeral, which stays at the end.
-- The plural ending goes on the word that names the item, before any `of`, `with`, `vs`, comma, bonus, or numeral, so the plurals read "vials of holy water", "swords +1, +3 vs undead", and "treasure maps II". The ending is the regular English one, except that "staff" becomes "staves".
+- The plural ending goes on the word that names the item, before any `of`, `with`, `vs`, comma, bonus, numeral, or opening parenthesis, so the plurals read "vials of holy water", "swords +1, +3 vs undead", and "treasure maps II". The ending is the regular English one, except that "staff" becomes "staves".
 
-A template you write without the fields gets its `name` and the regular plural of the display name. Locked by `test_item_display_names.py`.
+A template you write without the fields gets its `name`, and a plural by the same rule, so "Idol of the drowned saint" becomes "Idols of the drowned saint". `osrlib.core.items` has the one implementation of the rule, which the compiler imports, so every compiled plural is the one the rule gives. Locked by `test_item_display_names.py`.
 
 ### INT-granted languages come from the Other Languages table and may not duplicate natives
 
