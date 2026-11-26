@@ -20,6 +20,8 @@ To create a character one step at a time while a player makes the choices, call 
 in the order the SRD gives for creating a character:
 
 1. [`roll_ability_scores`][osrlib.core.character.roll_ability_scores] rolls the six ability scores.
+   The roll's [`sub_par`][osrlib.core.character.AbilityScoreRolls.sub_par] says whether they are sub-par,
+   so that a referee may let the player discard the character and start again.
 2. [`validate_class_choice`][osrlib.core.character.validate_class_choice] checks the scores against
    the class the player picks.
 3. [`validate_adjustment`][osrlib.core.abilities.validate_adjustment] and
@@ -1000,6 +1002,12 @@ class AbilityScoreRolls(_Model):
     with no die dropped. To show all four dice of an ability, show its three `rolls` and this die.
     """
 
+    @field_validator("scores")
+    @classmethod
+    def _all_six_scores_in_range(cls, value: dict[AbilityScore, int]) -> dict[AbilityScore, int]:
+        _check_scores(value)
+        return value
+
     @computed_field
     @property
     def sub_par(self) -> bool:
@@ -1202,7 +1210,9 @@ def scores_are_sub_par(scores: Mapping[AbilityScore, int]) -> bool:
         # True
         ```
     """
-    raise NotImplementedError("chunk: sub-par-scores")
+    _check_scores(dict(scores))
+    values = [scores[ability] for ability in AbilityScore]
+    return all(value <= 8 for value in values) or sum(value <= 5 for value in values) >= 2
 
 
 def validate_class_choice(scores: dict[AbilityScore, int], definition: ClassDefinition) -> list[Rejection]:
