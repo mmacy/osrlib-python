@@ -2232,7 +2232,8 @@ class GameSession:
         reveal the map the party hasn't explored, the monsters' hit points, or the referee's rolls.
         The referee view contains the rest, for a referee screen, an LLM running the game, or a
         test. It has one typed field for each group of data the save contains, so you read
-        `view.monsters[0].current_hp` and `view.flags["key"]` with the models this reference documents.
+        `view.monsters[0].current_hp` and `view.flags["key"]` with the models this reference documents,
+        and each feature's player handle, so a referee tool can send the `feature_id` the players do.
 
         In a networked game, keep the session and the referee view on the server, and send the
         client the player view or the player-visibility events. Neither view contains the master

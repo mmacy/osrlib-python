@@ -100,7 +100,7 @@ assert "session.monsters.spawned" in codes
 assert any(event.visibility is Visibility.REFEREE for event in result.events)
 ```
 
-To inspect current session state between commands, call [`session.view(Visibility.REFEREE)`][osrlib.crawl.session.GameSession.view]. The returned [`RefereeView`][osrlib.crawl.views.RefereeView] exposes typed fields for the full party, `monsters` (including `current_hp`), `npcs`, `flags`, `fired_triggers`, `quests` (including inactive quests and hidden objectives), `dungeon_state`, `ledger`, `command_log`, and `event_log`, omitting only `master_seed` and `rng_streams` (which appear only in save documents). Serialize the snapshot for a referee prompt with `view.model_dump(mode="json")` (see [Views and visibility](../guides/views-and-visibility.md)):
+To inspect current session state between commands, call [`session.view(Visibility.REFEREE)`][osrlib.crawl.session.GameSession.view]. The returned [`RefereeView`][osrlib.crawl.views.RefereeView] exposes typed fields for the full party, `monsters` (including `current_hp`), `npcs`, `flags`, `fired_triggers`, `quests` (including inactive quests and hidden objectives), `dungeon_state`, `ledger`, `command_log`, `event_log`, and `feature_handles`, which maps each feature's save reference to the player handle the party sees, so the model can send the same `feature_id` a player would. It omits `master_seed`, `rng_streams`, and the player-handle key, which appear only in save documents. Serialize the snapshot for a referee prompt with `view.model_dump(mode="json")` (see [Views and visibility](../guides/views-and-visibility.md)):
 
 ```{.python .no-run}
 # RefereeView includes flags and monster hit points, omitting RNG state and master_seed.
