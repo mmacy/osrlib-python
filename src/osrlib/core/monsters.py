@@ -882,8 +882,8 @@ class MonsterTemplate(_Model):
     """The dice its hit points are rolled on. See [`MonsterHitDice`][osrlib.core.monsters.MonsterHitDice]."""
 
     attacks: tuple[AttackRoutine, ...] = ()
-    """The sets of attacks it can make, one set per round. See [`AttackRoutine`][osrlib.core.monsters.AttackRoutine].
-    """
+    """The sets of attacks it can make, one set per round.
+    See [`AttackRoutine`][osrlib.core.monsters.AttackRoutine]."""
 
     thac0: int = Field(ge=2, le=20)
     """Its THAC0 ("to hit armour class 0"): the d20 roll it needs to hit armour class 0 under descending armour class.
