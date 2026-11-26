@@ -1452,9 +1452,11 @@ class MonsterFledEvent(Event):
     then on. It moves away each round, and it has left the battle once it's more than
     [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET] from the party, when
     [`EncounterGroupView.fled`][osrlib.crawl.views.EncounterGroupView.fled] becomes true. That
-    happens in a later round, and that round's result contains a `MonsterEscapedEvent` for the group
-    right after the group's [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent]. Its members still count
-    as defeated for the experience award.
+    happens in the round its move takes it that far. A group that breaks far enough away gets away
+    in the round it breaks, and any other group in a later round. The result of the round in which
+    it gets away contains a `MonsterEscapedEvent` for the group right after the group's
+    [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent]. Its members still count as defeated
+    for the experience award.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"battle.side.fled"})

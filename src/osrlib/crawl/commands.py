@@ -3203,9 +3203,10 @@ class ResolveBattleRound(Command):
         [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] for a group that
         fails its morale check and flees, and
         [`MonstersLeftBehindEvent`][osrlib.crawl.events.MonstersLeftBehindEvent]
-        when a fleeing group leaves behind members who can't move. A group that broke and ran in an
-        earlier round runs on, and in the round its move takes it farther than
-        [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET] from every living member, a
+        when a fleeing group leaves behind members who can't move. A group that broke runs its
+        full rate each round, starting in the round it breaks. In the round its move takes it
+        farther than [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET] from every living
+        member, which can be the round it breaks, a
         [`MonsterEscapedEvent`][osrlib.crawl.events.MonsterEscapedEvent] comes right after
         that move's `GroupMovedEvent`. The group has then left the battle.
 
