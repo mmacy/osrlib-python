@@ -51,7 +51,9 @@ import re
 from pathlib import Path
 from urllib.parse import quote
 
-from .equipment import TRAILING_PARENTHESIS, plural
+from osrlib.core.items import _item_plural
+
+from .equipment import TRAILING_PARENTHESIS
 from .pipetable import slugify, strip_emphasis, strip_links, tables_after_heading
 from .treasure import parse_treasure_segment
 
@@ -626,7 +628,7 @@ def display_names(printed_name: str, category: str, base_item_id: str | None) ->
     - Enchanted body armour is named as a suit, "suit of armour +1", and boots and gauntlets as a
       pair, "pair of boots of speed".
 
-    The plural comes from [`plural`][tools.srd_compile.equipment.plural].
+    The plural comes from `osrlib.core.items._item_plural`.
 
     Args:
         printed_name: The item's `name`, like `"Potion of Healing"`.
@@ -648,7 +650,7 @@ def display_names(printed_name: str, category: str, base_item_id: str | None) ->
         singular = f"suit of {singular}"
     elif singular.startswith(_PAIRS):
         singular = f"pair of {singular}"
-    return {"display_name": singular, "display_name_plural": plural(singular)}
+    return {"display_name": singular, "display_name_plural": _item_plural(singular)}
 
 
 def _template(

@@ -88,6 +88,7 @@ print(torches.quantity, inventory.purse.gp, movement_rate_feet(inventory, Rulese
 ```
 """
 
+import re
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 
@@ -362,6 +363,36 @@ def _check_missile_ranges(qualities: tuple[WeaponQuality, ...], missile_ranges: 
         raise ValueError("missile ranges are present exactly when the missile quality is")
 
 
+_IRREGULAR_PLURALS = {"staff": "staves"}
+"""The plural of every word that names an item and doesn't take the regular English ending."""
+
+_HEAD_NOUN_END = re.compile(r" (?:of|with|vs) |, | [+-]\d| (?=[IVX]+$)| \(")
+"""Where the words that name an item end and the words that qualify it begin: `of`, `with`, or `vs`, a comma, a
+bonus like `+1`, a closing Roman numeral, or an opening parenthesis."""
+
+
+def _item_plural(name: str) -> str:
+    """Return the plural of an item's display name, with the ending on the word that names the item.
+
+    That word is the last one before the first match of `_HEAD_NOUN_END`, or the last word of a name with no match, so
+    `"vial of holy water"` becomes `"vials of holy water"` and `"Lantern (hooded)"` becomes `"Lanterns (hooded)"`.
+    It takes the ending of `_regular_plural`, unless `_IRREGULAR_PLURALS` lists it, and keeps its capital, so
+    `"Staff of the Magi"` becomes `"Staves of the Magi"`. The SRD compiler writes the plural of every built-in
+    template with this function, and a template written without a plural gets it from this function too.
+    """
+    if not name:
+        return ""
+    end = _HEAD_NOUN_END.search(name)
+    head, tail = (name[: end.start()], name[end.start() :]) if end else (name, "")
+    *words, noun = head.split(" ")
+    irregular = _IRREGULAR_PLURALS.get(noun.lower())
+    if irregular is None:
+        noun = _regular_plural(noun)
+    else:
+        noun = irregular.capitalize() if noun[:1].isupper() else irregular
+    return " ".join([*words, noun]) + tail
+
+
 class WeaponTemplate(_Model):
     """A mundane weapon, from the SRD's weapon table.
 
@@ -435,7 +466,7 @@ class WeaponTemplate(_Model):
     @field_validator("display_name_plural")
     @classmethod
     def _plural_defaults_to_regular_ending(cls, value: str, info: ValidationInfo) -> str:
-        return value or _regular_plural(info.data.get("display_name", ""))
+        return value or _item_plural(info.data.get("display_name", ""))
 
     @field_validator("damage")
     @classmethod
@@ -529,7 +560,7 @@ class ArmourTemplate(_Model):
     @field_validator("display_name_plural")
     @classmethod
     def _plural_defaults_to_regular_ending(cls, value: str, info: ValidationInfo) -> str:
-        return value or _regular_plural(info.data.get("display_name", ""))
+        return value or _item_plural(info.data.get("display_name", ""))
 
     @model_validator(mode="after")
     def _body_armour_or_shield(self) -> ArmourTemplate:
@@ -674,7 +705,7 @@ class GearTemplate(_Model):
     @field_validator("display_name_plural")
     @classmethod
     def _plural_defaults_to_regular_ending(cls, value: str, info: ValidationInfo) -> str:
-        return value or _regular_plural(info.data.get("display_name", ""))
+        return value or _item_plural(info.data.get("display_name", ""))
 
 
 class AmmunitionTemplate(_Model):
@@ -744,7 +775,7 @@ class AmmunitionTemplate(_Model):
     @field_validator("display_name_plural")
     @classmethod
     def _plural_defaults_to_regular_ending(cls, value: str, info: ValidationInfo) -> str:
-        return value or _regular_plural(info.data.get("display_name", ""))
+        return value or _item_plural(info.data.get("display_name", ""))
 
 
 ItemTemplate = Annotated[
@@ -1197,7 +1228,7 @@ class MagicItemTemplate(_Model):
     @field_validator("display_name_plural")
     @classmethod
     def _plural_defaults_to_regular_ending(cls, value: str, info: ValidationInfo) -> str:
-        return value or _regular_plural(info.data.get("display_name", ""))
+        return value or _item_plural(info.data.get("display_name", ""))
 
     @field_validator("charges_dice", "quantity_dice")
     @classmethod

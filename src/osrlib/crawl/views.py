@@ -1565,49 +1565,49 @@ _VALUABLE_NAMES = {"gem": ("gem", "gems"), "jewellery": ("piece of jewellery", "
 
 def _item_names(session, piles: Iterable[DropPile]) -> tuple[dict[str, str], dict[str, str]]:
     # Each id the inventories and the known piles show gets one entry, from the first place it appears. A
-    # stack a member carries is named from the template it embeds, and a pile's stack from the session's
-    # catalog, which has the items the adventure bundles. An unidentified magic item keeps its mask, and
-    # its template id never becomes a key.
+    # mundane stack is named from the session's catalog, which has the items the adventure bundles, because a
+    # stack from a 2.7.0 save or party document embeds a template without display names. Only a carried stack
+    # whose id the catalog lacks is named from the template it embeds. An unidentified magic item keeps its
+    # mask, and a template id is a key only for an identified item a member carries, because a pile shows a
+    # magic item by its instance id alone.
     names: dict[str, str] = {}
     plurals: dict[str, str] = {}
+    equipment = session.effective_equipment
+    catalog = {
+        template.id: template
+        for template in (*equipment.weapons, *equipment.armour, *equipment.gear, *equipment.ammunition)
+    }
 
     def add(item_id: str, singular: str, plural: str) -> None:
         if item_id not in names:
             names[item_id] = singular
             plurals[item_id] = plural
 
-    def add_magic_item(instance: MagicItemInstance) -> None:
+    def add_magic_item(instance: MagicItemInstance, *, carried: bool) -> None:
         if instance.identified:
             template = magic_item_template(instance)
             add(instance.instance_id, template.display_name, template.display_name_plural)
-            add(instance.template_id, template.display_name, template.display_name_plural)
+            if carried:
+                add(instance.template_id, template.display_name, template.display_name_plural)
         else:
             add(instance.instance_id, *_masked_names(instance))
 
     for member in session.party.members:
         for instance in member.inventory.all_instances():
             if isinstance(instance, MagicItemInstance):
-                add_magic_item(instance)
+                add_magic_item(instance, carried=True)
             else:
-                add(instance.template.id, instance.template.display_name, instance.template.display_name_plural)
+                template = catalog.get(instance.template.id, instance.template)
+                add(template.id, template.display_name, template.display_name_plural)
         for valuable in member.inventory.valuables:
             add(valuable.instance_id, *_VALUABLE_NAMES[valuable.kind])
-    catalog = {
-        template.id: template
-        for template in (
-            *session.effective_equipment.weapons,
-            *session.effective_equipment.armour,
-            *session.effective_equipment.gear,
-            *session.effective_equipment.ammunition,
-        )
-    }
     for pile in piles:
         for entry in pile.items:
             template = catalog.get(entry.item_id)
             if template is not None:
                 add(entry.item_id, template.display_name, template.display_name_plural)
         for instance in pile.magic_items:
-            add_magic_item(instance)
+            add_magic_item(instance, carried=False)
         for valuable in pile.valuables:
             add(valuable.instance_id, *_VALUABLE_NAMES[valuable.kind])
     return names, plurals
