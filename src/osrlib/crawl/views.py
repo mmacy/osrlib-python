@@ -126,12 +126,15 @@ from osrlib.core.items import (
     Coins,
     MagicItemCategory,
     MagicItemInstance,
+    ValuableInstance,
     _masked_names,
     _with_article,
     magic_item_template,
 )
 from osrlib.core.monsters import IdAllocator, MonsterInstance, _regular_plural
 from osrlib.core.ruleset import Ruleset
+from osrlib.core.spells import _reverses_at, caster_profile
+from osrlib.core.treasure import _ROLLED_VALUABLE_NAMES
 from osrlib.crawl._feature_handles import (
     _authored_feature_id,
     _cache_available,
@@ -1745,7 +1748,7 @@ def build_player_view(session) -> PlayerView:
         if state.worst > 0
     }
     spell_names, reversed_spell_names, spell_levels = _spell_names(session, members, effects)
-    item_names, item_names_plural = _item_names(session, known_piles.values())
+    item_names, item_names_plural, valuable_names = _item_names(session, known_piles.values())
     return PlayerView(
         adventure_name=session.adventure.name,
         adventure_description=session.adventure.description,
@@ -1772,6 +1775,7 @@ def build_player_view(session) -> PlayerView:
         spell_levels=spell_levels,
         item_names=item_names,
         item_names_plural=item_names_plural,
+        valuable_names=valuable_names,
         fatigued=fatigued,
         exhausted=exhausted,
         deprivation=deprivation,
@@ -1834,7 +1838,8 @@ _VALUABLE_NAMES = {"gem": ("gem", "gems"), "jewellery": ("piece of jewellery", "
 """What the players call a valuable of each kind, whatever name the piece has."""
 
 
-def _item_names(session, piles: Iterable[DropPile]) -> tuple[dict[str, str], dict[str, str]]:
+def _item_names(session, piles: Iterable[DropPile]) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
+    # The view's `item_names`, `item_names_plural`, and `valuable_names`, in one walk over what the view shows.
     # Each id the inventories and the known piles show gets one entry, from the first place it appears. A
     # carried stack is named from the template it embeds, which the session gave the catalog's names, and a
     # pile's stack from the session's catalog, which has the items the adventure bundles. An unidentified magic
@@ -1842,6 +1847,7 @@ def _item_names(session, piles: Iterable[DropPile]) -> tuple[dict[str, str], dic
     # pile shows a magic item by its instance id alone.
     names: dict[str, str] = {}
     plurals: dict[str, str] = {}
+    valuable_names: dict[str, str] = {}
     equipment = session.effective_equipment
     catalog = {
         template.id: template
@@ -1852,6 +1858,12 @@ def _item_names(session, piles: Iterable[DropPile]) -> tuple[dict[str, str], dic
         if item_id not in names:
             names[item_id] = singular
             plurals[item_id] = plural
+
+    def add_valuable(valuable: ValuableInstance) -> None:
+        add(valuable.instance_id, *_VALUABLE_NAMES[valuable.kind])
+        # A piece has a name of its own unless its name is empty or the one treasure generation gives its kind.
+        if valuable.name and valuable.name != _ROLLED_VALUABLE_NAMES[valuable.kind]:
+            valuable_names[valuable.instance_id] = valuable.name
 
     def add_magic_item(instance: MagicItemInstance, *, carried: bool) -> None:
         if instance.identified:
@@ -1869,7 +1881,7 @@ def _item_names(session, piles: Iterable[DropPile]) -> tuple[dict[str, str], dic
             else:
                 add(instance.template.id, instance.template.display_name, instance.template.display_name_plural)
         for valuable in member.inventory.valuables:
-            add(valuable.instance_id, *_VALUABLE_NAMES[valuable.kind])
+            add_valuable(valuable)
     for pile in piles:
         for entry in pile.items:
             template = catalog.get(entry.item_id)
@@ -1878,8 +1890,8 @@ def _item_names(session, piles: Iterable[DropPile]) -> tuple[dict[str, str], dic
         for instance in pile.magic_items:
             add_magic_item(instance, carried=False)
         for valuable in pile.valuables:
-            add(valuable.instance_id, *_VALUABLE_NAMES[valuable.kind])
-    return names, plurals
+            add_valuable(valuable)
+    return names, plurals, valuable_names
 
 
 def _quest_views(session):
@@ -2124,9 +2136,11 @@ def _canonical_edge(cell: Position, direction: Direction) -> str:
 
 def _member_view(session, member) -> MemberView:
     """One member's sheet, read from the live character."""
-    from osrlib.crawl._spells import _learnable_spells, _preparable_spells
+    from osrlib.crawl._spells import _learnable_spells, _preparable_spells, _prepare_now
 
     definition = member.definition
+    profile = caster_profile(definition)
+    can_prepare_now, needs_sleep_to_prepare = _prepare_now(session, member, profile)
     thief_skills = {}
     if definition.thief_skills:
         thief_skills = definition.thief_skills[member.level - 1].model_dump(exclude={"level"})
@@ -2168,6 +2182,9 @@ def _member_view(session, member) -> MemberView:
         spell_slots=definition.row(member.level).spell_slots,
         preparable_spells=_preparable_spells(session, member),
         learnable_spells=_learnable_spells(session, member),
+        reverses_at=None if profile is None else _reverses_at(profile),
+        can_prepare_now=can_prepare_now,
+        needs_sleep_to_prepare=needs_sleep_to_prepare,
         thief_skills=thief_skills,
     )
 

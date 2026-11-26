@@ -897,6 +897,13 @@ def _int_param(params: Mapping[str, Any], key: str, default: int = 0) -> int:
     return int(params.get(key, default))
 
 
+_ROLLED_VALUABLE_NAMES: dict[str, str] = {"gem": "Gem", "jewellery": "Jewellery"}
+"""The plain name that `_generate_valuable` gives a rolled piece of each kind, which is no name of the piece's own.
+
+The player view's `valuable_names` leaves out a piece whose name is the one here, so the view and the generator use the
+same names."""
+
+
 def _generate_valuable(
     kind: Literal["gem", "jewellery"], *, stream: RngStream, allocator: Any
 ) -> osrlib.core.items.ValuableInstance:
@@ -906,14 +913,12 @@ def _generate_valuable(
     weights = {row.id: row.weight_coins for row in load_equipment().treasure_weights}
     if kind == "gem":
         value = load_treasure_tables().gems.value_for_roll(stream.randbelow(20) + 1)
-        name = "Gem"
     else:
         value = roll(load_treasure_tables().gems.jewellery_dice, stream).total
-        name = "Jewellery"
     return osrlib.core.items.ValuableInstance(
         instance_id=allocator.allocate("valuable"),
         kind=kind,
-        name=name,
+        name=_ROLLED_VALUABLE_NAMES[kind],
         value_gp=value,
         weight_coins=weights[kind],
     )

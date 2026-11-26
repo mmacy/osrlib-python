@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- [`MemberView.reverses_at`][osrlib.crawl.views.MemberView.reverses_at], [`MemberView.can_prepare_now`][osrlib.crawl.views.MemberView.can_prepare_now], and [`MemberView.needs_sleep_to_prepare`][osrlib.crawl.views.MemberView.needs_sleep_to_prepare] let a client decide when to offer a prepare dialog and which forms of a spell to put in it and in a cast dialog (#338). `reverses_at` is `"memorize"` for an arcane caster, `"cast"` for a divine caster, and `None` for a class that casts nothing, read from the class's casting ability, so it's right for a custom class too. `can_prepare_now` is true exactly when the session accepts a [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells] from the member with a selection that fits `preparable_spells` and `spell_slots`, and `needs_sleep_to_prepare` is true exactly when the party hasn't slept since the member last prepared. The session reads them from its own state, so they're right in a session restored from a save. Before, a client inferred the kind of caster from the spell book and read the event log for the last rest and the last preparation.
+- [`PlayerView.valuable_names`][osrlib.crawl.views.PlayerView.valuable_names] gives the own name of each gem and piece of jewellery that has one, like `"Prior's chain of office"`, keyed by the instance id, for the pieces in the members' inventories and in the known piles (#339). A piece placed by a [`ValuableSpec`][osrlib.crawl.dungeon.ValuableSpec] with a `name` has one, and a piece rolled on the treasure tables doesn't. [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] doesn't change and still names every valuable by its kind. Before, a client that wanted a piece's own name in a pile paired the pile's `contents` with its `items` by position.
+
+### Fixed
+
+- [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells] refuses a member whose class casts nothing with `magic.memorize.not_a_caster` whether or not the party has slept. Before, it refused such a member with `magic.memorize.needs_sleep` until the party's first sleep, which said that the member could prepare after a rest.
+
 ## [2.8.0] - 2026-11-25
 
 ### Added

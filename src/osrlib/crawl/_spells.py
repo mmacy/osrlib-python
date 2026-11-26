@@ -19,11 +19,13 @@ from osrlib.core.items import MagicItemInstance
 from osrlib.core.spells import (
     MAGIC_STREAM,
     CastContext,
+    CasterProfile,
     CastResult,
     SpellCatalog,
     SpellEffect,
     SpellTemplate,
     _learnable_spell_ids,
+    _not_a_caster,
     _preparable_spell_ids,
     add_spell_to_book,
     cast_spell,
@@ -41,9 +43,10 @@ def _handle_prepare_spells(session, command: PrepareSpells) -> tuple[list[Reject
     member, rejections = _member_able(session, command.character_id)
     if rejections:
         return rejections, []
-    if session.sleep_count == 0 or session.last_prepared_sleep.get(member.id, 0) >= session.sleep_count:
-        return [Rejection(code="magic.memorize.needs_sleep", params={"character": member.id})], []
     definition = member.definition
+    refusal = _prepare_refusal(session, member, caster_profile(definition))
+    if refusal is not None:
+        return [refusal], []
     result = memorize_spells(member, definition, session.effective_spells, command.selections)
     if result.rejections:
         return list(result.rejections), []
@@ -52,6 +55,39 @@ def _handle_prepare_spells(session, command: PrepareSpells) -> tuple[list[Reject
     turn_events, _ = session.advance_turns(6)
     events.extend(turn_events)
     return [], events
+
+
+def _prepare_refusal(session, member, profile: CasterProfile | None) -> Rejection | None:
+    """Return why a `PrepareSpells` from a member who can act is refused whatever the selections, or None.
+
+    `profile` is the member's `caster_profile`. It checks the class before the sleep rule, so a class that casts
+    nothing is refused with `magic.memorize.not_a_caster` whether or not the party has slept.
+    """
+    if profile is None:
+        return _not_a_caster(member.definition)
+    if _needs_sleep(session, member):
+        return Rejection(code="magic.memorize.needs_sleep", params={"character": member.id})
+    return None
+
+
+def _needs_sleep(session, member: Character) -> bool:
+    """Return whether the party hasn't slept since the member last prepared, which is the sleep rule of `PrepareSpells`.
+
+    It reads the session's sleep counts, which a save includes, and never the event log. It's the member view's
+    `needs_sleep_to_prepare` for a caster.
+    """
+    return session.sleep_count == 0 or session.last_prepared_sleep.get(member.id, 0) >= session.sleep_count
+
+
+def _prepare_now(session, member, profile: CasterProfile | None) -> tuple[bool, bool]:
+    """Return the member view's `can_prepare_now` and `needs_sleep_to_prepare`, with `profile` the member's.
+
+    It computes `can_prepare_now` from the checks of `PrepareSpells` that don't read the selections, in the order the
+    session makes them: the mode, whether the member can act, the class, and the sleep rule.
+    """
+    able = session.mode in PrepareSpells.allowed_modes and not _member_able(session, member.id)[1]
+    can_prepare_now = able and _prepare_refusal(session, member, profile) is None
+    return can_prepare_now, profile is not None and _needs_sleep(session, member)
 
 
 def _handle_learn_spell(session, command: LearnSpell) -> tuple[list[Rejection], list[Event]]:
