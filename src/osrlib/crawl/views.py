@@ -1665,11 +1665,10 @@ _VALUABLE_NAMES = {"gem": ("gem", "gems"), "jewellery": ("piece of jewellery", "
 
 def _item_names(session, piles: Iterable[DropPile]) -> tuple[dict[str, str], dict[str, str]]:
     # Each id the inventories and the known piles show gets one entry, from the first place it appears. A
-    # mundane stack is named from the session's catalog, which has the items the adventure bundles, because a
-    # stack from a 2.7.0 save or party document embeds a template without display names. Only a carried stack
-    # whose id the catalog lacks is named from the template it embeds. An unidentified magic item keeps its
-    # mask, and a template id is a key only for an identified item a member carries, because a pile shows a
-    # magic item by its instance id alone.
+    # carried stack is named from the template it embeds, which the session gave the catalog's names, and a
+    # pile's stack from the session's catalog, which has the items the adventure bundles. An unidentified magic
+    # item keeps its mask, and a template id is a key only for an identified item a member carries, because a
+    # pile shows a magic item by its instance id alone.
     names: dict[str, str] = {}
     plurals: dict[str, str] = {}
     equipment = session.effective_equipment
@@ -1697,8 +1696,7 @@ def _item_names(session, piles: Iterable[DropPile]) -> tuple[dict[str, str], dic
             if isinstance(instance, MagicItemInstance):
                 add_magic_item(instance, carried=True)
             else:
-                template = catalog.get(instance.template.id, instance.template)
-                add(template.id, template.display_name, template.display_name_plural)
+                add(instance.template.id, instance.template.display_name, instance.template.display_name_plural)
         for valuable in member.inventory.valuables:
             add(valuable.instance_id, *_VALUABLE_NAMES[valuable.kind])
     for pile in piles:
