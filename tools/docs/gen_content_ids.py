@@ -80,7 +80,8 @@ with _page(
     "equipment.md",
     "Equipment ids",
     "[`load_equipment`][osrlib.data.load_equipment]",
-    "Every mundane equipment id — weapons, armour, gear, and ammunition — with its display name.",
+    "Every mundane equipment id (weapons, armour, gear, and ammunition), with its name as the SRD's price list "
+    "prints it, and its display names, what a sentence calls one unit and two or more.",
 ) as page:
     catalog = data.load_equipment()
     for section_title, entries in (
@@ -90,18 +91,26 @@ with _page(
         ("Ammunition", catalog.ammunition),
     ):
         page.write(f"## {section_title}\n\n")
-        _table(page, ("Id", "Name"), [(f"`{e.id}`", e.name) for e in entries])
+        _table(
+            page,
+            ("Id", "Name", "Display name", "Display name plural"),
+            [(f"`{e.id}`", e.name, e.display_name, e.display_name_plural) for e in entries],
+        )
 
 with _page(
     "magic-items.md",
     "Magic item ids",
     "[`load_magic_items`][osrlib.data.load_magic_items]",
-    "Every magic item template id, with its display name and category.",
+    "Every magic item template id, with its name as the SRD prints it, its display names, what a sentence calls "
+    "one identified item and two or more, and its category.",
 ) as page:
     _table(
         page,
-        ("Id", "Name", "Category"),
-        [(f"`{i.id}`", i.name, f"`{i.category}`") for i in data.load_magic_items().items],
+        ("Id", "Name", "Display name", "Display name plural", "Category"),
+        [
+            (f"`{i.id}`", i.name, i.display_name, i.display_name_plural, f"`{i.category}`")
+            for i in data.load_magic_items().items
+        ],
     )
 
 with _page(
