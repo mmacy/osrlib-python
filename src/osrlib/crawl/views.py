@@ -1157,17 +1157,17 @@ class PlayerView(_Model):
 
     - The catalog id of a mundane stack, like `"holy_water"`, in a member's
       [`inventory`][osrlib.crawl.views.MemberView.inventory] and in a pile's
-      [`contents`][osrlib.crawl.views.PileView.contents]. Its name is the
-      [`display_name`][osrlib.core.items.GearTemplate.display_name] of the template the session's
-      catalog, [`GameSession.effective_equipment`][osrlib.crawl.session.GameSession.effective_equipment],
-      has under that id, so an item the adventure bundles is named. The catalog's template is used
-      even for a stack a member carries, which embeds a template of its own, because a stack from a
-      save or a party document that osrlib 2.7.0 wrote embeds a template without display names. A
-      bundled id can't shadow a built-in one, because a session refuses an adventure whose bundled
-      id collides with a built-in id. A
-      carried stack whose id the catalog doesn't have, like an item another adventure bundled, is
-      named from the template the stack embeds. A pile's catalog id that the catalog doesn't have has
-      no entry.
+      [`contents`][osrlib.crawl.views.PileView.contents]. For a stack a member carries, its name is
+      the [`display_name`][osrlib.core.items.GearTemplate.display_name] of the template the stack
+      embeds, which the session gives the display names of the template its catalog,
+      [`GameSession.effective_equipment`][osrlib.crawl.session.GameSession.effective_equipment], has
+      under that id, as [`ItemInstance.template`][osrlib.core.items.ItemInstance.template] says. So a
+      stack from a save or a party document that osrlib 2.7.0 wrote is named as the catalog names it,
+      and the name here matches the stack's template in `inventory`. A bundled id can't shadow a
+      built-in one, because a session refuses an adventure whose bundled id collides with a built-in
+      id. A carried stack whose id the catalog doesn't have, like an item another adventure bundled,
+      keeps the names its template has. For a pile, the name comes from the catalog, and a pile's
+      catalog id that the catalog doesn't have has no entry.
     - The instance id of a magic item, like `"magic-item-0003"`, in an inventory and in a pile.
       Until the party identifies the item, its name is the masked name the inventory shows, without
       the article: `"potion"`, `"curious device"`, or `"shield with a faint aura"`. So a cursed item

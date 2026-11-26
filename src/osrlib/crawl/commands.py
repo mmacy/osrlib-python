@@ -3751,7 +3751,10 @@ class AddMember(Command):
     needs `id` set to `None`, no conditions or stat modifiers, and no magic items or valuables.
     Constructing the command copies the character. A change you make
     to your object afterwards doesn't reach the command, and the command log records the
-    character as you sent it."""
+    character as you sent it. The member who joins gets the display names of the session's catalog
+    on each item template the character's stacks embed, as
+    [`ItemInstance.template`][osrlib.core.items.ItemInstance.template] describes, while the
+    command keeps the templates it arrived with."""
 
     @field_validator("character", mode="after")
     @classmethod

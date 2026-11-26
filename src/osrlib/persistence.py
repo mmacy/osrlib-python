@@ -470,7 +470,11 @@ def load_game(document: Mapping[str, object]) -> GameSession:
     You don't need to do anything for an older save. The call checks the document, then
     upgrades a copy of the payload through [`MIGRATIONS`][osrlib.persistence.MIGRATIONS], one
     schema version at a time, before it rebuilds anything. The call doesn't change `document`,
-    and the restored session shares nothing with it.
+    and the restored session shares nothing with it. Each item template that a party member's or
+    an NPC adventurer's stack embeds takes the display names of the session's catalog, as
+    [`ItemInstance.template`][osrlib.core.items.ItemInstance.template] describes, so the gear in a
+    save that osrlib 2.7.0 wrote is named as a new session names it, and the next save writes those
+    names. A save that this osrlib wrote loads to a session that saves the same document again.
 
     A newer osrlib can add event types and message codes within the same schema version. The
     call keeps an event as a dict when this osrlib doesn't define its type, or defines the type

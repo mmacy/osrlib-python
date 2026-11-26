@@ -1997,6 +1997,16 @@ class ItemInstance(_Model):
     """The item itself, one of the four equipment templates. See [`ItemTemplate`][osrlib.core.items.ItemTemplate]. The
     whole template is embedded rather than referenced by id, so an instance of an item an adventure bundled stays
     readable without that adventure.
+
+    A session gives an embedded template the display names of the template its catalog,
+    [`GameSession.effective_equipment`][osrlib.crawl.session.GameSession.effective_equipment], has under the same id.
+    It does this to every stack a party member or an NPC adventurer carries when the session starts, when
+    [`load_game`][osrlib.persistence.load_game] restores it, and when [`AddMember`][osrlib.crawl.commands.AddMember]
+    adds a member. Only `display_name` and `display_name_plural` change, with the entries of `overrides_applied` that
+    name those two fields, which record where the names came from. The rest of the template is rules data that travels
+    with the character. So a stack from a save or a party document that osrlib 2.7.0 wrote, whose
+    template has no display names, is named as the catalog names it, in the views and in the next save. A template
+    whose id the catalog doesn't have, like an item another adventure bundled, keeps the names it has.
     """
     quantity: int = Field(default=1, ge=1)
     """How many units the stack contains, counting individual items rather than lots: buying one lot of torches gives
