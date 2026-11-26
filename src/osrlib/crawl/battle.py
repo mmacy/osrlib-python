@@ -12,7 +12,7 @@ Each round is one [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRoun
 one [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] for each living party member who
 can act. A declaration's
 [`action`][osrlib.crawl.commands.BattleDeclaration.action] is `attack`, `cast`, `turn_undead`,
-`move`, `use_item`, `give_item`, or `hold`.
+`move`, `use_item`, `give_item`, `hide`, or `hold`.
 
 The battle reference uses these terms:
 
@@ -180,6 +180,9 @@ During a round, the session also applies these rules without a command for them:
   at any distance. The basilisk doesn't gaze again in the monsters' free round that follows.
 - Turned undead attack no one. When a cleric turns only some of a group, the turned monsters
   split off as a new group and flee. The rest fight on.
+- A thief who hides is hiding until the attempt ends. The monsters pass over a thief whose hide in
+  shadows roll passed while they can pick another member, and the thief can back-stab from hiding, as
+  [`BattleDeclaration.back_stab`][osrlib.crawl.commands.BattleDeclaration.back_stab] describes.
 - A member's invisibility ends when the member attacks, throws or uses an item other than a
   potion, or turns undead. [`cast_spell`][osrlib.core.spells.cast_spell] ends it when the member
   casts.
@@ -541,6 +544,22 @@ class BattleState(_Model):
     zero. The session uses it to order members who stand at the same distance from a group: the member
     who got there in an earlier round stands in front, and marching order settles a tie. So a member
     already fighting keeps their place in the front rank when others arrive beside them."""
+    hiding: dict[str, bool] = {}
+    """The members who are hiding, keyed by member id, each with whether their hide in shadows roll passed.
+
+    A member enters it when their `hide` declaration resolves, and leaves it when the attempt ends, as
+    [`BattleDeclaration.back_stab`][osrlib.crawl.commands.BattleDeclaration.back_stab] lists. A second
+    `hide` replaces the value with the new roll's. The value is the referee's secret. The players see
+    only who is hiding, in [`EncounterView.hiding`][osrlib.crawl.views.EncounterView.hiding], and learn
+    how the attempt went from the back-stab's
+    [`AttackRolledEvent.back_stab`][osrlib.core.events.AttackRolledEvent.back_stab].
+
+    A member whose value is true has hidden unseen. The built-in policies pass them over while they can
+    pick another member, and a policy of your own reads this to do the same. A member whose value is
+    false has been noticed, and the monsters can pick them. Under the ruleset's
+    [`back_stab_needs_both_skills`][osrlib.core.ruleset.Ruleset.back_stab_needs_both_skills] flag off,
+    such a member can still back-stab if the move silently roll passes. The field starts empty with each
+    battle, and a save from before it existed loads with nobody hiding."""
 
 
 class MonsterAction(_Model):

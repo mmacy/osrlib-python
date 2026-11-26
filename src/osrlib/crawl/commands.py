@@ -2601,7 +2601,7 @@ class BattleDeclaration(_Model):
       With no `weapon_id`, the member attacks with the wielded weapon that suits the attack,
       or with bare hands when they wield none. Set `move="close"` to close on the group first
       and attack it in the same round. Set `back_stab` for a thief's melee attack in the free
-      round the party gets when it surprises the monsters.
+      round the party gets when it surprises the monsters, or from hiding after a `hide`.
     - `cast` uses `spell_id`, `spell_mode`, `reversed`, and `targets`. `spell_id` is a spell
       id, like `"sleep"`. `spell_mode` is the key of one of the spell's modes, and `reversed`
       picks the spell's reversed form. A caster can't move in the round they cast, so leave
@@ -2638,12 +2638,18 @@ class BattleDeclaration(_Model):
     - `turn_undead` uses nothing else. It reaches every living monster in the groups that
       haven't fled when it resolves. Turning resolves with the spells in the round. A hit
       can't disrupt it, because it's a class ability, not a spell.
+    - `hide` uses nothing else. A thief tries to hide in shadows, which takes their action for
+      the round. The member is then hiding until the attempt ends, and a hiding member can
+      back-stab from where they stand, as
+      [`back_stab`][osrlib.crawl.commands.BattleDeclaration.back_stab] describes.
+      [`EncounterView.can_hide`][osrlib.crawl.views.EncounterView.can_hide] lists the members who
+      can hide this round.
     - `hold` does nothing. A member with no legal action declares it, because every member
       in `declarers` needs a declaration.
 
     Only `attack` and `move` take a `move`. The session refuses a `cast` that sets one with
-    `battle.declaration.cast_cannot_move`, and a `turn_undead`, `use_item`, `give_item`, or
-    `hold` that sets one with `battle.declaration.move_not_combinable`.
+    `battle.declaration.cast_cannot_move`, and a `turn_undead`, `use_item`, `give_item`, `hide`,
+    or `hold` that sets one with `battle.declaration.move_not_combinable`.
 
     `gaze_defense` goes with any action. It guards the member against a petrifying gaze, like
     a basilisk's or a medusa's, for this round only. Its values are `avert_eyes` and `mirror`.
@@ -2659,12 +2665,32 @@ class BattleDeclaration(_Model):
     [`MemberView.id`][osrlib.crawl.views.MemberView.id]. It has to be one of the ids in
     [`EncounterView.declarers`][osrlib.crawl.views.EncounterView.declarers], and each of those
     members needs a separate declaration in the same round."""
-    action: Literal["attack", "cast", "turn_undead", "move", "use_item", "give_item", "hold"]
+    action: Literal["attack", "cast", "turn_undead", "move", "use_item", "give_item", "hide", "hold"]
     """What this member does. `attack` strikes or shoots at a group, after a `close` when the
     declaration sets one, `cast` casts a spell, `turn_undead` presents a holy symbol, `move` moves
     the member toward the monsters or away from them, `use_item` uses a magic item or throws an
-    item, `give_item` hands an item to another member, and `hold` does nothing. This field
-    determines which other fields apply, and `hold` needs none of them."""
+    item, `give_item` hands an item to another member, `hide` has a thief try to hide in shadows,
+    and `hold` does nothing. This field determines which other fields apply, and `hide` and `hold`
+    need none of them.
+
+    A `hide` is open to a member whose class has thief skills, as the thief's does, and who doesn't
+    stand in the party's front rank: the first row of the ranks toward any group that hasn't fled
+    and has a living member. The session judges that where the members will stand once the round's
+    declared moves are made, as it judges a melee attack. It refuses a `hide` by a member whose
+    class has no thief skills with `battle.declaration.hide_not_a_thief`, and a `hide` from the
+    front rank with `battle.declaration.hide_in_front_rank`, in that order, after the back-stab
+    checks and the check of `move`. Each has the member's id as its `character` param.
+
+    The hide resolves in the party's movement step, after the members' moves, in marching order. A
+    member who can't act or is confused when the step comes doesn't hide, and the session draws
+    nothing for them. Otherwise the session rolls the member's hide in shadows skill, which only the
+    referee sees, in a [`DetectionRolledEvent`][osrlib.crawl.events.DetectionRolledEvent] of kind
+    `"hide_in_shadows"`. The players see a
+    [`HideAttemptedEvent`][osrlib.crawl.events.HideAttemptedEvent], which doesn't say whether the
+    roll passed. The member is then hiding, as
+    [`EncounterView.hiding`][osrlib.crawl.views.EncounterView.hiding] shows, until the attempt ends.
+    A `hide` by a member who is already hiding replaces the attempt with a new roll, and a member
+    can hide again in a later round after an attempt has ended."""
     target_group_id: str | None = None
     """Which monster group the action is aimed at, by
     [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] from
@@ -2972,15 +2998,18 @@ class BattleDeclaration(_Model):
 
     The OSE SRD's thief entry says "When attacking an unaware opponent from behind, a thief
     receives a +4 bonus to hit and doubles any damage dealt." osrlib has no facing in battle, so
-    the session reads an unaware opponent from behind as a monster the party surprised, in the
-    round it can't act. Set this field only when all of these are true:
+    the session reads an unaware opponent from behind in one of two ways: a monster the party
+    surprised, in the round it can't act, or a monster a hiding thief strikes unnoticed. Set this
+    field only when all of these are true:
 
     - The action is `attack`.
     - The member's class has the `back_stab` ability, as a thief's does.
-    - The monsters can't act this round because the party surprised them. That's the party's
-      free round, while
+    - The monsters can't act this round because the party surprised them, or the member is
+      hiding. The first is the party's free round, while
       [`BattleState.monsters_hold_rounds`][osrlib.crawl.battle.BattleState.monsters_hold_rounds]
-      is above zero. The session reads it when it accepts the round.
+      is above zero. The second holds while the member is in
+      [`EncounterView.hiding`][osrlib.crawl.views.EncounterView.hiding]. The session reads both
+      when it accepts the round.
     - The attack is a melee attack. The weapon and the member's distance to the group after their
       `close`, if the declaration sets one, decide that, as
       [`weapon_id`][osrlib.crawl.commands.BattleDeclaration.weapon_id] describes.
@@ -2989,15 +3018,66 @@ class BattleDeclaration(_Model):
     `move="close"` and `back_stab=True`. The session judges the back-stab at the distance the move
     will reach. So a thief reaches a group up to their encounter rate plus 5' away. That's 35' for a
     thief in leather armour under the ruleset's default `basic` encumbrance, and 45' for one in no
-    armour. *Haste* doubles the rate. A group farther away can't be back-stabbed in the free round,
-    because the free round is the only round the monsters are unaware.
+    armour. *Haste* doubles the rate.
 
-    An accepted back-stab hits the same monster an ordinary melee attack would. It gets +4 to
-    hit, the defender's shield doesn't count, and its damage is doubled. The bonus and the
-    doubling come from the class's `back_stab` ability. Every attack roll the declaration makes
-    in the round is a back-stab, even when the monsters win initiative, and the attack's
-    [`AttackRolledEvent`][osrlib.core.events.AttackRolledEvent] has `back_stab` set to true, so
-    your game can say so.
+    An accepted back-stab in the free round is always a back-stab. It hits the same monster an
+    ordinary melee attack would. It gets +4 to hit, the defender's shield doesn't count, and its
+    damage is doubled: the whole sum of the weapon's dice and the member's modifiers, not the dice
+    alone. The bonus and the doubling come from the class's `back_stab` ability. Every attack roll
+    the declaration makes in the round is a back-stab, even when the monsters win initiative, and
+    the attack's [`AttackRolledEvent`][osrlib.core.events.AttackRolledEvent] has `back_stab` set to
+    true, so your game can say so.
+
+    A back-stab from hiding works differently, because the session rolls the thief's skills in
+    secret, as the OSE SRD's "The referee should roll for hear noise, hide in shadows and move
+    silently on the player’s behalf" says:
+
+    - The member strikes from where they stand. A hiding member's back-stab doesn't need the
+      group's front rank, so `battle.declaration.not_in_front_rank` doesn't apply to it, when the
+      session accepts the round or when the attack comes up. Every other melee check does,
+      `combat.attack.out_of_reach` among them. The attack hits the monster an ordinary melee attack
+      would, and the member's place in the ranks doesn't change.
+    - When the attack comes up, before its first attack roll, the session rolls the member's move
+      silently skill, which only the referee sees, in a
+      [`DetectionRolledEvent`][osrlib.crawl.events.DetectionRolledEvent] of kind
+      `"move_silently"`. It makes this roll for every such attack by a hiding member, whatever the
+      hide in shadows roll was and whichever way the ruleset is set, so the draws are the same
+      under both settings. An attack that fizzles makes no roll.
+    - The attack is a back-stab when the two rolls pass the test the ruleset's
+      [`back_stab_needs_both_skills`][osrlib.core.ruleset.Ruleset.back_stab_needs_both_skills]
+      sets: both rolls by default, or either roll with the flag off. Then every attack roll the
+      declaration makes is a back-stab, with the bonus and the doubling of the free round.
+      Otherwise it's an ordinary melee attack. The attack's `AttackRolledEvent.back_stab` is how
+      the players learn which.
+    - The attempt ends when the attack comes up, whatever happens.
+
+    A member stays hiding from the `hide` until the first of these:
+
+    - The member's next declaration other than `hold` or `hide` comes up in its step of the round.
+      A `hold` keeps the attempt, so a thief can stay hidden for several rounds. A second `hide`
+      replaces it with a new hide in shadows roll.
+    - The member takes damage.
+    - A monster or an NPC adventurer attacks the member, shoots at them, or casts a spell at them
+      alone, when that action resolves.
+    - The member can't act at the end of a round.
+    - The battle ends.
+
+    A back-stab declared from hiding whose attempt ended before the attack came up, because the
+    member took damage or was attacked, stays a melee attack without the front rank check. It's an
+    ordinary attack, and the session makes no move silently roll for it.
+
+    While a member is hiding, the monsters' choice of targets reads only the hide in shadows roll,
+    under both settings. When the session or a built-in policy picks one member for a monster or
+    an NPC adventurer to attack, shoot at, cast at, or breathe on, it passes over a hiding member
+    whose hide in shadows roll passed while it could pick another member. When that member is the
+    only one it could pick, the monster finds them and attacks, which ends the attempt. A member
+    whose roll failed has been noticed, as the OSE SRD's "If a hide in shadows or move silently
+    roll fails, the referee knows that the thief has been noticed" says, and can be picked like
+    any other. A policy of your own reads
+    [`BattleState.hiding`][osrlib.crawl.battle.BattleState.hiding] to do the same. Hiding changes only
+    the choice of a target. A group still closes on the nearest member it can see, a hiding member
+    included, and an area, like a red dragon's breath, covers a hiding member as it covers anyone in
+    its ranks.
 
     The session refuses a back-stab with the first of these that applies, in this order. Each
     of the four back-stab codes has the member's id as its `character` param.
@@ -3005,9 +3085,8 @@ class BattleDeclaration(_Model):
     1. `battle.declaration.back_stab_not_attack`: the action isn't `attack`. The session checks
        this before any other check on the declaration.
     2. `battle.declaration.back_stab_no_ability`: the member's class has no `back_stab` ability.
-    3. `battle.declaration.back_stab_target_aware`: the monsters aren't surprised this round.
-       That's every round of a battle the party didn't open by surprising the monsters, and
-       every round after the free round.
+    3. `battle.declaration.back_stab_target_aware`: the monsters aren't surprised this round, and
+       the member isn't hiding.
     4. The checks of an ordinary attack on its group and weapon:
        `battle.declaration.unknown_group`, `battle.declaration.no_target`,
        `battle.declaration.weapon_not_wielded`, and `battle.declaration.item_unusable`.
@@ -3017,9 +3096,11 @@ class BattleDeclaration(_Model):
        `close`.
     6. The rest of an ordinary melee attack's checks, like
        `battle.declaration.not_in_front_rank` and `combat.attack.out_of_reach`, judged after the
-       round's declared moves.
+       round's declared moves. A hiding member's back-stab skips `not_in_front_rank`.
 
-    A declaration that leaves this field `False` resolves exactly as it would without it.
+    A declaration that leaves this field `False` resolves exactly as it would without it. A hiding
+    member's attack without it is an ordinary attack with every check, the front rank's included,
+    and it ends the attempt.
     [The adaptations register](https://mmacy.github.io/osrlib-python/adaptations/) describes the
     back-stab in full."""
 
@@ -3159,7 +3240,12 @@ class ResolveBattleRound(Command):
         who falls back alone trades places in the marching order with the member they named,
         and a [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent] each time a group's
         distance from the party line changes, when monsters close or run, and when the whole
-        party moves in a formation move.
+        party moves in a formation move. After the moves, a
+        [`HideAttemptedEvent`][osrlib.crawl.events.HideAttemptedEvent] for each member who
+        hides, with the referee's
+        [`DetectionRolledEvent`][osrlib.crawl.events.DetectionRolledEvent] of their hide in
+        shadows roll. A hiding member's back-stab adds the referee's `DetectionRolledEvent` of
+        their move silently roll before its first attack roll.
 
         Missiles and melee:
         [`AttackRolledEvent`][osrlib.core.events.AttackRolledEvent],

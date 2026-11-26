@@ -337,6 +337,7 @@ Out of scope for 1.0 (tracked for later): wilderness and sea adventuring, strong
 - `aoe_friendly_fire` (default on) — adaptation knob: areas overlapping a melee catch friends
 - `formation_width_limit` (default on) — adaptation knob: the width of the space the party stands in caps combatants fighting abreast
 - `failed_trap_removal_springs` (default on), an adaptation knob: a thief's failed treasure-trap removal springs the trap on the thief. Off, the trap stays armed for `TakeTreasure`'s 2-in-6
+- `back_stab_needs_both_skills` (default on), an adaptation knob: a thief who hides in battle back-stabs from hiding only when both the hide in shadows and the move silently rolls pass. Off, either roll is enough. The session makes both rolls under either setting
 
 Flags are read at resolution time, so a `Ruleset` is fixed for the life of a session (it participates in saves and replays).
 
