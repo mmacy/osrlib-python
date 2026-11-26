@@ -1727,7 +1727,10 @@ class CastSpell(Command):
         - `session.command.member_incapacitated` - the member can't act.
         - `magic.cast.unknown_spell` - `spell_id` matches no spell in the session's catalog.
         - `magic.cast.silenced_area` - a *silence* effect covers the party's cell.
-        - `magic.cast.unknown_target` - a target id matches no entity in the session.
+        - `magic.cast.unknown_target` - a target id isn't a party member's. No encounter is open
+          in this command's modes, so the party can act on no other creature. A monster or an NPC
+          adventurer of an encounter that has ended gets this code, with the same params as an id
+          that matches nothing.
         - `magic.cast.not_memorized` - the caster has no memorized copy. A member who
           can't cast spells at all gets this code too.
         - `magic.cast.caster_incapacitated`, `magic.cast.caster_restrained`,
@@ -1816,13 +1819,16 @@ class CastSpell(Command):
     A divine caster memorizes the normal form and chooses the form here, when casting. The session
     refuses `reversed` on a spell with no reversed form, with `magic.cast.not_reversible`."""
     targets: tuple[str, ...] = ()
-    """Who or what the spell targets, as entity ids: a party member's
-    [`MemberView.id`][osrlib.crawl.views.MemberView.id], a monster's id, or, for a spell that
+    """Who or what the spell targets: a party member's
+    [`MemberView.id`][osrlib.crawl.views.MemberView.id], in any state, or, for a spell that
     affects a place rather than a creature, a cell reference in the
     `cell:{dungeon}:{level}:{x},{y}` form that [`cell_ref`][osrlib.crawl.dungeon.cell_ref]
-    builds. The mode's targeting sets how many targets it takes, and the session refuses the
-    wrong number with `magic.cast.target_count`. The session refuses a cell reference for a
-    mode that works only on creatures with `magic.cast.target_must_be_creature`."""
+    builds. A dead or petrified member can be named, so *raise dead* and *stone to flesh* work on
+    them. The session refuses any other id with `magic.cast.unknown_target`, a monster's or an NPC
+    adventurer's included, even one an earlier event named. The mode's targeting sets how many
+    targets it takes, and the session refuses the wrong number with `magic.cast.target_count`.
+    The session refuses a cell reference for a mode that works only on creatures with
+    `magic.cast.target_must_be_creature`."""
 
 
 class UseItem(Command):
@@ -1834,10 +1840,18 @@ class UseItem(Command):
     any curse. A magic sword that can light up when its wielder says so turns its light on or off.
 
     A device is a wand, a staff, or a rod. `target_id` is the id of whoever the item is used on:
-    the party member who drinks a potion, a party member for a staff of healing's touch, or an
+    the party member who drinks a potion, a creature for a staff of healing's touch, or an
     encounter group for a device that covers an area. When the member reads a scroll with several
     spells on it, choose the spell and its targets with `spell_id`, `mode`, and `targets`. They
     work like the same fields of [`CastSpell`][osrlib.crawl.commands.CastSpell].
+
+    A scroll or a staff of healing names as a target only a creature the party can act on now: a
+    party member, in any state, or a creature in a group of the open encounter that hasn't fled,
+    which the player view lists in
+    [`EncounterGroupView.members`][osrlib.crawl.views.EncounterGroupView.members]. A scroll's
+    spell can't name a dead creature of the encounter, as a battle's `cast` can't. The session
+    refuses any other id with the code it gives an id that matches nothing, so a creature of an
+    encounter that has ended gets the same answer as an id that never existed.
 
     A device whose powers the session doesn't resolve, like a staff of commanding, spends a charge,
     and its [`ItemUsedEvent`][osrlib.crawl.events.ItemUsedEvent] has the device's text in `manual`
@@ -1877,13 +1891,17 @@ class UseItem(Command):
         - Scrolls: `exploration.action.requires_light` (reading needs light, and
           infravision isn't enough), `items.scroll.spent`, `items.scroll.no_such_spell`,
           and `items.scroll.wrong_caster`. A read also gets the checks of a cast, at the
-          scroll's level: `magic.cast.unknown_target`, `magic.cast.unknown_mode`,
+          scroll's level: `magic.cast.unknown_target` (a target that isn't a party member and
+          isn't a living creature in a group of the open encounter that hasn't fled),
+          `magic.cast.unknown_mode`,
           `magic.cast.target_count`, `magic.cast.target_must_be_creature`,
           `magic.cast.out_of_range`, `magic.cast.caster_incapacitated`,
           `magic.cast.caster_restrained`, and `magic.cast.anti_magic_shell`.
         - Devices: `items.device.inert` (no charges left),
           `items.use.target_required` (an area device used in an encounter needs a
-          `target_id`), `items.use.unknown_target`, `items.use.target_cannot_be_healed` (a
+          `target_id`), `items.use.unknown_target` (a group that isn't in the open encounter or
+          has fled, or a staff of healing's target that isn't a party member and isn't in a group
+          of the open encounter that hasn't fled), `items.use.target_cannot_be_healed` (a
           staff of healing used on a creature that's dead or turned to stone),
           `items.use.target_healed_today` (a staff of healing used on a creature it already
           healed today, because the OSE SRD's staff "Is effective on any individual at most once
@@ -1925,10 +1943,12 @@ class UseItem(Command):
     isn't a party member's with `items.use.target_not_allowed`, and a member who is dead or turned
     to stone with `items.use.target_cannot_drink`.
 
-    For a device, pass a party member's id for a device that heals by touch, or an encounter
-    group's [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] for a device that
-    covers an area. A healing device with `None` heals the member using it. The session refuses a
-    healing device on a creature that's dead or turned to stone with
+    For a device, pass a creature's id for a device that heals by touch, or an encounter group's
+    [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] for a device that covers
+    an area. A healing device with `None` heals the member using it. It can touch a party member
+    or a creature in a group of the open encounter that hasn't fled, and the session refuses any
+    other id with `items.use.unknown_target`, a creature of an encounter that has ended included.
+    The session refuses a healing device on a creature that's dead or turned to stone with
     `items.use.target_cannot_be_healed`, and one on a creature it already healed today with
     `items.use.target_healed_today`."""
     spell_id: str | None = None
@@ -1942,8 +1962,10 @@ class UseItem(Command):
     which is right for a spell with one usage."""
     targets: tuple[str, ...] = ()
     """The read spell's targets, named as in
-    [`CastSpell.targets`][osrlib.crawl.commands.CastSpell.targets]. When it's empty, `target_id`
-    is the single target, so a scroll spell with one target needs only `target_id`."""
+    [`CastSpell.targets`][osrlib.crawl.commands.CastSpell.targets]. During an encounter, a target
+    can also be a living creature in a group that hasn't fled, by its
+    [`EncounterMemberView.id`][osrlib.crawl.views.EncounterMemberView.id]. When it's empty,
+    `target_id` is the single target, so a scroll spell with one target needs only `target_id`."""
 
 
 class IdentifyItem(Command):
