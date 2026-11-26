@@ -615,9 +615,9 @@ def test_the_views_guide_and_the_changelog_describe_the_lists():
     root = Path(__file__).parent.parent
     guide = (root / "docs" / "guides" / "views-and-visibility.md").read_text()
     changelog = (root / "CHANGELOG.md").read_text()
-    unreleased = changelog.split("## [Unreleased]", 1)[1].split("\n## [", 1)[0]
+    released = changelog.split("## [2.8.0]", 1)[1].split("\n## [", 1)[0]
 
     for name in ("preparable_spells", "learnable_spells", "spell_slots", "spell_levels"):
         assert name in guide, name
-        assert name in unreleased, name
-    assert "#326" in unreleased
+        assert name in released, name
+    assert "#326" in released

@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [2.8.0] - 2026-11-25
+
 ### Added
 
 - [`MapFeatureView.emptied`][osrlib.crawl.views.MapFeatureView.emptied] is true for an authored treasure cache the party has emptied (#316). The cache stays in `features` under the same `id` and description, so a client can draw it opened, and the flag is true exactly when `TakeTreasure` would refuse the cache with `exploration.feature.emptied`. Before, the view's feature list didn't mark an emptied cache, so a client kept offering it.
@@ -710,7 +712,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The documentation site: quickstart, guides, front-end walk-throughs, and a full reference for every command, event, rejection code, message code, RNG stream, and content id.
 - The typed surface: complete type hints under `py.typed`, checked in CI.
 
-[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v2.7.0...HEAD
+[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v2.8.0...HEAD
+[2.8.0]: https://github.com/mmacy/osrlib-python/compare/v2.7.0...v2.8.0
 [2.7.0]: https://github.com/mmacy/osrlib-python/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/mmacy/osrlib-python/compare/v2.5.1...v2.6.0
 [2.5.1]: https://github.com/mmacy/osrlib-python/compare/v2.5.0...v2.5.1
