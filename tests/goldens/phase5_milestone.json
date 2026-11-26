@@ -977,6 +977,15 @@
       "count": 2,
       "distance_feet": 20,
       "event_type": "encounter_started",
+      "group_counts": [
+        2
+      ],
+      "group_labels": [
+        "goblin"
+      ],
+      "group_labels_plural": [
+        "goblins"
+      ],
       "monster_name": "goblin",
       "monster_name_plural": "goblins",
       "monsters_surprised": true,
@@ -1632,6 +1641,15 @@
       "count": 2,
       "distance_feet": 20,
       "event_type": "encounter_started",
+      "group_counts": [
+        2
+      ],
+      "group_labels": [
+        "adventurer"
+      ],
+      "group_labels_plural": [
+        "adventurers"
+      ],
       "monster_name": "adventurer",
       "monster_name_plural": "adventurers",
       "monsters_surprised": false,
@@ -2365,6 +2383,15 @@
       "count": 2,
       "distance_feet": 20,
       "event_type": "encounter_started",
+      "group_counts": [
+        2
+      ],
+      "group_labels": [
+        "adventurer"
+      ],
+      "group_labels_plural": [
+        "adventurers"
+      ],
       "monster_name": "adventurer",
       "monster_name_plural": "adventurers",
       "monsters_surprised": true,
@@ -4179,7 +4206,7 @@
     "character-0003 acquires 275 sp in coin.",
     "character-0004 acquires 275 sp in coin.",
     "Wandering check: 2 vs 6-in-6. An encounter!",
-    "An NPC party (basic, chaotic) takes the field: npc-0001 (magic_user 3), npc-0002 (elf 2).",
+    "An NPC party (basic, chaotic) takes the field: npc-0001 (magic_user 3) and npc-0002 (elf 2).",
     "Surprise (monsters): rolled 3, surprised on 1-2. Not surprised.",
     "Surprise (party): rolled 6, surprised on 1-3. Not surprised.",
     "Encounter: 2 adventurers at 20'.",
@@ -4224,14 +4251,14 @@
     "The battle is won.",
     "npc-0001 (npc:magic_user) is slain.",
     "npc-0002 (npc:elf) is slain.",
-    "The fallen leave behind valuable-0007, valuable-0008, valuable-0009, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, waterskin, waterskin, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, dagger, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, chainmail, sword, long_bow, 72 pp and 27 cp in coin.",
+    "The fallen leave behind valuable-0007, valuable-0008, valuable-0009, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, waterskin, waterskin, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, dagger, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, chainmail, sword, long_bow, 72 pp, and 27 cp in coin.",
     "The encounter ends (victory).",
-    "character-0001 acquires rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, waterskin, waterskin, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, dagger, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, chainmail, sword, long_bow, 18 pp and 7 cp in coin.",
+    "character-0001 acquires rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, waterskin, waterskin, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, dagger, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, chainmail, sword, long_bow, 18 pp, and 7 cp in coin.",
     "character-0002 acquires 18 pp and 7 cp in coin.",
-    "character-0003 acquires valuable-0009, 18 pp and 7 cp in coin.",
-    "character-0004 acquires valuable-0007, valuable-0008, 18 pp and 6 cp in coin.",
+    "character-0003 acquires valuable-0009, 18 pp, and 7 cp in coin.",
+    "character-0004 acquires valuable-0007, valuable-0008, 18 pp, and 6 cp in coin.",
     "Wandering check: 6 vs 6-in-6. An encounter!",
-    "An NPC party (basic, chaotic) takes the field: npc-0003 (dwarf 2), npc-0004 (elf 1).",
+    "An NPC party (basic, chaotic) takes the field: npc-0003 (dwarf 2) and npc-0004 (elf 1).",
     "Surprise (monsters): rolled 2, surprised on 1-2. Surprised.",
     "Surprise (party): rolled 2, surprised on 1-3. Surprised.",
     "Encounter: 2 adventurers at 20'; the party is surprised; the monsters are surprised.",
@@ -4282,7 +4309,7 @@
     "The battle is won.",
     "npc-0003 (npc:dwarf) is slain.",
     "npc-0004 (npc:elf) is slain.",
-    "The fallen leave behind shield, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, waterskin, waterskin, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, chainmail, chainmail, battle_axe, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, sword and long_bow.",
+    "The fallen leave behind shield, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, rations_standard, waterskin, waterskin, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, torch, chainmail, chainmail, battle_axe, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, arrows, sword, and long_bow.",
     "The encounter ends (victory).",
     "The party moves to (1, 0), facing west.",
     "The party moves to (0, 0), facing west.",

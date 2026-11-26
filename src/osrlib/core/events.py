@@ -1145,16 +1145,22 @@ class SpellDisruptedEvent(Event):
 
 
 class DeclarationFizzledEvent(Event):
-    """A declared wand, staff, or rod use, a declared turning, or a declared melee attack failed before it took effect.
+    """A declared item use, hand-over, turning, or melee attack failed before it took effect.
 
     A [`GameSession`][osrlib.crawl.session.GameSession] reports it during a battle round. At the start of each
     round, every party member declares an action in a
     [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration]. A turning is a cleric's attempt to turn undead.
-    Device uses and turnings resolve in the round's magic phase, the step in which the party's spells, item uses,
-    and turnings take effect. A staff's strike is the exception, described below. Just before
-    each one resolves, the session checks it again. If a check the declaration passed at the start of the round
-    now fails, the declaration fizzles. Something earlier in the round caused the failure. For example, the group a
-    wand was aimed at left the battle.
+    Device uses, potions, hand-overs, and turnings resolve in the round's magic phase, the step in which the
+    party's spells, item uses, and turnings take effect. A device is a wand, a staff, or a rod. A staff's strike
+    is the exception, described below. Just before each one resolves, the session checks it again. If a check the
+    declaration passed at the start of the round now fails, the declaration fizzles. Something earlier in the
+    round caused the failure. For example, the group a wand was aimed at left the battle.
+
+    A potion that one member gives another to drink fizzles with the code `magic.potion.fizzled` when the drinker
+    died or turned to stone, or the two members no longer stand within 5' of each other. A potion the carrier
+    drinks never fizzles. A `give_item` hand-over fizzles with the code `battle.give.fizzled` when the recipient
+    can no longer act, or the two members no longer stand within 5' of each other. Either event has the item in
+    `item_id` and the member it was for in `target_id`.
 
     A melee attack fizzles when the party's melee step comes and the attack has nothing left to strike, or the
     member stands in the wrong place. The session judges a melee attack before the round starts, as if every move the
@@ -1174,39 +1180,56 @@ class DeclarationFizzledEvent(Event):
     strike's group ran out of the battle, or a quicker member killed the last monster in it that the member could
     see.
 
-    The event's `actor_id` is the member who declared the action, `item_id` is the device, `group_id` is the group a
-    melee attack was aimed at, and `reason` is the rejection code of the check that failed.
+    The event's `actor_id` is the member who declared the action, `item_id` is the device, the potion, or the item
+    handed over, `target_id` is the member a potion or a hand-over was for, `group_id` is the group a melee attack
+    was aimed at, and `reason` is the rejection code of the check that failed.
 
-    A fizzled declaration spends nothing. The device wasn't used, so it keeps its charge and isn't identified. Tell
-    the player the action failed, and that the device still has its charge. A fizzled melee attack makes no attack
-    roll, so tell the player why the member didn't swing. When a cast or a scroll read fizzles,
-    the session reports a [`SpellDisruptedEvent`][osrlib.core.events.SpellDisruptedEvent] instead, because the
-    spell is lost.
+    A fizzled declaration spends nothing and draws nothing. The device wasn't used, so it keeps its charge and isn't
+    identified. Tell the player the action failed, and that the device still has its charge. A potion that fizzles
+    stays with the member who carries it and isn't identified, and an item that wasn't handed over stays with the
+    giver. A fizzled melee attack makes no attack roll, so tell the player why the member didn't swing. When a cast
+    or a scroll read fizzles, the session reports a [`SpellDisruptedEvent`][osrlib.core.events.SpellDisruptedEvent]
+    instead, because the spell is lost.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset(
-        {"magic.device.fizzled", "magic.turning.fizzled", "battle.melee.fizzled"}
+        {
+            "magic.device.fizzled",
+            "magic.potion.fizzled",
+            "magic.turning.fizzled",
+            "battle.give.fizzled",
+            "battle.melee.fizzled",
+        }
     )
-    """The three codes: `magic.device.fizzled` for a wand, staff, or rod use, `magic.turning.fizzled` for a
-    turning, and `battle.melee.fizzled` for a melee attack."""
+    """The five codes: `magic.device.fizzled` for a wand, staff, or rod use, `magic.potion.fizzled` for a potion
+    given to another member, `magic.turning.fizzled` for a turning, `battle.give.fizzled` for a hand-over, and
+    `battle.melee.fizzled` for a melee attack."""
 
     event_type: Literal["declaration_fizzled"] = "declaration_fizzled"
     """The fixed string that identifies this event class in a serialized event."""
 
     code: str
-    """Which declaration fizzled: `magic.device.fizzled`, `magic.turning.fizzled`, or `battle.melee.fizzled`."""
+    """Which declaration fizzled: `magic.device.fizzled`, `magic.potion.fizzled`, `magic.turning.fizzled`,
+    `battle.give.fizzled`, or `battle.melee.fizzled`."""
 
     visibility: Visibility = Visibility.PLAYER
     """Player visibility: everyone sees the action fail."""
 
     actor_id: str
-    """The entity id of the member who declared the device use, the turning, or the melee attack."""
+    """The entity id of the member who declared the device use, the potion, the hand-over, the turning, or the
+    melee attack."""
 
     item_id: str | None = None
-    """On a `magic.device.fizzled` event, the device's instance id, as the declaration's `item_id` gave it.
+    """The item the declaration's `item_id` gave, on a `magic.device.fizzled`, a `magic.potion.fizzled`, or a
+    `battle.give.fizzled` event: a device's or a potion's instance id, or the id of the item a hand-over moves.
 
-    The player already used this id, so it reveals nothing about a device that isn't identified. It's `None` on a
+    The player already used this id, so it reveals nothing about an item that isn't identified. It's `None` on a
     `magic.turning.fizzled` or a `battle.melee.fizzled` event."""
+
+    target_id: str | None = None
+    """On a `magic.potion.fizzled` or a `battle.give.fizzled` event, the id of the member the potion or the item
+    was for, the one id in the declaration's `targets`. It's `None` on the other codes, and on an event from a log
+    written before the field existed."""
 
     group_id: str | None = None
     """On a `battle.melee.fizzled` event, the id of the group the melee attack was aimed at, as the declaration's
@@ -1229,6 +1252,13 @@ class DeclarationFizzledEvent(Event):
       the member can see is left in the group a melee attack was aimed at, for example because the party's missiles
       or spells killed them earlier in the round. A melee attack gets this code wherever the member stands, whether
       or not the member closed, because the session checks for a target before it checks the member's position.
+    - `items.use.target_cannot_drink`: the member a potion was for died or turned to stone earlier in the round.
+    - `session.command.member_incapacitated`: the member a hand-over was for can no longer act, for example
+      because the member died or fell asleep earlier in the round.
+    - `battle.declaration.member_out_of_reach`: the two members of a potion, a hand-over, or a staff of healing's
+      touch no longer stand within 5' of each other.
+    - `items.use.target_cannot_be_healed` and `items.use.target_healed_today`: the creature a staff of healing
+      was to touch died or turned to stone, or the staff already healed it today.
 
     Match on it as you match on the code of a [`Rejection`][osrlib.core.validation.Rejection].
     [The rejection code reference][rejection-codes] explains each code.

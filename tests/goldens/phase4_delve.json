@@ -1998,6 +1998,15 @@
       "count": 6,
       "distance_feet": 10,
       "event_type": "encounter_started",
+      "group_counts": [
+        6
+      ],
+      "group_labels": [
+        "goblin"
+      ],
+      "group_labels_plural": [
+        "goblins"
+      ],
       "monster_name": "goblin",
       "monster_name_plural": "goblins",
       "monsters_surprised": false,
@@ -2567,6 +2576,15 @@
       "count": 8,
       "distance_feet": 10,
       "event_type": "encounter_started",
+      "group_counts": [
+        8
+      ],
+      "group_labels": [
+        "trader"
+      ],
+      "group_labels_plural": [
+        "traders"
+      ],
       "monster_name": "trader",
       "monster_name_plural": "traders",
       "monsters_surprised": false,
@@ -3186,6 +3204,7 @@
       "group_id": "group-0002",
       "item_id": null,
       "reason": "battle.declaration.no_target",
+      "target_id": null,
       "visibility": "player"
     },
     {
@@ -3195,6 +3214,7 @@
       "group_id": "group-0002",
       "item_id": null,
       "reason": "battle.declaration.no_target",
+      "target_id": null,
       "visibility": "player"
     },
     {
@@ -3429,6 +3449,15 @@
       "count": 4,
       "distance_feet": 10,
       "event_type": "encounter_started",
+      "group_counts": [
+        4
+      ],
+      "group_labels": [
+        "skeleton"
+      ],
+      "group_labels_plural": [
+        "skeletons"
+      ],
       "monster_name": "skeleton",
       "monster_name_plural": "skeletons",
       "monsters_surprised": false,
@@ -4302,6 +4331,15 @@
       "count": 3,
       "distance_feet": 10,
       "event_type": "encounter_started",
+      "group_counts": [
+        3
+      ],
+      "group_labels": [
+        "goblin"
+      ],
+      "group_labels_plural": [
+        "goblins"
+      ],
       "monster_name": "goblin",
       "monster_name_plural": "goblins",
       "monsters_surprised": false,
@@ -4479,6 +4517,15 @@
       "count": 3,
       "distance_feet": 10,
       "event_type": "encounter_started",
+      "group_counts": [
+        3
+      ],
+      "group_labels": [
+        "goblin"
+      ],
+      "group_labels_plural": [
+        "goblins"
+      ],
       "monster_name": "goblin",
       "monster_name_plural": "goblins",
       "monsters_surprised": false,
@@ -5766,15 +5813,15 @@
   },
   "transcript": [
     "character-0001 acquires 150 gp in coin.",
-    "character-0001 acquires sword, chainmail, torch, torch, torch, torch, tinder_box, iron_spikes, rations_standard and waterskin.",
+    "character-0001 acquires sword, chainmail, torch, torch, torch, torch, tinder_box, iron_spikes, rations_standard, and waterskin.",
     "character-0002 acquires 150 gp in coin.",
-    "character-0002 acquires sword, chainmail, rations_standard and waterskin.",
+    "character-0002 acquires sword, chainmail, rations_standard, and waterskin.",
     "character-0003 acquires 150 gp in coin.",
-    "character-0003 acquires sword, leather, rations_standard and waterskin.",
+    "character-0003 acquires sword, leather, rations_standard, and waterskin.",
     "character-0004 acquires 150 gp in coin.",
-    "character-0004 acquires mace, chainmail, rations_standard and waterskin.",
+    "character-0004 acquires mace, chainmail, rations_standard, and waterskin.",
     "character-0005 acquires 150 gp in coin.",
-    "character-0005 acquires dagger, rations_standard and waterskin.",
+    "character-0005 acquires dagger, rations_standard, and waterskin.",
     "The party enters dungeon halls (level 1).",
     "character-0001 fumbles with the tinder box and gets no flame.",
     "character-0001 fumbles with the tinder box and gets no flame.",
@@ -5878,7 +5925,7 @@
     "character-0002 closes to 5' from group-0002.",
     "character-0003 closes to 5' from group-0002.",
     "character-0004 closes to 5' from group-0002.",
-    "character-0005 casts fire_ball [damage] at monster-0007, monster-0008, monster-0009, monster-0010, monster-0011, monster-0012, monster-0013, monster-0014.",
+    "character-0005 casts fire_ball [damage] at monster-0007, monster-0008, monster-0009, monster-0010, monster-0011, monster-0012, monster-0013, and monster-0014.",
     "monster-0007 fails a save versus spells: rolled 2+0, needing 16.",
     "monster-0007 takes 19 damage from character-0005.",
     "monster-0007 is at 0/5 hit points.",
@@ -6137,7 +6184,7 @@
     "character-0004 is no longer exhausted.",
     "The party catches its breath, and the exhaustion fades.",
     "The party rests (night).",
-    "character-0005 memorizes: magic_missile, magic_missile, web, web, fire_ball.",
+    "character-0005 memorizes: magic_missile, magic_missile, web, web, and fire_ball.",
     "Wandering check: skipped vs 0-in-6. Nothing comes.",
     "Wandering check: skipped vs 0-in-6. Nothing comes.",
     "Effect effect-0012 (fatigue) attached to character-0005.",

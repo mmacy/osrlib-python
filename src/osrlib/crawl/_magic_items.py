@@ -154,26 +154,65 @@ def _potion_drinker(session, carrier, instance: MagicItemInstance, target_id: st
     return drinker, []
 
 
-def _healing_target(session, user, item_id: str, target_id: str | None):
+def _healing_target(session, user, instance: MagicItemInstance, target_id: str | None):
     """Return whom a staff of healing heals, with every reason it can't, as a `(target, rejections)` pair.
 
     With no `target_id`, or the user's own id, the staff heals its user. Any other id has to be a creature's, or
     the use gets `items.use.unknown_target` with the id as `target`. A creature that's dead or turned to stone can't
-    be healed, and the use gets `items.use.target_cannot_be_healed`, with the staff's instance id as `item` and the
-    id as `target`. [`UseItem`][osrlib.crawl.commands.UseItem] takes these checks, and a battle adds checks of reach
-    (see `battle._healing_touch`). The target is None when there are rejections. The call reads state and takes no
-    draw.
+    be healed, and the use gets `items.use.target_cannot_be_healed`. The OSE SRD's staff "Is effective on any
+    individual at most once per day", so a creature the staff already healed today gets
+    `items.use.target_healed_today` after that check (see `_healed_today`). Both rejections have the staff's
+    instance id as `item` and the creature's id as `target`. [`UseItem`][osrlib.crawl.commands.UseItem] takes
+    these checks, and a battle adds checks of reach (see `battle._healing_touch`). The target is None when there
+    are rejections. The call reads state and takes no draw.
     """
     if target_id is None or target_id == user.id:
-        return user, []
-    target = session.registry().get(target_id)
-    if target is None:
-        return None, [Rejection(code="items.use.unknown_target", params={"target": target_id})]
-    if not _stands(target):
+        target = user
+    else:
+        target = session.registry().get(target_id)
+        if target is None:
+            return None, [Rejection(code="items.use.unknown_target", params={"target": target_id})]
+        if not _stands(target):
+            return None, [
+                Rejection(
+                    code="items.use.target_cannot_be_healed",
+                    params={"item": instance.instance_id, "target": target_id},
+                )
+            ]
+    if _healed_today(session, instance, target.id):
         return None, [
-            Rejection(code="items.use.target_cannot_be_healed", params={"item": item_id, "target": target_id})
+            Rejection(code="items.use.target_healed_today", params={"item": instance.instance_id, "target": target.id})
         ]
     return target, []
+
+
+def _healed_key(target_id: str) -> str:
+    """The key in a staff of healing's `MagicItemInstance.state` that stores the day it last healed `target_id`.
+
+    The value is the session clock's day count. A save stores the instance's state, so the key is part of the
+    save's format.
+    """
+    return f"healed:{target_id}"
+
+
+def _healed_today(session, instance: MagicItemInstance, target_id: str) -> bool:
+    """Return whether a staff whose effect is once a day for each creature already healed `target_id` today."""
+    effect = magic_item_template(instance).effect
+    once_a_day = effect is not None and bool(effect.params.get("once_per_target_per_day"))
+    return once_a_day and instance.state.get(_healed_key(target_id)) == session.clock.days
+
+
+def _heal_with_device(session, instance: MagicItemInstance, template, target) -> list[Event]:
+    """Heal `target` with a staff of healing, and record the day, so `_healed_today` refuses another use today.
+
+    The heal rolls the effect's `heal_dice` on the magic stream. The caller has checked the target with
+    `_healing_target`.
+    """
+    from osrlib.core.combat import apply_healing
+
+    instance.state = {**instance.state, _healed_key(target.id): session.clock.days}
+    amount = roll(str(template.effect.heal_dice), session.streams.get(MAGIC_STREAM)).total
+    return apply_healing(target, amount, source="magical")
 
 
 def _use_potion(session, carrier, drinker, instance: MagicItemInstance, template) -> list[Event]:
@@ -560,8 +599,6 @@ def _left_to_referee(template, *, strikes_a_group: bool) -> bool:
 
 
 def _use_device(session, member, instance: MagicItemInstance, template, command) -> tuple[list[Rejection], list]:
-    from osrlib.core.combat import apply_healing
-
     definition = member.definition
     if not usable_by_class(template, definition):
         return [Rejection(code="items.use.not_usable", params={"item": instance.instance_id})], []
@@ -583,7 +620,7 @@ def _use_device(session, member, instance: MagicItemInstance, template, command)
     if effect_spec is not None and effect_spec.kind == "healing":
         # Resolve the touch target before anything mutates: a rejected command
         # mutates nothing, and identification below is a mutation.
-        target, rejections = _healing_target(session, member, instance.instance_id, command.target_id)
+        target, rejections = _healing_target(session, member, instance, command.target_id)
         if rejections:
             return rejections, []
     events: list[Event] = []
@@ -597,16 +634,7 @@ def _use_device(session, member, instance: MagicItemInstance, template, command)
         )
     )
     if effect_spec is not None and effect_spec.kind == "healing":
-        day_key = f"healed:{getattr(target, 'id', command.target_id)}"
-        today = session.clock.days
-        if effect_spec.params.get("once_per_target_per_day") and instance.state.get(day_key) == today:
-            # RAW: effective on any individual at most once per day. The
-            # activation still happens, and nothing more heals.
-            pass
-        else:
-            instance.state = {**instance.state, day_key: today}
-            amount = roll(str(effect_spec.heal_dice), session.streams.get(MAGIC_STREAM)).total
-            events.extend(apply_healing(target, amount, source="magical"))
+        events.extend(_heal_with_device(session, instance, template, target))
     elif group is not None:
         events.extend(_device_area_events(session, member, instance, template, group))
     _spend_device_charge(instance, template)

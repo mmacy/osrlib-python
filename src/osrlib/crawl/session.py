@@ -2832,7 +2832,7 @@ def _handle_spawn_monsters(session: GameSession, command: SpawnMonsters) -> tupl
     from osrlib.crawl import encounter as encounter_module
 
     try:
-        session.effective_monsters.get(command.template_id)
+        template = session.effective_monsters.get(command.template_id)
     except ValueError:
         return [Rejection(code="session.command.unknown_monster", params={"template": command.template_id})], []
     if session.encounter is not None and session.encounter.pursuit is not None:
@@ -2848,7 +2848,12 @@ def _handle_spawn_monsters(session: GameSession, command: SpawnMonsters) -> tupl
     count = max(1, count)
     instances = session.spawn(command.template_id, count)
     events: list[Event] = [
-        MonstersSpawnedEvent(template_id=command.template_id, monster_ids=tuple(instance.id for instance in instances))
+        MonstersSpawnedEvent(
+            template_id=command.template_id,
+            monster_ids=tuple(instance.id for instance in instances),
+            display_name=template.display_name,
+            display_name_plural=template.display_name_plural,
+        )
     ]
     if session.encounter is not None:
         # Monsters that arrive mid-fight, like a lycanthrope's summoned animals, join the
