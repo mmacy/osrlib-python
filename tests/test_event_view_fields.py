@@ -227,4 +227,4 @@ def test_a_message_with_items_and_coins_says_and_once():
         character_id=FIGHTER, item_ids=("valuable-1",), coins=Coins(pp=3, cp=40), coins_gp_value=3
     )
 
-    assert format_message(event) == "character-0001 acquires valuable-1, 3 pp and 40 cp in coin."
+    assert format_message(event) == "character-0001 acquires valuable-1, 3 pp, and 40 cp in coin."
