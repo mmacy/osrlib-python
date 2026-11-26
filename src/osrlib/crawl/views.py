@@ -417,8 +417,8 @@ class MemberView(_Model):
     select no more copies than the count there, and group `preparable_spells` by
     [`PlayerView.spell_levels`][osrlib.crawl.views.PlayerView.spell_levels] to fill them. An arcane
     caster's book has room at a spell level for this count less the spells the book already has
-    there. A 1st-level cleric has a count of 0 at every level, and a class that casts nothing has an
-    empty tuple."""
+    there. A 1st-level cleric has a count of 0 at every level, and a class that casts nothing has no
+    counts."""
     preparable_spells: tuple[str, ...] = ()
     """The ids of the spells the member may select in a
     [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells], in the order of the session's catalog,
@@ -429,13 +429,13 @@ class MemberView(_Model):
     a slot, so a spell that a lost level left in the book without a slot isn't here. For a divine
     caster, they're the spells on the class's spell list at every spell level where the member has a
     slot, and the spells the adventure bundles for that list are among them. A cleric has no slot
-    until 2nd level, so the tuple is empty for a 1st-level cleric. It's empty for a class that casts
+    until 2nd level, so the list is empty for a 1st-level cleric. It's empty for a class that casts
     nothing.
 
     A spell id is here exactly when a `PrepareSpells` that selects one copy of it in its normal form
     is refused with none of these codes, which belong to the spell and the member:
     `magic.memorize.not_a_caster`, `magic.memorize.unknown_spell`, `magic.memorize.wrong_list`,
-    `magic.memorize.not_in_book`, and `magic.memorize.slots_exceeded`. The tuple doesn't depend on
+    `magic.memorize.not_in_book`, and `magic.memorize.slots_exceeded`. The list doesn't depend on
     the moment, so it's the same before the party has slept (`magic.memorize.needs_sleep`), during an
     encounter or a battle (`session.command.wrong_mode`), and while the member can't act
     (`session.command.member_incapacitated`). The selections as a whole still have to fit
@@ -457,14 +457,14 @@ class MemberView(_Model):
     They're the spells on the class's spell list that aren't in `spell_book`, at each spell level
     where the book has room. The room at a spell level is the member's count there in `spell_slots`,
     less the spells the book already has at that level. The spells the adventure bundles for that list
-    are among them. The tuple is empty for a divine caster and for a class that casts nothing,
+    are among them. The list is empty for a divine caster and for a class that casts nothing,
     because neither keeps a spell book. It's also empty while the book has a spell that the session's
     catalog doesn't have, because the session can't tell that spell's level, and so can't tell how
     much room the book has left.
 
     A spell id is here exactly when a `LearnSpell` for it is refused with none of these codes, which
     belong to the spell and the member: `magic.book.not_arcane`, `magic.book.unknown_spell`,
-    `magic.book.wrong_list`, `magic.book.duplicate`, and `magic.book.capacity_exceeded`. The tuple
+    `magic.book.wrong_list`, `magic.book.duplicate`, and `magic.book.capacity_exceeded`. The list
     doesn't depend on the moment, so it's the same during an encounter or a battle
     (`session.command.wrong_mode`) and while the member can't act
     (`session.command.member_incapacitated`). Learning one spell can fill the book at that spell's
