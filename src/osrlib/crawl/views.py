@@ -627,7 +627,7 @@ class PileView(_Model):
     """One display string per thing in the pile, in the order mundane items, magic items,
     then valuables. A mundane entry has the form `"{item_id}×{quantity}"`. A magic item shows its
     name once identified and its masked display name before that. A valuable shows its
-    name, or its kind when its name is empty or only whitespace."""
+    name, without any spaces around it, or its kind when its name is empty or only whitespace."""
     coins_gp_value: int
     """The pile's coins, as their value in whole gold pieces, rounded down."""
     coins: Coins = Coins()
@@ -1358,7 +1358,8 @@ class PlayerView(_Model):
     `item_names`, with an article: "Sam takes a gem."
 
     A piece has a name of its own when its `name` is neither empty, nor only whitespace, nor the
-    plain name that treasure generation gives its kind, `"Gem"` or `"Jewellery"`. So a piece an
+    plain name that treasure generation gives its kind, `"Gem"` for a gem or `"Jewellery"` for a piece
+    of jewellery. Spaces around the name don't count. So a piece an
     adventure places in a cache with a named [`ValuableSpec`][osrlib.crawl.dungeon.ValuableSpec] is a
     key, and neither a piece the session rolls on the treasure tables nor a placed piece whose `name`
     is empty is a key.
@@ -1366,10 +1367,10 @@ class PlayerView(_Model):
     The keys are the instance ids of those pieces in the members'
     [`inventory`][osrlib.crawl.views.MemberView.inventory] `valuables` and in the
     [`contents`][osrlib.crawl.views.PileView.contents] of the known piles. Each value is the name that
-    the inventory's `valuables` give the piece, and the string at the same place in the pile's
-    [`items`][osrlib.crawl.views.PileView.items]. A piece in a pile the party doesn't know, or in a
-    cache the party hasn't emptied, isn't a key, as it isn't one in `item_names`. Every key here is
-    also a key in `item_names`."""
+    the inventory's `valuables` give the piece, without any spaces around it, and the string at the
+    same place in the pile's [`items`][osrlib.crawl.views.PileView.items]. A piece in a pile the party
+    doesn't know, or in a cache the party hasn't emptied, isn't a key, as it isn't one in `item_names`.
+    Every key here is also a key in `item_names`."""
     valuable_phrases: dict[str, str] = {}
     """What to call each piece in `valuable_names` in the middle of a sentence, with its article and its case, keyed
     by the same instance id, like `{"valuable-0007": "the abbot's seal ring", "valuable-0008": "a silver altar
@@ -1380,10 +1381,11 @@ class PlayerView(_Model):
     [`inventory`][osrlib.crawl.views.MemberView.inventory] and for a piece in a known pile alike. Each value is the
     piece's [`phrase`][osrlib.core.items.ValuableInstance.phrase] when it has one. Otherwise osrlib makes the phrase
     from the name. A name whose first word is "the", "a", or "an", in any case, keeps its words with that first word in
-    lowercase, so `"The abbot's seal ring"` becomes `"the abbot's seal ring"`. Any other name has its first letter in
-    lowercase and the indefinite article in front, "an" before a vowel and "a" otherwise, so
-    `"Silver altar candlestick"` becomes `"a silver altar candlestick"` and `"Eye of Ossor"` becomes
-    `"an eye of Ossor"`. Only that first letter changes case. A phrase that's only whitespace counts as no phrase.
+    lowercase, so `"The abbot's seal ring"` becomes `"the abbot's seal ring"`. Any other name has its first character in
+    lowercase and the indefinite article in front, "an" before `a`, `e`, `i`, `o`, or `u`, with or without an accent,
+    and "a" otherwise, so `"Silver altar candlestick"` becomes `"a silver altar candlestick"` and `"Eye of Ossor"`
+    becomes `"an eye of Ossor"`. Only that first character changes case. A phrase that's only whitespace counts as no
+    phrase, and no value here has spaces around it.
 
     A piece from a save that osrlib 2.9.0 wrote has no phrase, so the view makes its phrase from its name, and every
     key of `valuable_names` is a key here. A `PlayerView` that osrlib 2.9.0 built, such as a stored feed entry, has no

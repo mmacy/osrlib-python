@@ -822,16 +822,17 @@ class ValuableSpec(_Model):
     such as an inventory row, and words a sentence, such as "Wren takes the abbot's seal ring.", with the phrase that
     [`PlayerView.valuable_phrases`][osrlib.crawl.views.PlayerView.valuable_phrases] gives.
 
-    Leave it empty, and osrlib makes the phrase from `name`. A name whose first word is "the", "a", or "an" has that
-    word in lowercase, so `"The abbot's seal ring"` reads `"the abbot's seal ring"`. Any other name has its first
-    letter in lowercase and "an" or "a" in front, so `"Silver altar candlestick"` reads `"a silver altar candlestick"`.
-    Set the phrase when the piece has a proper name, like `"Ossor's Eye"`, which would read `"an ossor's Eye"`, or
-    when the made phrase reads wrong in any other way, like `"an unicorn-horn cup"`. A phrase that's only whitespace
-    counts as empty.
+    Leave it empty, and osrlib makes the phrase from `name`, as for a common noun. A name whose first word is "the",
+    "a", or "an" has that word in lowercase, so `"The abbot's seal ring"` reads `"the abbot's seal ring"`. Any other
+    name has its first character in lowercase and "an" or "a" in front, by its first letter, so
+    `"Silver altar candlestick"` reads `"a silver altar candlestick"`. Set the phrase when the piece has a proper name,
+    like `"Ossor's Eye"`, when it takes "the", like `"the Prior's chain of office"`, or when its first letter doesn't
+    give its article, like `"a unicorn-horn cup"`. A phrase that's only whitespace counts as empty, and the view
+    leaves out any spaces around a name or a phrase.
 
     Only a piece with a name of its own has a phrase in the view. A piece whose `name` is empty, is only whitespace,
-    or is `"Gem"` or `"Jewellery"`, the name treasure generation gives its kind, is named by its kind, whatever
-    `phrase` holds."""
+    or is the name treasure generation gives its kind, `"Gem"` for a gem or `"Jewellery"` for a piece of jewellery,
+    is named by its kind, whatever `phrase` holds."""
     value_gp: int = Field(ge=0)
     """What the valuable is worth in gold pieces. It sells for this much in town, and it is worth
     this much experience to the party."""

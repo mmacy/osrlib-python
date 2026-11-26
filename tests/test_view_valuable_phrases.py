@@ -218,6 +218,12 @@ MADE = [
     # The article must be the whole first word: "Theodric's" and "Annulet" only start with one.
     ("Theodric's torc", "a theodric's torc"),
     ("Annulet of jet", "an annulet of jet"),
+    # A vowel with an accent is a vowel, and a consonant with one isn't.
+    ("\u00c9meraude du prieur", "an \u00e9meraude du prieur"),
+    ("\u00d6l-lamp of horn", "an \u00f6l-lamp of horn"),
+    ("\u00c7intamani stone", "a \u00e7intamani stone"),
+    # The first character is lowered, whatever it is, and the article follows the first letter only when it's first.
+    ("'Lucky' ring", "a 'Lucky' ring"),
 ]
 
 
@@ -250,6 +256,36 @@ def test_a_piece_with_a_phrase_has_it_as_written(name, phrase):
     view = _player_view(game)
 
     assert view.valuable_phrases == {"valuable-0101": phrase, "valuable-0102": phrase}
+
+
+@pytest.mark.xfail(reason=CHUNK)
+def test_spaces_around_a_name_or_a_phrase_dont_count():
+    """The view shows a name and a phrase without the whitespace around them, and judges whether a piece has a name
+    of its own without it. So a gem named `" Gem "` is a rolled gem's lookalike, with a key in neither map, and a
+    pile's `items` show each piece's name trimmed. The pieces themselves keep what their author wrote."""
+    pieces = [
+        ("  The ring of Hael  ", "", "jewellery"),
+        ("\tSilver ewer\n", "", "jewellery"),
+        (" Moonstone ", "  the Moonstone  ", "gem"),
+        (" Gem ", "", "gem"),
+        (" Jewellery\t", " a tarnished brooch ", "jewellery"),
+    ]
+    pack = [_piece(101 + n, name, phrase, kind) for n, (name, phrase, kind) in enumerate(pieces)]
+    pile = [_piece(201 + n, name, phrase, kind) for n, (name, phrase, kind) in enumerate(pieces)]
+    game = _with_pieces(pack, pile)
+
+    view = _player_view(game)
+
+    names = ["The ring of Hael", "Silver ewer", "Moonstone"]
+    phrases = ["the ring of Hael", "a silver ewer", "the Moonstone"]
+    assert view.valuable_names == {
+        f"valuable-{base + n:04d}": name for base in (101, 201) for n, name in enumerate(names)
+    }
+    assert view.valuable_phrases == {
+        f"valuable-{base + n:04d}": phrase for base in (101, 201) for n, phrase in enumerate(phrases)
+    }
+    assert view.piles[NAVE].items == (*names, "Gem", "Jewellery")
+    assert [piece.name for piece in game.party.members[0].inventory.valuables] == [name for name, _, _ in pieces]
 
 
 @pytest.mark.xfail(reason=CHUNK)
