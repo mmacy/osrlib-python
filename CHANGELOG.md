@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The `session.xp.awarded` line reports the experience the character gained, and when the one-level limit cut the award, it adds "The rest is lost to the one-level limit." (#286). Before, it reported the whole award.
 - The `battle.side.fled` line reads "group-0001 breaks and runs!" (#269). Before, it read "group-0001 flees the battle!", but the group leaves the battle in a later round, when it gets far enough away.
 - The default English text from [`format_message`][osrlib.messages.format_message] no longer uses em dashes. Each one is now a colon, a comma, a semicolon, or a new sentence, as in "Reaction roll: 7+0 = 7 (uncertain)." and "The party slips away and evades the encounter." A list of items with no coins now puts "and" before its last item, as in "brass_key and toll_token". A front end that matches on the default text needs updating. One that matches on message codes and fields doesn't.
+- The `exploration.detection.rolled` line from [`format_message`][osrlib.messages.format_message] gives a thief skill's chance as a percentage, like "38 vs 45%" (#208). Before, it gave every chance as a chance in 6, so the same roll read "38 vs 45-in-6". A listening, search, or trap-spring roll still reads like "1 vs 2-in-6".
 
 ## [2.6.0] - 2026-11-25
 

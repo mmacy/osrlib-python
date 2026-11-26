@@ -86,6 +86,19 @@ def _entered(event: Any) -> str:
     )
 
 
+def _detection(event: Any) -> str:
+    """Format a hidden roll, with a thief skill's chance as a percentage and any other chance as a chance in 6.
+
+    The thief skills roll d%, and the listening, search, and trap-spring checks roll a d6.
+    """
+    percentile = event.kind in ("open_locks", "treasure_traps", "hide_in_shadows", "move_silently")
+    chance = f"{event.chance}%" if percentile else f"{event.chance}-in-6"
+    who = f", {event.character_id}" if event.character_id else ""
+    rolled = event.roll if event.roll is not None else "no die"
+    outcome = "Success." if event.passed else "Failure."
+    return f"Detection roll ({event.kind}{who}): {rolled} vs {chance}. {outcome}"
+
+
 def _initiative(event: InitiativeRolledEvent) -> str:
     rolled = ", ".join(f"{entry.key} {entry.total}" for entry in event.entries)
     return f"Initiative ({event.mode}): {rolled}. Order: {', '.join(event.order)}."
@@ -324,12 +337,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
         f"{event.character_id} hears something beyond the {event.direction} door."
     ),
     "exploration.listen.silent": lambda event: f"{event.character_id} hears nothing beyond the {event.direction} door.",
-    "exploration.detection.rolled": lambda event: (
-        f"Detection roll ({event.kind}"
-        + (f", {event.character_id}" if event.character_id else "")
-        + f"): {event.roll if event.roll is not None else 'no die'} vs {event.chance}-in-6. "
-        + ("Success." if event.passed else "Failure.")
-    ),
+    "exploration.detection.rolled": _detection,
     "exploration.search.found": lambda event: (
         f"{event.character_id} searches ({event.kind}) and finds: {', '.join(event.found)}."
     ),
