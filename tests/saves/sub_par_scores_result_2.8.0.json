@@ -1,0 +1,102 @@
+{
+ "ability_rolls": {
+  "rolls": {
+   "cha": [
+    6,
+    3,
+    6
+   ],
+   "con": [
+    2,
+    5,
+    1
+   ],
+   "dex": [
+    5,
+    5,
+    2
+   ],
+   "int": [
+    1,
+    1,
+    3
+   ],
+   "str": [
+    2,
+    1,
+    1
+   ],
+   "wis": [
+    5,
+    5,
+    2
+   ]
+  },
+  "scores": {
+   "cha": 15,
+   "con": 8,
+   "dex": 12,
+   "int": 5,
+   "str": 4,
+   "wis": 12
+  }
+ },
+ "character": {
+  "alignment": "chaotic",
+  "carrying_treasure": false,
+  "class_id": "fighter",
+  "conditions": [],
+  "current_hp": 2,
+  "custom_class": null,
+  "extra_languages": [],
+  "id": null,
+  "inventory": {
+   "items": [],
+   "purse": {
+    "cp": 0,
+    "ep": 0,
+    "gp": 120,
+    "pp": 0,
+    "sp": 0
+   },
+   "rings": [],
+   "shield": null,
+   "valuables": [],
+   "wielded": [],
+   "worn_armour": null
+  },
+  "level": 1,
+  "max_hp": 2,
+  "memorized_spells": [],
+  "name": "Grub",
+  "nonregen_damage": 0,
+  "race": "human",
+  "scores": {
+   "cha": 15,
+   "con": 8,
+   "dex": 12,
+   "int": 5,
+   "str": 4,
+   "wis": 12
+  },
+  "spell_book": [],
+  "stat_modifiers": [],
+  "xp": 0
+ },
+ "gold_roll": {
+  "modifier": 0,
+  "multiplier": 10,
+  "rolls": [
+   4,
+   2,
+   6
+  ],
+  "total": 120
+ },
+ "hit_point_roll": {
+  "hit_points": 2,
+  "rolls": [
+   3
+  ]
+ }
+}

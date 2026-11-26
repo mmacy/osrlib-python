@@ -88,7 +88,7 @@ print(party.members[0].name, party.members[0].max_hp, party.members[0].armour_cl
 from collections.abc import Mapping, Sequence
 from typing import Final, Literal
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, computed_field, field_validator, model_validator
 
 from osrlib.core.abilities import (
     AbilityAdjustment,
@@ -140,6 +140,7 @@ __all__ = [
     "roll_ability_scores",
     "roll_hit_points",
     "roll_starting_gold",
+    "scores_are_sub_par",
     "validate_class_choice",
     "validate_extra_languages",
     "validate_starting_spells",
@@ -972,7 +973,8 @@ class AbilityScoreRolls(_Model):
 
     [`roll_ability_scores`][osrlib.core.character.roll_ability_scores] returns one, and
     [`create_character`][osrlib.core.character.create_character] includes one in its result. Pass
-    `scores` to [`validate_class_choice`][osrlib.core.character.validate_class_choice]. Frozen.
+    `scores` to [`validate_class_choice`][osrlib.core.character.validate_class_choice], and read
+    `sub_par` to find out whether a referee may let the player start again. Frozen.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -997,6 +999,29 @@ class AbilityScoreRolls(_Model):
     empty, and so is a roll that osrlib 2.8.0 or earlier recorded. Read an ability with no entry as one
     with no die dropped. To show all four dice of an ability, show its three `rolls` and this die.
     """
+
+    @computed_field
+    @property
+    def sub_par(self) -> bool:
+        """Whether `scores` are sub-par, so that a referee may let the player discard the character and start again.
+
+        The SRD's "Sub-Par Characters" rule says: "If you roll a character with very poor ability scores—for example an
+        8 or less in every score or an extremely low rating in more than one ability—the referee may allow you to
+        discard the character and start again." It's true when every score is 8 or less, or when two or more scores
+        are 5 or less, as [`scores_are_sub_par`][osrlib.core.character.scores_are_sub_par] decides.
+
+        The value is computed from `scores` each time you read it, so it's right for a roll that osrlib 2.8.0 or
+        earlier recorded too. It's in `model_dump()` and in the JSON, so a client that receives the roll as a document
+        can read it there. When you parse a document, a `sub_par` key in it is ignored.
+
+        It answers for the scores as rolled, before the adjustment step, so the `ability_rolls` of a
+        [`CharacterCreationResult`][osrlib.core.character.CharacterCreationResult] says whether the character was
+        sub-par as rolled, whatever the adjustment changed afterwards. With the `"4d6_drop_lowest"` method, it's
+        decided by the three dice that count. osrlib only reports it. Whether the referee allows the discard is your
+        game's choice, so [`Ruleset`][osrlib.core.ruleset.Ruleset] has no flag for it, and
+        [`create_character`][osrlib.core.character.create_character] never refuses or rerolls sub-par scores.
+        """
+        return scores_are_sub_par(self.scores)
 
 
 class HitPointRoll(_Model):
@@ -1123,6 +1148,61 @@ def roll_ability_scores(stream: RngStream, *, method: Literal["3d6", "4d6_drop_l
         scores[ability] = sum(thrown)
         rolls[ability] = (thrown[0], thrown[1], thrown[2])
     return AbilityScoreRolls(scores=scores, rolls=rolls, dropped=dropped)
+
+
+def scores_are_sub_par(scores: Mapping[AbilityScore, int]) -> bool:
+    """Say whether a set of ability scores as rolled is sub-par, so that a referee may let the player start again.
+
+    The SRD's "Sub-Par Characters" rule says: "If you roll a character with very poor ability scores—for example an
+    8 or less in every score or an extremely low rating in more than one ability—the referee may allow you to
+    discard the character and start again." osrlib reads it as two tests, and the scores are sub-par when either
+    one holds:
+
+    - Every score is 8 or less, the SRD's own example.
+    - Two or more scores are 5 or less. The SRD leaves "an extremely low rating" to the referee, so osrlib fixes it
+      at 5 or less. Every ability's table in the SRD steps down between 6 and 5: at 5 or less, STR, WIS, CON, and
+      DEX's armour class and missile adjustments are -2 or worse, INT leaves the character illiterate, CHA allows
+      fewer retainers with lower loyalty, and a prime requisite costs 20% of the experience instead of 10%.
+
+    Pass the scores as rolled, before any adjustment, which are the `scores` of the
+    [`AbilityScoreRolls`][osrlib.core.character.AbilityScoreRolls] that
+    [`roll_ability_scores`][osrlib.core.character.roll_ability_scores] returns. That roll's
+    [`sub_par`][osrlib.core.character.AbilityScoreRolls.sub_par] gives the same answer, so you need this function
+    only for scores you have on their own.
+
+    osrlib only reports the fact. Whether the referee allows the discard is your game's choice, so
+    [`Ruleset`][osrlib.core.ruleset.Ruleset] has no flag for it, and
+    [`create_character`][osrlib.core.character.create_character] never refuses or rerolls sub-par scores. To start
+    again, roll new scores from the same stream, and the new roll continues where the last one stopped.
+
+    The function draws nothing and doesn't change `scores`.
+
+    Args:
+        scores: The six scores, keyed by [`AbilityScore`][osrlib.core.abilities.AbilityScore], each from 3 to 18.
+
+    Returns:
+        `True` when every score is 8 or less, or two or more are 5 or less, and `False` otherwise.
+
+    Raises:
+        ValueError: If `scores` is missing one of the six abilities, or has a score below 3 or above 18.
+
+    Examples:
+        ```python
+        from osrlib.core.abilities import AbilityScore
+        from osrlib.core.character import scores_are_sub_par
+
+        scores = dict.fromkeys(AbilityScore, 12)
+        scores[AbilityScore.STR] = 4
+        print(scores_are_sub_par(scores))
+        # False
+        scores[AbilityScore.CHA] = 5
+        print(scores_are_sub_par(scores))
+        # True
+        print(scores_are_sub_par(dict.fromkeys(AbilityScore, 8)))
+        # True
+        ```
+    """
+    raise NotImplementedError("chunk: sub-par-scores")
 
 
 def validate_class_choice(scores: dict[AbilityScore, int], definition: ClassDefinition) -> list[Rejection]:
