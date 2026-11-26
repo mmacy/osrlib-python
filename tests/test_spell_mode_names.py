@@ -29,8 +29,6 @@ from osrlib.data import load_spells
 from osrlib.persistence import load_game
 from test_custom_spells import wizard
 
-CHUNK = "chunk: spell-mode-names"
-
 REPO = Path(__file__).resolve().parent.parent
 SAVE_2_8_0 = Path(__file__).parent / "saves" / "spell_mode_names_2.8.0.json"
 """A save written by osrlib 2.8.0, before modes had labels.
@@ -187,7 +185,6 @@ def _label_from_key(key: str) -> str:
 # ---------------------------------------------------------------------- the built-in labels
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_every_multi_mode_form_has_the_labels_the_srd_supports():
     """Each form with more than one mode has the labels in `MULTI_MODE_LABELS`, and there are no other such forms."""
     multi_mode = {(spell.id, reversed): modes for spell, reversed, modes in _forms() if len(modes) > 1}
@@ -196,7 +193,6 @@ def test_every_multi_mode_form_has_the_labels_the_srd_supports():
         assert tuple((mode.key, mode.display_name) for mode in modes) == MULTI_MODE_LABELS[form], form
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_sibling_modes_never_share_a_label():
     """No two modes of one form, normal or reversed, have the same label, so a dialog can list them by label."""
     for spell, reversed, modes in _forms():
@@ -205,7 +201,6 @@ def test_sibling_modes_never_share_a_label():
         assert len(set(labels)) == len(labels), (spell.id, reversed, labels)
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_every_built_in_label_is_an_instruction_in_sentence_case():
     """A label starts with a capital, has no space at either end, and ends without punctuation."""
     for spell, reversed, modes in _forms():
@@ -217,7 +212,6 @@ def test_every_built_in_label_is_an_instruction_in_sentence_case():
             assert label[-1] not in ".,:;!?", (spell.id, mode.key, label)
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_mode_of_a_single_mode_form_is_labelled_from_its_key():
     """A form with one mode has no choice to label, so its mode gets the label a mode without one gets."""
     spells = load_spells()
@@ -234,7 +228,6 @@ def test_the_mode_of_a_single_mode_form_is_labelled_from_its_key():
 # ---------------------------------------------------------------------- the prose of each mode
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_sibling_modes_never_share_prose():
     """No two modes of one form have the same prose, so the prose shown for a mode describes that mode."""
     for spell, reversed, modes in _forms():
@@ -243,27 +236,23 @@ def test_sibling_modes_never_share_prose():
         assert len(set(prose)) == len(prose), (spell.id, reversed, [mode.key for mode in modes])
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize("spell_id", ["light_c", "light_mu"])
 def test_each_mode_of_darkness_has_the_text_that_covers_it(spell_id):
     modes = load_spells().get(spell_id).reversed_form.modes
     assert {mode.key: mode.prose for mode in modes} == DARKNESS_MODE_PROSE
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize("spell_id", ["continual_light_c", "continual_light_mu"])
 def test_each_mode_of_continual_darkness_has_the_text_that_covers_it(spell_id):
     modes = load_spells().get(spell_id).reversed_form.modes
     assert {mode.key: mode.prose for mode in modes} == CONTINUAL_DARKNESS_MODE_PROSE
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_each_mode_of_charm_monster_has_its_own_alternative():
     modes = load_spells().get("charm_monster").modes
     assert {mode.key: mode.prose for mode in modes} == CHARM_MONSTER_PROSE
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_area_mode_of_silence_leaves_out_casting_upon_a_creature():
     silence = load_spells().get("silence_15_radius")
     assert silence.mode("area").prose == SILENCE_AREA
@@ -294,21 +283,18 @@ def test_the_normal_light_modes_keep_the_prose_of_their_usages():
 # ---------------------------------------------------------------------- a mode you write
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_mode_you_write_without_a_label_gets_one_from_its_key():
     assert SpellMode(key="darken", manual=True).display_name == "Darken"
     assert SpellMode.model_validate({"key": "kill_green_slime", "manual": True}).display_name == "Kill green slime"
     assert SpellMode(key="snuff", manual=True, display_name="").display_name == "Snuff"
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_label_of_only_spaces_counts_as_missing():
     # A label a cast dialog would show as a blank line is no label.
     assert SpellMode(key="blind", manual=True, display_name="   ").display_name == "Blind"
     assert SpellMode.model_validate({"key": "blind", "manual": True, "display_name": "\t"}).display_name == "Blind"
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize(
     ("key", "label"),
     [
@@ -338,7 +324,6 @@ def test_a_mode_you_write_keeps_the_label_you_give_it():
     assert SpellMode.model_validate(mode.model_dump()) == mode
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_spell_document_from_2_8_0_loads_with_a_label_on_every_mode():
     """A spell dumped before modes had labels validates, and each of its modes is labelled from its key."""
     document = load_spells().get("light_mu").model_dump(mode="json")
@@ -351,7 +336,6 @@ def test_a_spell_document_from_2_8_0_loads_with_a_label_on_every_mode():
     assert [mode.display_name for mode in spell.reversed_form.modes] == ["Darken", "Blind", "Cancel"]
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_save_from_osrlib_2_8_0_labels_the_adventure_spells_from_their_keys():
     """A bundled spell is its author's text, so loading labels it from its keys and keeps its prose.
 
@@ -383,7 +367,6 @@ def test_a_save_from_osrlib_2_8_0_labels_the_adventure_spells_from_their_keys():
 # ---------------------------------------------------------------------- the changelog
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_changelog_names_the_labels_and_shows_a_changed_mode_prose():
     """The (#340) bullet names `display_name` and gives the old and the new prose of one mode of darkness."""
     bullets = [line for line in (REPO / "CHANGELOG.md").read_text(encoding="utf-8").splitlines() if "(#340)" in line]
