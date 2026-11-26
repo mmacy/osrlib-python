@@ -2928,8 +2928,11 @@ class BattleDeclaration(_Model):
     """Which item a `use_item` declaration uses: a magic item's per-instance id for a potion, a
     scroll, a wand, a staff, or a rod, or a mundane item's catalog id for a splash weapon thrown
     at a group, like a flask of oil or a vial of holy water. The session refuses any other
-    mundane item, like a torch or a rope, or a magic item that can't be used in battle, with
-    `battle.declaration.item_unusable`. To swing a torch, wield it and declare an `attack`.
+    mundane item, like a torch or a rope, an item the member doesn't carry, or a magic item that
+    can't be used in battle, with `battle.declaration.item_unusable`. It judges the item before
+    the group, so a declaration with no `target_group_id` and an item the member can't throw
+    gets this code, not `battle.declaration.unknown_group`. To swing a torch, wield it and
+    declare an `attack`.
 
     For a `give_item` declaration, it's the item to hand over, named as in
     [`GiveItems.item_ids`][osrlib.crawl.commands.GiveItems.item_ids]: a mundane item's catalog id,
@@ -3143,7 +3146,9 @@ class ResolveBattleRound(Command):
           `magic.cast.target_must_be_creature`, `magic.cast.out_of_range`,
           `magic.cast.caster_incapacitated`, `magic.cast.caster_restrained`,
           `magic.cast.anti_magic_shell`). A thrown item can also get the `validate_attack` checks
-          listed for attack declarations. A potion given to another member to drink gets
+          listed for attack declarations, and it gets `battle.declaration.item_unusable` for an
+          item the member doesn't carry or can't throw before `battle.declaration.unknown_group`.
+          A potion given to another member to drink gets
           `battle.declaration.target_count` for more than one id in `targets`,
           `items.use.target_not_allowed`, `items.use.target_cannot_drink`, and
           `battle.declaration.member_out_of_reach`. A staff of healing's touch gets

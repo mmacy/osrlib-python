@@ -2828,14 +2828,16 @@ def _validate_declaration(
         magic = member.inventory.magic_item(declaration.item_id) if declaration.item_id else None
         if magic is not None:
             return _validate_magic_item_declaration(session, declaration, member, magic, placement=placement)
-        group = _group_by_id(session, declaration.target_group_id)
-        if group is None or group.fled:
-            return [Rejection(code="battle.declaration.unknown_group", params={"character": member.id})]
+        # The item is judged before the group, so a player who names an item the member can't throw is told
+        # about the item, not sent looking for a group.
         instance = _party_members._find_item(member, declaration.item_id) if declaration.item_id else None
         facet = getattr(instance.template, "combat", None) if instance is not None else None
         if instance is None or facet is None or WeaponQuality.SPLASH not in facet.qualities:
             # Only a splash weapon, like holy water or a flask of oil, is thrown. A torch is swung.
             return [Rejection(code="battle.declaration.item_unusable", params={"item": declaration.item_id or ""})]
+        group = _group_by_id(session, declaration.target_group_id)
+        if group is None or group.fled:
+            return [Rejection(code="battle.declaration.unknown_group", params={"character": member.id})]
         pool = _monster_pool(session, group)
         if not pool:
             return [Rejection(code="battle.declaration.no_target", params={"group": group.id})]
