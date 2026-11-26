@@ -829,8 +829,9 @@ class ValuableSpec(_Model):
     when the made phrase reads wrong in any other way, like `"an unicorn-horn cup"`. A phrase that's only whitespace
     counts as empty.
 
-    Only a piece with a name of its own has a phrase in the view. A piece whose `name` is empty, or is `"Gem"` or
-    `"Jewellery"`, the name treasure generation gives its kind, is named by its kind, whatever `phrase` holds."""
+    Only a piece with a name of its own has a phrase in the view. A piece whose `name` is empty, is only whitespace,
+    or is `"Gem"` or `"Jewellery"`, the name treasure generation gives its kind, is named by its kind, whatever
+    `phrase` holds."""
     value_gp: int = Field(ge=0)
     """What the valuable is worth in gold pieces. It sells for this much in town, and it is worth
     this much experience to the party."""

@@ -2106,8 +2106,8 @@ class ValuableInstance(_Model):
     To word a sentence, read
     [`PlayerView.valuable_phrases`][osrlib.crawl.views.PlayerView.valuable_phrases], which has this phrase when it's
     set and, when it's empty or only whitespace, the phrase osrlib makes from `name`. A piece with no name of its own,
-    whose `name` is empty or is the one treasure generation gives its kind, has no phrase in the view, whatever this
-    field holds.
+    whose `name` is empty, is only whitespace, or is the one treasure generation gives its kind, has no phrase in the
+    view, whatever this field holds.
     """
     value_gp: int = Field(ge=0)
     """What it's worth in gold pieces, and what it pays when sold."""

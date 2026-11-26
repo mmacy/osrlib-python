@@ -104,6 +104,7 @@ def _handle_take_treasure(session, command: TakeTreasure) -> tuple[list[Rejectio
                 instance_id=session.allocator.allocate("valuable"),
                 kind=spec.kind,
                 name=spec.name,
+                phrase=spec.phrase,
                 value_gp=spec.value_gp,
                 weight_coins=spec.weight_coins,
             )

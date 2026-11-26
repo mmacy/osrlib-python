@@ -594,8 +594,10 @@ class PileItemView(_Model):
     in [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] and
     [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural] to name it. A gem or
     piece of jewellery that has a name of its own has it in
-    [`PlayerView.valuable_names`][osrlib.crawl.views.PlayerView.valuable_names] too. Show that name as
-    written, with no article.
+    [`PlayerView.valuable_names`][osrlib.crawl.views.PlayerView.valuable_names] too, which you show as
+    written in a list, and a phrase in
+    [`PlayerView.valuable_phrases`][osrlib.crawl.views.PlayerView.valuable_phrases], which you use as
+    written in a sentence.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -625,7 +627,7 @@ class PileView(_Model):
     """One display string per thing in the pile, in the order mundane items, magic items,
     then valuables. A mundane entry has the form `"{item_id}×{quantity}"`. A magic item shows its
     name once identified and its masked display name before that. A valuable shows its
-    name, or its kind when it has no name."""
+    name, or its kind when its name is empty or only whitespace."""
     coins_gp_value: int
     """The pile's coins, as their value in whole gold pieces, rounded down."""
     coins: Coins = Coins()
@@ -1327,8 +1329,9 @@ class PlayerView(_Model):
       `"gem"` or `"piece of jewellery"`. The players see everything else about it from the moment
       they take it, its own name and its value in gold pieces included, in the inventory's
       `valuables`. A piece that has a name of its own, like `"Prior's chain of office"`, has it in
-      `valuable_names` under the same id. Show that name as written, with no article, in place of
-      the kind.
+      `valuable_names` under the same id, and what to call it in a sentence, like
+      `"the Prior's chain of office"`, in `valuable_phrases`. Show the name in place of the kind in
+      a list, and the phrase in place of the kind in a sentence.
 
     It names no item whose id the view doesn't show. The player-visible item events, like
     [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent], name items by the same ids. An
@@ -1348,14 +1351,17 @@ class PlayerView(_Model):
     entry's `quantity`, or the ids an event repeats, one per unit: "2 vials of holy water"."""
     valuable_names: dict[str, str] = {}
     """The own name of each gem and piece of jewellery that has one, keyed by its instance id, like
-    `{"valuable-0007": "Prior's chain of office"}`. Show it as written, with no article: "Sam takes
-    Prior's chain of office." For an id that isn't a key, use the kind in `item_names`, with an
-    article: "Sam takes a gem."
+    `{"valuable-0007": "Prior's chain of office"}`. Show it as written in a list, such as an inventory
+    row. To put the piece in a sentence, use its phrase in
+    [`valuable_phrases`][osrlib.crawl.views.PlayerView.valuable_phrases], which has the article and
+    the case: "Sam takes the Prior's chain of office." For an id that isn't a key, use the kind in
+    `item_names`, with an article: "Sam takes a gem."
 
-    A piece has a name of its own when its `name` is neither empty nor the plain name that treasure
-    generation gives its kind, `"Gem"` or `"Jewellery"`. So a piece an adventure places in a cache
-    with a named [`ValuableSpec`][osrlib.crawl.dungeon.ValuableSpec] is a key, and neither a piece
-    the session rolls on the treasure tables nor a placed piece whose `name` is empty is a key.
+    A piece has a name of its own when its `name` is neither empty, nor only whitespace, nor the
+    plain name that treasure generation gives its kind, `"Gem"` or `"Jewellery"`. So a piece an
+    adventure places in a cache with a named [`ValuableSpec`][osrlib.crawl.dungeon.ValuableSpec] is a
+    key, and neither a piece the session rolls on the treasure tables nor a placed piece whose `name`
+    is empty is a key.
 
     The keys are the instance ids of those pieces in the members'
     [`inventory`][osrlib.crawl.views.MemberView.inventory] `valuables` and in the
@@ -1767,7 +1773,7 @@ def build_player_view(session) -> PlayerView:
         if state.worst > 0
     }
     spell_names, reversed_spell_names, spell_levels = _spell_names(session, members, effects)
-    item_names, item_names_plural, valuable_names = _item_names(session, known_piles.values())
+    item_names, item_names_plural, valuable_names, valuable_phrases = _item_names(session, known_piles.values())
     return PlayerView(
         adventure_name=session.adventure.name,
         adventure_description=session.adventure.description,
@@ -1795,6 +1801,7 @@ def build_player_view(session) -> PlayerView:
         item_names=item_names,
         item_names_plural=item_names_plural,
         valuable_names=valuable_names,
+        valuable_phrases=valuable_phrases,
         fatigued=fatigued,
         exhausted=exhausted,
         deprivation=deprivation,
@@ -1841,7 +1848,7 @@ def _pile_view(pile: DropPile) -> PileView:
         items=(
             *(f"{entry.item_id}×{entry.quantity}" for entry in pile.items),
             *(str(item.get("name", item.get("display"))) for item in magic_items),
-            *(valuable.name or valuable.kind for valuable in pile.valuables),
+            *(valuable.name if valuable.name.strip() else valuable.kind for valuable in pile.valuables),
         ),
         coins_gp_value=pile.coins.value_gp,
         coins=pile.coins,
@@ -1857,8 +1864,31 @@ _VALUABLE_NAMES = {"gem": ("gem", "gems"), "jewellery": ("piece of jewellery", "
 """What the players call a valuable of each kind, whatever name the piece has."""
 
 
-def _item_names(session, piles: Iterable[DropPile]) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
-    # The view's `item_names`, `item_names_plural`, and `valuable_names`, in one walk over what the view shows.
+_ARTICLES = frozenset({"the", "a", "an"})
+"""The first words that make a valuable's name a phrase already, in lowercase."""
+
+
+def _valuable_phrase(valuable: ValuableInstance) -> str:
+    """Return what to call a piece with a name of its own in the middle of a sentence.
+
+    The view uses the piece's `phrase` unless it's empty or only whitespace. Otherwise a name whose first word is
+    "the", "a", or "an" keeps its words with that first word in lowercase, and any other name gets its first letter
+    in lowercase and the indefinite article in front.
+    """
+    if valuable.phrase.strip():
+        return valuable.phrase
+    name = valuable.name.strip()
+    first = name.split(maxsplit=1)[0]
+    if first.lower() in _ARTICLES:
+        return first.lower() + name[len(first) :]
+    return _with_article(name[0].lower() + name[1:])
+
+
+def _item_names(
+    session, piles: Iterable[DropPile]
+) -> tuple[dict[str, str], dict[str, str], dict[str, str], dict[str, str]]:
+    # The view's `item_names`, `item_names_plural`, `valuable_names`, and `valuable_phrases`, in one walk over what
+    # the view shows.
     # Each id the inventories and the known piles show gets one entry, from the first place it appears. A
     # carried stack is named from the template it embeds, which the session gave the catalog's names, and a
     # pile's stack from the session's catalog, which has the items the adventure bundles. An unidentified magic
@@ -1867,6 +1897,7 @@ def _item_names(session, piles: Iterable[DropPile]) -> tuple[dict[str, str], dic
     names: dict[str, str] = {}
     plurals: dict[str, str] = {}
     valuable_names: dict[str, str] = {}
+    valuable_phrases: dict[str, str] = {}
     equipment = session.effective_equipment
     catalog = {
         template.id: template
@@ -1880,9 +1911,11 @@ def _item_names(session, piles: Iterable[DropPile]) -> tuple[dict[str, str], dic
 
     def add_valuable(valuable: ValuableInstance) -> None:
         add(valuable.instance_id, *_VALUABLE_NAMES[valuable.kind])
-        # A piece has a name of its own unless its name is empty or the one treasure generation gives its kind.
-        if valuable.name and valuable.name != _ROLLED_VALUABLE_NAMES[valuable.kind]:
+        # A piece has a name of its own unless its name is empty, only whitespace, or the one treasure generation
+        # gives its kind.
+        if valuable.name.strip() and valuable.name != _ROLLED_VALUABLE_NAMES[valuable.kind]:
             valuable_names[valuable.instance_id] = valuable.name
+            valuable_phrases[valuable.instance_id] = _valuable_phrase(valuable)
 
     def add_magic_item(instance: MagicItemInstance, *, carried: bool) -> None:
         if instance.identified:
@@ -1910,7 +1943,7 @@ def _item_names(session, piles: Iterable[DropPile]) -> tuple[dict[str, str], dic
             add_magic_item(instance, carried=False)
         for valuable in pile.valuables:
             add_valuable(valuable)
-    return names, plurals, valuable_names
+    return names, plurals, valuable_names, valuable_phrases
 
 
 def _quest_views(session):
