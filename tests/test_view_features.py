@@ -35,8 +35,6 @@ y0  ENT       hall   [counting  counting]   [cellar] hall
 import json
 from pathlib import Path
 
-import pytest
-
 from crawl_fixtures import build_party
 from osrlib.core.effects import kill
 from osrlib.core.events import Visibility
@@ -76,8 +74,6 @@ from osrlib.crawl.session import GameSession
 from osrlib.crawl.views import ExploredLevelView, MapFeatureView, PlayerView, RefereeView
 from osrlib.persistence import load_game, save_game
 from test_loot_and_traps import shared_cache_session
-
-CHUNK = "chunk: view-features"
 
 FIGHTER = "character-0001"
 THIEF = "character-0002"
@@ -255,7 +251,6 @@ def find_the_snare(session: GameSession) -> None:
 # ---------------------------------------------------------------------- an emptied authored cache
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_an_emptied_authored_cache_stays_listed_under_its_handle_and_is_marked_emptied():
     session = new_session()
     place(session, 2)
@@ -270,7 +265,6 @@ def test_an_emptied_authored_cache_stays_listed_under_its_handle_and_is_marked_e
     assert [feature.description for feature in level_view(session).features if feature.emptied] == ["A tithe bowl."]
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_emptied_flag_agrees_with_the_sessions_refusal():
     session = new_session()
     put_cache(session, "cache-0901", 3)
@@ -290,7 +284,6 @@ def test_the_emptied_flag_agrees_with_the_sessions_refusal():
     assert [feature.emptied for feature in caches] == [False, True, False]
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_emptied_tells_the_players_nothing_before_the_party_empties_the_cache():
     """The bare shelf holds nothing, and the view doesn't say so until the party has emptied it."""
     session = new_session()
@@ -315,7 +308,6 @@ def test_emptied_tells_the_players_nothing_before_the_party_empties_the_cache():
     assert [feature.model_copy(update={"emptied": False}) for feature in flipped] == list(before_features)
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_taken_generated_cache_leaves_the_list_and_nothing_is_marked_emptied():
     session = new_session()
     put_cache(session, "cache-0901", 3)
@@ -334,7 +326,6 @@ def test_a_taken_generated_cache_leaves_the_list_and_nothing_is_marked_emptied()
 # ---------------------------------------------------------------------- room trap knowledge
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_room_trap_the_party_finds_shows_on_its_area():
     session = new_session(SEARCH_SEED)
     place(session, 2)
@@ -346,7 +337,6 @@ def test_a_room_trap_the_party_finds_shows_on_its_area():
     assert area(session, "cellar") is None
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_room_trap_that_springs_shows_as_sprung():
     session = new_session(PIT_SEED)
     place(session, 3)
@@ -359,7 +349,6 @@ def test_a_room_trap_that_springs_shows_as_sprung():
     assert area(session, "counting").trap_state is None
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_room_whose_trap_the_party_has_not_met_looks_like_a_room_without_one():
     """The trapped house and the same house with no snare give the same view until the snare is found."""
     trapped = new_session(SEARCH_SEED)
@@ -384,7 +373,6 @@ def test_a_room_whose_trap_the_party_has_not_met_looks_like_a_room_without_one()
 # ---------------------------------------------------------------------- which features a command accepts here
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_features_here_lists_the_caches_in_reach_in_the_order_of_features():
     session = new_session()
     handles = {feature.description: feature.id for feature in by_description(session).values()}
@@ -402,7 +390,6 @@ def test_features_here_lists_the_caches_in_reach_in_the_order_of_features():
     assert player(session).features_here == (), "a custom feature takes no command"
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_features_here_agrees_with_the_commands_at_every_cell():
     """A cache the view lists is never refused for reach, and every other listed cache is."""
     session = new_session()
@@ -433,7 +420,6 @@ def test_features_here_agrees_with_the_commands_at_every_cell():
     assert checked == 2 * 6 * 7
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_cache_in_features_here_with_a_found_trap_takes_remove_treasure_trap():
     session = new_session()
     place(session, 3)
@@ -447,7 +433,6 @@ def test_a_cache_in_features_here_with_a_found_trap_takes_remove_treasure_trap()
     assert result.accepted, codes(result)
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_features_here_is_empty_unless_the_party_is_exploring():
     session = GameSession.new(build_party(), counting_house(), seed=7)
     assert player(session).features_here == ()
@@ -461,7 +446,6 @@ def test_features_here_is_empty_unless_the_party_is_exploring():
     assert player(session).features_here == ()
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_features_here_never_names_a_feature_the_view_hides():
     """The sliding wall is in reach from (2,0), but the party hasn't found it, so its handle is nowhere."""
     session = new_session()
@@ -480,7 +464,6 @@ def test_features_here_never_names_a_feature_the_view_hides():
 # ---------------------------------------------------------------------- a generated cache's area
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_rolled_cache_in_an_entered_area_names_the_area():
     """In the loot tests' lair, the rolled area cache and the lair hoard both lie in the lair."""
     session, _, _, _ = shared_cache_session()
@@ -497,7 +480,6 @@ def test_a_rolled_cache_in_an_entered_area_names_the_area():
     assert "lair" in {entry.id for entry in level.areas}
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_generated_cache_never_names_an_area_the_party_has_not_entered():
     session = new_session()
     put_cache(session, "cache-0901", 4)
@@ -518,7 +500,6 @@ def test_a_generated_cache_never_names_an_area_the_party_has_not_entered():
 # ---------------------------------------------------------------------- the referee view's handles
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_referee_view_has_the_player_handle_of_every_feature():
     session = new_session()
     put_cache(session, "cache-0901", 3)
@@ -539,7 +520,6 @@ def test_the_referee_view_has_the_player_handle_of_every_feature():
     assert all(handle.startswith("feature:") for handle in handles.values())
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_referee_tool_sends_the_handle_the_players_see():
     session = new_session()
     put_cache(session, "cache-0901", 3)
@@ -554,7 +534,6 @@ def test_a_referee_tool_sends_the_handle_the_players_see():
     assert "cache-0901" not in referee(session).feature_handles, "a taken rolled cache leaves the save"
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_referee_view_has_a_handle_for_a_lair_cache_the_players_cannot_see_yet():
     session, _, area_cache_id, lair_cache_id = shared_cache_session()
     level = next(entry for entry in player(session).explored if entry.level_number == 1)
@@ -567,7 +546,6 @@ def test_the_referee_view_has_a_handle_for_a_lair_cache_the_players_cannot_see_y
     assert handles[lair_cache_id] not in shown
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_referee_handles_follow_the_session_key_and_the_key_stays_out():
     first_key = bytes(range(32))
     second_key = bytes(range(1, 33))
@@ -621,7 +599,6 @@ def assert_the_house_as_saved(session: GameSession) -> None:
     assert handles["cache-0901"] == rolled[(3, 0)].id
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_new_fields_read_the_same_after_save_and_load():
     session = played_house()
     assert_the_house_as_saved(session)
@@ -633,7 +610,6 @@ def test_the_new_fields_read_the_same_after_save_and_load():
     assert_the_house_as_saved(restored)
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_save_written_by_2_7_0_loads_with_the_new_fields():
     document = json.loads(SAVE_2_7_0.read_text(encoding="utf-8"))
     assert document["engine_version"] == "2.7.0"
