@@ -150,7 +150,7 @@ def build_adventure() -> Adventure:
                     FeatureSpec(
                         id="idol_shrine",
                         kind="treasure_cache",
-                        description="The idol rests in a hollow under the altar stone.",
+                        description="A hollow is cut into the floor beneath the altar stone.",
                         cell=(4, 0),
                         coins=Coins(gp=50),
                         item_ids=(IDOL_ID,),
