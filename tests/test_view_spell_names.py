@@ -6,12 +6,15 @@ carries the name of every spell id in the view, read from the session's catalog,
 the view doesn't already show.
 
 Wren, the 3rd-level magic-user in these sessions, has two 1st-level slots and one 2nd-level slot. Where a test
-pins her names exactly, her book is full at both levels, so the spells she may learn (issue #326) add none. A
-cleric with a slot may prepare every spell on the cleric's list at that level, so the cleric tests name the
-spells the cleric may prepare beside the ones they pin.
+pins her names exactly, her book is full at both levels, so the spells she may learn (issue #326) add none.
+Oswin, the 3rd-level cleric, has two 1st-level slots and no 2nd-level slot. The OSE SRD lets a divine caster
+"choose any spells in their class’ spell list that they are of high enough level to cast", so he may prepare
+every 1st-level cleric spell, and the cleric tests name those beside the ones they pin.
 """
 
 import positions_fixtures as pf
+from osrlib.core.character import Character
+from osrlib.core.effects import EffectDefinition
 from osrlib.core.events import Visibility
 from osrlib.core.items import MagicItemInstance
 from osrlib.core.spells import MemorizedSpell, SpellTemplate
@@ -21,6 +24,7 @@ from osrlib.crawl.session import GameSession
 from osrlib.crawl.views import PlayerView
 from osrlib.data import load_spells
 from test_custom_spells import GLIMMER, adventure, custom_spell, prepare, session
+from test_view_spell_lists import CLERIC_1, bundled, member
 
 # A cleric's spell of the adventure's own: protection from evil under a new id. Its effect
 # sets no kind of its own, so the effect's kind is the spell's id.
@@ -43,14 +47,17 @@ def _player_view(game: GameSession) -> PlayerView:
     return view
 
 
-def _preparable(view: PlayerView, name: str) -> set[str]:
-    return set(next(member for member in view.party if member.name == name).preparable_spells)
+def _names(*spells: str | SpellTemplate) -> dict[str, str]:
+    """The names a view should give: a built-in id's from `load_spells()`, a bundled spell's its own."""
+    built_in = load_spells()
+    templates = (built_in.get(spell) if isinstance(spell, str) else spell for spell in spells)
+    return {spell.id: spell.name for spell in templates}
 
 
-def _reverses(game: GameSession, spell_ids: set[str]) -> dict[str, str]:
-    """The name of each reverse among `spell_ids`, from the session's catalog."""
-    spells = (game.effective_spells.get(spell_id) for spell_id in spell_ids)
-    return {spell.id: spell.reversed_form.name for spell in spells if spell.reversed_form is not None}
+OSWINS_CHOICES = _names(*CLERIC_1)
+"""What a 3rd-level cleric may prepare from the built-in catalog: every 1st-level cleric spell."""
+OSWINS_REVERSES = {"cure_light_wounds": "Cause Light Wounds", "light_c": "Darkness", "remove_fear": "Cause Fear"}
+"""The reverses among the 1st-level cleric spells, as the OSE SRD names them."""
 
 
 def _cleric_session(*spells) -> GameSession:
@@ -119,8 +126,54 @@ def test_a_spell_effect_is_named_after_the_cleric_has_spent_the_copy():
 
     assert [(effect.character_id, effect.kind) for effect in view.effects] == [(oswin, "warding")]
     assert all(member.memorized_spells == () and member.spell_book == () for member in view.party)
-    assert view.spell_names["warding"] == "Warding"
-    assert set(view.spell_names) == {"warding"} | _preparable(view, "Oswin")
+    assert view.spell_names == OSWINS_CHOICES | _names(WARDING)
+
+
+def _hex() -> SpellTemplate:
+    document = bundled("cure_light_wounds", "hex", spell_list="witch").model_dump()
+    document["reversed_form"] = {**document["reversed_form"], "name": "Unhex"}
+    return SpellTemplate.model_validate(document)
+
+
+HEX = _hex()
+"""A spell the adventure bundles on a list no party member casts from, like one only its monsters cast."""
+
+
+def test_a_spell_only_an_effect_shows_is_named_and_levelled():
+    """A hex running on Hild is the one place its id appears: nobody may prepare or learn it, or holds it.
+
+    Wren's book is full at both levels she has slots for, so it adds only its own spells.
+    """
+    game = session(HEX, book=("magic_missile", "shield", "web"))
+    hild = pf.named(game, "Hild")
+    pf.attach(game, EffectDefinition(kind="hex"), hild)
+
+    view = _player_view(game)
+
+    assert [(effect.character_id, effect.kind) for effect in view.effects] == [(hild, "hex")]
+    assert view.spell_names == _names("magic_missile", "shield", "web") | {"hex": "Hex"}
+    assert view.reversed_spell_names == {"hex": "Unhex"}
+    assert view.spell_levels == {"magic_missile": 1, "shield": 1, "web": 2, "hex": 1}
+
+
+def test_a_spell_held_without_a_slot_is_named_from_the_book_or_the_memorized_copy():
+    """A spell a member holds but couldn't choose now is named because the book or the memorized copy shows it.
+
+    Sefa, a 1st-level magic-user drained from a higher level, keeps *web* in her book with no 2nd-level slot, and
+    her one 1st-level slot is full. Tam, a 1st-level cleric brought in from another game, carries a copy of *bless*
+    memorized at a level he no longer has a slot for. Neither may prepare or learn either spell.
+    """
+    tam = Character.model_validate(
+        {**member("Tam", "cleric", 1).model_dump(), "memorized_spells": [{"spell_id": "bless"}]}
+    )
+    sefa = member("Sefa", "magic_user", 1, "sleep", "web")
+    game = GameSession.new(Party(members=[tam, sefa]), adventure(), seed=7)
+
+    view = _player_view(game)
+
+    assert view.spell_names == _names("sleep", "web", "bless")
+    assert view.reversed_spell_names == {"bless": "Blight"}
+    assert view.spell_levels == {"sleep": 1, "web": 2, "bless": 2}
 
 
 def test_an_effect_kind_that_isnt_a_spell_id_has_no_name():
@@ -134,8 +187,7 @@ def test_an_effect_kind_that_isnt_a_spell_id_has_no_name():
 
     assert [effect.kind for effect in view.effects] == ["light"]
     assert "light" not in view.spell_names
-    assert view.spell_names["cure_light_wounds"] == "Cure Light Wounds"
-    assert set(view.spell_names) == {"cure_light_wounds"} | _preparable(view, "Oswin")
+    assert view.spell_names == OSWINS_CHOICES
 
 
 def test_a_spell_id_the_sessions_catalog_lacks_has_no_entry():
@@ -201,10 +253,7 @@ def test_a_clerics_unreversed_copy_still_has_its_reverses_name():
 
     member = next(member for member in view.party if member.id == oswin)
     assert member.memorized_spells[0] == {"spell_id": "cure_light_wounds", "reversed": False}
-    assert view.reversed_spell_names["cure_light_wounds"] == "Cause Light Wounds"
-    assert view.reversed_spell_names == {"cure_light_wounds": "Cause Light Wounds"} | _reverses(
-        game, _preparable(view, "Oswin")
-    )
+    assert view.reversed_spell_names == OSWINS_REVERSES
 
 
 def test_a_spell_with_no_reverse_has_no_reverse_entry():
@@ -224,7 +273,5 @@ def test_a_bundled_reversible_spell_has_the_reverses_name_the_adventure_gave_it(
 
     view = _player_view(game)
 
-    assert view.spell_names["mending"] == "Mending"
-    assert set(view.spell_names) == {"mending"} | _preparable(view, "Oswin")
-    assert view.reversed_spell_names["mending"] == "Rending"
-    assert view.reversed_spell_names == {"mending": "Rending"} | _reverses(game, _preparable(view, "Oswin"))
+    assert view.spell_names == OSWINS_CHOICES | {"mending": "Mending"}
+    assert view.reversed_spell_names == OSWINS_REVERSES | {"mending": "Rending"}

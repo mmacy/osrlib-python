@@ -489,9 +489,10 @@ def test_every_listed_spell_is_named_and_levelled_from_the_sessions_catalog():
     game = casters()
     view = _player_view(game)
     catalog = game.effective_spells
-    listed = {spell_id for sheet in view.party for spell_id in (*sheet.preparable_spells, *sheet.learnable_spells)}
+    listed = {
+        spell_id for expected in EXPECTED.values() for spell_id in (*expected["preparable"], *expected["learnable"])
+    }
 
-    assert listed
     assert listed <= set(view.spell_names)
     for spell_id in listed:
         spell = catalog.get(spell_id)
@@ -534,9 +535,19 @@ def test_the_view_names_exactly_the_spells_it_shows():
 
     # *Frost dart* is in Ivo's book, and this session's catalog doesn't have it.
     assert set(view.spell_names) == shown - {"frost_dart"}
-    assert len(view.spell_names) == len(CLERIC_1) + len(CLERIC_2) + len(MAGIC_USER_2) + 6
-    # The six: balm, mend wounds, mire, and the books' sleep, magic missile, and light. Web is a 2nd-level spell
-    # and one of MAGIC_USER_2.
+    # Mara's two cleric levels, Wren's 2nd-level choices, the bundled spells someone may choose, and the books' own
+    # spells. Sefa's *web* is one of the 2nd-level magic-user spells.
+    assert set(view.spell_names) == {
+        *CLERIC_1,
+        *CLERIC_2,
+        *MAGIC_USER_2,
+        "balm",
+        "mend_wounds",
+        "mire",
+        "sleep",
+        "magic_missile",
+        "light_mu",
+    }
 
 
 def test_a_spell_no_member_may_choose_stays_hidden():
