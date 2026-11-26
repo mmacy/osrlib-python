@@ -32,8 +32,6 @@ from osrlib.data import load_equipment
 from osrlib.persistence import load_game, save_game
 from test_view_item_names import CATALOG_NAMES, PARTY_2_7_0, SAVE_2_7_0, UNNAMED_IDOL, _adventure, _embedded_templates
 
-XFAIL = pytest.mark.xfail(reason="chunk: view-item-names")
-
 NPCS_2_7_0 = Path(__file__).parent / "saves" / "view_item_names_npcs_2.7.0.json"
 """A save that osrlib 2.7.0 wrote, kept as it wrote it, in which a basic NPC party of four has attacked the party.
 
@@ -107,7 +105,6 @@ def _without_names(templates: list[dict]) -> list[str]:
 # ---------------------------------------------------------------------- a 2.7.0 save
 
 
-@XFAIL
 def test_a_2_7_0_save_embeds_the_catalogs_names_in_every_carried_stack():
     """The inventory dump, the referee view, and the next save all carry the catalog's names.
 
@@ -126,7 +123,6 @@ def test_a_2_7_0_save_embeds_the_catalogs_names_in_every_carried_stack():
     assert _names(_embedded_templates(save_game(game))) == expected
 
 
-@XFAIL
 def test_a_2_7_0_save_gives_npc_adventurers_the_catalogs_names():
     """An NPC's gear is in the referee view and the save, and it takes the catalog's names too."""
     game = _load(NPCS_2_7_0)
@@ -150,7 +146,7 @@ def test_a_2_7_0_save_gives_npc_adventurers_the_catalogs_names():
 
 @pytest.mark.parametrize(
     "path",
-    [pytest.param(SAVE_2_7_0, id="party", marks=XFAIL), pytest.param(NPCS_2_7_0, id="npcs", marks=XFAIL)],
+    [pytest.param(SAVE_2_7_0, id="party"), pytest.param(NPCS_2_7_0, id="npcs")],
 )
 def test_loading_a_2_7_0_save_changes_only_the_two_names_of_an_embedded_template(path: Path):
     """Every embedded template, read as this osrlib reads it, is the same before and after but for its names."""
@@ -177,7 +173,6 @@ def test_loading_a_2_7_0_save_draws_nothing_and_keeps_the_logs():
 # ---------------------------------------------------------------------- a 2.7.0 party document
 
 
-@XFAIL
 def test_a_2_7_0_party_document_takes_the_adventures_names_for_its_bundled_item():
     """A new session of an adventure whose idol has written names: the carried idol takes them."""
     game = GameSession.new(_party_from_2_7_0(), _adventure(), seed=5)
@@ -190,7 +185,6 @@ def test_a_2_7_0_party_document_takes_the_adventures_names_for_its_bundled_item(
     assert _names(_embedded_templates(save_game(game)["payload"]["party"])) == expected
 
 
-@XFAIL
 def test_a_2_7_0_party_documents_bundled_item_keeps_its_names_without_the_adventure():
     """The same party in an adventure that bundles no idol: the idol keeps the defaults its template has."""
     game = GameSession.new(_party_from_2_7_0(), _empty_crypt(), seed=5)
@@ -201,7 +195,6 @@ def test_a_2_7_0_party_documents_bundled_item_keeps_its_names_without_the_advent
     assert _names(_player_templates(player)) == {**CATALOG_NAMES, "temple_idol": UNNAMED_IDOL}
 
 
-@XFAIL
 def test_a_new_session_changes_only_the_names_of_a_template_the_catalog_has():
     """A torch of the fighter's own, with the catalog's id but its own rules data, keeps all but its names."""
     party = build_party()
@@ -232,7 +225,6 @@ def test_a_new_session_changes_only_the_names_of_a_template_the_catalog_has():
     assert stack.quantity == 2
 
 
-@XFAIL
 def test_a_member_added_from_a_2_7_0_document_takes_the_catalogs_names():
     """`AddMember` with the 2.7.0 fighter, given no id and none of the magic items a joining member can't carry.
 
