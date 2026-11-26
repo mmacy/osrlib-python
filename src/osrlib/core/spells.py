@@ -749,12 +749,14 @@ class SpellMode(_Model):
     situation rather than an action, like *bless*'s "Battle:", has a label written for it from the
     page's words, like `"Bless allies in battle"` and the reverse of *light*'s `"Conjure darkness"`.
 
-    When you write a mode and leave the label out, or give an empty one, the mode gets a label made
-    from its key: each underscore becomes a space and the first letter becomes a capital, so
-    `"darken"` is labelled `"Darken"` and `"kill_green_slime"` is labelled `"Kill green slime"`. A
-    spell you wrote for an earlier osrlib loads this way, with a label on every mode. A spell with a
-    single mode has nothing to choose between, so the built-in catalog gives that mode the label from
-    its key too, like *fire ball*'s `"Damage"`. Show the spell's name for it instead.
+    When you write a mode and leave the label out, or give one that is empty or only spaces, the
+    mode gets a label made from its key: each run of underscores becomes one space, the spaces at
+    either end are dropped, and the first letter becomes a capital, so `"darken"` is labelled
+    `"Darken"` and `"kill_green_slime"` is labelled `"Kill green slime"`. A key made only of
+    underscores is its own label, so a label is never empty. A spell you wrote for an earlier osrlib
+    loads this way, with a label on every mode. A spell with a single mode has nothing to choose
+    between, so the built-in catalog gives that mode the label from its key too, like *fire ball*'s
+    `"Damage"`. For a form with one mode, show the spell's name and not the mode's label.
     """
 
     targeting: TargetingSpec | None = None

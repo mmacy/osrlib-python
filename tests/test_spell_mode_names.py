@@ -97,7 +97,12 @@ MULTI_MODE_LABELS: dict[tuple[str, bool], tuple[tuple[str, str], ...]] = {
     # No numbered usages: the area, and "Casting upon a creature:" among the bullets.
     ("silence_15_radius", False): (("creature", "Silence a creature"), ("area", "Silence an area")),
     # "The spell may target either: 1. A single creature with 4+1 Hit Dice ... 2. A total of 2d8 Hit Dice".
-    ("sleep", False): (("single_4_plus", "Put a creature to sleep"), ("hd_budget", "Put a group to sleep")),
+    # The page's two usages are "A single creature with 4+1 Hit Dice" and "A total of 2d8 Hit Dice of
+    # creatures of 4 HD or lower each", so each label says which creatures its mode works on.
+    ("sleep", False): (
+        ("single_4_plus", "Put a creature with 4+1 Hit Dice to sleep"),
+        ("hd_budget", "Put creatures of 4 Hit Dice or lower to sleep"),
+    ),
 }
 
 # The reverse of light, as the SRD prints it: "Creates a 15’ radius area of magical blackness, preventing normal
@@ -294,6 +299,37 @@ def test_a_mode_you_write_without_a_label_gets_one_from_its_key():
     assert SpellMode(key="darken", manual=True).display_name == "Darken"
     assert SpellMode.model_validate({"key": "kill_green_slime", "manual": True}).display_name == "Kill green slime"
     assert SpellMode(key="snuff", manual=True, display_name="").display_name == "Snuff"
+
+
+@pytest.mark.xfail(reason=CHUNK)
+def test_a_label_of_only_spaces_counts_as_missing():
+    # A label a cast dialog would show as a blank line is no label.
+    assert SpellMode(key="blind", manual=True, display_name="   ").display_name == "Blind"
+    assert SpellMode.model_validate({"key": "blind", "manual": True, "display_name": "\t"}).display_name == "Blind"
+
+
+@pytest.mark.xfail(reason=CHUNK)
+@pytest.mark.parametrize(
+    ("key", "label"),
+    [
+        # Underscores at either end leave no space at either end, and the first letter is still a capital.
+        ("_lead", "Lead"),
+        ("trailing_", "Trailing"),
+        # A run of underscores is one space.
+        ("a__b", "A b"),
+        # A first character whose capital is more than one character stays as it is.
+        ("ß_key", "ß key"),
+        # A key with no letter to show is its own label, so the label is never empty.
+        ("__", "__"),
+    ],
+)
+def test_a_label_made_from_an_odd_key_is_trimmed_and_never_empty(key, label):
+    assert SpellMode(key=key, manual=True).display_name == label
+
+
+@pytest.mark.parametrize(("key", "label"), [("x", "X"), ("2nd_try", "2nd try"), ("élan", "Élan")])
+def test_a_label_made_from_a_short_or_accented_key(key, label):
+    assert SpellMode(key=key, manual=True).display_name == label
 
 
 def test_a_mode_you_write_keeps_the_label_you_give_it():
