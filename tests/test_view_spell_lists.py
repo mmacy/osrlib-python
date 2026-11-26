@@ -38,8 +38,6 @@ from osrlib.crawl.views import MemberView, PlayerView
 from osrlib.data import load_classes, load_spells
 from osrlib.persistence import load_game, save_game
 
-CHUNK = "chunk: view-spell-lists"
-
 SAVE_2_7_0 = Path(__file__).parent / "saves" / "view_spell_lists_2.7.0.json"
 """A save of `casters()` after a night's rest, written by osrlib 2.7.0 before the lists existed."""
 
@@ -261,19 +259,7 @@ def _lists(view: PlayerView) -> dict[str, tuple[tuple[str, ...], tuple[str, ...]
 # ---------------------------------------------------------------------- what each member may choose
 
 
-def _cases(failing: Callable[[dict], bool]) -> list:
-    """One case per member, marked for the chunk when the member's answer isn't the empty default.
-
-    A member who may choose nothing gets the default of every new field already, so that case runs unmarked as a
-    guard.
-    """
-    return [
-        pytest.param(name, marks=pytest.mark.xfail(reason=CHUNK)) if failing(expected) else name
-        for name, expected in EXPECTED.items()
-    ]
-
-
-@pytest.mark.parametrize("name", _cases(lambda expected: any(expected.values())))
+@pytest.mark.parametrize("name", list(EXPECTED))
 def test_each_member_lists_the_spells_they_may_prepare_and_learn(name):
     sheet = _sheet(_player_view(casters()), name)
 
@@ -317,7 +303,7 @@ def _learn(character_id: str, spell_id: str) -> Command:
     return LearnSpell(character_id=character_id, spell_id=spell_id)
 
 
-@pytest.mark.parametrize("name", _cases(lambda expected: bool(expected["preparable"])))
+@pytest.mark.parametrize("name", list(EXPECTED))
 def test_a_spell_is_preparable_exactly_when_prepare_spells_accepts_it(name):
     """Every spell id the session knows, every id in a book, and one id nobody has, prepared one plain copy at a time.
 
@@ -331,7 +317,7 @@ def test_a_spell_is_preparable_exactly_when_prepare_spells_accepts_it(name):
     assert len(sheet.preparable_spells) == len(accepted)
 
 
-@pytest.mark.parametrize("name", _cases(lambda expected: bool(expected["learnable"])))
+@pytest.mark.parametrize("name", list(EXPECTED))
 def test_a_spell_is_learnable_exactly_when_learn_spell_accepts_it(name):
     sheet = _sheet(_player_view(casters()), name)
 
@@ -341,7 +327,6 @@ def test_a_spell_is_learnable_exactly_when_learn_spell_accepts_it(name):
     assert len(sheet.learnable_spells) == len(accepted)
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_an_arcane_caster_may_prepare_the_reverse_of_a_listed_spell_that_has_one():
     """*Light* reverses into *darkness*, and *magic missile* doesn't reverse (`magic.memorize.not_reversible`)."""
     game = casters()
@@ -359,7 +344,6 @@ def test_an_arcane_caster_may_prepare_the_reverse_of_a_listed_spell_that_has_one
     assert [rejection.code for rejection in refused.rejections] == ["magic.memorize.not_reversible"]
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_selection_that_fills_every_slot_from_the_lists_is_accepted():
     """Mara fills her two 1st-level slots and her one 2nd-level slot from her list, counted by `spell_levels`."""
     game = casters()
@@ -378,7 +362,6 @@ def test_a_selection_that_fills_every_slot_from_the_lists_is_accepted():
 # ---------------------------------------------------------------------- the moment doesn't change the lists
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_lists_are_the_same_before_the_party_has_slept():
     """`PrepareSpells` refuses with `magic.memorize.needs_sleep`, which is about the moment, not the spell."""
     game = casters(rested=False)
@@ -391,7 +374,6 @@ def test_the_lists_are_the_same_before_the_party_has_slept():
     assert _sheet(_player_view(game), "Oswin").preparable_spells == EXPECTED["Oswin"]["preparable"]
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_lists_are_the_same_during_an_encounter():
     """Both commands refuse with `session.command.wrong_mode` while monsters are in sight."""
     game = casters()
@@ -407,7 +389,6 @@ def test_the_lists_are_the_same_during_an_encounter():
     assert "balm" in _sheet(_player_view(game), "Oswin").preparable_spells
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_lists_are_the_same_while_the_member_cant_act():
     """An asleep cleric and an asleep magic-user are refused with `session.command.member_incapacitated`."""
     game = casters()
@@ -425,7 +406,6 @@ def test_the_lists_are_the_same_while_the_member_cant_act():
 # ---------------------------------------------------------------------- the lists follow the member
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_issues_cleric_sees_the_bundled_spell_at_second_level():
     """The issue's repro: a 1st-level cleric awarded 2,500 XP reaches 2nd level, which has one 1st-level slot."""
     game = GameSession.new(Party(members=[member("Tam", "cleric", 1)]), adventure(BALM), seed=7)
@@ -448,7 +428,6 @@ def test_the_issues_cleric_sees_the_bundled_spell_at_second_level():
     assert game.execute(_prepare(tam, "balm")).accepted
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_cleric_who_gains_a_spell_level_lists_its_spells():
     """A 3rd-level cleric has two 1st-level slots. 3,000 XP more makes 6,000 and 4th level, with a 2nd-level slot."""
     game = GameSession.new(Party(members=[member("Mara", "cleric", 3)]), adventure(BALM, SANCTUM), seed=7)
@@ -467,7 +446,6 @@ def test_a_cleric_who_gains_a_spell_level_lists_its_spells():
     assert "sanctum" not in after.spell_names
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_learning_a_spell_moves_it_from_learnable_to_preparable():
     """Wren's one 2nd-level slot gives her book room for one 2nd-level spell, so learning *mire* fills it."""
     game = casters()
@@ -484,7 +462,6 @@ def test_learning_a_spell_moves_it_from_learnable_to_preparable():
 # ---------------------------------------------------------------------- names, reverses, and levels
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_every_listed_spell_is_named_and_levelled_from_the_sessions_catalog():
     game = casters()
     view = _player_view(game)
@@ -506,7 +483,6 @@ def test_every_listed_spell_is_named_and_levelled_from_the_sessions_catalog():
     assert (view.spell_names["mire"], view.spell_levels["mire"]) == ("Mire", 2)
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_spell_levels_has_a_level_for_every_named_spell():
     """Sefa's *web* is in her book with no slot to take, so it's named and levelled, not listed."""
     view = _player_view(casters())
@@ -518,7 +494,6 @@ def test_spell_levels_has_a_level_for_every_named_spell():
     assert (view.spell_levels["sleep"], view.spell_levels["light_mu"], view.spell_levels["bless"]) == (1, 1, 2)
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_view_names_exactly_the_spells_it_shows():
     """The names come from the books, the memorized copies, the effects, and the two lists, and nowhere else."""
     view = _player_view(casters())
@@ -562,7 +537,6 @@ def test_a_spell_no_member_may_choose_stays_hidden():
         assert name not in blob
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_spell_on_a_scroll_appears_only_when_a_member_may_learn_it_anyway():
     """A scroll adds nothing to either list, because the OSE SRD adds a spell to a book by mentoring or research.
 
@@ -590,7 +564,6 @@ def test_a_spell_on_a_scroll_appears_only_when_a_member_may_learn_it_anyway():
 # ---------------------------------------------------------------------- saves
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_loaded_save_has_the_same_lists():
     game = casters()
 
@@ -602,7 +575,6 @@ def test_a_loaded_save_has_the_same_lists():
     assert (reloaded.spell_names, reloaded.spell_levels) == (view.spell_names, view.spell_levels)
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_save_from_osrlib_2_7_0_gives_the_lists():
     """The lists are worked out from the characters and the catalog, so a save from before they existed has them."""
     document = json.loads(SAVE_2_7_0.read_text())
@@ -639,7 +611,6 @@ def test_a_player_view_from_before_the_lists_still_parses():
 # ---------------------------------------------------------------------- the docs
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_views_guide_and_the_changelog_describe_the_lists():
     root = Path(__file__).parent.parent
     guide = (root / "docs" / "guides" / "views-and-visibility.md").read_text()
