@@ -72,6 +72,8 @@ def _unknown_book_spell(catalog: SpellCatalog, member: Character) -> str | None:
     The room left at a spell level depends on the level of each spell already in the book, so the session can't
     check a book with a spell its catalog doesn't have, and `LearnSpell` refuses every spell while the book has one.
     """
+    if not member.spell_book:
+        return None
     known = {spell.id for spell in catalog.spells}
     return next((spell_id for spell_id in member.spell_book if spell_id not in known), None)
 

@@ -1458,10 +1458,15 @@ def _preparable_spell_ids(caster: Caster, definition: ClassDefinition, catalog: 
     if profile is None:
         return ()
     slots = definition.row(caster.level).spell_slots
+    book = set(getattr(caster, "spell_book", ())) if profile.kind == "arcane" else None
     return tuple(
         template.id
         for template in catalog.spells
-        if _slot_count(slots, template.level) > 0
+        # The first three tests skip only spells that the checks after them refuse, and they cost less than the
+        # MemorizedSpell and Rejection models those checks build. `_selection_rejection` decides every spell left.
+        if template.spell_list == profile.spell_list
+        and (book is None or template.id in book)
+        and _slot_count(slots, template.level) > 0
         and _selection_rejection(caster, profile, template, MemorizedSpell(spell_id=template.id)) is None
     )
 
@@ -1653,18 +1658,12 @@ def add_spell_to_book(
 
 
 def _book_rejection(
-    caster: Caster,
-    definition: ClassDefinition,
-    catalog: SpellCatalog,
-    spell_id: str,
-    *,
-    open_slots: tuple[int, ...] | None = None,
+    caster: Caster, definition: ClassDefinition, catalog: SpellCatalog, spell_id: str
 ) -> Rejection | None:
     """Return why `add_spell_to_book` refuses a spell, or None when it accepts it.
 
-    The checks run in a fixed order and stop at the first that fails. `open_slots` is the caster's
-    `open_book_capacity`, which a caller checking many spells against one book passes so that it's computed once.
-    Without it, the capacity is computed only for a spell that passes every earlier check.
+    The checks run in a fixed order and stop at the first that fails. This function makes the checks of the class
+    and of the spell's id, and `_book_template_rejection` makes the rest.
     """
     profile = caster_profile(definition)
     if profile is None or profile.kind != "arcane":
@@ -1673,17 +1672,35 @@ def _book_rejection(
         template = catalog.get(spell_id)
     except ValueError:
         return Rejection(code="magic.book.unknown_spell", params={"spell": spell_id})
+    return _book_template_rejection(caster, definition, catalog, profile, template)
+
+
+def _book_template_rejection(
+    caster: Caster,
+    definition: ClassDefinition,
+    catalog: SpellCatalog,
+    profile: CasterProfile,
+    template: SpellTemplate,
+    *,
+    open_slots: tuple[int, ...] | None = None,
+) -> Rejection | None:
+    """Return why `add_spell_to_book` refuses a spell of the catalog for an arcane caster, or None when it accepts it.
+
+    `profile` is the caster's arcane profile, and `template` is the spell from `catalog`. `open_slots` is the
+    caster's `open_book_capacity`, which a caller checking many spells against one book passes so that it's computed
+    once. Without it, the capacity is computed only for a spell that passes every earlier check.
+    """
     if template.spell_list != profile.spell_list:
-        return Rejection(code="magic.book.wrong_list", params={"spell": spell_id, "list": template.spell_list})
-    if spell_id in caster.spell_book:
-        return Rejection(code="magic.book.duplicate", params={"spell": spell_id})
+        return Rejection(code="magic.book.wrong_list", params={"spell": template.id, "list": template.spell_list})
+    if template.id in caster.spell_book:
+        return Rejection(code="magic.book.duplicate", params={"spell": template.id})
     if open_slots is None:
         open_slots = open_book_capacity(caster, definition, catalog)
-    if template.level > len(open_slots) or open_slots[template.level - 1] == 0:
+    if _slot_count(open_slots, template.level) == 0:
         capacity = _slot_count(definition.row(caster.level).spell_slots, template.level)
         return Rejection(
             code="magic.book.capacity_exceeded",
-            params={"spell": spell_id, "spell_level": template.level, "capacity": capacity},
+            params={"spell": template.id, "spell_level": template.level, "capacity": capacity},
         )
     return None
 
@@ -1698,10 +1715,16 @@ def _learnable_spell_ids(caster: Caster, definition: ClassDefinition, catalog: S
     if profile is None or profile.kind != "arcane":
         return ()
     open_slots = open_book_capacity(caster, definition, catalog)
+    book = set(caster.spell_book)
     return tuple(
         template.id
         for template in catalog.spells
-        if _book_rejection(caster, definition, catalog, template.id, open_slots=open_slots) is None
+        # The first three tests skip only spells that `_book_template_rejection` refuses, without building the
+        # Rejection model. It decides every spell left.
+        if template.spell_list == profile.spell_list
+        and template.id not in book
+        and _slot_count(open_slots, template.level) > 0
+        and _book_template_rejection(caster, definition, catalog, profile, template, open_slots=open_slots) is None
     )
 
 
