@@ -1,0 +1,720 @@
+{
+  "kind": "save",
+  "schema_version": 4,
+  "engine_version": "2.9.0",
+  "payload": {
+    "master_seed": 31,
+    "ruleset": {
+      "hp_reroll_at_first_level": false,
+      "max_hp_at_first_level": false,
+      "ability_score_method": "3d6",
+      "encumbrance": "basic",
+      "variable_weapon_damage": true,
+      "individual_initiative": false,
+      "thac0_arithmetic": false,
+      "weapon_reload": false,
+      "hd5_counts_as_magical": false,
+      "magic_item_death_save": true,
+      "xp_award_timing": "on_return",
+      "deprivation_penalties": false,
+      "aoe_friendly_fire": true,
+      "formation_width_limit": true,
+      "failed_trap_removal_springs": true,
+      "back_stab_needs_both_skills": true
+    },
+    "party": {
+      "members": [
+        {
+          "id": "character-0001",
+          "name": "Brakk",
+          "class_id": "fighter",
+          "custom_class": null,
+          "race": "human",
+          "level": 1,
+          "xp": 0,
+          "scores": {
+            "str": 11,
+            "int": 11,
+            "wis": 11,
+            "dex": 11,
+            "con": 11,
+            "cha": 11
+          },
+          "alignment": "lawful",
+          "extra_languages": [],
+          "max_hp": 6,
+          "current_hp": 6,
+          "nonregen_damage": 0,
+          "inventory": {
+            "items": [],
+            "purse": {
+              "pp": 0,
+              "gp": 0,
+              "ep": 0,
+              "sp": 0,
+              "cp": 0
+            },
+            "valuables": [
+              {
+                "instance_type": "valuable",
+                "instance_id": "valuable-0002",
+                "kind": "jewellery",
+                "name": "The abbot's seal ring",
+                "value_gp": 900,
+                "weight_coins": 0
+              }
+            ],
+            "worn_armour": null,
+            "shield": null,
+            "wielded": [],
+            "rings": []
+          },
+          "carrying_treasure": false,
+          "conditions": [],
+          "stat_modifiers": [],
+          "spell_book": [],
+          "memorized_spells": []
+        },
+        {
+          "id": "character-0002",
+          "name": "Sable",
+          "class_id": "thief",
+          "custom_class": null,
+          "race": "human",
+          "level": 1,
+          "xp": 0,
+          "scores": {
+            "str": 11,
+            "int": 11,
+            "wis": 11,
+            "dex": 11,
+            "con": 11,
+            "cha": 11
+          },
+          "alignment": "lawful",
+          "extra_languages": [],
+          "max_hp": 6,
+          "current_hp": 6,
+          "nonregen_damage": 0,
+          "inventory": {
+            "items": [],
+            "purse": {
+              "pp": 0,
+              "gp": 0,
+              "ep": 0,
+              "sp": 0,
+              "cp": 0
+            },
+            "valuables": [],
+            "worn_armour": null,
+            "shield": null,
+            "wielded": [],
+            "rings": []
+          },
+          "carrying_treasure": false,
+          "conditions": [],
+          "stat_modifiers": [],
+          "spell_book": [],
+          "memorized_spells": []
+        },
+        {
+          "id": "character-0003",
+          "name": "Wynn",
+          "class_id": "cleric",
+          "custom_class": null,
+          "race": "human",
+          "level": 1,
+          "xp": 0,
+          "scores": {
+            "str": 11,
+            "int": 11,
+            "wis": 13,
+            "dex": 11,
+            "con": 11,
+            "cha": 11
+          },
+          "alignment": "lawful",
+          "extra_languages": [],
+          "max_hp": 6,
+          "current_hp": 6,
+          "nonregen_damage": 0,
+          "inventory": {
+            "items": [],
+            "purse": {
+              "pp": 0,
+              "gp": 0,
+              "ep": 0,
+              "sp": 0,
+              "cp": 0
+            },
+            "valuables": [
+              {
+                "instance_type": "valuable",
+                "instance_id": "valuable-0003",
+                "kind": "gem",
+                "name": "Gem",
+                "value_gp": 40,
+                "weight_coins": 0
+              }
+            ],
+            "worn_armour": null,
+            "shield": null,
+            "wielded": [],
+            "rings": []
+          },
+          "carrying_treasure": false,
+          "conditions": [],
+          "stat_modifiers": [],
+          "spell_book": [],
+          "memorized_spells": []
+        },
+        {
+          "id": "character-0004",
+          "name": "Elara",
+          "class_id": "magic_user",
+          "custom_class": null,
+          "race": "human",
+          "level": 1,
+          "xp": 0,
+          "scores": {
+            "str": 11,
+            "int": 11,
+            "wis": 11,
+            "dex": 11,
+            "con": 11,
+            "cha": 11
+          },
+          "alignment": "lawful",
+          "extra_languages": [],
+          "max_hp": 6,
+          "current_hp": 6,
+          "nonregen_damage": 0,
+          "inventory": {
+            "items": [],
+            "purse": {
+              "pp": 0,
+              "gp": 0,
+              "ep": 0,
+              "sp": 0,
+              "cp": 0
+            },
+            "valuables": [
+              {
+                "instance_type": "valuable",
+                "instance_id": "valuable-0001",
+                "kind": "jewellery",
+                "name": "Silver altar candlestick",
+                "value_gp": 300,
+                "weight_coins": 0
+              }
+            ],
+            "worn_armour": null,
+            "shield": null,
+            "wielded": [],
+            "rings": []
+          },
+          "carrying_treasure": false,
+          "conditions": [],
+          "stat_modifiers": [],
+          "spell_book": [
+            "sleep"
+          ],
+          "memorized_spells": []
+        }
+      ]
+    },
+    "adventure": {
+      "name": "The Drowned Priory",
+      "description": "",
+      "hooks": [],
+      "party": null,
+      "town": {
+        "name": "Threshold",
+        "description": "",
+        "services": [],
+        "travel_turns": {
+          "priory": 1
+        },
+        "healing_prices": {}
+      },
+      "dungeons": [
+        {
+          "id": "priory",
+          "name": "The Priory",
+          "levels": [
+            {
+              "number": 1,
+              "width": 3,
+              "height": 1,
+              "edges": {},
+              "areas": [
+                {
+                  "id": "nave",
+                  "name": "Nave",
+                  "description": "",
+                  "cells": [
+                    [
+                      0,
+                      0
+                    ]
+                  ],
+                  "encounter": null,
+                  "features": [
+                    {
+                      "id": "reliquary",
+                      "kind": "treasure_cache",
+                      "description": "",
+                      "referee_notes": "",
+                      "cell": [
+                        0,
+                        0
+                      ],
+                      "item_ids": [],
+                      "magic_item_ids": [],
+                      "coins": {
+                        "pp": 0,
+                        "gp": 0,
+                        "ep": 0,
+                        "sp": 0,
+                        "cp": 0
+                      },
+                      "valuables": [
+                        {
+                          "kind": "jewellery",
+                          "name": "Silver altar candlestick",
+                          "value_gp": 300,
+                          "weight_coins": 0
+                        },
+                        {
+                          "kind": "jewellery",
+                          "name": "The abbot's seal ring",
+                          "value_gp": 900,
+                          "weight_coins": 0
+                        },
+                        {
+                          "kind": "gem",
+                          "name": "Gem",
+                          "value_gp": 40,
+                          "weight_coins": 0
+                        },
+                        {
+                          "kind": "gem",
+                          "name": "Eye of Ossor",
+                          "value_gp": 500,
+                          "weight_coins": 0
+                        },
+                        {
+                          "kind": "gem",
+                          "name": "An amber tear",
+                          "value_gp": 250,
+                          "weight_coins": 0
+                        },
+                        {
+                          "kind": "jewellery",
+                          "name": "",
+                          "value_gp": 350,
+                          "weight_coins": 0
+                        }
+                      ],
+                      "trap": null
+                    }
+                  ],
+                  "trap": null,
+                  "treasure": null
+                },
+                {
+                  "id": "crypt",
+                  "name": "Crypt",
+                  "description": "",
+                  "cells": [
+                    [
+                      2,
+                      0
+                    ]
+                  ],
+                  "encounter": null,
+                  "features": [
+                    {
+                      "id": "tomb",
+                      "kind": "treasure_cache",
+                      "description": "A sealed tomb.",
+                      "referee_notes": "",
+                      "cell": [
+                        2,
+                        0
+                      ],
+                      "item_ids": [],
+                      "magic_item_ids": [],
+                      "coins": {
+                        "pp": 0,
+                        "gp": 0,
+                        "ep": 0,
+                        "sp": 0,
+                        "cp": 0
+                      },
+                      "valuables": [
+                        {
+                          "kind": "jewellery",
+                          "name": "Bishop's mitre jewel",
+                          "value_gp": 800,
+                          "weight_coins": 0
+                        }
+                      ],
+                      "trap": null
+                    }
+                  ],
+                  "trap": null,
+                  "treasure": null
+                }
+              ],
+              "features": [],
+              "transitions": [],
+              "wandering": {
+                "chance_in_six": 1,
+                "interval_turns": 2,
+                "table": null
+              },
+              "entrance": [
+                0,
+                0
+              ],
+              "guidance": ""
+            }
+          ]
+        }
+      ],
+      "monsters": [],
+      "items": [],
+      "spells": [],
+      "triggers": [],
+      "quests": []
+    },
+    "mode": "exploring",
+    "clock_rounds": 120,
+    "allocator": {
+      "counters": {
+        "character": 4,
+        "valuable": 6
+      }
+    },
+    "ledger": {
+      "effects": []
+    },
+    "dungeon_state": {
+      "location": {
+        "kind": "dungeon",
+        "dungeon_id": "priory",
+        "level_number": 1,
+        "position": [
+          0,
+          0
+        ],
+        "facing": "north"
+      },
+      "explored": {
+        "priory:1": [
+          [
+            0,
+            0
+          ]
+        ]
+      },
+      "seen": {},
+      "doors": {},
+      "sprung_traps": [],
+      "removed_traps": [],
+      "found_traps": [],
+      "found_tricks": [],
+      "emptied_caches": [
+        "priory:1:reliquary"
+      ],
+      "piles": {
+        "cell:priory:1:0,0": {
+          "items": [],
+          "coins": {
+            "pp": 0,
+            "gp": 0,
+            "ep": 0,
+            "sp": 0,
+            "cp": 0
+          },
+          "valuables": [
+            {
+              "instance_type": "valuable",
+              "instance_id": "valuable-0004",
+              "kind": "gem",
+              "name": "Eye of Ossor",
+              "value_gp": 500,
+              "weight_coins": 0
+            },
+            {
+              "instance_type": "valuable",
+              "instance_id": "valuable-0005",
+              "kind": "gem",
+              "name": "An amber tear",
+              "value_gp": 250,
+              "weight_coins": 0
+            },
+            {
+              "instance_type": "valuable",
+              "instance_id": "valuable-0006",
+              "kind": "jewellery",
+              "name": "",
+              "value_gp": 350,
+              "weight_coins": 0
+            }
+          ],
+          "magic_items": []
+        }
+      },
+      "generated_caches": {},
+      "generated_treasure_areas": [],
+      "generated_lair_hoards": [],
+      "resolved_encounters": [],
+      "listen_attempts": {},
+      "search_attempts": {},
+      "inspect_attempts": {},
+      "removal_attempts": {},
+      "lock_failures": {}
+    },
+    "monsters": [],
+    "npcs": [],
+    "flags": {},
+    "fired_triggers": [],
+    "journal": [],
+    "quests": {},
+    "listener_state": {},
+    "death_records": {},
+    "defeated_monsters": [],
+    "deprivation": {},
+    "treasure_snapshot_cp": 0,
+    "exploration": {
+      "odometer_thirds": 0,
+      "turns_since_rest": 1,
+      "wandering_counter": 1,
+      "noise_since_check": false,
+      "sleep_count": 0,
+      "last_prepared_sleep": {},
+      "alerted_areas": [],
+      "heard_areas": [],
+      "provisions_day": 0
+    },
+    "encounter": null,
+    "battle": null,
+    "rng_streams": {
+      "effects": {
+        "state": 275415882623875960588889580098736168391,
+        "inc": 64135087755310806947476396026910373991
+      }
+    },
+    "command_log": [
+      {
+        "command_type": "enter_dungeon",
+        "source": null,
+        "dungeon_id": "priory"
+      },
+      {
+        "command_type": "take_treasure",
+        "source": null,
+        "feature_id": "feature:dd21a6abe37eb019fdfdc28df11b6e0fa3db5354d97156edc48660de6f99dc4f",
+        "recipient_id": null
+      },
+      {
+        "command_type": "drop_items",
+        "source": null,
+        "character_id": "character-0002",
+        "item_ids": [
+          "valuable-0004"
+        ],
+        "coins": {
+          "pp": 0,
+          "gp": 0,
+          "ep": 0,
+          "sp": 0,
+          "cp": 0
+        }
+      },
+      {
+        "command_type": "drop_items",
+        "source": null,
+        "character_id": "character-0004",
+        "item_ids": [
+          "valuable-0005"
+        ],
+        "coins": {
+          "pp": 0,
+          "gp": 0,
+          "ep": 0,
+          "sp": 0,
+          "cp": 0
+        }
+      },
+      {
+        "command_type": "drop_items",
+        "source": null,
+        "character_id": "character-0003",
+        "item_ids": [
+          "valuable-0006"
+        ],
+        "coins": {
+          "pp": 0,
+          "gp": 0,
+          "ep": 0,
+          "sp": 0,
+          "cp": 0
+        }
+      }
+    ],
+    "event_log": [
+      {
+        "code": "exploration.location.entered",
+        "visibility": "player",
+        "event_type": "location_entered",
+        "location_kind": "dungeon",
+        "location_id": "priory",
+        "level_number": 1,
+        "dungeon_id": null,
+        "narrative": null,
+        "via": "entrance",
+        "transition_ref": null
+      },
+      {
+        "code": "exploration.location.entered",
+        "visibility": "player",
+        "event_type": "location_entered",
+        "location_kind": "area",
+        "location_id": "nave",
+        "level_number": 1,
+        "dungeon_id": "priory",
+        "narrative": null,
+        "via": null,
+        "transition_ref": null
+      },
+      {
+        "code": "exploration.item.acquired",
+        "visibility": "player",
+        "event_type": "item_acquired",
+        "character_id": "character-0001",
+        "item_ids": [
+          "valuable-0002"
+        ],
+        "coins_gp_value": 0,
+        "coins": {
+          "pp": 0,
+          "gp": 0,
+          "ep": 0,
+          "sp": 0,
+          "cp": 0
+        },
+        "origin": "treasure"
+      },
+      {
+        "code": "exploration.item.acquired",
+        "visibility": "player",
+        "event_type": "item_acquired",
+        "character_id": "character-0002",
+        "item_ids": [
+          "valuable-0004"
+        ],
+        "coins_gp_value": 0,
+        "coins": {
+          "pp": 0,
+          "gp": 0,
+          "ep": 0,
+          "sp": 0,
+          "cp": 0
+        },
+        "origin": "treasure"
+      },
+      {
+        "code": "exploration.item.acquired",
+        "visibility": "player",
+        "event_type": "item_acquired",
+        "character_id": "character-0003",
+        "item_ids": [
+          "valuable-0006",
+          "valuable-0003"
+        ],
+        "coins_gp_value": 0,
+        "coins": {
+          "pp": 0,
+          "gp": 0,
+          "ep": 0,
+          "sp": 0,
+          "cp": 0
+        },
+        "origin": "treasure"
+      },
+      {
+        "code": "exploration.item.acquired",
+        "visibility": "player",
+        "event_type": "item_acquired",
+        "character_id": "character-0004",
+        "item_ids": [
+          "valuable-0001",
+          "valuable-0005"
+        ],
+        "coins_gp_value": 0,
+        "coins": {
+          "pp": 0,
+          "gp": 0,
+          "ep": 0,
+          "sp": 0,
+          "cp": 0
+        },
+        "origin": "treasure"
+      },
+      {
+        "code": "exploration.item.dropped",
+        "visibility": "player",
+        "event_type": "items_dropped",
+        "character_id": "character-0002",
+        "item_ids": [
+          "valuable-0004"
+        ],
+        "coins_gp_value": 0,
+        "coins": {
+          "pp": 0,
+          "gp": 0,
+          "ep": 0,
+          "sp": 0,
+          "cp": 0
+        }
+      },
+      {
+        "code": "exploration.item.dropped",
+        "visibility": "player",
+        "event_type": "items_dropped",
+        "character_id": "character-0004",
+        "item_ids": [
+          "valuable-0005"
+        ],
+        "coins_gp_value": 0,
+        "coins": {
+          "pp": 0,
+          "gp": 0,
+          "ep": 0,
+          "sp": 0,
+          "cp": 0
+        }
+      },
+      {
+        "code": "exploration.item.dropped",
+        "visibility": "player",
+        "event_type": "items_dropped",
+        "character_id": "character-0003",
+        "item_ids": [
+          "valuable-0006"
+        ],
+        "coins_gp_value": 0,
+        "coins": {
+          "pp": 0,
+          "gp": 0,
+          "ep": 0,
+          "sp": 0,
+          "cp": 0
+        }
+      }
+    ]
+  }
+}

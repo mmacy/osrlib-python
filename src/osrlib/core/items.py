@@ -89,6 +89,7 @@ print(torches.quantity, inventory.purse.gp, movement_rate_feet(inventory, Rulese
 """
 
 import re
+import unicodedata
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 
@@ -2096,6 +2097,19 @@ class ValuableInstance(_Model):
     """A display name for the piece. Generation sets a plain one. When you place treasure by hand in an adventure, you
     can give it any name.
     """
+    phrase: str = ""
+    """What to call the piece in the middle of a sentence, with its article and its case, like
+    `"the abbot's seal ring"`. The session copies it from the
+    [`ValuableSpec.phrase`][osrlib.crawl.dungeon.ValuableSpec.phrase] that placed the piece, as it copies `name`. It's
+    empty for a piece that treasure generation rolls, for a piece placed with no phrase, and for a piece from a save
+    that osrlib 2.9.0 or earlier wrote.
+
+    To word a sentence, read
+    [`PlayerView.valuable_phrases`][osrlib.crawl.views.PlayerView.valuable_phrases], which has this phrase when it's
+    set and, when it's empty or only whitespace, the phrase osrlib makes from `name`. A piece with no name of its own,
+    whose `name` is empty, is only whitespace, or is the one treasure generation gives its kind, has no phrase in the
+    view, whatever this field holds.
+    """
     value_gp: int = Field(ge=0)
     """What it's worth in gold pieces, and what it pays when sold."""
     weight_coins: int = Field(default=0, ge=0)
@@ -2541,8 +2555,12 @@ def _masked_names(instance: MagicItemInstance) -> tuple[str, str]:
 
 
 def _with_article(name: str) -> str:
-    """Return `name` after the indefinite article, `"an"` before a vowel and `"a"` otherwise."""
-    return f"{'an' if name[:1].lower() in ('a', 'e', 'i', 'o', 'u') else 'a'} {name}"
+    """Return `name` after the indefinite article, `"an"` before a vowel and `"a"` otherwise.
+
+    A vowel with an accent, like the `É` of `"Émeraude"`, counts as a vowel.
+    """
+    first = unicodedata.normalize("NFD", name[:1])[:1].lower()
+    return f"{'an' if first in ('a', 'e', 'i', 'o', 'u') else 'a'} {name}"
 
 
 def _shield_ac_parts(shield: AnyInstance | None, *, ascending: bool) -> tuple[int | None, int]:

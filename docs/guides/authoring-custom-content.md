@@ -891,6 +891,20 @@ assert feature.description == COFFER.description
 assert COFFER.referee_notes not in view.model_dump_json()
 ```
 
+### Name a gem or piece of jewellery
+
+A [`ValuableSpec`][osrlib.crawl.dungeon.ValuableSpec] with a `name` places a piece that the players know by that name. [`PlayerView.valuable_names`][osrlib.crawl.views.PlayerView.valuable_names] gives that name, which a client shows in a list, such as an inventory row. A client also puts the piece in a sentence, such as "Hild takes a silver censer on a chain.", and [`PlayerView.valuable_phrases`][osrlib.crawl.views.PlayerView.valuable_phrases] gives the phrase to use there, with the article and the case. You can write that phrase yourself in the spec's [`phrase`][osrlib.crawl.dungeon.ValuableSpec.phrase].
+
+When `phrase` is empty or only whitespace, osrlib makes the phrase from the name, as for a common noun. A name whose first word is "the", "a", or "an" has that word in lowercase, so the censer above, "A silver censer on a chain", reads "a silver censer on a chain". Any other name has its first character in lowercase and an article in front, "an" before `a`, `e`, `i`, `o`, or `u`, with or without an accent, and "a" otherwise, so "Silver altar candlestick" reads "a silver altar candlestick". Only the first character changes case, so "Eye of Ossor" reads "an eye of Ossor". The view leaves out any spaces around a name or a phrase.
+
+Set `phrase` yourself when the piece isn't a common noun whose first letter gives its article:
+
+- For a proper name, such as "Ossor's Eye", set `phrase="Ossor's Eye"`.
+- For a piece that takes the definite article, such as "Prior's chain of office", set `phrase="the Prior's chain of office"`.
+- For a name whose first letter doesn't give its article, such as "Unicorn-horn cup" or "Hourglass of smoked crystal", set `phrase="a unicorn-horn cup"` or `phrase="an hourglass of smoked crystal"`.
+
+A piece with no name of its own never has a phrase in the view, whatever `phrase` holds. That's a piece whose `name` is empty, is only whitespace, or is the name treasure generation gives its kind, `"Gem"` for a gem or `"Jewellery"` for a piece of jewellery. The view names such a piece by its kind in [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names], and a client puts it in a sentence with an article, as in "Hild takes a gem."
+
 ## Scope and cross-adventure limits
 
 - **Read-only built-in loaders**: `load_classes`, `load_spells`, `load_monsters`, and `load_equipment` return cached, immutable SRD catalogs and provide no global registration or mutation API. Pass extended catalogs explicitly to kernel functions or bundle custom spells, monsters, and items on `Adventure`.
