@@ -174,14 +174,23 @@ class MemberView(_Model):
     You get these from [`PlayerView.party`][osrlib.crawl.views.PlayerView.party], in marching
     order, and every party member has one, living or dead. The players know everything about
     their characters, so the view has every number on a B/X character sheet, and a client can draw
-    the sheet from it alone. The only thing missing is the identity of an unidentified magic item
-    in the pack.
+    the sheet from it alone. What the view keeps back is what the party hasn't learned about a magic
+    item yet: an unidentified item's name, its bonus, and its curse.
 
     The numbers are the member's current ones, read from the live
     [`Character`][osrlib.core.character.Character]. They count what the member wears right now, like
-    armour, a shield, or a ring of protection. They don't count a timed effect from a spell or a
-    potion, like the *shield* spell. [`PlayerView.effects`][osrlib.crawl.views.PlayerView.effects]
-    lists the timed effects on each member.
+    armour, a shield, or a ring of protection, whether or not the party has identified it, because a
+    B/X magic item works when it's worn. So an unidentified item can change a number while
+    `inventory` still masks its name. They don't count a timed effect from a spell or a potion, like
+    the *shield* spell. [`PlayerView.effects`][osrlib.crawl.views.PlayerView.effects] lists the timed
+    effects on each member.
+
+    Cursed armour and shields are the one exception, because the OSE SRD says "All types of tests
+    indicate that a cursed shield or suit of armour is enchanted with a +1 bonus. It is only when the
+    armour is used in deadly combat that the curse is revealed." Until the session reveals the curse,
+    `armour_class` and `armour_class_ascending` count a worn cursed shield or suit of armour as the +1
+    item it tests as, while the monsters roll against the real armour class. `armour_class` says
+    when the real number appears.
 
     A STR that an item sets counts too. A member who wears gauntlets of ogre power has the numbers
     for STR 18. Six rounds after a member puts on a ring of weakness, the ring's curse takes hold,
@@ -318,16 +327,35 @@ class MemberView(_Model):
     """The bonus the member adds to an attack roll against ascending armour class, as
     [`Character.attack_bonus`][osrlib.core.character.Character.attack_bonus]."""
     armour_class: int = 0
-    """The member's descending armour class, where lower is better, as
-    [`Character.armour_class`][osrlib.core.character.Character.armour_class].
+    """The member's descending armour class, where lower is better, as the players know it.
 
-    It counts everything the member wears, unidentified magic items included, because it's the armour
-    class the monsters roll against. So the armour class can show that a shield is better than a plain
-    one while `inventory` still calls it `"a shield with a faint aura"`."""
+    It counts everything the member wears, unidentified magic items included, because a magic item
+    works when it's worn. So it can show that a shield is better than a plain one while `inventory`
+    still calls it `"a shield with a faint aura"`. It's the number in
+    [`Character.armour_class`][osrlib.core.character.Character.armour_class], the one the monsters
+    roll against, with one exception.
+
+    The exception is a worn cursed shield or suit of armour that the party hasn't identified. The
+    OSE SRD says every test shows such an item as enchanted with a +1 bonus, so until the curse is
+    revealed, this number counts it as its base item with a +1 enchantment, and as setting no armour
+    class of its own. An unarmoured fighter with AC 9 reads 7 with an unidentified cursed shield -2,
+    as with a shield +1, while the monsters roll against the real 10. In cursed chainmail -2 the same
+    fighter reads 4, as in chainmail +1, while the real armour class is 7. Everything else the member
+    wears, and the DEX modifier, count as usual.
+
+    The session reveals the curse and identifies the item at the same moment: the first time the
+    member is attacked in a battle, or when a referee sends
+    [`IdentifyItem`][osrlib.crawl.commands.IdentifyItem]. From then on this is the real number. It
+    stays the real number after *remove curse* frees the member, because the item stays
+    identified."""
     armour_class_ascending: int = 0
-    """The member's ascending armour class, where higher is better, as
-    [`Character.armour_class_ascending`][osrlib.core.character.Character.armour_class_ascending]. It
-    counts the same items as `armour_class`."""
+    """The member's ascending armour class, where higher is better, as the players know it. It
+    describes the same defense as `armour_class` and counts the same items the same way, so it's
+    [`Character.armour_class_ascending`][osrlib.core.character.Character.armour_class_ascending]
+    except while the member wears a cursed shield or suit of armour that the party hasn't
+    identified. Then it counts that item as its base item with a +1 enchantment, so the fighter
+    with AC 9 [10] and an unidentified cursed shield -2 reads 12 here while the monsters roll
+    against the real 9."""
     saves: dict[str, int] = {}
     """The five saving throws, keyed by the field names of
     [`SavingThrows`][osrlib.core.classes.SavingThrows]: `"death"`, `"wands"`, `"paralysis"`, `"breath"`,
@@ -1554,12 +1582,43 @@ def _canonical_edge(cell: Position, direction: Direction) -> str:
     return edge_key(cell, direction)
 
 
+_TESTS_AS = {"shield": "shield_plus_1", "worn_armour": "armour_plus_1"}
+"""The +1 template that every test shows for a cursed item worn in each armour slot."""
+
+
+def _armour_as_tested(member: Character) -> Character:
+    """Return the member as the players know their armour, for the armour class on the sheet.
+
+    The OSE SRD says every test shows a cursed shield or suit of armour as enchanted with a +1
+    bonus until the curse is revealed. So in the copy this returns, each worn cursed shield or suit
+    that is unidentified and whose curse isn't revealed becomes a copy of itself made from the +1
+    template, keeping its base item. The copy's armour class then comes from the rules that compute
+    the member's, and everything else the member wears counts as usual. With nothing to mask, it
+    returns the member itself. The copy is shallow and only read, so the member never changes.
+    """
+    inventory = member.inventory
+    masked = {}
+    for slot, lookalike in _TESTS_AS.items():
+        worn = getattr(inventory, slot)
+        if (
+            isinstance(worn, MagicItemInstance)
+            and not worn.identified
+            and not worn.cursed_revealed
+            and magic_item_template(worn).cursed
+        ):
+            masked[slot] = worn.model_copy(update={"template_id": lookalike})
+    if not masked:
+        return member
+    return member.model_copy(update={"inventory": inventory.model_copy(update=masked)})
+
+
 def _member_view(session, member) -> MemberView:
     """One member's sheet, read from the live character."""
     definition = member.definition
     thief_skills = {}
     if definition.thief_skills:
         thief_skills = definition.thief_skills[member.level - 1].model_dump(exclude={"level"})
+    shown = _armour_as_tested(member)
     return MemberView(
         id=member.id,
         name=member.name,
@@ -1588,8 +1647,8 @@ def _member_view(session, member) -> MemberView:
         open_doors_chance=member.open_doors_chance,
         thac0=member.thac0,
         attack_bonus=member.attack_bonus,
-        armour_class=member.armour_class,
-        armour_class_ascending=member.armour_class_ascending,
+        armour_class=shown.armour_class,
+        armour_class_ascending=shown.armour_class_ascending,
         saves=member.saves.model_dump(),
         movement_rate_feet=member.movement_rate(session.ruleset),
         languages=member.languages,

@@ -1632,6 +1632,8 @@ A magic item shows a generic name until it's identified: an enchanted weapon or 
 
 A cursed item reveals itself at the same moment and sticks. The engine refuses `UnequipItem` for a cursed sword, weapon, armour, shield, or ring alike, with `items.curse.stuck`, until *remove curse*. A cursed ring reveals itself the moment it's equipped, because its onset is automatic.
 
+Until its curse is revealed, a worn cursed shield or suit of armour shows in the player view's armour class as the +1 item that the SRD says every test shows: its base item with a +1 enchantment. The monsters roll against the real armour class all along, and `Character.armour_class` and the referee view have the real number. Taking the item off before the first battle is legal, because the SRD binds the curse once the armour "has been used". Locked by `test_unrevealed_curse_view.py`.
+
 *Remove curse* frees each member it targets from the cursed items they carry. The item stays cursed and identified, but the member can put it down, and the effects of item curses, like the ring of weakness's, end.
 
 - The session does this however the spell is cast: from memory or from a scroll, in a battle or outside one, by an NPC adventurer, and at the temple.
