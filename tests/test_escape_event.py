@@ -76,7 +76,6 @@ from osrlib.messages import format_message
 from test_battle import battle_session, hold_all
 from test_spawn_into_encounter import craven_session
 
-CHUNK = "chunk: escape-event"
 FIGHTER = "character-0001"
 MAGIC_USER = "character-0004"
 RUNNER_RATE_FEET = 60
@@ -200,7 +199,6 @@ def test_the_escape_line_says_the_group_gets_away():
 # ---------------------------------------------------------------------- a group that runs gets away
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_group_that_breaks_gets_away_in_a_later_round():
     """Seed 1: the fighter cuts at four goblins at melee range until they break, then everyone holds.
 
@@ -232,7 +230,6 @@ def test_a_group_that_breaks_gets_away_in_a_later_round():
     assert events[ended].code == "battle.ended.victory"
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_an_escape_beside_a_group_still_fighting_leaves_the_battle_on():
     """Goblins running from 10' reach 70' after one round and 130' after two. Hobgoblins keep the battle going."""
     session = battle_session(count=2, distance=10)
@@ -261,7 +258,6 @@ def test_an_escape_beside_a_group_still_fighting_leaves_the_battle_on():
     assert escapes(third.events) == []
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_an_escape_that_ends_the_battle_comes_before_the_end():
     """The only group runs from 10'. At 130' it's gone, the battle ends in victory, and the encounter closes."""
     session = battle_session(count=2, distance=10)
@@ -282,7 +278,6 @@ def test_an_escape_that_ends_the_battle_comes_before_the_end():
 # ---------------------------------------------------------------------- a group that will not fight
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_group_that_will_not_fight_gets_away_as_the_battle_opens():
     """Seed 1: morale 2 goblins meet the party, and `EngageBattle` opens a battle they leave at once."""
     session = craven_exploring(1)
@@ -303,7 +298,6 @@ def test_a_group_that_will_not_fight_gets_away_as_the_battle_opens():
     ]
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_spawn_that_opens_the_battle_reports_the_escape():
     """Seed 2: the morale 2 goblins' reaction opens the battle inside `SpawnMonsters`, and they leave at once."""
     session = craven_exploring(2)
@@ -317,7 +311,6 @@ def test_a_spawn_that_opens_the_battle_reports_the_escape():
     assert escape_at < index_of(events, lambda event: isinstance(event, BattleEndedEvent))
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_group_that_will_not_fight_gets_away_beside_one_that_does():
     """Seed 1: morale 2 goblins and ordinary goblins. The battle opens, the first group leaves, the second fights."""
     session = craven_exploring(1)
@@ -334,7 +327,6 @@ def test_a_group_that_will_not_fight_gets_away_beside_one_that_does():
     assert view_fled(session, fighters.id) is False
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_group_that_joins_a_battle_and_will_not_fight_gets_away_last():
     """A referee's spawn adds morale 2 goblins to a running battle. Their escape is the spawn's last event."""
     session = craven_session()
@@ -351,7 +343,6 @@ def test_a_group_that_joins_a_battle_and_will_not_fight_gets_away_last():
 # ---------------------------------------------------------------------- turned undead get away
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize("seed", turned_fixture.PARTIAL_SEEDS)
 def test_turned_skeletons_that_split_off_get_away(seed):
     """A partial turning in the encounter splits the turned skeletons off as a new group that runs from 10'.
@@ -375,7 +366,6 @@ def test_turned_skeletons_that_split_off_get_away(seed):
     assert session.mode is SessionMode.BATTLE
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_wholly_turned_group_gets_away_and_ends_the_battle():
     """A turning declared in round 1 turns all six skeletons. They run from 10' and are gone at 130' in round 2."""
     session = turned_fixture.new_session(turned_fixture.ALL_TURNED_BATTLE_SEED, turned_fixture.TRIO)
@@ -490,7 +480,6 @@ def acted_first(events) -> str:
     return next(event for event in events if isinstance(event, InitiativeRolledEvent)).order[0]
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_group_turned_past_the_exit_gets_away_as_the_battle_ends():
     """Six skeletons 130' away, all turned in round 1, are past 120' without a move, and the battle ends at once.
 
@@ -529,7 +518,6 @@ def test_a_group_turned_past_the_exit_ends_as_one_that_runs_out():
     assert near_ending["piles"] == {}
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_an_afraid_group_left_past_the_exit_gets_away_as_the_battle_ends():
     """Seed 14: the party falls back first, the afraid goblin is past 120' before it runs, and the battle ends.
 
@@ -549,7 +537,6 @@ def test_an_afraid_group_left_past_the_exit_gets_away_as_the_battle_ends():
     assert ending(session, group, events)["defeated"] == [(goblin_id, "routed", 5)]
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_an_afraid_group_left_past_the_exit_ends_as_one_that_runs_out():
     """Seed 1 is the reference: the goblin runs first, past 120', and the monster block marks it fled.
 
@@ -587,7 +574,6 @@ def ending(session: GameSession, group: EncounterGroup, events) -> dict:
 # ---------------------------------------------------------------------- the invariant across seeds
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_escapes_match_the_groups_that_get_away_across_seeds():
     """Twelve seeds of the fighter against four goblins at melee range, checked on every round.
 
@@ -641,7 +627,6 @@ REFERENCE_DOCSTRINGS = {
 """Each docstring that describes how a group leaves the battle, or lists the events a command emits when one does."""
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize("label", list(REFERENCE_DOCSTRINGS))
 def test_the_reference_for_the_later_round_names_the_escape(label):
     assert "MonsterEscapedEvent" in (REFERENCE_DOCSTRINGS[label]() or "")
