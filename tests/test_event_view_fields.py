@@ -10,8 +10,6 @@
 Everything here is additive within the current `schema_version`: `coins_gp_value` keeps its meaning.
 """
 
-import pytest
-
 import positions_fixtures as pf
 from crawl_fixtures import build_adventure, build_party
 from osrlib.core.effects import Condition, grant_condition
@@ -208,7 +206,6 @@ def test_a_member_view_names_the_class():
 # ---------------------------------------------------------------------- review follow-ups
 
 
-@pytest.mark.xfail(reason="chunk: review-fixes")
 def test_a_refused_hand_over_names_the_giver_and_the_recipient():
     """The declaring member goes in `character`, and the recipient the check refused goes in `target`."""
     from test_member_reach import fight, grant, hand
@@ -225,7 +222,6 @@ def test_a_refused_hand_over_names_the_giver_and_the_recipient():
     ]
 
 
-@pytest.mark.xfail(reason="chunk: review-fixes")
 def test_a_message_with_items_and_coins_says_and_once():
     event = ItemAcquiredEvent(
         character_id=FIGHTER, item_ids=("valuable-1",), coins=Coins(pp=3, cp=40), coins_gp_value=3

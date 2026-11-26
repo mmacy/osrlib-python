@@ -2796,7 +2796,8 @@ class BattleDeclaration(_Model):
       `battle.declaration.member_out_of_reach`.
 
     `battle.declaration.member_out_of_reach` has the declaring member's id as its `character`
-    param and the named member's id as `target`."""
+    param and the named member's id as `target`, and so do a `give_item`'s
+    `session.command.unknown_member` and `session.command.member_incapacitated`."""
     move: Literal["close", "fighting_withdrawal", "retreat"] | None = None
     """Which movement this member makes this round, with a `move` action or, for `close` only, with an
     `attack`.
