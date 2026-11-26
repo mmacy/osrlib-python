@@ -908,6 +908,26 @@ class PlayerView(_Model):
     before use."""
     effects: tuple[MemberEffectView, ...]
     """The active effects on party members, in ledger order."""
+    spell_names: dict[str, str] = {}
+    """The name of each spell whose id the view shows, keyed by spell id, like
+    `{"magic_missile": "Magic Missile"}`. Show these names, not the ids.
+
+    A spell id appears in three places in the view: in a member's
+    [`spell_book`][osrlib.crawl.views.MemberView.spell_book], as the `spell_id` of a copy in a member's
+    [`memorized_spells`][osrlib.crawl.views.MemberView.memorized_spells], and as the
+    [`kind`][osrlib.crawl.views.MemberEffectView.kind] of an effect in `effects`, because a spell's
+    effect has the spell's id as its kind unless the spell's data gives it a kind of its own. Every one
+    of those ids that the session's catalog,
+    [`GameSession.effective_spells`][osrlib.crawl.session.GameSession.effective_spells], has is a key
+    here, with the spell's [`name`][osrlib.core.spells.SpellTemplate.name]. A spell the adventure
+    bundles has its name here too, which [`load_spells`][osrlib.data.load_spells] doesn't have. An
+    effect kind that isn't a spell id, like a torch's `"light"`, has no entry.
+
+    It names no spell whose id the view doesn't show, so the spells on a scroll stay hidden. A spell id
+    on a member that the session's catalog doesn't have, like one from a party made for another
+    adventure, has no entry either, and the session refuses to prepare or cast that spell. The name of
+    a copy prepared reversed is the spell's own name, and the copy's `reversed` says which form it
+    casts."""
     fatigued: bool
     """Whether any member is fatigued."""
     exhausted: bool
