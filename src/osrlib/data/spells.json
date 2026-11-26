@@ -5713,7 +5713,7 @@
       "level": 1,
       "modes": [
         {
-          "display_name": "Put a creature to sleep",
+          "display_name": "Put a creature with 4+1 Hit Dice to sleep",
           "effect": {
             "condition": "asleep",
             "cures_conditions": [],
@@ -5742,7 +5742,7 @@
           }
         },
         {
-          "display_name": "Put a group to sleep",
+          "display_name": "Put creatures of 4 Hit Dice or lower to sleep",
           "effect": {
             "condition": "asleep",
             "cures_conditions": [],

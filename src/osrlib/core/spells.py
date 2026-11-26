@@ -792,13 +792,21 @@ class SpellMode(_Model):
     @model_validator(mode="before")
     @classmethod
     def _label_from_key(cls, data: object) -> object:
-        if not isinstance(data, dict) or data.get("display_name"):
+        if not isinstance(data, dict):
+            return data
+        label = data.get("display_name")
+        if label is not None and not (isinstance(label, str) and not label.strip()):
             return data
         key = data.get("key")
         if not isinstance(key, str):
             return data
-        words = key.replace("_", " ")
-        return {**data, "display_name": words[:1].upper() + words[1:]}
+        words = " ".join(part for part in key.split("_") if part).strip()
+        if not words:
+            return {**data, "display_name": key}
+        capital = words[0].upper()
+        if len(capital) == 1:
+            words = capital + words[1:]
+        return {**data, "display_name": words}
 
     @model_validator(mode="after")
     def _automated_modes_carry_structure(self) -> SpellMode:
