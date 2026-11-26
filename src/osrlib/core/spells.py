@@ -723,6 +723,7 @@ class SpellMode(_Model):
 
         blind = light.mode("blind")
         assert blind.save is not None  # the target may save against being blinded
+        assert blind.display_name == "Blind a creature"  # the label a cast dialog shows
         assert blind.prose.startswith("Blinding a creature:")
         ```
     """
@@ -785,6 +786,17 @@ class SpellMode(_Model):
     the passage that covers that usage, and the whole passage is the form's own prose, such as
     [`ReversedForm.prose`][osrlib.core.spells.ReversedForm.prose].
     """
+
+    @model_validator(mode="before")
+    @classmethod
+    def _label_from_key(cls, data: object) -> object:
+        if not isinstance(data, dict) or data.get("display_name"):
+            return data
+        key = data.get("key")
+        if not isinstance(key, str):
+            return data
+        words = key.replace("_", " ")
+        return {**data, "display_name": words[:1].upper() + words[1:]}
 
     @model_validator(mode="after")
     def _automated_modes_carry_structure(self) -> SpellMode:

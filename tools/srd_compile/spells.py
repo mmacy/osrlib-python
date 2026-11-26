@@ -29,6 +29,12 @@ id doesn't resolve to a parsed page. The nine concepts with separate `(C)` and
 mechanically); the *invisible stalker* spell page's `(MU)` marker distinguishes it
 from the monster page, not a dual-class pair — its id stays plain
 `invisible_stalker`.
+
+Each mode of a multi-mode form takes its `display_name` from the lead-in of the numbered
+usage it binds, through `_LEAD_IN_VERBS`, and `_SPELL_MECHANICS` contains a written label
+for every other mode of such a form. The forms in `_PROSE_DIVISIONS` describe several usages in
+one passage, so the compiler divides the passage among their modes in the page's own words
+and fails if the page no longer reads the way the division expects.
 """
 
 import re
@@ -75,9 +81,22 @@ def _mode(
     effect: dict[str, object] | None = None,
     manual: bool = False,
     usage: int | None = None,
+    display_name: str = "",
 ) -> dict[str, object]:
-    """Build one `_SPELL_MECHANICS` mode entry; `usage` binds a numbered item's prose."""
-    return {"key": key, "targeting": targeting, "save": save, "effect": effect, "manual": manual, "usage": usage}
+    """Build one `_SPELL_MECHANICS` mode entry.
+
+    `usage` binds a numbered item's prose. `display_name` is the label written for a mode of a
+    multi-mode form whose page prints no lead-in for it, or a lead-in that isn't an instruction.
+    """
+    return {
+        "key": key,
+        "targeting": targeting,
+        "save": save,
+        "effect": effect,
+        "manual": manual,
+        "usage": usage,
+        "display_name": display_name,
+    }
 
 
 def _cond(
@@ -106,6 +125,7 @@ _HOLD_MODES = [
         save={"category": "spells", "modifier": -2},
         effect=_HOLD_EFFECT_PERSON,
         usage=1,
+        display_name="Hold an individual",
     ),
     _mode(
         "group",
@@ -113,6 +133,7 @@ _HOLD_MODES = [
         save={"category": "spells"},
         effect=_HOLD_EFFECT_PERSON,
         usage=2,
+        display_name="Hold a group",
     ),
 ]
 
@@ -146,9 +167,21 @@ _DARKNESS_MODES = [
             "kind": "attach_only",
             "params": {"effect_kind": "darkness", "radius_feet": 15, "blocks_infravision": False},
         },
+        display_name="Conjure darkness",
     ),
-    _mode("blind", targeting={"mode": "single"}, save={"category": "spells"}, effect=_cond("blind")),
-    _mode("cancel", targeting={"mode": "single"}, effect={"kind": "cure", "cures_effect_kinds": ["light"]}),
+    _mode(
+        "blind",
+        targeting={"mode": "single"},
+        save={"category": "spells"},
+        effect=_cond("blind"),
+        display_name="Blind a creature",
+    ),
+    _mode(
+        "cancel",
+        targeting={"mode": "single"},
+        effect={"kind": "cure", "cures_effect_kinds": ["light"]},
+        display_name="Cancel light",
+    ),
 ]
 
 _CONTINUAL_LIGHT_MODES = [
@@ -178,9 +211,21 @@ _CONTINUAL_DARKNESS_MODES = [
             "kind": "attach_only",
             "params": {"effect_kind": "continual_darkness", "radius_feet": 30, "blocks_infravision": True},
         },
+        display_name="Conjure darkness",
     ),
-    _mode("blind", targeting={"mode": "single"}, save={"category": "spells"}, effect=_cond("blind")),
-    _mode("cancel", targeting={"mode": "single"}, effect={"kind": "cure", "cures_effect_kinds": ["continual_light"]}),
+    _mode(
+        "blind",
+        targeting={"mode": "single"},
+        save={"category": "spells"},
+        effect=_cond("blind"),
+        display_name="Blind a creature",
+    ),
+    _mode(
+        "cancel",
+        targeting={"mode": "single"},
+        effect={"kind": "cure", "cures_effect_kinds": ["continual_light"]},
+        display_name="Cancel light",
+    ),
 ]
 
 _PROTECTION_FROM_EVIL_MODES = [
@@ -314,12 +359,14 @@ _SPELL_MECHANICS: dict[str, dict[str, list[dict[str, object]]]] = {
                 targeting={"mode": "single"},
                 effect=_cond("asleep", params={"excludes_undead": True, "hd_count": 4, "hd_bonus_required": True}),
                 usage=1,
+                display_name="Put a creature to sleep",
             ),
             _mode(
                 "hd_budget",
                 targeting={"mode": "hd_budget", "hd_budget_dice": "2d8", "hd_cap": 4},
                 effect=_cond("asleep", params={"excludes_undead": True, "excludes_hd_4_plus": True}),
                 usage=2,
+                display_name="Put a group to sleep",
             ),
         ],
     },
@@ -334,6 +381,7 @@ _SPELL_MECHANICS: dict[str, dict[str, list[dict[str, object]]]] = {
                 save={"category": "spells", "modifier": -2},
                 effect=_HOLD_EFFECT_ANY,
                 usage=1,
+                display_name="Hold an individual",
             ),
             _mode(
                 "group",
@@ -341,6 +389,7 @@ _SPELL_MECHANICS: dict[str, dict[str, list[dict[str, object]]]] = {
                 save={"category": "spells"},
                 effect=_HOLD_EFFECT_ANY,
                 usage=2,
+                display_name="Hold a group",
             ),
         ],
     },
@@ -361,12 +410,14 @@ _SPELL_MECHANICS: dict[str, dict[str, list[dict[str, object]]]] = {
                 targeting={"mode": "single", "hd_min": 4},
                 save={"category": "spells"},
                 effect=_charm_effect(person_gate=False),
+                display_name="Charm an individual",
             ),
             _mode(
                 "group",
                 targeting={"mode": "up_to_n", "count_dice": "3d6", "hd_cap": 3},
                 save={"category": "spells"},
                 effect=_charm_effect(person_gate=False),
+                display_name="Charm a group",
             ),
         ],
     },
@@ -446,8 +497,9 @@ _SPELL_MECHANICS: dict[str, dict[str, list[dict[str, object]]]] = {
                     "params": {"revives_poison_dead": True, "revive_window_rounds": 10},
                 },
                 usage=1,
+                display_name="Neutralize poison on a character",
             ),
-            _mode("items", manual=True, usage=2),
+            _mode("items", manual=True, usage=2, display_name="Remove poison from an item"),
         ],
     },
     "raise_dead": {
@@ -531,8 +583,9 @@ _SPELL_MECHANICS: dict[str, dict[str, list[dict[str, object]]]] = {
                     ],
                 },
                 usage=1,
+                display_name="Bless allies in battle",
             ),
-            _mode("ritual", manual=True, usage=2),
+            _mode("ritual", manual=True, usage=2, display_name="Bless a ritual"),
         ],
         "reversed_modes": [
             _mode(
@@ -610,8 +663,9 @@ _SPELL_MECHANICS: dict[str, dict[str, list[dict[str, object]]]] = {
                 targeting={"mode": "single"},
                 save={"category": "spells"},
                 effect=_cond("silenced", params={"effect_kind": "silence", "radius_feet": 15}),
+                display_name="Silence a creature",
             ),
-            _mode("area", manual=True),
+            _mode("area", manual=True, display_name="Silence an area"),
         ],
     },
     "web": {
@@ -1006,24 +1060,158 @@ class _ParsedPage:
         return usages, body, intro, stat_lines
 
 
-def _build_mode(raw: dict[str, object], usages: dict[int, str], body: str) -> dict[str, object]:
-    usage = raw.get("usage")
-    prose = usages.get(usage, body) if isinstance(usage, int) else body
-    mode: dict[str, object] = {
-        "key": raw["key"],
-        "targeting": raw["targeting"],
-        "save": raw["save"],
-        "effect": raw["effect"],
-        "manual": raw["manual"],
-        "prose": prose,
-    }
-    if isinstance(usage, int) and usage not in usages:
-        raise ValueError(f"mode {raw['key']!r} binds usage {usage}, but the page has usages {sorted(usages)}")
-    return mode
+_LEAD_IN = re.compile(r"^(?P<verb>[A-Z][a-z]+)(?P<rest>[^:.\n]*): ")
+
+# The first word of a usage's lead-in → the instruction verb its label starts with. The SRD prints most
+# lead-ins as gerunds ("Blinding a creature:") and a few as instructions already ("Kill green slime:").
+# A lead-in whose first word is missing here names a situation or a subject ("Battle:", "Against a
+# group:", "Characters:"), so that mode's label is written in `_SPELL_MECHANICS` from the page's words.
+_LEAD_IN_VERBS = {
+    "Blinding": "Blind",
+    "Cancelling": "Cancel",
+    "Conjuring": "Conjure",
+    "Cure": "Cure",
+    "Curing": "Cure",
+    "Destroy": "Destroy",
+    "Healing": "Heal",
+    "Kill": "Kill",
+    "Restore": "Restore",
+}
+
+
+def _lead_in_label(prose: str) -> str:
+    """Return the instruction a usage's lead-in gives, like "Blind a creature", or "" when it gives none."""
+    match = _LEAD_IN.match(prose)
+    if match is None or match["verb"] not in _LEAD_IN_VERBS:
+        return ""
+    return _LEAD_IN_VERBS[match["verb"]] + match["rest"]
+
+
+def _build_modes(
+    spell_id: str, raw_modes: list[dict[str, object]], usages: dict[int, str], body: str
+) -> list[dict[str, object]]:
+    """Build one form's modes, labelling each mode of a multi-mode form.
+
+    A mode bound to a usage whose lead-in gives an instruction takes its label from the lead-in, and
+    every other mode of a multi-mode form takes the label written in `_SPELL_MECHANICS`. The mode of a
+    single-mode form compiles with an empty label, which `SpellMode` fills from the key.
+
+    Raises:
+        ValueError: If a mode binds a usage the page lacks, a written label stands in for a lead-in's,
+            or a mode of a multi-mode form ends with no label or with a sibling's label.
+    """
+    multi_mode = len(raw_modes) > 1
+    modes = []
+    for raw in raw_modes:
+        usage = raw.get("usage")
+        if isinstance(usage, int) and usage not in usages:
+            raise ValueError(f"mode {raw['key']!r} binds usage {usage}, but the page has usages {sorted(usages)}")
+        prose = usages[usage] if isinstance(usage, int) else body
+        lead_in = _lead_in_label(prose) if isinstance(usage, int) else ""
+        written = raw["display_name"]
+        if lead_in and written:
+            raise ValueError(f"{spell_id} mode {raw['key']!r} has a written label, but its lead-in gives {lead_in!r}")
+        if written and not multi_mode:
+            raise ValueError(f"{spell_id} mode {raw['key']!r} is its form's only mode, so its label comes from its key")
+        display_name = (lead_in or written) if multi_mode else ""
+        if multi_mode and not display_name:
+            raise ValueError(f"{spell_id} mode {raw['key']!r} has no lead-in and no written label")
+        modes.append(
+            {
+                "key": raw["key"],
+                "display_name": display_name,
+                "targeting": raw["targeting"],
+                "save": raw["save"],
+                "effect": raw["effect"],
+                "manual": raw["manual"],
+                "prose": prose,
+            }
+        )
+    labels = [mode["display_name"] for mode in modes]
+    if len(set(labels)) != len(labels):
+        raise ValueError(f"{spell_id}: two modes of one form have the same label: {labels}")
+    return modes
 
 
 def _default_mode(body: str) -> dict[str, object]:
     return {"key": "cast", "targeting": None, "save": None, "effect": None, "manual": True, "prose": body}
+
+
+_DARKNESS_PASSAGE = re.compile(
+    r"(?P<darken>.+?) (?P<like>Like [^,]+, it may alternatively be used to) (?P<blind>blind creatures) "
+    r"or to (?P<cancel>dispel an? [^.]+ spell)\.",
+    re.DOTALL,
+)
+_CHARM_MONSTER_PASSAGE = re.compile(
+    r"(?P<lead>This spell places a charm upon) either (?P<group>3d6 creatures of 3 HD or less) "
+    r"or (?P<individual>a single creature of more than 3 HD)\.(?P<rest>.*)",
+    re.DOTALL,
+)
+_SILENCE_UPON_A_CREATURE = "Casting upon a creature:"
+
+
+def _divide_darkness(passage: str) -> dict[str, str]:
+    """Divide the reverse of *light* or *continual light* among its three modes.
+
+    The passage describes the darkness, then offers both other usages in one sentence: "Like light, it may
+    alternatively be used to blind creatures or to dispel a light spell." The `darken` mode takes the
+    description, and `blind` and `cancel` each take the sentence's shared opening with their own alternative.
+    """
+    match = _DARKNESS_PASSAGE.fullmatch(passage)
+    if match is None:
+        raise ValueError(f"the reverse no longer offers its two alternative usages in one sentence: {passage!r}")
+    return {
+        "darken": match["darken"],
+        "blind": f"{match['like']} {match['blind']}.",
+        "cancel": f"{match['like']} {match['cancel']}.",
+    }
+
+
+def _divide_charm_monster(passage: str) -> dict[str, str]:
+    """Give each mode of *charm monster* its alternative from the first sentence, then the rest of the page."""
+    match = _CHARM_MONSTER_PASSAGE.fullmatch(passage)
+    if match is None:
+        raise ValueError(f"charm monster no longer opens with its two alternatives: {passage!r}")
+    return {
+        "individual": f"{match['lead']} {match['individual']}.{match['rest']}",
+        "group": f"{match['lead']} {match['group']}.{match['rest']}",
+    }
+
+
+def _divide_silence(passage: str) -> dict[str, str]:
+    """Give the `area` mode of *silence 15' radius* the page without its last bullet, which covers `creature`.
+
+    The `creature` mode keeps the whole page, because the area that moves with the creature is the same
+    silent area the earlier lines describe.
+    """
+    *area, upon = passage.split("\n")
+    if not upon.startswith(_SILENCE_UPON_A_CREATURE) or any(_SILENCE_UPON_A_CREATURE in line for line in area):
+        raise ValueError(f"silence no longer ends with its {_SILENCE_UPON_A_CREATURE!r} bullet: {passage!r}")
+    return {"creature": passage, "area": "\n".join(area)}
+
+
+# (spell id, reversed) → the function that divides the form's one passage among its modes. A form here
+# describes several usages in one passage, so without a division every mode would have the same prose.
+_PROSE_DIVISIONS = {
+    ("light_c", True): _divide_darkness,
+    ("light_mu", True): _divide_darkness,
+    ("continual_light_c", True): _divide_darkness,
+    ("continual_light_mu", True): _divide_darkness,
+    ("charm_monster", False): _divide_charm_monster,
+    ("silence_15_radius", False): _divide_silence,
+}
+
+
+def _divide_prose(spell_id: str, reversed_form: bool, modes: list[dict[str, object]], passage: str) -> None:
+    """Replace each mode's prose with its part of the form's passage, for the forms in `_PROSE_DIVISIONS`."""
+    divide = _PROSE_DIVISIONS.get((spell_id, reversed_form))
+    if divide is None:
+        return
+    parts = divide(passage)
+    if set(parts) != {mode["key"] for mode in modes}:
+        raise ValueError(f"{spell_id}: the prose divides into {sorted(parts)}, not the form's modes")
+    for mode in modes:
+        mode["prose"] = parts[mode["key"]]
 
 
 def compile_spells(srd_dir: Path, monster_entries: list[dict[str, object]]) -> dict[str, object]:
@@ -1091,9 +1279,8 @@ def compile_spells(srd_dir: Path, monster_entries: list[dict[str, object]]) -> d
         duration_spec, reversed_duration_spec, reversed_duration_raw = _parse_duration(page.duration_raw)
         mechanics = _SPELL_MECHANICS.get(spell_id, {})
         raw_modes = mechanics.get("modes")
-        modes = (
-            [_build_mode(raw, page.usages, page.body) for raw in raw_modes] if raw_modes else [_default_mode(page.body)]
-        )
+        modes = _build_modes(spell_id, raw_modes, page.usages, page.body) if raw_modes else [_default_mode(page.body)]
+        _divide_prose(spell_id, False, modes, page.body)
         entry: dict[str, object] = {
             "id": spell_id,
             "name": page.name,
@@ -1111,10 +1298,11 @@ def compile_spells(srd_dir: Path, monster_entries: list[dict[str, object]]) -> d
         if page.reversed_name is not None:
             raw_reversed = mechanics.get("reversed_modes")
             reversed_modes = (
-                [_build_mode(raw, page.reversed_usages, page.reversed_body) for raw in raw_reversed]
+                _build_modes(spell_id, raw_reversed, page.reversed_usages, page.reversed_body)
                 if raw_reversed
                 else [_default_mode(page.reversed_body)]
             )
+            _divide_prose(spell_id, True, reversed_modes, page.reversed_body)
             entry["reversed_form"] = {
                 "name": page.reversed_name,
                 "prose": page.reversed_body,

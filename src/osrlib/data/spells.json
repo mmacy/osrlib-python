@@ -132,7 +132,7 @@
       "level": 5,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -170,7 +170,7 @@
       "level": 6,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Shell",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -228,7 +228,7 @@
       "level": 2,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Bless allies in battle",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -286,7 +286,7 @@
           }
         },
         {
-          "display_name": "",
+          "display_name": "Bless a ritual",
           "effect": null,
           "key": "ritual",
           "manual": true,
@@ -308,7 +308,7 @@
         "duration_spec": null,
         "modes": [
           {
-            "display_name": "",
+            "display_name": "Battle",
             "effect": {
               "condition": null,
               "cures_conditions": [],
@@ -393,7 +393,7 @@
       "level": 4,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Charm an individual",
           "effect": {
             "condition": "charmed",
             "cures_conditions": [],
@@ -408,7 +408,7 @@
           },
           "key": "individual",
           "manual": false,
-          "prose": "This spell places a charm upon either 3d6 creatures of 3 HD or less or a single creature of more than 3 HD. Each subject must make a save versus spells or be charmed as follows:\nFriendship: Charmed creatures regard the caster as a close friend and will come to the caster’s defence.\nCommands: If they share a language, the caster may give charmed creatures commands, which they will obey.\nSubject’s nature: Charmed creatures may resist commands that contradict their habits or alignment.\nSuicidal commands: Are always refused.\nRestrictions: Undead are not affected.\nDuration: The charm lasts indefinitely, but the subject is allowed to make further saves versus spells at intervals, depending on its INT score. If one of these saves succeeds, the spell ends.\nINT 3–8: New save once every month.\nINT 9–12: New save each week.\nINT 13–18: New save once every day.",
+          "prose": "This spell places a charm upon a single creature of more than 3 HD. Each subject must make a save versus spells or be charmed as follows:\nFriendship: Charmed creatures regard the caster as a close friend and will come to the caster’s defence.\nCommands: If they share a language, the caster may give charmed creatures commands, which they will obey.\nSubject’s nature: Charmed creatures may resist commands that contradict their habits or alignment.\nSuicidal commands: Are always refused.\nRestrictions: Undead are not affected.\nDuration: The charm lasts indefinitely, but the subject is allowed to make further saves versus spells at intervals, depending on its INT score. If one of these saves succeeds, the spell ends.\nINT 3–8: New save once every month.\nINT 9–12: New save each week.\nINT 13–18: New save once every day.",
           "save": {
             "category": "spells",
             "modifier": 0,
@@ -426,7 +426,7 @@
           }
         },
         {
-          "display_name": "",
+          "display_name": "Charm a group",
           "effect": {
             "condition": "charmed",
             "cures_conditions": [],
@@ -441,7 +441,7 @@
           },
           "key": "group",
           "manual": false,
-          "prose": "This spell places a charm upon either 3d6 creatures of 3 HD or less or a single creature of more than 3 HD. Each subject must make a save versus spells or be charmed as follows:\nFriendship: Charmed creatures regard the caster as a close friend and will come to the caster’s defence.\nCommands: If they share a language, the caster may give charmed creatures commands, which they will obey.\nSubject’s nature: Charmed creatures may resist commands that contradict their habits or alignment.\nSuicidal commands: Are always refused.\nRestrictions: Undead are not affected.\nDuration: The charm lasts indefinitely, but the subject is allowed to make further saves versus spells at intervals, depending on its INT score. If one of these saves succeeds, the spell ends.\nINT 3–8: New save once every month.\nINT 9–12: New save each week.\nINT 13–18: New save once every day.",
+          "prose": "This spell places a charm upon 3d6 creatures of 3 HD or less. Each subject must make a save versus spells or be charmed as follows:\nFriendship: Charmed creatures regard the caster as a close friend and will come to the caster’s defence.\nCommands: If they share a language, the caster may give charmed creatures commands, which they will obey.\nSubject’s nature: Charmed creatures may resist commands that contradict their habits or alignment.\nSuicidal commands: Are always refused.\nRestrictions: Undead are not affected.\nDuration: The charm lasts indefinitely, but the subject is allowed to make further saves versus spells at intervals, depending on its INT score. If one of these saves succeeds, the spell ends.\nINT 3–8: New save once every month.\nINT 9–12: New save each week.\nINT 13–18: New save once every day.",
           "save": {
             "category": "spells",
             "modifier": 0,
@@ -488,7 +488,7 @@
       "level": 1,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Charm",
           "effect": {
             "condition": "charmed",
             "cures_conditions": [],
@@ -551,7 +551,7 @@
       "level": 3,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -589,7 +589,7 @@
       "level": 5,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -627,7 +627,7 @@
       "level": 5,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -665,7 +665,7 @@
       "level": 4,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Confuse",
           "effect": {
             "condition": "confused",
             "cures_conditions": [],
@@ -737,7 +737,7 @@
       "level": 5,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -775,7 +775,7 @@
       "level": 5,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -813,7 +813,7 @@
       "level": 3,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Conjure light",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -842,7 +842,7 @@
           }
         },
         {
-          "display_name": "",
+          "display_name": "Blind a creature",
           "effect": {
             "condition": "blind",
             "cures_conditions": [],
@@ -871,7 +871,7 @@
           }
         },
         {
-          "display_name": "",
+          "display_name": "Cancel darkness",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -911,7 +911,7 @@
         "duration_spec": null,
         "modes": [
           {
-            "display_name": "",
+            "display_name": "Conjure darkness",
             "effect": {
               "condition": null,
               "cures_conditions": [],
@@ -926,7 +926,7 @@
             },
             "key": "darken",
             "manual": false,
-            "prose": "Creates a 30’ radius area of magical blackness, preventing both normal sight and infravision. Light sources brought within the area of darkness do not illuminate it. Like continual light, it may alternatively be used to blind creatures or to dispel a continual light spell.",
+            "prose": "Creates a 30’ radius area of magical blackness, preventing both normal sight and infravision. Light sources brought within the area of darkness do not illuminate it.",
             "save": null,
             "targeting": {
               "count": null,
@@ -940,7 +940,7 @@
             }
           },
           {
-            "display_name": "",
+            "display_name": "Blind a creature",
             "effect": {
               "condition": "blind",
               "cures_conditions": [],
@@ -951,7 +951,7 @@
             },
             "key": "blind",
             "manual": false,
-            "prose": "Creates a 30’ radius area of magical blackness, preventing both normal sight and infravision. Light sources brought within the area of darkness do not illuminate it. Like continual light, it may alternatively be used to blind creatures or to dispel a continual light spell.",
+            "prose": "Like continual light, it may alternatively be used to blind creatures.",
             "save": {
               "category": "spells",
               "modifier": 0,
@@ -969,7 +969,7 @@
             }
           },
           {
-            "display_name": "",
+            "display_name": "Cancel light",
             "effect": {
               "condition": null,
               "cures_conditions": [],
@@ -982,7 +982,7 @@
             },
             "key": "cancel",
             "manual": false,
-            "prose": "Creates a 30’ radius area of magical blackness, preventing both normal sight and infravision. Light sources brought within the area of darkness do not illuminate it. Like continual light, it may alternatively be used to blind creatures or to dispel a continual light spell.",
+            "prose": "Like continual light, it may alternatively be used to dispel a continual light spell.",
             "save": null,
             "targeting": {
               "count": null,
@@ -1019,7 +1019,7 @@
       "level": 2,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Conjure light",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -1048,7 +1048,7 @@
           }
         },
         {
-          "display_name": "",
+          "display_name": "Blind a creature",
           "effect": {
             "condition": "blind",
             "cures_conditions": [],
@@ -1077,7 +1077,7 @@
           }
         },
         {
-          "display_name": "",
+          "display_name": "Cancel darkness",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -1117,7 +1117,7 @@
         "duration_spec": null,
         "modes": [
           {
-            "display_name": "",
+            "display_name": "Conjure darkness",
             "effect": {
               "condition": null,
               "cures_conditions": [],
@@ -1132,7 +1132,7 @@
             },
             "key": "darken",
             "manual": false,
-            "prose": "Creates a 30’ radius area of magical blackness, preventing both normal sight and infravision. Light sources brought within the area of darkness do not illuminate it. Like continual light, it may alternatively be used to blind creatures or to dispel a continual light spell.",
+            "prose": "Creates a 30’ radius area of magical blackness, preventing both normal sight and infravision. Light sources brought within the area of darkness do not illuminate it.",
             "save": null,
             "targeting": {
               "count": null,
@@ -1146,7 +1146,7 @@
             }
           },
           {
-            "display_name": "",
+            "display_name": "Blind a creature",
             "effect": {
               "condition": "blind",
               "cures_conditions": [],
@@ -1157,7 +1157,7 @@
             },
             "key": "blind",
             "manual": false,
-            "prose": "Creates a 30’ radius area of magical blackness, preventing both normal sight and infravision. Light sources brought within the area of darkness do not illuminate it. Like continual light, it may alternatively be used to blind creatures or to dispel a continual light spell.",
+            "prose": "Like continual light, it may alternatively be used to blind creatures.",
             "save": {
               "category": "spells",
               "modifier": 0,
@@ -1175,7 +1175,7 @@
             }
           },
           {
-            "display_name": "",
+            "display_name": "Cancel light",
             "effect": {
               "condition": null,
               "cures_conditions": [],
@@ -1188,7 +1188,7 @@
             },
             "key": "cancel",
             "manual": false,
-            "prose": "Creates a 30’ radius area of magical blackness, preventing both normal sight and infravision. Light sources brought within the area of darkness do not illuminate it. Like continual light, it may alternatively be used to blind creatures or to dispel a continual light spell.",
+            "prose": "Like continual light, it may alternatively be used to dispel a continual light spell.",
             "save": null,
             "targeting": {
               "count": null,
@@ -1225,7 +1225,7 @@
       "level": 6,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -1263,7 +1263,7 @@
       "level": 5,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -1301,7 +1301,7 @@
       "level": 4,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -1339,7 +1339,7 @@
       "level": 3,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cure a subject of any disease",
           "effect": {
             "condition": null,
             "cures_conditions": [
@@ -1366,7 +1366,7 @@
           }
         },
         {
-          "display_name": "",
+          "display_name": "Kill green slime",
           "effect": null,
           "key": "kill_green_slime",
           "manual": true,
@@ -1388,7 +1388,7 @@
         "duration_spec": null,
         "modes": [
           {
-            "display_name": "",
+            "display_name": "Afflict",
             "effect": {
               "condition": "diseased",
               "cures_conditions": [],
@@ -1457,7 +1457,7 @@
       "level": 1,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Heal a living subject",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -1484,7 +1484,7 @@
           }
         },
         {
-          "display_name": "",
+          "display_name": "Cure paralysis",
           "effect": {
             "condition": null,
             "cures_conditions": [
@@ -1524,7 +1524,7 @@
         "duration_spec": null,
         "modes": [
           {
-            "display_name": "",
+            "display_name": "Harm",
             "effect": {
               "condition": null,
               "cures_conditions": [],
@@ -1575,7 +1575,7 @@
       "level": 4,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Heal",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -1615,7 +1615,7 @@
         "duration_spec": null,
         "modes": [
           {
-            "display_name": "",
+            "display_name": "Harm",
             "effect": {
               "condition": null,
               "cures_conditions": [],
@@ -1666,7 +1666,7 @@
       "level": 6,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Kill",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -1728,7 +1728,7 @@
       "level": 1,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -1766,7 +1766,7 @@
       "level": 2,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -1804,7 +1804,7 @@
       "level": 2,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -1842,7 +1842,7 @@
       "level": 1,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -1880,7 +1880,7 @@
       "level": 1,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -1918,7 +1918,7 @@
       "level": 4,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -1956,7 +1956,7 @@
       "level": 6,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Kill",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -2017,7 +2017,7 @@
       "level": 5,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -2055,7 +2055,7 @@
       "level": 3,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Dispel",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -2113,7 +2113,7 @@
       "level": 2,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -2151,7 +2151,7 @@
       "level": 5,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Feeblemind",
           "effect": {
             "condition": "feebleminded",
             "cures_conditions": [],
@@ -2212,7 +2212,7 @@
       "level": 2,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -2250,7 +2250,7 @@
       "level": 3,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Damage",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -2313,7 +2313,7 @@
       "level": 1,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -2351,7 +2351,7 @@
       "level": 3,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Grant",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -2408,7 +2408,7 @@
       "level": 6,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -2438,7 +2438,7 @@
         },
         "modes": [
           {
-            "display_name": "",
+            "display_name": "Cast",
             "effect": null,
             "key": "cast",
             "manual": true,
@@ -2470,7 +2470,7 @@
       "level": 3,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -2508,7 +2508,7 @@
       "level": 4,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -2546,7 +2546,7 @@
       "level": 4,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -2584,7 +2584,7 @@
       "level": 3,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Haste",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -2644,7 +2644,7 @@
       "level": 5,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Hold an individual",
           "effect": {
             "condition": "paralysed",
             "cures_conditions": [],
@@ -2675,7 +2675,7 @@
           }
         },
         {
-          "display_name": "",
+          "display_name": "Hold a group",
           "effect": {
             "condition": "paralysed",
             "cures_conditions": [],
@@ -2735,7 +2735,7 @@
       "level": 2,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Hold an individual",
           "effect": {
             "condition": "paralysed",
             "cures_conditions": [],
@@ -2767,7 +2767,7 @@
           }
         },
         {
-          "display_name": "",
+          "display_name": "Hold a group",
           "effect": {
             "condition": "paralysed",
             "cures_conditions": [],
@@ -2828,7 +2828,7 @@
       "level": 3,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Hold an individual",
           "effect": {
             "condition": "paralysed",
             "cures_conditions": [],
@@ -2860,7 +2860,7 @@
           }
         },
         {
-          "display_name": "",
+          "display_name": "Hold a group",
           "effect": {
             "condition": "paralysed",
             "cures_conditions": [],
@@ -2921,7 +2921,7 @@
       "level": 1,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -2959,7 +2959,7 @@
       "level": 3,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Grant",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -3016,7 +3016,7 @@
       "level": 5,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -3054,7 +3054,7 @@
       "level": 2,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Invisibility",
           "effect": {
             "condition": "invisible",
             "cures_conditions": [],
@@ -3111,7 +3111,7 @@
       "level": 3,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Invisibility",
           "effect": {
             "condition": "invisible",
             "cures_conditions": [],
@@ -3170,7 +3170,7 @@
       "level": 6,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -3208,7 +3208,7 @@
       "level": 2,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -3246,7 +3246,7 @@
       "level": 2,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -3284,7 +3284,7 @@
       "level": 2,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Grant",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -3341,7 +3341,7 @@
       "level": 1,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Conjure light",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -3370,7 +3370,7 @@
           }
         },
         {
-          "display_name": "",
+          "display_name": "Blind a creature",
           "effect": {
             "condition": "blind",
             "cures_conditions": [],
@@ -3399,7 +3399,7 @@
           }
         },
         {
-          "display_name": "",
+          "display_name": "Cancel darkness",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -3439,7 +3439,7 @@
         "duration_spec": null,
         "modes": [
           {
-            "display_name": "",
+            "display_name": "Conjure darkness",
             "effect": {
               "condition": null,
               "cures_conditions": [],
@@ -3454,7 +3454,7 @@
             },
             "key": "darken",
             "manual": false,
-            "prose": "Creates a 15’ radius area of magical blackness, preventing normal sight (but not infravision). Like light, it may alternatively be used to blind creatures or to dispel a light spell.",
+            "prose": "Creates a 15’ radius area of magical blackness, preventing normal sight (but not infravision).",
             "save": null,
             "targeting": {
               "count": null,
@@ -3468,7 +3468,7 @@
             }
           },
           {
-            "display_name": "",
+            "display_name": "Blind a creature",
             "effect": {
               "condition": "blind",
               "cures_conditions": [],
@@ -3479,7 +3479,7 @@
             },
             "key": "blind",
             "manual": false,
-            "prose": "Creates a 15’ radius area of magical blackness, preventing normal sight (but not infravision). Like light, it may alternatively be used to blind creatures or to dispel a light spell.",
+            "prose": "Like light, it may alternatively be used to blind creatures.",
             "save": {
               "category": "spells",
               "modifier": 0,
@@ -3497,7 +3497,7 @@
             }
           },
           {
-            "display_name": "",
+            "display_name": "Cancel light",
             "effect": {
               "condition": null,
               "cures_conditions": [],
@@ -3510,7 +3510,7 @@
             },
             "key": "cancel",
             "manual": false,
-            "prose": "Creates a 15’ radius area of magical blackness, preventing normal sight (but not infravision). Like light, it may alternatively be used to blind creatures or to dispel a light spell.",
+            "prose": "Like light, it may alternatively be used to dispel a light spell.",
             "save": null,
             "targeting": {
               "count": null,
@@ -3547,7 +3547,7 @@
       "level": 1,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Conjure light",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -3576,7 +3576,7 @@
           }
         },
         {
-          "display_name": "",
+          "display_name": "Blind a creature",
           "effect": {
             "condition": "blind",
             "cures_conditions": [],
@@ -3605,7 +3605,7 @@
           }
         },
         {
-          "display_name": "",
+          "display_name": "Cancel darkness",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -3645,7 +3645,7 @@
         "duration_spec": null,
         "modes": [
           {
-            "display_name": "",
+            "display_name": "Conjure darkness",
             "effect": {
               "condition": null,
               "cures_conditions": [],
@@ -3660,7 +3660,7 @@
             },
             "key": "darken",
             "manual": false,
-            "prose": "Creates a 15’ radius area of magical blackness, preventing normal sight (but not infravision). Like light, it may alternatively be used to blind creatures or to dispel a light spell.",
+            "prose": "Creates a 15’ radius area of magical blackness, preventing normal sight (but not infravision).",
             "save": null,
             "targeting": {
               "count": null,
@@ -3674,7 +3674,7 @@
             }
           },
           {
-            "display_name": "",
+            "display_name": "Blind a creature",
             "effect": {
               "condition": "blind",
               "cures_conditions": [],
@@ -3685,7 +3685,7 @@
             },
             "key": "blind",
             "manual": false,
-            "prose": "Creates a 15’ radius area of magical blackness, preventing normal sight (but not infravision). Like light, it may alternatively be used to blind creatures or to dispel a light spell.",
+            "prose": "Like light, it may alternatively be used to blind creatures.",
             "save": {
               "category": "spells",
               "modifier": 0,
@@ -3703,7 +3703,7 @@
             }
           },
           {
-            "display_name": "",
+            "display_name": "Cancel light",
             "effect": {
               "condition": null,
               "cures_conditions": [],
@@ -3716,7 +3716,7 @@
             },
             "key": "cancel",
             "manual": false,
-            "prose": "Creates a 15’ radius area of magical blackness, preventing normal sight (but not infravision). Like light, it may alternatively be used to blind creatures or to dispel a light spell.",
+            "prose": "Like light, it may alternatively be used to dispel a light spell.",
             "save": null,
             "targeting": {
               "count": null,
@@ -3753,7 +3753,7 @@
       "level": 3,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Damage",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -3818,7 +3818,7 @@
       "level": 3,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -3856,7 +3856,7 @@
       "level": 2,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -3894,7 +3894,7 @@
       "level": 6,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -3932,7 +3932,7 @@
       "level": 5,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -3970,7 +3970,7 @@
       "level": 1,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Missiles",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -4030,7 +4030,7 @@
       "level": 4,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -4068,7 +4068,7 @@
       "level": 2,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Images",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -4125,7 +4125,7 @@
       "level": 6,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -4163,7 +4163,7 @@
       "level": 4,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Neutralize poison on a character",
           "effect": {
             "condition": null,
             "cures_conditions": [
@@ -4193,7 +4193,7 @@
           }
         },
         {
-          "display_name": "",
+          "display_name": "Remove poison from an item",
           "effect": null,
           "key": "items",
           "manual": true,
@@ -4231,7 +4231,7 @@
       "level": 6,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -4269,7 +4269,7 @@
       "level": 5,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -4307,7 +4307,7 @@
       "level": 2,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -4345,7 +4345,7 @@
       "level": 4,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -4383,7 +4383,7 @@
       "level": 4,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -4421,7 +4421,7 @@
       "level": 6,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -4459,7 +4459,7 @@
       "level": 4,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Ward",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -4543,7 +4543,7 @@
       "level": 3,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Ward",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -4627,7 +4627,7 @@
       "level": 1,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Ward",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -4708,7 +4708,7 @@
       "level": 1,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Ward",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -4789,7 +4789,7 @@
       "level": 3,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Ward",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -4854,7 +4854,7 @@
       "level": 1,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -4892,7 +4892,7 @@
       "level": 5,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -4922,7 +4922,7 @@
         },
         "modes": [
           {
-            "display_name": "",
+            "display_name": "Cast",
             "effect": null,
             "key": "cast",
             "manual": true,
@@ -4954,7 +4954,7 @@
       "level": 5,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Restore life",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -4982,7 +4982,7 @@
           }
         },
         {
-          "display_name": "",
+          "display_name": "Destroy undead",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -5027,7 +5027,7 @@
         "duration_spec": null,
         "modes": [
           {
-            "display_name": "",
+            "display_name": "Kill",
             "effect": {
               "condition": null,
               "cures_conditions": [],
@@ -5079,7 +5079,7 @@
       "level": 1,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -5117,7 +5117,7 @@
       "level": 1,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -5155,7 +5155,7 @@
       "level": 6,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -5193,7 +5193,7 @@
       "level": 3,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -5223,7 +5223,7 @@
         },
         "modes": [
           {
-            "display_name": "",
+            "display_name": "Cast",
             "effect": null,
             "key": "cast",
             "manual": true,
@@ -5255,7 +5255,7 @@
       "level": 4,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -5285,7 +5285,7 @@
         },
         "modes": [
           {
-            "display_name": "",
+            "display_name": "Cast",
             "effect": null,
             "key": "cast",
             "manual": true,
@@ -5317,7 +5317,7 @@
       "level": 1,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Remove",
           "effect": {
             "condition": null,
             "cures_conditions": [
@@ -5360,7 +5360,7 @@
         "duration_spec": null,
         "modes": [
           {
-            "display_name": "",
+            "display_name": "Frighten",
             "effect": {
               "condition": "afraid",
               "cures_conditions": [],
@@ -5412,7 +5412,7 @@
       "level": 1,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Resist",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -5491,7 +5491,7 @@
       "level": 2,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Resist",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -5568,7 +5568,7 @@
       "level": 1,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Shield",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -5643,7 +5643,7 @@
       "level": 2,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Silence a creature",
           "effect": {
             "condition": "silenced",
             "cures_conditions": [],
@@ -5675,11 +5675,11 @@
           }
         },
         {
-          "display_name": "",
+          "display_name": "Silence an area",
           "effect": null,
           "key": "area",
           "manual": true,
-          "prose": "A 15’ radius area is rendered utterly silent.\nWithin the area: All sound is prevented. Conversation and spell casting are impossible.\nNoise from outside the area: Can be heard by those within it.\nCasting upon a creature: Silence may be cast upon a creature, which must save versus spells. If the save fails, the 15’ radius area of silence moves with the creature. If the save succeeds, the spell’s effect remains stationary—the targeted creature may move out of it.",
+          "prose": "A 15’ radius area is rendered utterly silent.\nWithin the area: All sound is prevented. Conversation and spell casting are impossible.\nNoise from outside the area: Can be heard by those within it.",
           "save": null,
           "targeting": null
         }
@@ -5713,7 +5713,7 @@
       "level": 1,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Put a creature to sleep",
           "effect": {
             "condition": "asleep",
             "cures_conditions": [],
@@ -5742,7 +5742,7 @@
           }
         },
         {
-          "display_name": "",
+          "display_name": "Put a group to sleep",
           "effect": {
             "condition": "asleep",
             "cures_conditions": [],
@@ -5799,7 +5799,7 @@
       "level": 2,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -5837,7 +5837,7 @@
       "level": 2,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -5875,7 +5875,7 @@
       "level": 4,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -6010,7 +6010,7 @@
       "level": 4,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -6048,7 +6048,7 @@
       "level": 6,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Restore",
           "effect": {
             "condition": null,
             "cures_conditions": [
@@ -6088,7 +6088,7 @@
         "duration_spec": null,
         "modes": [
           {
-            "display_name": "",
+            "display_name": "Petrify",
             "effect": {
               "condition": "petrified",
               "cures_conditions": [],
@@ -6142,7 +6142,7 @@
       "level": 3,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Enchant",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -6217,7 +6217,7 @@
       "level": 5,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -6255,7 +6255,7 @@
       "level": 5,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -6293,7 +6293,7 @@
       "level": 5,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -6323,7 +6323,7 @@
         },
         "modes": [
           {
-            "display_name": "",
+            "display_name": "Cast",
             "effect": null,
             "key": "cast",
             "manual": true,
@@ -6355,7 +6355,7 @@
       "level": 1,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -6393,7 +6393,7 @@
       "level": 4,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -6431,7 +6431,7 @@
       "level": 4,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -6469,7 +6469,7 @@
       "level": 5,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -6507,7 +6507,7 @@
       "level": 3,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Grant",
           "effect": {
             "condition": null,
             "cures_conditions": [],
@@ -6563,7 +6563,7 @@
       "level": 2,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Entangle",
           "effect": {
             "condition": "entangled",
             "cures_conditions": [],
@@ -6625,7 +6625,7 @@
       "level": 4,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
@@ -6663,7 +6663,7 @@
       "level": 2,
       "modes": [
         {
-          "display_name": "",
+          "display_name": "Cast",
           "effect": null,
           "key": "cast",
           "manual": true,
