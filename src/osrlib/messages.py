@@ -144,13 +144,13 @@ def _morale_held(event: MoraleCheckedEvent) -> bool:
 
 
 def _memorized(event: SpellsMemorizedEvent) -> str:
-    prepared = ", ".join(f"{copy.spell_id} (reversed)" if copy.reversed else copy.spell_id for copy in event.prepared)
-    return f"{event.caster_id} memorizes: {prepared or 'nothing'}."
+    prepared = [f"{copy.spell_id} (reversed)" if copy.reversed else copy.spell_id for copy in event.prepared]
+    return f"{event.caster_id} memorizes: {_listed(prepared) or 'nothing'}."
 
 
 def _cast(event: SpellCastEvent) -> str:
     spell = f"{event.spell_id} (reversed)" if event.reversed else event.spell_id
-    at = f" at {', '.join(event.target_ids)}" if event.target_ids else ""
+    at = f" at {_listed(list(event.target_ids))}" if event.target_ids else ""
     manual = ". The effect is narrated, not automated" if event.manual else ""
     return f"{event.caster_id} casts {spell} [{event.mode}]{at}{manual}."
 
@@ -165,7 +165,7 @@ def _healing_purchased(event: HealingPurchasedEvent) -> str:
     line = f"{event.character_id} purchases {event.service} at the temple for {event.cost_gp} gp"
     if len(event.payers) > 1:
         paid = zip(event.payers, event.payments_gp, strict=True)
-        line += ", paid by " + ", ".join(f"{payer} {amount} gp" for payer, amount in paid)
+        line += ", paid by " + _listed([f"{payer} {amount} gp" for payer, amount in paid])
     return line + "."
 
 
@@ -293,7 +293,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "combat.death.died": lambda event: f"{event.target_id} is killed.",
     "combat.death.permanent": lambda event: f"{event.target_id} is permanently destroyed.",
     "combat.equipment.destroyed": lambda event: (
-        f"{event.target_id}'s equipment is destroyed: " + ", ".join(event.item_names) + "."
+        f"{event.target_id}'s equipment is destroyed: " + _listed(list(event.item_names)) + "."
     ),
     "combat.drain.drained": lambda event: (
         f"{event.target_id} loses {event.levels_lost} level(s) "
@@ -375,7 +375,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
         + ("Success." if event.passed else "Failure.")
     ),
     "exploration.search.found": lambda event: (
-        f"{event.character_id} searches ({event.kind}) and finds: {', '.join(event.found)}."
+        f"{event.character_id} searches ({event.kind}) and finds: {_listed(list(event.found))}."
     ),
     "exploration.search.nothing": lambda event: f"{event.character_id} searches ({event.kind}) and finds nothing.",
     "exploration.trap.sprung": lambda event: (
@@ -493,9 +493,11 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     ),
     "encounter.npc_party.spawned": lambda event: (
         f"An NPC party ({event.party_kind}, {event.alignment}) takes the field: "
-        + ", ".join(
-            f"{npc} ({cls} {level})"
-            for npc, cls, level in zip(event.npc_ids, event.class_ids, event.levels, strict=True)
+        + _listed(
+            [
+                f"{npc} ({cls} {level})"
+                for npc, cls, level in zip(event.npc_ids, event.class_ids, event.levels, strict=True)
+            ]
         )
         + "."
     ),
