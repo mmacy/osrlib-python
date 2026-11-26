@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [2.9.0] - 2026-11-26
+
 ### Added
 
 - Two house rules for character creation, which the SRD doesn't print and `Ruleset()` leaves off (#341). [`Ruleset.ability_score_method`][osrlib.core.ruleset.Ruleset.ability_score_method] is `"3d6"` by default. With `"4d6_drop_lowest"`, [`create_character`][osrlib.core.character.create_character] throws four d6 for each ability and drops the lowest, the first of them thrown when two or more tie, and [`roll_ability_scores`][osrlib.core.character.roll_ability_scores] does the same when you pass the method to its new `method` keyword. [`AbilityScoreRolls.rolls`][osrlib.core.character.AbilityScoreRolls.rolls] keeps the three dice that count, and the new [`AbilityScoreRolls.dropped`][osrlib.core.character.AbilityScoreRolls.dropped] has the dropped die of each ability, so a client can show all four. The method draws 24 dice instead of 18, so the same seed gives a different character, and NPC adventurers always roll 3d6. With [`Ruleset.max_hp_at_first_level`][osrlib.core.ruleset.Ruleset.max_hp_at_first_level] on, a first-level character's hit points are the hit die's size plus the CON modifier, and at least 1, and the new [`HitPointRoll.maximized`][osrlib.core.character.HitPointRoll.maximized] is true. The hit die and any rerolls of `hp_reroll_at_first_level` are still thrown, so the starting gold is the same as with the flag off. `examples/rulesets/creation_house_rules.json` is a ruleset with both house rules on and every other field at its default, for a front end to copy. With both flags at their defaults, every draw and every value is what 2.8.0 gave. A 2.8.0 save loads with both off, a 2.8.0 creation result parses with an empty `dropped` and a false `maximized`, and [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] stays 4.
@@ -729,7 +731,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The documentation site: quickstart, guides, front-end walk-throughs, and a full reference for every command, event, rejection code, message code, RNG stream, and content id.
 - The typed surface: complete type hints under `py.typed`, checked in CI.
 
-[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v2.8.0...HEAD
+[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v2.9.0...HEAD
+[2.9.0]: https://github.com/mmacy/osrlib-python/compare/v2.8.0...v2.9.0
 [2.8.0]: https://github.com/mmacy/osrlib-python/compare/v2.7.0...v2.8.0
 [2.7.0]: https://github.com/mmacy/osrlib-python/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/mmacy/osrlib-python/compare/v2.5.1...v2.6.0
