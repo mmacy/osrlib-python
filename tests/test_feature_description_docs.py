@@ -9,7 +9,6 @@ written for the players, with what the referee alone reads in `FeatureSpec.refer
 import re
 from pathlib import Path
 
-import pytest
 from pydantic import BaseModel
 from pytest_examples import find_examples
 
@@ -18,8 +17,6 @@ from osrlib.crawl.dungeon import FeatureSpec
 _REPO = Path(__file__).resolve().parent.parent
 _GUIDE = _REPO / "docs" / "guides" / "authoring-custom-content.md"
 _CHANGELOG = _REPO / "CHANGELOG.md"
-
-pytestmark = pytest.mark.xfail(reason="chunk: feature-descriptions")
 
 
 def _feature_specs(value, found: list[FeatureSpec]) -> None:
