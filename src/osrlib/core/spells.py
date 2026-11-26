@@ -734,7 +734,26 @@ class SpellMode(_Model):
 
     Pass it as `mode` to [`cast_spell`][osrlib.core.spells.cast_spell] and
     [`validate_cast`][osrlib.core.spells.validate_cast]. A spell with a single usage still has a
-    mode, like *fire ball*'s `"damage"`.
+    mode, like *fire ball*'s `"damage"`. To show a mode to a player, use `display_name`.
+    """
+
+    display_name: str = ""
+    """A short label for the mode, like `"Blind a creature"`. Show it where a player chooses one of a form's modes.
+
+    The label says what the caster does, as an instruction in sentence case with no closing punctuation:
+    `"Conjure light"`, `"Cancel darkness"`, and `"Hold a group"`. In the built-in catalog, no two modes of one
+    form have the same label, in the normal form or in the reverse, so a cast dialog can list a form's
+    modes by label alone. A built-in label comes from the lead-in that the OSE SRD prints before the
+    usage, like "Blinding a creature:". A mode whose page prints no lead-in, or a lead-in that names a
+    situation rather than an action, like *bless*'s "Battle:", has a label written for it from the
+    page's words, like `"Bless allies in battle"` and the reverse of *light*'s `"Conjure darkness"`.
+
+    When you write a mode and leave the label out, or give an empty one, the mode gets a label made
+    from its key: each underscore becomes a space and the first letter becomes a capital, so
+    `"darken"` is labelled `"Darken"` and `"kill_green_slime"` is labelled `"Kill green slime"`. A
+    spell you wrote for an earlier osrlib loads this way, with a label on every mode. A spell with a
+    single mode has nothing to choose between, so the built-in catalog gives that mode the label from
+    its key too, like *fire ball*'s `"Damage"`. Show the spell's name for it instead.
     """
 
     targeting: TargetingSpec | None = None
@@ -761,6 +780,10 @@ class SpellMode(_Model):
     """The SRD text for this usage.
 
     Show it to the player. For a manual mode, it's all the information osrlib has about the result.
+    In the built-in catalog, no two modes of one form have the same prose. Where the page describes
+    several usages in one passage, like the reverse of *light*, each mode's prose is the part of
+    the passage that covers that usage, and the whole passage is the form's own prose, such as
+    [`ReversedForm.prose`][osrlib.core.spells.ReversedForm.prose].
     """
 
     @model_validator(mode="after")
@@ -820,7 +843,11 @@ class ReversedForm(_Model):
     """
 
     prose: str = ""
-    """The SRD text for the reverse."""
+    """The SRD text for the reverse, all of it.
+
+    Each of the reverse's `modes` has the part of this text that covers that mode as its own
+    [`prose`][osrlib.core.spells.SpellMode.prose].
+    """
 
     modes: tuple[SpellMode, ...] = Field(min_length=1)
     """One [`SpellMode`][osrlib.core.spells.SpellMode] per castable usage of the reverse, at least one, each with a
@@ -974,7 +1001,8 @@ class SpellTemplate(_Model):
 
         Use this when you know which usage you want, to read its targeting, its save, or its prose
         before you cast it. To offer a player a choice instead, iterate
-        [`modes`][osrlib.core.spells.SpellTemplate.modes] and show each mode's `prose`. The key you
+        [`modes`][osrlib.core.spells.SpellTemplate.modes] and show each mode's `display_name`, with its
+        `prose` for the details. The key you
         pass here is the same string casting takes as its `mode` argument.
 
         Args:
