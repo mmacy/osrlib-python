@@ -2,10 +2,9 @@
 
 `Ruleset.ability_score_method` picks 3d6 or 4d6 drop lowest for the ability scores, and
 `Ruleset.max_hp_at_first_level` counts the first-level hit die as its maximum. Both are off by
-default. The tests marked `chunk: creation-house-rules` wait for the implementation. The unmarked
-ones hold the contract that the default rules draw and give exactly what osrlib 2.8.0 drew and gave,
-and that what 2.8.0 wrote still loads. Their literal values were computed by running the 2.8.0
-source from `git archive v2.8.0` on the creation stream of each seed.
+default. Some of the tests hold the contract that the default rules draw and give exactly what
+osrlib 2.8.0 drew and gave, and that what 2.8.0 wrote still loads. Their literal values were
+computed by running the 2.8.0 source from `git archive v2.8.0` on the creation stream of each seed.
 
 Every die on the creation stream is one `randbelow(sides) + 1` draw, so a replayed stream gives the
 dice each test derives its numbers from.

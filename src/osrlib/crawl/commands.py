@@ -1624,9 +1624,9 @@ class PrepareSpells(Command):
           session has ended.
         - `session.command.unknown_member` - `character_id` matches no party member.
         - `session.command.member_incapacitated` - the member can't act.
+        - `magic.memorize.not_a_caster` - the member's class casts no spells.
         - `magic.memorize.needs_sleep` - the party hasn't slept since this caster's last
           preparation.
-        - `magic.memorize.not_a_caster` - the member's class casts no spells.
         - `magic.memorize.unknown_spell` - a selection matches no spell in the session's
           catalog.
         - `magic.memorize.wrong_list` - a selection isn't on the caster's spell list.

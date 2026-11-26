@@ -10,11 +10,10 @@ Ability Scores page has a row boundary between 6 and 5. `scores_are_sub_par` ans
 `AbilityScoreRolls.sub_par` answers for a roll, computed from its `scores`, the scores as rolled before the adjustment
 step. osrlib never discards or rerolls a character, so no draw changes.
 
-The tests marked `chunk: sub-par-scores` wait for the implementation. The unmarked ones hold what already holds: the
-draws and the characters that `create_character` gives for the seeds below, the schemas, and the docstrings. Every
-literal score and draw was computed by running the source from `git archive v2.8.0`, which gives the same values as
-the source this chunk starts from, on the creation stream of each seed. The 4d6 drop lowest values, which 2.8.0 can't
-roll, were computed on the source this chunk starts from.
+Some of the tests hold what 2.8.0 already gave: the draws and the characters that `create_character` gives for the
+seeds below. Every literal 3d6 score and draw was computed by running the source from `git archive v2.8.0` on the
+creation stream of each seed. The 4d6 drop lowest values, which 2.8.0 can't roll, were computed on the source this
+chunk started from, osrlib 2.8.0 with the creation house rules merged.
 """
 
 import json
@@ -492,7 +491,9 @@ def test_the_spec_mentions_the_check_in_the_ability_score_scope():
 
 
 def test_the_changelog_bullet_names_the_function_and_the_field():
-    bullets = [line for line in CHANGELOG.read_text(encoding="utf-8").splitlines() if "(#345)" in line]
+    # The fix to the validation of `scores` cites the issue too, so the bullet is the one that names the function.
+    cited = [line for line in CHANGELOG.read_text(encoding="utf-8").splitlines() if "(#345)" in line]
+    bullets = [line for line in cited if "scores_are_sub_par" in line]
     assert len(bullets) == 1
     (bullet,) = bullets
     assert bullet.startswith("- ")
