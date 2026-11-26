@@ -778,9 +778,9 @@ class EncounterView(_Model):
     each group in `groups` gives every member's distance to it and the members who can reach it in
     melee. Read those to draw the fight and to offer each member the moves and attacks they can make.
 
-    The id tuples `declarers`, `immobile`, `reloading`, `can_hide`, and `hiding` describe the battle
-    round as the players see it at the table: who is able to act, who is held fast, who is still
-    reloading a crossbow, who can hide, and who is hiding.
+    The id tuples `declarers`, `immobile`, `reloading`, `can_hide`, `hiding`, and `can_back_stab`
+    describe the battle round as the players see it at the table: who is able to act, who is held
+    fast, who is still reloading a crossbow, who can hide, who is hiding, and who can back-stab.
     Each group's [`front_rank`][osrlib.crawl.views.EncounterGroupView.front_rank] says who can attack
     that group in melee this round. Each of these matches a rejection that would refuse the whole
     round, so if you read them, you offer only the declarations the session accepts. To check a
@@ -844,14 +844,17 @@ class EncounterView(_Model):
     `hide` where the members will stand once the round's declared moves are made, so a member in
     this list who would end up in the front rank because of another member's move is refused with
     `battle.declaration.hide_in_front_rank`. A member outside it gets
-    `battle.declaration.hide_not_a_thief` or `battle.declaration.hide_in_front_rank`."""
+    `battle.declaration.hide_not_a_thief` or `battle.declaration.hide_in_front_rank`. To learn who
+    can hide beside the declarations planned so far, read
+    [`BattleRoundPreview.can_hide`][osrlib.crawl.battle.BattleRoundPreview.can_hide]."""
     hiding: tuple[str, ...] = ()
     """The members who are hiding, in marching order: each has declared a `hide` that resolved, and
     the attempt hasn't ended since. Empty outside a battle.
 
     A member here can declare an `attack` with
     [`BattleDeclaration.back_stab`][osrlib.crawl.commands.BattleDeclaration.back_stab] in any round
-    without a place in the front rank, as long as their class has the `back_stab` ability. The
+    without a place in the front rank, as long as their class has the `back_stab` ability and they
+    can act, and `can_back_stab` lists them. The
     back-stab still needs a melee weapon, or bare hands, and a group within 5' of the member, as
     each group's [`member_distance_feet`][osrlib.crawl.views.EncounterGroupView.member_distance_feet]
     shows, or a `close` that brings one within 5'. The list doesn't say
@@ -859,6 +862,29 @@ class EncounterView(_Model):
     [`AttackRolledEvent.back_stab`][osrlib.core.events.AttackRolledEvent.back_stab] tells the players
     whether it was a back-stab. A member leaves the list when the attempt ends, which
     `BattleDeclaration.back_stab` describes."""
+    can_back_stab: tuple[str, ...] = ()
+    """The declarers who can declare an `attack` with
+    [`BattleDeclaration.back_stab`][osrlib.crawl.commands.BattleDeclaration.back_stab] this round, in
+    marching order: those whose class has the `back_stab` ability, as the thief's does, in the
+    party's free round (see `party_free_round`) or while they're in `hiding`. Empty outside a battle.
+
+    The session refuses a back-stab by any other declarer with `battle.declaration.back_stab_no_ability`
+    or `battle.declaration.back_stab_target_aware`, and never refuses one by a member here with
+    either code. A member who can't act isn't a declarer, so they aren't here, even while they're in
+    `hiding`. Like `hiding`, the list holds every member who has hidden, whatever the secret hide in
+    shadows roll was, so it never tells the players whether a hide worked.
+
+    The list doesn't read the declaration, so the session can still refuse a back-stab by a member
+    here for what the declaration says: `battle.declaration.back_stab_not_attack` when the action
+    isn't `attack`, `battle.declaration.back_stab_not_melee` for a missile weapon, or a dagger aimed
+    at a group more than 5' from the member after their `close`, and the checks every attack takes,
+    like `battle.declaration.unknown_group`, `battle.declaration.weapon_not_wielded`,
+    `combat.attack.out_of_reach`, and `combat.attack.attacker_blind`. In the free round, a back-stab
+    takes the melee checks of any attack, so a member outside the group's front rank gets
+    `battle.declaration.not_in_front_rank`. In any other round, a member here is hiding and needs no
+    place in the front rank. To
+    learn who can back-stab beside the declarations planned so far, read
+    [`BattleRoundPreview.can_back_stab`][osrlib.crawl.battle.BattleRoundPreview.can_back_stab]."""
     advance_feet: dict[str, int] = {}
     """Each living member's place on the range track, keyed by member id, in feet forward of the party
     line. Empty outside a battle.
@@ -894,7 +920,8 @@ class EncounterView(_Model):
 
     It's the round in which any thief's back-stab is legal: an `attack` that sets
     [`BattleDeclaration.back_stab`][osrlib.crawl.commands.BattleDeclaration.back_stab]. In other
-    rounds, only the members in `hiding` can back-stab. It's true while
+    rounds, only the members in `hiding` can back-stab. `can_back_stab` lists the members who can
+    back-stab in this round, in either case. It's true while
     [`BattleState.monsters_hold_rounds`][osrlib.crawl.battle.BattleState.monsters_hold_rounds] is above
     zero."""
 
@@ -1831,10 +1858,11 @@ def _encounter_view(session) -> EncounterView | None:
     from osrlib.core.combat import cannot_move
     from osrlib.crawl.battle import (
         _able_declarers,
+        _back_stabbers,
         _formation_width,
         _front_rank_toward_nearest,
-        _front_rows,
         _group_lit,
+        _hide_rejection,
         _members_seeing,
         _placement,
         _reachable_front_rank,
@@ -1901,11 +1929,13 @@ def _encounter_view(session) -> EncounterView | None:
     fired = battle.fired_last_round if battle is not None and session.ruleset.weapon_reload else ()
     can_hide: tuple[str, ...] = ()
     hiding: tuple[str, ...] = ()
+    can_back_stab: tuple[str, ...] = ()
     if battle is not None:
+        # The lists come from the checks the round runs, so the view never offers what the session refuses.
+        can_hide = tuple(member.id for member in declarers if _hide_rejection(session, member, placement) is None)
         # The player view lists who is hiding. How each roll went stays in `BattleState.hiding`, for the referee.
-        front = _front_rows(session, placement)
-        can_hide = tuple(member.id for member in declarers if member.definition.thief_skills and member.id not in front)
         hiding = tuple(member.id for member in session.party.members if member.id in battle.hiding)
+        can_back_stab = _back_stabbers(session, declarers)
     return EncounterView(
         groups=tuple(groups),
         stance=state.stance,
@@ -1918,6 +1948,7 @@ def _encounter_view(session) -> EncounterView | None:
         reloading=tuple(fired),
         can_hide=can_hide,
         hiding=hiding,
+        can_back_stab=can_back_stab,
         advance_feet=(
             {member_id: battle.advance_feet.get(member_id, 0) for member_id in living_ids} if battle is not None else {}
         ),
