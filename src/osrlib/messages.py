@@ -170,12 +170,10 @@ def _healing_purchased(event: HealingPurchasedEvent) -> str:
 
 
 def _listed(parts: list[str]) -> str:
-    """Parts joined as an English list, like `"a, b and c"`, with one "and" before the last part."""
-    return parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
+    """Parts joined as an English list, like `"a and b"` or `"a, b, and c"`, with "and" before the last part.
 
-
-def _series(parts: list[str]) -> str:
-    """Parts joined as an English list with a serial comma, like `"a and b"` or `"a, b, and c"`."""
+    A list of three or more parts has a comma before its "and", the serial comma.
+    """
     if len(parts) <= 2:
         return " and ".join(parts)
     return ", ".join(parts[:-1]) + ", and " + parts[-1]
@@ -189,7 +187,7 @@ def _encounter_started(event: Any) -> str:
     """
     if event.group_labels:
         groups = zip(event.group_counts, event.group_labels, event.group_labels_plural, strict=True)
-        seen = _series([f"{count} {label if count == 1 else plural}" for count, label, plural in groups])
+        seen = _listed([f"{count} {label if count == 1 else plural}" for count, label, plural in groups])
     else:
         seen = f"{event.count} {event.monster_name if event.count == 1 else event.monster_name_plural}"
     return (
@@ -210,7 +208,7 @@ def _monsters_spawned(event: Any) -> str:
         what = f"{count} {event.display_name if count == 1 else event.display_name_plural}"
     else:
         what = f"{count} {'monster' if count == 1 else 'monsters'} from the {event.template_id} template"
-    return f"Spawned {what}: {_series(list(event.monster_ids))}."
+    return f"Spawned {what}: {_listed(list(event.monster_ids))}."
 
 
 def _coin_parts(event: Any) -> list[str]:
@@ -236,9 +234,9 @@ def _coins(event: Any) -> str:
 
 
 def _goods(event: Any) -> str:
-    """The items and coins an event moved, like `"jade-idol, 3 pp and 40 cp in coin"`.
+    """The items and coins an event moved, like `"jade-idol, 3 pp, and 40 cp in coin"`.
 
-    With coins, the items and the denominations make one list, with one "and" before the last part. Items
+    With coins, the items and the denominations make one list, with "and" before the last part. Items
     alone make the same kind of list, like `"brass_key and toll_token"`.
     """
     coins = _coin_parts(event)
