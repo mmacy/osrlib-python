@@ -1560,7 +1560,7 @@ def _item_names(session, piles: Iterable[DropPile]) -> tuple[dict[str, str], dic
     # Each id the inventories and the known piles show gets one entry, from the first place it appears. A
     # stack a member carries is named from the template it embeds, and a pile's stack from the session's
     # catalog, which has the items the adventure bundles. An unidentified magic item keeps its mask, and
-    # its template id stays out.
+    # its template id never becomes a key.
     names: dict[str, str] = {}
     plurals: dict[str, str] = {}
 

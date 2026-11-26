@@ -9,7 +9,7 @@
   },
   {
     "id": "hammer",
-    "reason": "The price list prints 'Hammer (small)', a size the display name puts in front.",
+    "reason": "The price list prints 'Hammer (small)', so the size goes in front of the noun.",
     "set": {
       "display_name": "small hammer",
       "display_name_plural": "small hammers"
@@ -41,7 +41,7 @@
   },
   {
     "id": "mirror",
-    "reason": "The price list prints 'Mirror (hand-sized, steel)', and the display name keeps the size.",
+    "reason": "The price list prints 'Mirror (hand-sized, steel)', so the display name keeps the size.",
     "set": {
       "display_name": "hand mirror",
       "display_name_plural": "hand mirrors"
@@ -89,7 +89,7 @@
   },
   {
     "id": "sack_large",
-    "reason": "The price list prints 'Sack (large)', a size the display name puts in front.",
+    "reason": "The price list prints 'Sack (large)', so the size goes in front of the noun.",
     "set": {
       "display_name": "large sack",
       "display_name_plural": "large sacks"
@@ -97,7 +97,7 @@
   },
   {
     "id": "sack_small",
-    "reason": "The price list prints 'Sack (small)', a size the display name puts in front.",
+    "reason": "The price list prints 'Sack (small)', so the size goes in front of the noun.",
     "set": {
       "display_name": "small sack",
       "display_name_plural": "small sacks"

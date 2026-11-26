@@ -153,6 +153,18 @@ Ammunition compiles with a weight of 0. The ammunition table has no weight colum
 
 Sling stones cost 0 and are bought one at a time. The table entry for their cost reads `Free`, so osrlib sets the cost to 0 and the purchase lot to 1. Locked by `test_srd_data.py::TestEquipmentData`.
 
+### Item display names name the unit the session counts
+
+The SRD prints item names for a price list or a treasure table, like `Torches (6)`, `Holy water (vial)`, and `Arrows +1 (3d10 arrows)`, so they name a lot and have no plural. Every compiled equipment and magic item template also has a `display_name` for one unit in a sentence and a `display_name_plural` for two or more. The compiler writes them by these rules:
+
+- The display name is the printed name with a trailing parenthesis dropped, in lowercase. A word printed all in capitals keeps its capitals, because it's an abbreviation or a Roman numeral: "potion of ESP", "treasure map II".
+- It names one of the units that the item's `quantity` counts, not a lot. The compiler drops the plural ending from ammunition, so `Arrows (quiver of 20)` is "arrow" and `Arrows +1` is "arrow +1". Gear sold in a lot or as a substance is named by the unit or the container the SRD's descriptions give, so `Torches (6)` is "torch", `Holy water (vial)` is "vial of holy water", and `Oil (1 flask)` is "flask of oil". Those names come from `overrides/equipment.json`, with a reason for each.
+- Body armour is a suit, "suit of chainmail" and "suit of armour +1", and the SRD's `Leather` is "suit of leather armour". Boots and gauntlets are a pair, "pair of boots of speed". The drums of panic and the elven cloak and boots are each a set.
+- A spell scroll keeps its spell count, "spell scroll with 3 spells". The compiler moves a label after a colon to the front, so `Elemental Summoning Device: Air` is "air elemental summoning device", except a treasure map's numeral, which stays at the end.
+- The plural ending goes on the word that names the item, before any `of`, `with`, `vs`, comma, bonus, or numeral, so the plurals read "vials of holy water", "swords +1, +3 vs undead", and "treasure maps II". The ending is the regular English one, except that "staff" becomes "staves".
+
+A template you write without the fields gets its `name` and the regular plural of the display name. Locked by `test_item_display_names.py`.
+
 ### INT-granted languages come from the Other Languages table and may not duplicate natives
 
 A character with high INT picks extra languages from the twenty Other Languages, and can't pick a language their class already speaks. So a dwarf can't spend an INT language on Dwarvish.
@@ -1650,7 +1662,7 @@ Locked by `test_srd_data.py` and the `test_magic_items.py` census.
 
 ### Magic items enter play unidentified, identify on first meaningful use, and curses stick
 
-A magic item shows a generic name until it's identified: an enchanted weapon or armour is "a {base} with a faint aura", and a miscellaneous item is "a curious device". An item is identified by any of these:
+A magic item shows a generic name until it's identified. An enchanted weapon, piece of ammunition, suit of armour, or shield is named after one unit of the mundane item underneath it, "a {base} with a faint aura", like "an arrow with a faint aura" or "a suit of chainmail with a faint aura", and a suit of enchanted armour whose mundane armour isn't recorded is "a suit of armour with a faint aura". A miscellaneous item is "a curious device". The player view's `item_names` and `EquipmentDestroyedEvent` name an unidentified item the same way, so a cursed item reads as the item it passes for. An item is identified by any of these:
 
 - Its first meaningful use.
 - The referee's `IdentifyItem`.

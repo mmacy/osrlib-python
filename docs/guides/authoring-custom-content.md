@@ -657,6 +657,8 @@ Unlike spells, monsters, and items, custom classes are stored on each character 
 
 Add custom [`WeaponTemplate`][osrlib.core.items.WeaponTemplate], [`ArmourTemplate`][osrlib.core.items.ArmourTemplate], [`GearTemplate`][osrlib.core.items.GearTemplate], and [`AmmunitionTemplate`][osrlib.core.items.AmmunitionTemplate] instances (discriminated by `item_type`) to `Adventure.items`. [`GameSession.effective_equipment`][osrlib.crawl.session.GameSession.effective_equipment] unions `load_equipment()` with `Adventure.items`, resolving bundled IDs in treasure caches (`FeatureSpec.item_ids`), [`GrantItem`][osrlib.crawl.commands.GrantItem], and dropped item piles. Once acquired, [`ItemInstance`][osrlib.core.items.ItemInstance] embeds its template for equipping, encumbrance, combat, item transfers, saves, and replay.
 
+You can also set what the players call a bundled item in a sentence. Set [`display_name`][osrlib.core.items.GearTemplate.display_name] to what to call one, in lowercase with no article, like `"idol of the drowned saint"`, and [`display_name_plural`][osrlib.core.items.GearTemplate.display_name_plural] to what to call two or more. [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] and [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural] give them to the players' client. A template that leaves `display_name` out gets its `name`, and one that leaves `display_name_plural` out gets the display name with the regular English ending on its last word, so set the plural yourself when that ending is wrong, as for "idols of the drowned saint".
+
 [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] requires every bundled item ID to be unique across `Adventure.items`, the built-in equipment catalog ([the equipment id index][equipment-index]), and the built-in magic-item catalog (treasure encumbrance row IDs such as `coin`, `gem`, and `jewellery` do not count as item IDs):
 
 ```python
@@ -672,8 +674,17 @@ from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession
 from osrlib.data import load_equipment, load_monsters
 
-# The quest object: a gear item with no shop price, carried like any other kit.
-TEMPLE_IDOL = GearTemplate.model_validate({"id": "temple_idol", "name": "Idol of the drowned saint", "cost_gp": 0})
+# The quest object: a gear item with no shop price, carried like any other kit. Its
+# display names are what the players' client shows in a sentence.
+TEMPLE_IDOL = GearTemplate.model_validate(
+    {
+        "id": "temple_idol",
+        "name": "Idol of the drowned saint",
+        "cost_gp": 0,
+        "display_name": "idol of the drowned saint",
+        "display_name_plural": "idols of the drowned saint",
+    }
+)
 
 # The saint's own arms and armour: each kind is the model its built-in list is made
 # of, so a weapon carries damage and qualities, body armour both AC formats and its
@@ -702,6 +713,9 @@ SAINTS_SCALE = ArmourTemplate.model_validate(
 BLESSED_STONES = AmmunitionTemplate.model_validate(
     {"id": "blessed_stones", "name": "Blessed sling stones", "cost_gp": 0, "lot_size": 20}
 )
+
+# A template written without display names gets its name and the regular plural.
+assert (DROWNED_BLADE.display_name, DROWNED_BLADE.display_name_plural) == ("Drowned blade", "Drowned blades")
 
 # Bundle them: the adventure document carries the templates, and a cache places
 # them by id like any built-in item.
