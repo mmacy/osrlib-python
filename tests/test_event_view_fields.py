@@ -10,7 +10,9 @@
 Everything here is additive within the current `schema_version`: `coins_gp_value` keeps its meaning.
 """
 
+import positions_fixtures as pf
 from crawl_fixtures import build_adventure, build_party
+from osrlib.core.effects import Condition, grant_condition
 from osrlib.core.events import Visibility
 from osrlib.core.items import Coins
 from osrlib.crawl import events as events_module
@@ -199,3 +201,30 @@ def test_a_member_view_names_the_class():
     for member_view in _player_view(session).party:
         assert member_view.class_name == session.member(member_view.id).definition.name
         assert member_view.class_name
+
+
+# ---------------------------------------------------------------------- review follow-ups
+
+
+def test_a_refused_hand_over_names_the_giver_and_the_recipient():
+    """The declaring member goes in `character`, and the recipient the check refused goes in `target`."""
+    from test_member_reach import fight, grant, hand
+
+    game = fight()
+    grant(game, "Tam", "oil_flask")
+    hild = pf.named(game, "Hild")
+    grant_condition(game.member(hild), Condition.ASLEEP, None)
+
+    rejections = pf.refused(game, hand(game, "oil_flask"))
+
+    assert rejections == [
+        ("session.command.member_incapacitated", {"character": pf.named(game, "Tam"), "target": hild})
+    ]
+
+
+def test_a_message_with_items_and_coins_says_and_once():
+    event = ItemAcquiredEvent(
+        character_id=FIGHTER, item_ids=("valuable-1",), coins=Coins(pp=3, cp=40), coins_gp_value=3
+    )
+
+    assert format_message(event) == "character-0001 acquires valuable-1, 3 pp and 40 cp in coin."

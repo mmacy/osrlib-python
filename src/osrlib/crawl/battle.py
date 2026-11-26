@@ -3222,7 +3222,8 @@ def _hand_over(session, declaration: BattleDeclaration, giver, placement: _Place
     1. `exploration.give.same_member` when the recipient is the giver.
     2. `session.command.unknown_member` when the recipient isn't a party member, including a declaration
        whose `targets` is empty or has more than one id. Then `session.command.member_incapacitated` when
-       the recipient can't act.
+       the recipient can't act. Both have the giver's id as `character` and the recipient's id as `target`,
+       which is an empty string for a declaration with no single id in `targets`.
     3. `items.curse.stuck` for a magic item whose curse has been revealed, and `exploration.item.not_carried`
        for an item the giver doesn't carry, or a declaration with no `item_id`.
     4. `battle.declaration.member_out_of_reach` when the two members stand farther than 5' apart in
@@ -3237,7 +3238,11 @@ def _hand_over(session, declaration: BattleDeclaration, giver, placement: _Place
         return None, [Rejection(code="exploration.give.same_member", params={"character": giver.id})]
     recipient, rejections = _party_members._member_able(session, recipient_id)
     if recipient is None:
-        return None, rejections
+        # `_member_able` names the recipient as `character`, and a declaration's rejection names its declarer there.
+        return None, [
+            rejection.model_copy(update={"params": {**rejection.params, "character": giver.id, "target": recipient_id}})
+            for rejection in rejections
+        ]
     rejections = _items._validate_carried(giver, (declaration.item_id or "",), Coins())
     if rejections:
         return None, rejections

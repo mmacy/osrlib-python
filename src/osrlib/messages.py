@@ -169,10 +169,15 @@ def _healing_purchased(event: HealingPurchasedEvent) -> str:
     return line + "."
 
 
-def _coins(event: Any) -> str:
-    """The coins an event moved, by denomination, like `"3 gp and 4 sp in coin"`, or `""` for none.
+def _listed(parts: list[str]) -> str:
+    """Parts joined as an English list, like `"a, b and c"`, with one "and" before the last part."""
+    return parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
 
-    An event recorded before osrlib 2.7.0 has no `coins`, so the line falls back to its
+
+def _coin_parts(event: Any) -> list[str]:
+    """The coins an event moved, one part per denomination, like `["3 gp", "4 sp"]`, or `[]` for none.
+
+    An event recorded before osrlib 2.7.0 has no `coins`, so its one part comes from its
     `coins_gp_value`.
     """
     parts = [
@@ -180,17 +185,27 @@ def _coins(event: Any) -> str:
         for denomination in ("pp", "gp", "ep", "sp", "cp")
         if (count := getattr(event.coins, denomination))
     ]
-    if not parts:
-        return f"{event.coins_gp_value} gp in coin" if event.coins_gp_value else ""
-    listed = parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
-    return f"{listed} in coin"
+    if not parts and event.coins_gp_value:
+        parts = [f"{event.coins_gp_value} gp"]
+    return parts
+
+
+def _coins(event: Any) -> str:
+    """The coins an event moved, by denomination, like `"3 gp and 4 sp in coin"`, or `""` for none."""
+    parts = _coin_parts(event)
+    return f"{_listed(parts)} in coin" if parts else ""
 
 
 def _goods(event: Any) -> str:
-    """The items and coins an event moved, like `"jade-idol and 13 gp in coin"`."""
-    coins = _coins(event)
-    items = ", ".join(event.item_ids)
-    return items + (" and " if items and coins else "") + coins
+    """The items and coins an event moved, like `"jade-idol, 3 pp and 40 cp in coin"`.
+
+    With coins, the items and the denominations make one list, with one "and" before the last part. Items
+    alone are joined by commas, like `"brass_key, toll_token"`.
+    """
+    coins = _coin_parts(event)
+    if not coins:
+        return ", ".join(event.item_ids)
+    return _listed([*event.item_ids, *coins]) + " in coin"
 
 
 def _xp_awarded(event: Any) -> str:
