@@ -2640,7 +2640,7 @@ class BattleDeclaration(_Model):
       can't disrupt it, because it's a class ability, not a spell.
     - `hide` uses nothing else. A thief tries to hide in shadows, which takes their action for
       the round. The member is then hiding until the attempt ends, and a hiding member can
-      back-stab from where they stand, as
+      back-stab without a place in the front rank, as
       [`back_stab`][osrlib.crawl.commands.BattleDeclaration.back_stab] describes.
       [`EncounterView.can_hide`][osrlib.crawl.views.EncounterView.can_hide] lists the members who
       can hide this round.
@@ -2681,16 +2681,25 @@ class BattleDeclaration(_Model):
     front rank with `battle.declaration.hide_in_front_rank`, in that order, after the back-stab
     checks and the check of `move`. Each has the member's id as its `character` param.
 
-    The hide resolves in the party's movement step, after the members' moves, in marching order. A
-    member who can't act or is confused when the step comes doesn't hide, and the session draws
-    nothing for them. Otherwise the session rolls the member's hide in shadows skill, which only the
-    referee sees, in a [`DetectionRolledEvent`][osrlib.crawl.events.DetectionRolledEvent] of kind
-    `"hide_in_shadows"`. The players see a
+    The hide resolves in the party's movement step, after the members' moves, in marching order
+    whatever order the declarations came in. A member who can't act or is confused when the step
+    comes doesn't hide, and the session draws nothing for them. Otherwise the session rolls the
+    member's hide in shadows skill, which only the referee sees, in a
+    [`DetectionRolledEvent`][osrlib.crawl.events.DetectionRolledEvent] of kind `"hide_in_shadows"`.
+    This roll, and the move silently roll of a back-stab from hiding, draw from the combat stream,
+    [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM], with the rest of the round's resolution, so
+    a battle replays from its own streams. A session's thief checks outside a battle, like
+    [`PickLock`][osrlib.crawl.commands.PickLock], draw from the exploration stream instead. The
+    players see a
     [`HideAttemptedEvent`][osrlib.crawl.events.HideAttemptedEvent], which doesn't say whether the
     roll passed. The member is then hiding, as
     [`EncounterView.hiding`][osrlib.crawl.views.EncounterView.hiding] shows, until the attempt ends.
     A `hide` by a member who is already hiding replaces the attempt with a new roll, and a member
-    can hide again in a later round after an attempt has ended."""
+    can hide again in a later round after an attempt has ended.
+
+    Hiding is a battle declaration only. A thief can't enter a battle already hiding, because
+    nothing outside a battle makes a member hide, and every battle starts with nobody hiding. The
+    back-stab in the party's free round after it surprises the monsters needs no `hide`."""
     target_group_id: str | None = None
     """Which monster group the action is aimed at, by
     [`EncounterGroupView.id`][osrlib.crawl.views.EncounterGroupView.id] from
@@ -3032,22 +3041,33 @@ class BattleDeclaration(_Model):
     secret, as the OSE SRD's "The referee should roll for hear noise, hide in shadows and move
     silently on the player’s behalf" says:
 
-    - The member strikes from where they stand. A hiding member's back-stab doesn't need the
-      group's front rank, so `battle.declaration.not_in_front_rank` doesn't apply to it, when the
-      session accepts the round or when the attack comes up. Every other melee check does,
-      `combat.attack.out_of_reach` among them. The attack hits the monster an ordinary melee attack
-      would, and the member's place in the ranks doesn't change.
+    - A hiding member's back-stab doesn't need the group's front rank, so
+      `battle.declaration.not_in_front_rank` doesn't apply to it, when the session accepts the
+      round or when the attack comes up. Every other melee check does, `combat.attack.out_of_reach`
+      among them, so the group has to be within 5' of the member, or the declaration has to set
+      `move="close"` to bring it within 5'. The attack hits the monster an ordinary melee attack
+      would. Without a `close`, the member strikes from where they stand, and their place in the
+      ranks doesn't change.
+    - A `close` on the back-stab is part of the approach. The member closes in the party's
+      movement step with the round's other moves, the move doesn't end the attempt, and the move
+      silently roll at the attack is the roll for that approach. After the attack the member stands
+      where the close took them, as any member who closes does.
     - When the attack comes up, before its first attack roll, the session rolls the member's move
       silently skill, which only the referee sees, in a
       [`DetectionRolledEvent`][osrlib.crawl.events.DetectionRolledEvent] of kind
       `"move_silently"`. It makes this roll for every such attack by a hiding member, whatever the
       hide in shadows roll was and whichever way the ruleset is set, so the draws are the same
-      under both settings. An attack that fizzles makes no roll.
+      under both settings. An attack that fizzles makes no roll. A back-stab with a slow weapon,
+      like a battle axe, comes up when its blow resolves, after both sides' blocks, so the session
+      makes the roll then. The member is still hiding through the monsters' block before it, and the
+      monsters pass over them there if their hide in shadows roll passed.
     - The attack is a back-stab when the two rolls pass the test the ruleset's
       [`back_stab_needs_both_skills`][osrlib.core.ruleset.Ruleset.back_stab_needs_both_skills]
       sets: both rolls by default, or either roll with the flag off. Then every attack roll the
-      declaration makes is a back-stab, with the bonus and the doubling of the free round.
-      Otherwise it's an ordinary melee attack. The attack's `AttackRolledEvent.back_stab` is how
+      declaration makes is a back-stab, with the bonus and the doubling of the free round. Under
+      *haste*, the declaration's two swings share the one move silently roll, made before the
+      first, so both are back-stabs or neither is, as both are in the free round. Otherwise it's
+      an ordinary melee attack. The attack's `AttackRolledEvent.back_stab` is how
       the players learn which.
     - The attempt ends when the attack comes up, whatever happens.
 
@@ -3059,7 +3079,7 @@ class BattleDeclaration(_Model):
     - The member takes damage.
     - A monster or an NPC adventurer attacks the member, shoots at them, or casts a spell at them
       alone, when that action resolves.
-    - The member can't act at the end of a round.
+    - The member can't act, or is confused, at the end of a round.
     - The battle ends.
 
     A back-stab declared from hiding whose attempt ended before the attack came up, because the
@@ -3069,8 +3089,12 @@ class BattleDeclaration(_Model):
     While a member is hiding, the monsters' choice of targets reads only the hide in shadows roll,
     under both settings. When the session or a built-in policy picks one member for a monster or
     an NPC adventurer to attack, shoot at, cast at, or breathe on, it passes over a hiding member
-    whose hide in shadows roll passed while it could pick another member. When that member is the
-    only one it could pick, the monster finds them and attacks, which ends the attempt. A member
+    whose hide in shadows roll passed while it could pick another member. That covers the built-in
+    policies, a confused monster's attack on the party, and a breath that hits one target. A member
+    turned to stone is never another member it could pick: the session passes over statues first,
+    as it does for any target, so when every other member in reach is stone, the hiding member is
+    the only one it could pick. When that member is the only one it could pick, the monster finds
+    them and attacks, which ends the attempt. A member
     whose roll failed has been noticed, as the OSE SRD's "If a hide in shadows or move silently
     roll fails, the referee knows that the thief has been noticed" says, and can be picked like
     any other. A policy of your own reads

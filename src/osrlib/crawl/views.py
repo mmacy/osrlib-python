@@ -773,8 +773,11 @@ class EncounterView(_Model):
     the attempt hasn't ended since. Empty outside a battle.
 
     A member here can declare an `attack` with
-    [`BattleDeclaration.back_stab`][osrlib.crawl.commands.BattleDeclaration.back_stab] in any round,
-    from where they stand, as long as their class has the `back_stab` ability. The list doesn't say
+    [`BattleDeclaration.back_stab`][osrlib.crawl.commands.BattleDeclaration.back_stab] in any round
+    without a place in the front rank, as long as their class has the `back_stab` ability. The
+    back-stab still needs a melee weapon, or bare hands, and a group within 5' of the member, as
+    each group's [`member_distance_feet`][osrlib.crawl.views.EncounterGroupView.member_distance_feet]
+    shows, or a `close` that brings one within 5'. The list doesn't say
     whether a hide worked: the session rolls the skills in secret, and the attack's
     [`AttackRolledEvent.back_stab`][osrlib.core.events.AttackRolledEvent.back_stab] tells the players
     whether it was a back-stab. A member leaves the list when the attempt ends, which

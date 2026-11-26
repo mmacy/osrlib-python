@@ -20,18 +20,21 @@ combat stream, both are reported to the referee alone as `DetectionRolledEvent`s
 see a `HideAttemptedEvent` (`battle.hide.attempted`) that doesn't say how the roll went.
 
 **The attack.** A hiding member may declare an `attack` with `back_stab` in any round, and from outside the front
-rank. The attack is a back-stab when the rolls pass the test of `Ruleset.back_stab_needs_both_skills`: both rolls
-when it's on, the default, and either roll when it's off. Otherwise it's an ordinary melee attack. A back-stab gets
-+4 to hit and doubles the whole damage sum, through the kernel's existing arithmetic.
+rank, at a group within 5' or with a `close` that brings one within 5'. The close doesn't end the attempt. The
+attack is a back-stab when the rolls pass the test of `Ruleset.back_stab_needs_both_skills`: both rolls when it's
+on, the default, and either roll when it's off. Otherwise it's an ordinary melee attack. A back-stab gets +4 to hit
+and doubles the whole damage sum, through the kernel's existing arithmetic.
 
 **The attempt.** A member is hiding from the `hide` until their next declaration other than `hold` or `hide` comes
-up, they take damage, a monster attacks them, they can't act at the end of a round, or the battle ends. A second
-`hide` replaces the attempt with a new roll. `EncounterView.can_hide` lists who may hide, `EncounterView.hiding`
-who is hiding, and `BattleState.hiding` holds each hiding member's hide in shadows result for the referee.
+up, they take damage, a monster attacks them, they can't act or are confused at the end of a round, or the battle
+ends. A second `hide` replaces the attempt with a new roll. `EncounterView.can_hide` lists who may hide,
+`EncounterView.hiding` who is hiding, and `BattleState.hiding` holds each hiding member's hide in shadows result for
+the referee.
 
-**The monsters.** Their choice of targets reads only the hide in shadows result. A member whose roll passed is passed
-over while the monsters can pick another member, and found when they're the only one. A member whose roll failed has
-been noticed and can be picked like anyone else.
+**The monsters.** Their choice of targets reads only the hide in shadows result. A member whose roll passed is
+passed over while the monsters can pick another member, by the built-in policies, a confused monster, and a breath
+that hits one member, and found when they're the only one. Statues are passed over first. A member whose roll failed
+has been noticed and can be picked like anyone else.
 
 The battles are built by command from seeded sessions, in a 10' corridor two cells long, so the party's front rank
 is two abreast and the third member in marching order stands in the second rank. Each helper takes the first seed
@@ -50,10 +53,18 @@ from osrlib.core.character import Character, party_to_document
 from osrlib.core.clock import TimeUnit
 from osrlib.core.combat import COMBAT_STREAM, incapacitated
 from osrlib.core.effects import Condition, EffectDefinition
-from osrlib.core.events import AttackRolledEvent, DamageDealtEvent, InitiativeRolledEvent, Visibility
+from osrlib.core.events import (
+    AttackRolledEvent,
+    DamageDealtEvent,
+    DeclarationFizzledEvent,
+    InitiativeRolledEvent,
+    SavingThrowRolledEvent,
+    Visibility,
+)
+from osrlib.core.rng import RngStream, RngStreams, RngStreamState
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.adventure import Adventure, TownSpec
-from osrlib.crawl.battle import BattleState
+from osrlib.crawl.battle import BattleState, NpcPartyPolicy, preview_battle_round
 from osrlib.crawl.commands import (
     AnyCommand,
     BattleDeclaration,
@@ -64,11 +75,12 @@ from osrlib.crawl.commands import (
     ResolveBattleRound,
     SessionMode,
     SpawnMonsters,
+    SpawnNpcParty,
 )
 from osrlib.crawl.dungeon import DungeonSpec, Edge, EdgeKind, LevelSpec
-from osrlib.crawl.events import DetectionRolledEvent, HideAttemptedEvent, parse_any_event
+from osrlib.crawl.events import DetectionRolledEvent, HideAttemptedEvent, MemberMovedEvent, parse_any_event
 from osrlib.crawl.party import Party
-from osrlib.crawl.session import GameSession
+from osrlib.crawl.session import MONSTER_ACTION_STREAM, GameSession
 from osrlib.crawl.views import EncounterView
 from osrlib.data import load_classes
 from osrlib.messages import format_message
@@ -129,11 +141,20 @@ def _adventure() -> Adventure:
     return Adventure(name="A", town=TownSpec(name="Threshold", travel_turns={"crypt": 1}), dungeons=(crypt,))
 
 
-def _session(seed: int, roster, *, ruleset: Ruleset, level: int, strength: int) -> GameSession:
-    """The roster in the unlit corridor, in marching order, with Sable wielding a sword, all by command.
+def _session(
+    seed: int,
+    roster,
+    *,
+    ruleset: Ruleset,
+    level: int,
+    strength: int,
+    weapons: tuple[str, ...] = ("sword",),
+    items: tuple[str, ...] = (),
+) -> GameSession:
+    """The roster in the unlit corridor, in marching order, with Sable wielding `weapons`, all by command.
 
-    Sable's level and STR are `level` and `strength`, and every other member is level 7 with STR 10. The party
-    carries no light, so the monsters roll for surprise.
+    Sable's level and STR are `level` and `strength`, and every other member is level 7 with STR 10. Sable also
+    carries `items`. The party carries no light, so the monsters roll for surprise.
     """
     members = [
         _character(name, class_id, level=level, strength=strength) if name == "Sable" else _character(name, class_id)
@@ -141,8 +162,10 @@ def _session(seed: int, roster, *, ruleset: Ruleset, level: int, strength: int) 
     ]
     game = GameSession.new(Party(members=members), _adventure(), seed=seed, ruleset=ruleset)
     sable = _named(game, "Sable")
-    assert game.execute(GrantItem(character_id=sable, item_id="sword")).accepted
-    assert game.execute(EquipItem(character_id=sable, item_id="sword")).accepted
+    for item_id in (*weapons, *items):
+        assert game.execute(GrantItem(character_id=sable, item_id=item_id)).accepted
+    for item_id in weapons:
+        assert game.execute(EquipItem(character_id=sable, item_id=item_id)).accepted
     assert game.execute(EnterDungeon(dungeon_id="crypt")).accepted
     return game
 
@@ -157,20 +180,42 @@ def _battle(
     template_id: str = "goblin",
     count: int = 2,
     distance_feet: int = 5,
+    npc_party: bool = False,
+    monsters_surprised: bool = False,
+    weapons: tuple[str, ...] = ("sword",),
+    items: tuple[str, ...] = (),
 ) -> GameSession:
-    """A battle opened by command in which neither side was surprised, from the first seed at or after `first_seed`."""
+    """A battle opened by command, from the first seed at or after `first_seed` that opens it as asked.
+
+    The party is never surprised. The monsters are surprised when `monsters_surprised` is true, which gives the party
+    a free round, and not otherwise. With `npc_party`, the other side is a basic party of `count` NPC adventurers
+    instead of `count` monsters of `template_id`.
+    """
     for seed in range(first_seed, SEEDS.stop):
-        game = _session(seed, roster, ruleset=ruleset or Ruleset(), level=level, strength=strength)
-        result = game.execute(SpawnMonsters(template_id=template_id, count_fixed=count, distance_feet=distance_feet))
+        game = _session(
+            seed,
+            roster,
+            ruleset=ruleset or Ruleset(),
+            level=level,
+            strength=strength,
+            weapons=weapons,
+            items=items,
+        )
+        spawn = (
+            SpawnNpcParty(party_kind="basic", count_fixed=count, distance_feet=distance_feet)
+            if npc_party
+            else SpawnMonsters(template_id=template_id, count_fixed=count, distance_feet=distance_feet)
+        )
+        result = game.execute(spawn)
         assert result.accepted
         sides = {event.side: event.surprised for event in result.events if event.code == "encounter.surprise.rolled"}
-        if sides.get("party") is not False or sides.get("monsters") is not False:
+        if sides.get("party") is not False or sides.get("monsters") is not monsters_surprised:
             continue
         if game.mode is SessionMode.ENCOUNTER:
             assert game.execute(EngageBattle()).accepted
         if game.mode is not SessionMode.BATTLE or game.battle.round != 0:
             continue
-        assert game.battle.monsters_hold_rounds == 0, "precondition: no free round"
+        assert game.battle.monsters_hold_rounds == (1 if monsters_surprised else 0), "precondition: the free round"
         assert game.encounter.groups[0].distance_feet == distance_feet
         return game
     raise AssertionError("precondition: no seed opened the battle")
@@ -442,7 +487,9 @@ class TestWhatThePlayersSee:
 
     @pytest.mark.xfail(reason=CHUNK)
     def test_the_players_see_the_same_whether_the_hide_passed_or_failed(self):
-        """The same battle with Sable at level 1 and at level 14, where one d% roll fails 10% and passes 99%.
+        """The same battle with Sable at level 1 and at level 14, where a hide passes 10% and 99% of the time.
+
+        The same d% roll from the same draw passes at level 1 on 1 to 10 and at level 14 on 1 to 99.
 
         The two battles differ from the start only in what Sable's level sets on the sheet. After the hide round,
         and in the attack round up to Sable's attack, every player-visible event is the same, and the player view
@@ -494,6 +541,23 @@ def _differing_paths(first, second, path: str = "") -> set[str]:
 # ---------------------------------------------------------------------- the rolls and the two settings
 
 
+def _d100s_between(start: RngStreamState, end: RngStreamState, *, limit: int = 2000) -> set[int]:
+    """Every d100 a stream at `start` would give from each raw position before it reaches `end`."""
+    stepper = RngStream.restore(start)
+    positions = 0
+    while stepper.export_state() != end:
+        stepper.next_uint64()
+        positions += 1
+        assert positions < limit, "the end state isn't reachable from the start state"
+    rolls = set()
+    for skip in range(positions):
+        stream = RngStream.restore(start)
+        for _ in range(skip):
+            stream.next_uint64()
+        rolls.add(stream.randbelow(100) + 1)
+    return rolls
+
+
 def _hide_then_stab(seed: int, ruleset: Ruleset, **battle_args):
     """Play a hide round and then a back-stab round from the first battle at or after `seed`.
 
@@ -530,23 +594,29 @@ class TestTheRolls:
     """Each roll's time, stream, and visibility, and how each setting combines them."""
 
     @pytest.mark.xfail(reason=CHUNK)
-    def test_the_hide_draws_from_the_combat_stream_alone(self):
-        """The same battle with Sable hiding and with Sable holding: only the combat stream differs after the round.
+    @pytest.mark.parametrize("first_seed", [0, 7, 10, 22, 31])
+    def test_the_hide_draws_from_the_combat_stream_alone(self, first_seed):
+        """The same battle with Sable hiding and with Sable holding: no stream but the combat stream differs.
 
         Sable stands in the second rank, so the goblins' choice of targets, on the monster action stream, is the
-        same whether Sable hid or not.
+        same whether Sable hid or not. The combat stream's final state can match the holding game's, because a
+        bounded draw discards a raw number now and then and the hide can land on one the holding game discards.
+        So the test finds the roll in the combat stream instead: some raw position between the stream's state
+        before the round and its state after it gives the roll as a d100. The seeds include the ones on which the
+        two final states match.
         """
-        hiding, holding = _battle(), _battle()
+        hiding, holding = _battle(first_seed=first_seed), _battle(first_seed=first_seed)
         assert _streams(hiding) == _streams(holding), "precondition: identical setups"
+        before = hiding.streams.get(COMBAT_STREAM).export_state()
 
-        _play(hiding, _hide(hiding))
+        (roll,) = _rolls(_play(hiding, _hide(hiding)), "hide_in_shadows", _sable(hiding))
         _play(holding)
 
         hid, held = _streams(hiding), _streams(holding)
-        assert hid[COMBAT_STREAM] != held[COMBAT_STREAM]
         assert {key: value for key, value in hid.items() if key != COMBAT_STREAM} == {
             key: value for key, value in held.items() if key != COMBAT_STREAM
         }
+        assert roll.roll in _d100s_between(before, hiding.streams.get(COMBAT_STREAM).export_state())
 
     @pytest.mark.xfail(reason=CHUNK)
     def test_a_back_stab_from_hiding_rolls_move_silently_before_its_attack(self):
@@ -614,17 +684,45 @@ class TestTheRolls:
                 _play(game)
             else:
                 _play(game, *(_declare(member, "attack", target_group_id=group.id) for member in fighters))
-        record = {
-            "events": [event.model_dump(mode="json") for event in game.event_log],
-            "streams": _streams(game),
-        }
-        digest = hashlib.sha256(json.dumps(record, sort_keys=True).encode()).hexdigest()
 
-        assert (game.master_seed, digest) == NO_HIDE_DIGEST
+        assert (game.master_seed, _digest(game)) == NO_HIDE_DIGEST
+
+    @pytest.mark.parametrize(
+        ("battle_args", "rounds", "expected"),
+        [
+            ({"npc_party": True, "count": 3, "distance_feet": 30}, 4, "NO_HIDE_NPC_DIGEST"),
+            ({"template_id": "red_dragon", "count": 1, "distance_feet": 20}, 3, "NO_HIDE_BREATH_DIGEST"),
+        ],
+        ids=["npc-party", "red-dragon"],
+    )
+    def test_other_battles_with_no_hide_draw_as_they_did_before_the_chunk(self, battle_args, rounds, expected):
+        """Guards like the goblin fight's: a basic NPC party 30' away, and a red dragon that breathes from 20' away.
+
+        Every member holds each round, from the seed `_battle` takes, and the digests were taken on `main` at
+        6a508af by the same steps. The NPC adventurers shoot, cast, and close by `NpcPartyPolicy`, and the dragon
+        breathes on the party's ranks, so both pass through the target choices that hiding changes.
+        """
+        game = _battle(**battle_args)
+        for _ in range(rounds):
+            if game.mode is not SessionMode.BATTLE:
+                break
+            _play(game)
+
+        assert (game.master_seed, _digest(game)) == globals()[expected]
+
+
+def _digest(game: GameSession) -> str:
+    """The SHA-256 of a session's event log and every stream's state, as the no-hide guards pin it."""
+    record = {"events": [event.model_dump(mode="json") for event in game.event_log], "streams": _streams(game)}
+    return hashlib.sha256(json.dumps(record, sort_keys=True).encode()).hexdigest()
 
 
 NO_HIDE_DIGEST = (0, "b4320e255c2e7ad618638ebc322949863b223ccf102d641f477b27d424a4fc59")
-"""The seed `_battle` takes and the digest of the no-hide battle, taken on `main` at 6a508af."""
+"""The seed `_battle` takes and the digest of the no-hide goblin battle, taken on `main` at 6a508af."""
+NO_HIDE_NPC_DIGEST = (0, "707bfd5abdeba613386d6dcd4ea70e0b24b87c4acf8cdb15eb2e89934bd2a610")
+"""The seed and the digest of the no-hide battle against a basic NPC party, taken on `main` at 6a508af."""
+NO_HIDE_BREATH_DIGEST = (0, "240574ae1c4b66e009adf18d41bb4510f7a52b1db0298cde9799cc831892b439")
+"""The seed and the digest of the no-hide battle against a red dragon, taken on `main` at 6a508af."""
 
 
 # ---------------------------------------------------------------------- the arithmetic
@@ -792,7 +890,8 @@ class TestWhatEndsTheAttempt:
     def test_damage_ends_the_attempt(self):
         """A red dragon's breath covers the party's ranks from the front, Sable's second rank among them.
 
-        The test takes a seed in which the party acts first, so Sable hides before the dragon breathes.
+        The test takes a seed in which the party acts first, so Sable hides before the dragon breathes, and in which
+        the hide in shadows roll passed, so the area covers a thief the monsters can't pick.
         """
         seed = SEEDS.start
         while seed < SEEDS.stop:
@@ -802,6 +901,8 @@ class TestWhatEndsTheAttempt:
             events = _play(game, _hide(game))
             initiative = next(event for event in events if isinstance(event, InitiativeRolledEvent))
             if initiative.order[0] not in {member.id for member in game.party.members}:
+                continue
+            if not _rolls(events, "hide_in_shadows", sable)[0].passed:
                 continue
             burned = [event for event in events if isinstance(event, DamageDealtEvent) and event.target_id == sable]
             if not burned:
@@ -876,6 +977,20 @@ class TestSavesAndReplays:
             event.model_dump(mode="json") for event in reloaded
         ]
 
+    def test_a_save_with_no_hiding_key_loads_with_nobody_hiding(self):
+        """A guard: a battle saved before `BattleState.hiding` existed loads with the field empty."""
+        game = _battle()
+        _play(game)
+        document = json.loads(json.dumps(save_game(game)))
+        battle = document["payload"]["battle"]
+        assert "hiding" in battle, "precondition: the save carries the field to remove"
+        del battle["hiding"]
+
+        restored = load_game(document)
+
+        assert restored.battle.hiding == {}
+        assert _encounter(restored).hiding == ()
+
     @pytest.mark.xfail(reason=CHUNK)
     @pytest.mark.parametrize("ruleset", [Ruleset(), HOUSE_RULE], ids=["default", "house"])
     def test_a_battle_with_a_hide_replays_from_its_command_log(self, ruleset):
@@ -891,6 +1006,441 @@ class TestSavesAndReplays:
             event.model_dump(mode="json") for event in game.event_log
         ]
         assert session_state(replayed) == session_state(game)
+
+
+# ---------------------------------------------------------------------- the approach and the timing of the attack
+
+
+def _initiative_party_first(game: GameSession, events) -> bool:
+    initiative = next(event for event in events if isinstance(event, InitiativeRolledEvent))
+    return initiative.order[0] in {member.id for member in game.party.members}
+
+
+def _fizzles_by(events, member_id: str) -> list[DeclarationFizzledEvent]:
+    return [event for event in events if isinstance(event, DeclarationFizzledEvent) and event.actor_id == member_id]
+
+
+class TestTheApproach:
+    """A back-stab from hiding needs a group within reach, and a `close` on it is part of the approach."""
+
+    def _hidden_far(self):
+        """Sable hidden after one round against goblins that started 40' away, with the goblins still out of reach."""
+        game = _battle(distance_feet=40)
+        sable = _sable(game)
+        _play(game, _hide(game))
+        assert _encounter(game).hiding == (sable,), "precondition: Sable is hiding"
+        distance = _encounter(game).groups[0].member_distance_feet[sable]
+        rate = next(member for member in game.view(Visibility.PLAYER).party if member.id == sable).encounter_rate_feet
+        assert 5 < distance <= rate + 5, "precondition: out of reach, and within a close of Sable's rate"
+        return game, sable, distance
+
+    @pytest.mark.xfail(reason=CHUNK)
+    def test_a_back_stab_from_hiding_at_a_group_out_of_reach_is_refused(self):
+        game, sable, distance = self._hidden_far()
+
+        assert _refused(game, _stab(game)) == [
+            ("combat.attack.out_of_reach", {"distance_feet": distance, "character": sable})
+        ]
+
+    @pytest.mark.xfail(reason=CHUNK)
+    def test_a_close_with_a_back_stab_from_hiding_keeps_the_attempt_to_the_attack(self):
+        game, sable, _ = self._hidden_far()
+        stab = _declare(sable, "attack", target_group_id=_group_id(game), back_stab=True, move="close")
+
+        events = _play(game, stab)
+
+        (move_roll,) = _rolls(events, "move_silently", sable)
+        (attack,) = _attacks_by(events, sable)
+        assert _index(events, move_roll) < _index(events, attack)
+        assert not _fizzles_by(events, sable)
+        moves = [event for event in events if isinstance(event, MemberMovedEvent) and event.character_id == sable]
+        assert all(_index(events, move) < _index(events, move_roll) for move in moves)
+        if game.mode is SessionMode.BATTLE:
+            assert _encounter(game).hiding == ()
+            if moves:
+                assert _encounter(game).advance_feet[sable] == moves[-1].advance_feet, "Sable stays where she closed"
+
+    @pytest.mark.xfail(reason=CHUNK)
+    def test_a_slow_back_stab_from_hiding_rolls_after_the_monsters_and_is_passed_over_until_then(self):
+        """Sable swings a battle axe, which is slow, from beside Hild in the goblins' reach.
+
+        The monsters' block comes before a slow blow whichever side wins initiative, so every goblin attack of the
+        round comes before the move silently roll, and none of them is on Sable, whose hide in shadows passed.
+        """
+        game, _ = _hidden(passed=True, weapons=("battle_axe",))
+        sable, hild = _sable(game), _named(game, "Hild")
+        _play(game, _withdraw(game, "Brakk"))
+        assert set(_encounter(game).groups[0].front_rank) == {sable, hild}, "precondition: Sable beside Hild"
+        assert _encounter(game).hiding == (sable,), "precondition: Sable is still hiding"
+
+        events = _play(game, _stab(game))
+
+        (move_roll,) = _rolls(events, "move_silently", sable)
+        (attack,) = _attacks_by(events, sable)
+        goblin_attacks = [event for event in events if isinstance(event, AttackRolledEvent) and event is not attack]
+        assert goblin_attacks, "precondition: the goblins attacked this round"
+        assert all(_index(events, event) < _index(events, move_roll) for event in goblin_attacks)
+        assert _index(events, move_roll) < _index(events, attack)
+        assert not _attacks_on(events, sable)
+
+    @pytest.mark.xfail(reason=CHUNK)
+    def test_a_hasted_back_stab_from_hiding_rolls_once_and_both_swings_agree(self):
+        """Under *haste*, as in the free round, every swing of a back-stab declaration is a back-stab or none is."""
+        for combination, (seed, _, _) in _combinations(Ruleset()).items():
+            game = _battle(first_seed=seed)
+            sable = _sable(game)
+            (hide_roll,) = _rolls(_play(game, _hide(game)), "hide_in_shadows", sable)
+            effect, _ = game.ledger.attach(
+                HASTE, sable, clock=game.clock, allocator=game.allocator, registry=game.registry()
+            )
+            assert effect is not None
+
+            events = _play(game, _stab(game))
+
+            (move_roll,) = _rolls(events, "move_silently", sable)
+            swings = _attacks_by(events, sable)
+            assert len(swings) == 2, "precondition: haste gave Sable two swings"
+            assert _index(events, move_roll) < _index(events, swings[0])
+            expected = BOTH_NEEDED[(hide_roll.passed, move_roll.passed)]
+            assert [swing.back_stab for swing in swings] == [expected] * 2, combination
+
+
+HASTE = EffectDefinition(kind="haste", params={"attacks_multiplier": 2, "movement_multiplier": 2})
+
+
+class TestAnAttemptThatEndsBeforeTheAttack:
+    """A back-stab accepted from hiding whose attempt ends before it comes up is an ordinary attack, unrefused."""
+
+    @pytest.mark.xfail(reason=CHUNK)
+    def test_damage_before_the_attack_leaves_an_ordinary_attack_from_the_second_rank(self):
+        """A red dragon 5' away breathes before Sable hides, and again before her back-stab comes up.
+
+        The dragon opens with its breath, so a round-one hide that comes after the dragon's turn leaves Sable hiding.
+        In round two the dragon acts first again and breathes on the ranks, which damages Sable in the second rank.
+        """
+        seed = SEEDS.start
+        while seed < SEEDS.stop:
+            game = _battle(first_seed=seed, template_id="red_dragon", count=1, distance_feet=5)
+            seed = game.master_seed + 1
+            sable = _sable(game)
+            first = _play(game, _hide(game))
+            if _initiative_party_first(game, first) or _encounter(game).hiding != (sable,):
+                continue
+            assert sable not in _encounter(game).groups[0].front_rank, "precondition: Sable in the second rank"
+            events = _play(game, _stab(game))
+            burned = [event for event in events if isinstance(event, DamageDealtEvent) and event.target_id == sable]
+            attacks = _attacks_by(events, sable)
+            if _initiative_party_first(game, events) or not burned or not attacks:
+                continue
+
+            assert _index(events, burned[0]) < _index(events, attacks[0])
+            assert not _rolls(events, "move_silently", sable)
+            assert [attack.back_stab for attack in attacks] == [False] * len(attacks)
+            assert not _fizzles_by(events, sable)
+            return
+        raise AssertionError("precondition: no seed's dragon breathed on Sable before her back-stab came up")
+
+    @pytest.mark.xfail(reason=CHUNK)
+    def test_an_attack_on_the_thief_before_the_back_stab_leaves_an_ordinary_attack(self):
+        """Both fighters fall back while the goblins act first, and in the next round the goblins find Sable first."""
+        for game, _ in _hidden_seeds(passed=True):
+            sable = _sable(game)
+            withdrawal = _play(game, _withdraw(game, "Brakk"), _withdraw(game, "Hild"))
+            if _initiative_party_first(game, withdrawal) or _encounter(game).hiding != (sable,):
+                continue
+            assert _encounter(game).groups[0].front_rank == (sable,), "precondition: Sable alone in reach"
+            events = _play(game, _stab(game))
+            if _initiative_party_first(game, events):
+                continue
+            found = _attacks_on(events, sable)
+            attacks = _attacks_by(events, sable)
+            assert found and attacks, "precondition: the goblins attacked Sable, and Sable attacked"
+
+            assert _index(events, found[0]) < _index(events, attacks[0])
+            assert not _rolls(events, "move_silently", sable)
+            assert [attack.back_stab for attack in attacks] == [False] * len(attacks)
+            return
+        raise AssertionError("precondition: no seed let the goblins act first in both rounds")
+
+
+# ---------------------------------------------------------------------- the other declarations that end an attempt
+
+
+class TestTheOtherDeclarationsThatEndAnAttempt:
+    """Each declaration other than `hold` or `hide` that a thief can make ends the attempt when it comes up.
+
+    A thief has no spells and can't turn undead, and no built-in class with thief skills can, so `cast` and
+    `turn_undead` aren't reachable here.
+    """
+
+    @pytest.mark.xfail(reason=CHUNK)
+    def test_drinking_a_potion_ends_the_attempt(self):
+        game = _battle(items=("potion_of_healing",))
+        sable = _sable(game)
+        potion = next(item.instance_id for item in game.member(sable).inventory.items if hasattr(item, "instance_id"))
+        _play(game, _hide(game))
+        assert _encounter(game).hiding == (sable,), "precondition: Sable is hiding"
+
+        _play(game, _declare(sable, "use_item", item_id=potion))
+
+        assert _encounter(game).hiding == ()
+
+    @pytest.mark.xfail(reason=CHUNK)
+    def test_handing_over_an_item_ends_the_attempt(self):
+        game = _battle(items=("oil_flask",))
+        sable, hild = _sable(game), _named(game, "Hild")
+        _play(game, _hide(game))
+        assert _encounter(game).hiding == (sable,), "precondition: Sable is hiding"
+
+        _play(game, _declare(sable, "give_item", item_id="oil_flask", targets=(hild,)))
+
+        assert _encounter(game).hiding == ()
+
+    @pytest.mark.xfail(reason=CHUNK)
+    def test_a_missile_attack_without_back_stab_ends_the_attempt(self):
+        """A missile attack takes no rank check, so it's legal from the second rank."""
+        game = _battle(weapons=("short_bow",), items=("arrows",))
+        sable = _sable(game)
+        _play(game, _hide(game))
+        assert _encounter(game).hiding == (sable,), "precondition: Sable is hiding"
+
+        events = _play(game, _declare(sable, "attack", target_group_id=_group_id(game), weapon_id="short_bow"))
+
+        assert _attacks_by(events, sable), "precondition: Sable shot"
+        assert not _rolls(events, "move_silently", sable)
+        assert _encounter(game).hiding == ()
+
+    @pytest.mark.xfail(reason=CHUNK)
+    def test_an_npc_adventurers_attack_on_a_noticed_thief_ends_the_attempt(self):
+        """Sable's hide in shadows failed, and she stands beside Hild in the NPC party's reach or line of fire."""
+        for game, _ in _hidden_seeds(passed=False, npc_party=True, count=4, distance_feet=30):
+            sable = _sable(game)
+            npcs = set(game.encounter.groups[0].monster_ids)
+            events = _play(game, _withdraw(game, "Brakk"))
+            for _ in range(4):
+                aimed = [event for event in _attacks_on(events, sable) if event.attacker_id in npcs] + [
+                    event
+                    for event in events
+                    if isinstance(event, DamageDealtEvent) and event.target_id == sable and event.attacker_id in npcs
+                ]
+                if aimed:
+                    assert _encounter(game).hiding == ()
+                    return
+                if game.mode is not SessionMode.BATTLE or _encounter(game).hiding != (sable,):
+                    break
+                events = _play(game)
+        raise AssertionError("precondition: no seed's NPC adventurers attacked the noticed thief")
+
+
+# ---------------------------------------------------------------------- passing over a hidden thief
+
+
+def _beside_hild(*, passed: bool, **battle_args) -> tuple[GameSession, str, str]:
+    """Sable hidden, then Brakk fallen back alone, which leaves Sable beside Hild in the first row."""
+    game, _ = _hidden(passed=passed, **battle_args)
+    sable, hild = _sable(game), _named(game, "Hild")
+    _play(game, _withdraw(game, "Brakk"))
+    assert set(_encounter(game).front_rank) == {sable, hild}, "precondition: Sable in the first row beside Hild"
+    return game, sable, hild
+
+
+CONFUSION = EffectDefinition(
+    kind="confusion",
+    condition=Condition.CONFUSED,
+    params={"behaviour_dice": "2d6", "behaviour_table": ["2-12:attack_caster_group"], "resave_hd_min_count": 99},
+)
+"""A confusion whose behaviour roll always sends the monster at the party, and which the monster never re-saves."""
+
+
+def _attach(game: GameSession, definition: EffectDefinition, target_id: str) -> None:
+    effect, _ = game.ledger.attach(
+        definition, target_id, clock=game.clock, allocator=game.allocator, registry=game.registry()
+    )
+    assert effect is not None, "precondition: the effect attached"
+
+
+class TestPassingOverEverywhere:
+    """Every place a monster side picks one member passes over a hidden thief while another member can be picked."""
+
+    def _npc_targets(self, game: GameSession) -> list[str]:
+        """The members `NpcPartyPolicy` aims at over many choices, each from its own monster action stream."""
+        group = game.encounter.groups[0]
+        members = {member.id for member in game.party.members}
+        targets = []
+        for seed in range(40):
+            for action in NpcPartyPolicy().choose(game, group, RngStreams(master_seed=seed).get(MONSTER_ACTION_STREAM)):
+                if action.target_id in members:
+                    targets.append(action.target_id)
+        return targets
+
+    @pytest.mark.xfail(reason=CHUNK)
+    def test_npc_adventurers_pass_over_a_hidden_thief(self):
+        game, sable, _ = _beside_hild(passed=True, npc_party=True, count=4, distance_feet=30)
+
+        targets = self._npc_targets(game)
+
+        assert targets, "precondition: the NPC adventurers aim at someone"
+        assert sable not in targets
+
+    @pytest.mark.xfail(reason=CHUNK)
+    def test_npc_adventurers_can_pick_a_noticed_thief(self):
+        game, sable, _ = _beside_hild(passed=False, npc_party=True, count=4, distance_feet=30)
+
+        assert sable in self._npc_targets(game)
+
+    @pytest.mark.xfail(reason=CHUNK)
+    def test_a_confused_monster_passes_over_a_hidden_thief(self):
+        game, sable, hild = _beside_hild(passed=True)
+        for monster_id in game.encounter.groups[0].monster_ids:
+            _attach(game, CONFUSION, monster_id)
+
+        events = [event for _ in range(4) for event in _play(game)]
+
+        assert _attacks_on(events, hild), "precondition: the confused goblins attacked"
+        assert not _attacks_on(events, sable)
+        assert _encounter(game).hiding == (sable,)
+
+    @pytest.mark.xfail(reason=CHUNK)
+    def test_a_confused_monster_can_pick_a_noticed_thief(self):
+        game, sable, _ = _beside_hild(passed=False)
+        for monster_id in game.encounter.groups[0].monster_ids:
+            _attach(game, CONFUSION, monster_id)
+
+        events = [event for _ in range(4) for event in _play(game)]
+
+        assert _attacks_on(events, sable)
+
+    @pytest.mark.xfail(reason=CHUNK)
+    def test_a_breath_that_hits_one_member_passes_over_a_hidden_thief(self):
+        """A hellhound's breath hits one member of the first row, which allows a save, and its bite picks one too."""
+        game, sable, hild = _beside_hild(passed=True, template_id="hellhound_3", count=1)
+        events = []
+        for _ in range(12):
+            if game.mode is not SessionMode.BATTLE:
+                break
+            events += _play(game)
+        breaths = [event for event in events if isinstance(event, SavingThrowRolledEvent)]
+
+        assert breaths and {event.target_id for event in breaths} == {hild}, "precondition: the hellhound breathed"
+        assert not [event for event in events if getattr(event, "target_id", None) == sable]
+        assert not _attacks_on(events, sable)
+
+    @pytest.mark.xfail(reason=CHUNK)
+    def test_a_statue_is_passed_over_before_a_hidden_thief(self):
+        """With Hild turned to stone beside her, Sable is the only member the goblins could pick, so they find her."""
+        game, sable, hild = _beside_hild(passed=True)
+        _attach(game, STONE, hild)
+
+        events = _play(game)
+
+        assert _attacks_on(events, sable)
+        assert not _attacks_on(events, hild)
+        assert _encounter(game).hiding == ()
+
+
+STONE = EffectDefinition(kind="petrification", permanent=True, condition=Condition.PETRIFIED)
+
+
+# ---------------------------------------------------------------------- previews, order, and the free round
+
+
+class TestPreviewsOrderAndTheFreeRound:
+    """The preview judges a hide as the round does, thieves hide in marching order, and a hide works in any round."""
+
+    @pytest.mark.xfail(reason=CHUNK)
+    def test_the_preview_refuses_a_hide_from_the_front_rank_as_the_round_does(self):
+        game = _battle(roster=DUO)
+        sable = _sable(game)
+        before = _state_without_logs(game)
+
+        preview = preview_battle_round(game, [_hide(game)])
+
+        assert _state_without_logs(game) == before
+        assert [(r.code, dict(r.params)) for r in preview.rejections.get(sable, ())] == [
+            (IN_FRONT_RANK, {"character": sable})
+        ]
+        assert _refused(game, _hide(game)) == [(IN_FRONT_RANK, {"character": sable})]
+
+    @pytest.mark.xfail(reason=CHUNK)
+    def test_the_preview_accepts_a_hide_and_a_back_stab_from_hiding_and_changes_nothing(self):
+        game = _battle()
+        before = _state_without_logs(game)
+        assert not any(preview_battle_round(game, [_hide(game)]).rejections.values())
+        assert _state_without_logs(game) == before
+
+        _play(game, _hide(game))
+        before = _state_without_logs(game)
+
+        assert not any(preview_battle_round(game, [_stab(game)]).rejections.values())
+        assert _state_without_logs(game) == before
+
+    @pytest.mark.xfail(reason=CHUNK)
+    def test_two_thieves_hide_in_marching_order_whatever_order_they_declare_in(self):
+        game = _battle(roster=(*TRIO, ("Wren", "thief")))
+        sable, wren = _sable(game), _named(game, "Wren")
+        assert _encounter(game).can_hide == (sable, wren), "precondition: both thieves stand in the second rank"
+
+        events = _play(game, _hide(game, wren), _hide(game, sable))
+
+        rolls = [event.character_id for event in events if isinstance(event, DetectionRolledEvent)]
+        attempts = [event.character_id for event in events if isinstance(event, HideAttemptedEvent)]
+        assert rolls == attempts == [sable, wren]
+        assert _encounter(game).hiding == (sable, wren)
+
+    @pytest.mark.xfail(reason=CHUNK)
+    def test_a_thief_can_hide_in_the_free_round_and_back_stab_from_hiding_after_it(self):
+        game = _battle(monsters_surprised=True)
+        sable = _sable(game)
+
+        hide_events = _play(game, _hide(game))
+        assert game.battle.monsters_hold_rounds == 0, "precondition: the free round is over"
+        events = _play(game, _stab(game))
+
+        assert len(_rolls(hide_events, "hide_in_shadows", sable)) == 1
+        assert len(_rolls(events, "move_silently", sable)) == 1
+        assert len(_attacks_by(events, sable)) == 1
+
+    @pytest.mark.xfail(reason=CHUNK)
+    def test_a_battle_that_ends_in_the_round_of_the_hide_leaves_nobody_hiding(self):
+        """The fighters kill the lone goblin in the round Sable hides, and the next battle starts with nobody hiding."""
+        seed = SEEDS.start
+        while seed < SEEDS.stop:
+            game = _battle(first_seed=seed, count=1)
+            seed = game.master_seed + 1
+            fighters = [_named(game, name) for name in ("Brakk", "Hild")]
+            events = _play(
+                game, _hide(game), *(_declare(member, "attack", target_group_id=_group_id(game)) for member in fighters)
+            )
+            if game.battle is not None:
+                continue
+            assert [event.character_id for event in events if isinstance(event, HideAttemptedEvent)] == [_sable(game)]
+
+            assert game.execute(SpawnMonsters(template_id="goblin", count_fixed=1, distance_feet=5)).accepted
+            if game.mode is SessionMode.ENCOUNTER:
+                assert game.execute(EngageBattle()).accepted
+            assert game.mode is SessionMode.BATTLE, "precondition: a new battle"
+            assert game.battle.hiding == {}
+            assert _encounter(game).hiding == ()
+            return
+        raise AssertionError("precondition: no seed's fighters ended the battle in the round of the hide")
+
+
+# ---------------------------------------------------------------------- confusion ends the attempt
+
+
+class TestConfusionEndsTheAttempt:
+    @pytest.mark.xfail(reason=CHUNK)
+    def test_a_hiding_thief_who_is_confused_at_the_end_of_a_round_stops_hiding(self):
+        game = _battle()
+        sable = _sable(game)
+        _play(game, _hide(game))
+        assert _encounter(game).hiding == (sable,), "precondition: Sable is hiding"
+        _attach(game, CONFUSION, sable)
+
+        _play(game)
+
+        assert _encounter(game).hiding == ()
+        assert game.battle.hiding == {}
 
 
 # ---------------------------------------------------------------------- the formatter

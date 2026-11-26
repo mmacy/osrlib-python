@@ -433,7 +433,9 @@ class DetectionRolledEvent(Event):
     chance: int
     """The number the roll had to come in at or under. The listening, search, and trap-spring
     kinds are X-in-6 chances rolled on a d6. The thief skills `open_locks`, `treasure_traps`,
-    `hide_in_shadows`, and `move_silently` are percentages rolled on d100."""
+    `hide_in_shadows`, and `move_silently` are percentages rolled on d100. The default message
+    from [`format_message`][osrlib.messages.format_message] gives a percentage as one, like
+    `38 vs 45%`, and an X-in-6 chance as one, like `1 vs 2-in-6`."""
     roll: int | None = None
     """What came up, or `None` when the chance was zero and no die was rolled, as for a character
     with no chance at all of noticing construction tricks."""

@@ -566,8 +566,9 @@ class BattleState(_Model):
     pick another member, and a policy of your own reads this to do the same. A member whose value is
     false has been noticed, and the monsters can pick them. Under the ruleset's
     [`back_stab_needs_both_skills`][osrlib.core.ruleset.Ruleset.back_stab_needs_both_skills] flag off,
-    such a member can still back-stab if the move silently roll passes. The field starts empty with each
-    battle, and a save from before it existed loads with nobody hiding."""
+    such a member can still back-stab if the move silently roll passes. Both rolls draw from the
+    [`COMBAT_STREAM`][osrlib.core.combat.COMBAT_STREAM]. The field starts empty with each battle, and a
+    save from before it existed loads with nobody hiding."""
 
 
 class MonsterAction(_Model):
