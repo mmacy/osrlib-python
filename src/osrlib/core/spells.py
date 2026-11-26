@@ -1395,30 +1395,14 @@ def memorize_spells(
         except ValueError:
             rejections.append(Rejection(code="magic.memorize.unknown_spell", params={"spell": selection.spell_id}))
             continue
-        if template.spell_list != profile.spell_list:
-            rejections.append(
-                Rejection(
-                    code="magic.memorize.wrong_list",
-                    params={"spell": selection.spell_id, "list": template.spell_list},
-                )
-            )
+        rejection = _selection_rejection(caster, profile, template, selection)
+        if rejection is not None:
+            rejections.append(rejection)
             continue
-        if profile.kind == "divine" and selection.reversed:
-            rejections.append(
-                Rejection(code="magic.memorize.divine_reverses_at_cast", params={"spell": selection.spell_id})
-            )
-            continue
-        if profile.kind == "arcane":
-            if selection.spell_id not in getattr(caster, "spell_book", ()):
-                rejections.append(Rejection(code="magic.memorize.not_in_book", params={"spell": selection.spell_id}))
-                continue
-            if selection.reversed and template.reversed_form is None:
-                rejections.append(Rejection(code="magic.memorize.not_reversible", params={"spell": selection.spell_id}))
-                continue
         counts[template.level] = counts.get(template.level, 0) + 1
     slots = definition.row(caster.level).spell_slots
     for spell_level, count in sorted(counts.items()):
-        allowed = slots[spell_level - 1] if spell_level <= len(slots) else 0
+        allowed = _slot_count(slots, spell_level)
         if count > allowed:
             rejections.append(
                 Rejection(
@@ -1434,6 +1418,52 @@ def memorize_spells(
         prepared=tuple(PreparedSpell(spell_id=copy.spell_id, reversed=copy.reversed) for copy in selections),
     )
     return MemorizationResult(events=(event,))
+
+
+def _slot_count(slots: Sequence[int], spell_level: int) -> int:
+    """Return a progression row's slot count at a spell level, which is 0 past the end of the row."""
+    return slots[spell_level - 1] if spell_level <= len(slots) else 0
+
+
+def _selection_rejection(
+    caster: Caster, profile: CasterProfile, template: SpellTemplate, selection: MemorizedSpell
+) -> Rejection | None:
+    """Return why `memorize_spells` refuses one copy for its spell and its form, or None when it doesn't.
+
+    These are the checks of a single copy against the caster, once the spell is known to be in the catalog. The
+    slot counts are checked over the whole selection, with `_slot_count`.
+    """
+    if template.spell_list != profile.spell_list:
+        return Rejection(
+            code="magic.memorize.wrong_list", params={"spell": selection.spell_id, "list": template.spell_list}
+        )
+    if profile.kind == "divine" and selection.reversed:
+        return Rejection(code="magic.memorize.divine_reverses_at_cast", params={"spell": selection.spell_id})
+    if profile.kind == "arcane":
+        if selection.spell_id not in getattr(caster, "spell_book", ()):
+            return Rejection(code="magic.memorize.not_in_book", params={"spell": selection.spell_id})
+        if selection.reversed and template.reversed_form is None:
+            return Rejection(code="magic.memorize.not_reversible", params={"spell": selection.spell_id})
+    return None
+
+
+def _preparable_spell_ids(caster: Caster, definition: ClassDefinition, catalog: SpellCatalog) -> tuple[str, ...]:
+    """Return the ids of the spells `memorize_spells` accepts one normal-form copy of, in the catalog's order.
+
+    A spell is here exactly when that one-copy selection gets none of the rejections that belong to the spell and
+    the caster: `not_a_caster`, `unknown_spell`, `wrong_list`, `not_in_book`, and `slots_exceeded`. Every spell in
+    the catalog is known, and one copy exceeds the slots at its level only when there are none.
+    """
+    profile = caster_profile(definition)
+    if profile is None:
+        return ()
+    slots = definition.row(caster.level).spell_slots
+    return tuple(
+        template.id
+        for template in catalog.spells
+        if _slot_count(slots, template.level) > 0
+        and _selection_rejection(caster, profile, template, MemorizedSpell(spell_id=template.id)) is None
+    )
 
 
 class SpellBookResult(_Model):
@@ -1615,35 +1645,64 @@ def add_spell_to_book(
         assert [rejection.code for rejection in refused.rejections] == ["magic.book.wrong_list"]
         ```
     """
+    rejection = _book_rejection(caster, definition, catalog, spell_id)
+    if rejection is not None:
+        return SpellBookResult(rejections=(rejection,))
+    caster.spell_book = (*caster.spell_book, spell_id)
+    return SpellBookResult(events=(SpellBookUpdatedEvent(caster_id=_entity_id(caster), spell_id=spell_id),))
+
+
+def _book_rejection(
+    caster: Caster,
+    definition: ClassDefinition,
+    catalog: SpellCatalog,
+    spell_id: str,
+    *,
+    open_slots: tuple[int, ...] | None = None,
+) -> Rejection | None:
+    """Return why `add_spell_to_book` refuses a spell, or None when it accepts it.
+
+    The checks run in a fixed order and stop at the first that fails. `open_slots` is the caster's
+    `open_book_capacity`, which a caller checking many spells against one book passes so that it's computed once.
+    Without it, the capacity is computed only for a spell that passes every earlier check.
+    """
     profile = caster_profile(definition)
     if profile is None or profile.kind != "arcane":
-        return SpellBookResult(rejections=(Rejection(code="magic.book.not_arcane", params={"class": definition.id}),))
+        return Rejection(code="magic.book.not_arcane", params={"class": definition.id})
     try:
         template = catalog.get(spell_id)
     except ValueError:
-        return SpellBookResult(rejections=(Rejection(code="magic.book.unknown_spell", params={"spell": spell_id}),))
+        return Rejection(code="magic.book.unknown_spell", params={"spell": spell_id})
     if template.spell_list != profile.spell_list:
-        return SpellBookResult(
-            rejections=(
-                Rejection(code="magic.book.wrong_list", params={"spell": spell_id, "list": template.spell_list}),
-            )
-        )
+        return Rejection(code="magic.book.wrong_list", params={"spell": spell_id, "list": template.spell_list})
     if spell_id in caster.spell_book:
-        return SpellBookResult(rejections=(Rejection(code="magic.book.duplicate", params={"spell": spell_id}),))
-    open_slots = open_book_capacity(caster, definition, catalog)
+        return Rejection(code="magic.book.duplicate", params={"spell": spell_id})
+    if open_slots is None:
+        open_slots = open_book_capacity(caster, definition, catalog)
     if template.level > len(open_slots) or open_slots[template.level - 1] == 0:
-        slots = definition.row(caster.level).spell_slots
-        capacity = slots[template.level - 1] if template.level <= len(slots) else 0
-        return SpellBookResult(
-            rejections=(
-                Rejection(
-                    code="magic.book.capacity_exceeded",
-                    params={"spell": spell_id, "spell_level": template.level, "capacity": capacity},
-                ),
-            )
+        capacity = _slot_count(definition.row(caster.level).spell_slots, template.level)
+        return Rejection(
+            code="magic.book.capacity_exceeded",
+            params={"spell": spell_id, "spell_level": template.level, "capacity": capacity},
         )
-    caster.spell_book = (*caster.spell_book, spell_id)
-    return SpellBookResult(events=(SpellBookUpdatedEvent(caster_id=_entity_id(caster), spell_id=spell_id),))
+    return None
+
+
+def _learnable_spell_ids(caster: Caster, definition: ClassDefinition, catalog: SpellCatalog) -> tuple[str, ...]:
+    """Return the ids of the spells `add_spell_to_book` accepts, in the catalog's order.
+
+    It's empty for a class with no spell book. Like `open_book_capacity`, it raises `ValueError` when the book has a
+    spell that isn't in `catalog`.
+    """
+    profile = caster_profile(definition)
+    if profile is None or profile.kind != "arcane":
+        return ()
+    open_slots = open_book_capacity(caster, definition, catalog)
+    return tuple(
+        template.id
+        for template in catalog.spells
+        if _book_rejection(caster, definition, catalog, template.id, open_slots=open_slots) is None
+    )
 
 
 def forget_excess_memorized(caster: Caster, definition: ClassDefinition, catalog: SpellCatalog) -> list[Event]:

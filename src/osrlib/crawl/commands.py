@@ -1658,7 +1658,14 @@ class PrepareSpells(Command):
     to memorize more than one copy of it. The number at each spell level has to fit the
     caster's slots at that level, and an empty tuple clears the list. The caster's current
     list is in
-    [`MemberView.memorized_spells`][osrlib.crawl.views.MemberView.memorized_spells]."""
+    [`MemberView.memorized_spells`][osrlib.crawl.views.MemberView.memorized_spells].
+
+    Choose the spells from
+    [`MemberView.preparable_spells`][osrlib.crawl.views.MemberView.preparable_spells], which lists
+    every spell the session accepts for this caster. Group it by
+    [`PlayerView.spell_levels`][osrlib.crawl.views.PlayerView.spell_levels], and at each spell level
+    select no more copies than the count there in
+    [`MemberView.spell_slots`][osrlib.crawl.views.MemberView.spell_slots]."""
 
 
 class LearnSpell(Command):
@@ -1703,7 +1710,9 @@ class LearnSpell(Command):
     built-in spell (see the
     [spell id index](https://mmacy.github.io/osrlib-python/reference/content-ids/spells/)) or one
     the adventure bundles. It has to be on the spell list of the caster's class. At each spell
-    level, no more spells fit in the book than the caster has slots at that level."""
+    level, no more spells fit in the book than the caster has slots at that level.
+    [`MemberView.learnable_spells`][osrlib.crawl.views.MemberView.learnable_spells] lists every
+    spell id the session accepts for this caster, so build a learn dialog from it."""
 
 
 class CastSpell(Command):

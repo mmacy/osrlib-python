@@ -1561,7 +1561,7 @@ def build_player_view(session) -> PlayerView:
         for member_id, state in session.deprivation.items()
         if state.worst > 0
     }
-    spell_names, reversed_spell_names = _spell_names(session, members, effects)
+    spell_names, reversed_spell_names, spell_levels = _spell_names(session, members, effects)
     return PlayerView(
         adventure_name=session.adventure.name,
         adventure_description=session.adventure.description,
@@ -1585,6 +1585,7 @@ def build_player_view(session) -> PlayerView:
         effects=effects,
         spell_names=spell_names,
         reversed_spell_names=reversed_spell_names,
+        spell_levels=spell_levels,
         fatigued=fatigued,
         exhausted=exhausted,
         deprivation=deprivation,
@@ -1594,25 +1595,34 @@ def build_player_view(session) -> PlayerView:
     )
 
 
-def _spell_names(session, members, effects) -> tuple[dict[str, str], dict[str, str]]:
-    # Only the ids the view already shows are named, so a scroll's spells stay hidden. An id the
-    # session's catalog lacks, and an effect kind that is no spell's id, get no entry.
+def _spell_names(session, members, effects) -> tuple[dict[str, str], dict[str, str], dict[str, int]]:
+    """The view's `spell_names`, `reversed_spell_names`, and `spell_levels`, for the spell ids the view shows.
+
+    Only the ids the view already shows are named: those in the members' books, memorized copies, and the two lists
+    of what each member may prepare or learn, and the effect kinds. So a spell that the members can't choose stays
+    hidden, such as one on a scroll or one on a list that the party's classes don't cast from. An id the session's
+    catalog lacks, and an effect kind that is no spell's id, get no entry.
+    """
     catalog = {spell.id: spell for spell in session.effective_spells.spells}
     shown = [
         *(spell_id for member in members for spell_id in member.spell_book),
         *(copy["spell_id"] for member in members for copy in member.memorized_spells),
         *(effect.kind for effect in effects),
+        *(spell_id for member in members for spell_id in member.preparable_spells),
+        *(spell_id for member in members for spell_id in member.learnable_spells),
     ]
     names: dict[str, str] = {}
     reversed_names: dict[str, str] = {}
+    levels: dict[str, int] = {}
     for spell_id in shown:
         spell = catalog.get(spell_id)
         if spell is None or spell_id in names:
             continue
         names[spell_id] = spell.name
+        levels[spell_id] = spell.level
         if spell.reversed_form is not None:
             reversed_names[spell_id] = spell.reversed_form.name
-    return names, reversed_names
+    return names, reversed_names, levels
 
 
 def _quest_views(session):
@@ -1857,6 +1867,8 @@ def _canonical_edge(cell: Position, direction: Direction) -> str:
 
 def _member_view(session, member) -> MemberView:
     """One member's sheet, read from the live character."""
+    from osrlib.crawl._spells import _learnable_spells, _preparable_spells
+
     definition = member.definition
     thief_skills = {}
     if definition.thief_skills:
@@ -1896,6 +1908,9 @@ def _member_view(session, member) -> MemberView:
         movement_rate_feet=member.movement_rate(session.ruleset),
         languages=member.languages,
         spell_book=member.spell_book,
+        spell_slots=definition.row(member.level).spell_slots,
+        preparable_spells=_preparable_spells(session, member),
+        learnable_spells=_learnable_spells(session, member),
         thief_skills=thief_skills,
     )
 
