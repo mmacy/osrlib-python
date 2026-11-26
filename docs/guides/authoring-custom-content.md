@@ -761,6 +761,121 @@ Item bundling has specific scope rules:
 - **Character creation**: [`create_character`][osrlib.core.character.create_character] resolves `purchases` against `load_equipment()` before any session exists, raising `ValueError` for bundled IDs. Purchase built-in starting gear at creation and grant or place bundled items during play.
 - **Class weapon and armour allowlists**: Built-in classes whose [`WeaponPolicy`][osrlib.core.classes.WeaponPolicy] uses `kind="allowed"` (such as cleric and magic-user) permit only the specific built-in IDs in `weapon_ids`, rejecting bundled weapons with `items.equip.weapon_not_allowed`, whereas classes with `kind="any"` or `kind="forbidden"` (fighter, elf, thief, dwarf, halfling) can wield bundled weapons. Similarly, `ArmourPolicy(kind="leather_only")` permits only the built-in `"leather"` ID, whereas `kind="any"` accepts custom armour such as `saints_scale`. Custom classes can list your bundled weapon IDs directly in `weapon_ids`.
 
+## Describe a treasure cache for the players
+
+A treasure cache has two readers, and [`FeatureSpec`][osrlib.crawl.dungeon.FeatureSpec] gives each one a field. The players read the cache's [`description`][osrlib.crawl.dungeon.FeatureSpec.description], which the player view shows as [`MapFeatureView.description`][osrlib.crawl.views.MapFeatureView.description]. The referee reads [`referee_notes`][osrlib.crawl.dungeon.FeatureSpec.referee_notes], but the players never read it.
+
+The player view shows the description as soon as the cache comes into view. A cache without a `cell` comes into view when the party enters its area. A cache on a cell comes into view when that cell is on the party's map, because the party has walked it, remembers seeing it, or lights it now. The players read the description before anyone opens the cache, and they still read it after the party empties it. So write what the party sees from outside the cache, in words that stay true once it's empty, and put everything else in the field that osrlib uses for it:
+
+- **Contents**: List them in `item_ids`, `magic_item_ids`, `coins`, and `valuables`. The party learns what it took from the events of [`TakeTreasure`][osrlib.crawl.commands.TakeTreasure], and the inventory shows an unidentified magic item under a masked name, as [Views and visibility](views-and-visibility.md#read-character-sheets-and-masked-magic-items) describes. A description that names the potion gives away what the masked name hides.
+- **Trap**: Put it in `trap`, as a treasure [`TrapSpec`][osrlib.crawl.dungeon.TrapSpec]. The players learn about it from [`MapFeatureView.trap_state`][osrlib.crawl.views.MapFeatureView.trap_state] once a thief finds it, it springs, or a thief removes it. A description that mentions the needle tells the players about a trap they haven't found.
+- **What the referee needs to know**: Write it in `referee_notes`, such as where a cache's contents came from or what a thief sees when the trap is found. osrlib never reads the field, no event contains it, and no rule depends on it. It's in the adventure document, so a save and [`RefereeView.adventure`][osrlib.crawl.views.RefereeView.adventure] have it, but the player view never includes it.
+
+The coffer in this sacristy holds coins, a potion, and a censer, and a venomed needle guards its hasp. The players read only the description of the iron coffer on the shelf:
+
+```python
+from osrlib.core.alignment import Alignment
+from osrlib.core.character import CHARACTER_CREATION_STREAM, create_character
+from osrlib.core.clock import TimeUnit
+from osrlib.core.combat import SaveCategory
+from osrlib.core.effects import Condition
+from osrlib.core.events import Visibility
+from osrlib.core.items import Coins
+from osrlib.core.rng import RngStreams
+from osrlib.core.ruleset import Ruleset
+from osrlib.core.spells import SaveSpec
+from osrlib.crawl.adventure import Adventure, TownSpec, validate_adventure
+from osrlib.crawl.commands import EnterDungeon, MoveParty, TakeTreasure
+from osrlib.crawl.dungeon import (
+    AreaSpec,
+    Direction,
+    DungeonSpec,
+    Edge,
+    EdgeKind,
+    FeatureSpec,
+    LevelSpec,
+    TrapEffect,
+    TrapSpec,
+    ValuableSpec,
+    WanderingSpec,
+)
+from osrlib.crawl.party import Party
+from osrlib.crawl.session import GameSession
+from osrlib.data import load_equipment, load_monsters
+
+# The description is what the party sees from the doorway, and it stays true after the
+# party empties the coffer. The contents, the trap, and what the referee needs to run
+# them each go in a separate field.
+COFFER = FeatureSpec(
+    id="sacristy_coffer",
+    kind="treasure_cache",
+    description="A small iron coffer sits on a shelf behind the altar, its lid held by a brass hasp.",
+    referee_notes=(
+        "The priests' poor-box. They kept the potion for the sick. A needle in the hasp is "
+        "smeared with a paralysing venom, and a thief who finds it sees a dark stain around "
+        "the hasp's pin."
+    ),
+    coins=Coins(sp=200, gp=35),
+    magic_item_ids=("potion_of_healing",),
+    valuables=(ValuableSpec(kind="jewellery", name="A silver censer on a chain", value_gp=150, weight_coins=20),),
+    trap=TrapSpec(
+        kind="treasure",
+        trigger="open",
+        effect=TrapEffect(
+            save=SaveSpec(category=SaveCategory.PARALYSIS),
+            condition=Condition.PARALYSED,
+            condition_duration_dice="2d4",
+            condition_duration_unit=TimeUnit.TURN,
+        ),
+    ),
+)
+
+level = LevelSpec(
+    number=1,
+    width=2,
+    height=1,
+    entrance=(0, 0),
+    edges={"1,0:west": Edge(kind=EdgeKind.OPEN)},
+    areas=(AreaSpec(id="sacristy", name="The sacristy", cells=((1, 0),), features=(COFFER,)),),
+    wandering=WanderingSpec(chance_in_six=0),
+)
+adventure = Adventure(
+    name="The Sacked Chapel",
+    town=TownSpec(name="Threshold", travel_turns={"chapel": 1}),
+    dungeons=(DungeonSpec(id="chapel", name="The Chapel", levels=(level,)),),
+)
+validate_adventure(adventure, load_monsters(), load_equipment())
+
+rng = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
+hero = create_character(name="Hild", class_id="fighter", alignment=Alignment.LAWFUL, ruleset=Ruleset(), stream=rng)
+session = GameSession.new(Party(members=[hero.character]), adventure, seed=7)
+assert session.execute(EnterDungeon(dungeon_id="chapel")).accepted
+
+
+def players_coffer():
+    """The coffer as the players see it, and the whole player view it's in."""
+    view = session.view(Visibility.PLAYER)
+    (feature,) = (feature for explored in view.explored for feature in explored.features)
+    return feature, view
+
+
+# The party walks into the sacristy, and the coffer comes into view with its description.
+assert session.execute(MoveParty(direction=Direction.EAST)).accepted
+feature, view = players_coffer()
+assert feature.description == COFFER.description
+assert COFFER.referee_notes not in view.model_dump_json()
+
+# The referee reads the notes in the adventure document that the referee view contains.
+referee = session.view(Visibility.REFEREE)
+assert referee.adventure.dungeons[0].levels[0].areas[0].features[0].referee_notes == COFFER.referee_notes
+
+# The party empties the coffer, and the players still read the same description.
+assert session.execute(TakeTreasure(feature_id=feature.id)).accepted
+feature, view = players_coffer()
+assert feature.description == COFFER.description
+assert COFFER.referee_notes not in view.model_dump_json()
+```
+
 ## Scope and cross-adventure limits
 
 - **Read-only built-in loaders**: `load_classes`, `load_spells`, `load_monsters`, and `load_equipment` return cached, immutable SRD catalogs and provide no global registration or mutation API. Pass extended catalogs explicitly to kernel functions or bundle custom spells, monsters, and items on `Adventure`.

@@ -1043,10 +1043,14 @@ class InspectTreasure(Command):
     member with thief skills can find a treasure trap, and each one gets a single attempt per
     cache."""
     feature_id: str
-    """Which cache to check for a trap. Use a
-    [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id] from the current player view.
-    For compatibility, an unambiguous raw authored id or generated cache id still works. The
-    cache has to be on the party's cell and available to the party."""
+    """Which cache to check for a trap: a `feature:` handle from
+    [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id] in the current player view, or the
+    cache's raw id, an authored [`FeatureSpec.id`][osrlib.crawl.dungeon.FeatureSpec.id] or the id
+    of a cache the engine generated. Both forms stay supported. A player client sends the handle,
+    because the player view lists only handles. Both forms resolve against the same caches, the
+    available ones the party can reach where it stands, so a raw id reaches and reveals
+    nothing that a handle doesn't. A cache anywhere else gets the same
+    `exploration.feature.unknown` rejection as an id that no cache has."""
 
 
 class RemoveTreasureTrap(Command):
@@ -1108,10 +1112,14 @@ class RemoveTreasureTrap(Command):
     [`MemberView.id`][osrlib.crawl.views.MemberView.id]. A failed attempt springs the trap on
     this member."""
     feature_id: str
-    """Which trapped cache to disarm. Use a
-    [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id] from the current player view, or
-    an unambiguous raw authored id. Only an authored cache can be trapped. A cache with no trap,
-    or with a trap nobody has found, gets the same `exploration.feature.unknown` rejection."""
+    """Which trapped cache to disarm: a `feature:` handle from
+    [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id] in the current player view, or the
+    cache's raw [`FeatureSpec.id`][osrlib.crawl.dungeon.FeatureSpec.id], since only an authored
+    cache can be trapped. Both forms stay supported. A player client sends the handle, because the
+    player view lists only handles. Both forms resolve against the same caches, the available
+    ones the party can reach where it stands, so a raw id reaches and reveals nothing that a
+    handle doesn't. A cache anywhere else, a cache with no trap, and a cache whose trap nobody has
+    found all get the same `exploration.feature.unknown` rejection as an id that no cache has."""
 
 
 class TakeTreasure(Command):
@@ -1214,10 +1222,15 @@ class TakeTreasure(Command):
 
     command_type: Literal["take_treasure"] = "take_treasure"
     feature_id: str
-    """What to empty. Use a
-    [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id] from the current player view.
-    For compatibility, an unambiguous raw authored id or generated cache id still works. The
-    literal `"pile"` means the goods dropped on the party's cell, which
+    """What to empty: a `feature:` handle from
+    [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id] in the current player view, or the
+    cache's raw id, an authored [`FeatureSpec.id`][osrlib.crawl.dungeon.FeatureSpec.id] or the id
+    of a cache the engine generated. Both forms stay supported. A player client sends the handle,
+    because the player view lists only handles. Both forms resolve against the same caches, the
+    available ones the party can reach where it stands, so a raw id reaches and reveals
+    nothing that a handle doesn't. A cache anywhere else gets the same
+    `exploration.feature.unknown` rejection as an id that no cache has. The literal `"pile"` means
+    the goods dropped on the party's cell, which
     [`PlayerView.piles`][osrlib.crawl.views.PlayerView.piles] lists by cell reference. The session
     refuses a cache that's already emptied with `exploration.feature.emptied`."""
     recipient_id: str | None = None
