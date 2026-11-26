@@ -34,8 +34,6 @@ from osrlib.crawl.views import MemberView, PlayerView
 from osrlib.data import load_classes
 from osrlib.persistence import load_game, save_game
 
-CHUNK = "chunk: view-prepare-and-valuables"
-
 SAVE_2_8_0 = Path(__file__).parent / "saves" / "view_prepare_now_2.8.0.json"
 """A save of `scenario("prepared")`, written by osrlib 2.8.0 before the three fields existed."""
 
@@ -252,14 +250,8 @@ def _fields(view: PlayerView) -> dict[str, tuple[str | None, bool, bool]]:
 
 
 def _members() -> list:
-    """Every member, marked for the chunk unless the field's default is already the member's value.
-
-    The fighter's `reverses_at` is `None`, the default, so the fighter's cases run unmarked, as guards.
-    """
-    return [
-        pytest.param(name, marks=pytest.mark.xfail(reason=CHUNK)) if form is not None else name
-        for name, form in REVERSES_AT.items()
-    ]
+    """Every member, the fighter included, whose `reverses_at` is `None`."""
+    return list(REVERSES_AT)
 
 
 @pytest.mark.parametrize("name", _members())
@@ -293,7 +285,6 @@ def test_reverses_at_agrees_with_the_refusal_of_a_reversed_selection(name):
     assert sheet.reverses_at == REVERSES_AT[name]
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_kind_comes_from_the_class_and_not_from_the_book():
     """Sefa and Bryn have the same book and the same list, and only their classes' casting tags differ."""
     view = _player_view(scenario("slept"))
@@ -303,7 +294,6 @@ def test_the_kind_comes_from_the_class_and_not_from_the_book():
     assert (sefa.reverses_at, bryn.reverses_at) == ("memorize", "cast")
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_reverses_at_doesnt_change_with_the_moment():
     """The kind is the class's, so it's the same before the party sleeps, during an encounter, and while asleep."""
     for name in SCENARIOS:
@@ -314,7 +304,6 @@ def test_reverses_at_doesnt_change_with_the_moment():
 # ---------------------------------------------------------------------- whether a member can prepare now
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize("moment", list(EXPECTED))
 def test_each_member_says_whether_they_can_prepare_now_and_whether_they_need_sleep(moment):
     view = _player_view(scenario(moment))
@@ -333,18 +322,8 @@ def _selections(view: PlayerView, sheet: MemberView) -> list[tuple[MemorizedSpel
 
 
 def _members_at_moments() -> list:
-    """Every member at every moment, marked for the chunk unless both fields' defaults are already the values.
-
-    Both default to false, which is right for the fighter and for a caster whom the moment refuses after a sleep,
-    so those cases run unmarked, as guards.
-    """
-    return [
-        pytest.param(moment, name, marks=pytest.mark.xfail(reason=CHUNK))
-        if EXPECTED[moment][name] != NEITHER
-        else pytest.param(moment, name)
-        for moment in EXPECTED
-        for name in REVERSES_AT
-    ]
+    """Every member at every moment."""
+    return [pytest.param(moment, name) for moment in EXPECTED for name in REVERSES_AT]
 
 
 @pytest.mark.parametrize(("moment", "name"), _members_at_moments())
@@ -370,7 +349,7 @@ def test_can_prepare_now_is_true_exactly_when_the_session_accepts_a_fitting_sele
     assert (sheet.can_prepare_now, sheet.needs_sleep_to_prepare) == EXPECTED[moment][name]
 
 
-@pytest.mark.parametrize("moment", [pytest.param("new", marks=pytest.mark.xfail(reason=CHUNK)), "slept", "prepared"])
+@pytest.mark.parametrize("moment", ["new", "slept", "prepared"])
 def test_a_member_who_casts_nothing_is_refused_as_no_caster_whether_or_not_the_party_has_slept(moment):
     """The fighter's class casts nothing, which doesn't depend on the moment, so neither does the refusal.
 
@@ -388,7 +367,6 @@ def test_a_member_who_casts_nothing_is_refused_as_no_caster_whether_or_not_the_p
     assert _sheet(_player_view(game), "Hild").needs_sleep_to_prepare is False
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_preparing_turns_the_fields_over_until_the_next_sleep():
     """Wren prepares, needs a sleep, sleeps, and can prepare again, with nobody else changing."""
     game = scenario("slept")
@@ -410,7 +388,6 @@ def _round_trip(game: GameSession) -> GameSession:
     return load_game(json.loads(json.dumps(save_game(game))))
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_session_restored_from_a_save_has_the_same_fields():
     """The save is taken between Wren's and Mara's preparation and the next sleep, and the restored session has no
     events from before the save to read."""
@@ -426,7 +403,6 @@ def test_a_session_restored_from_a_save_has_the_same_fields():
     assert _moments(_player_view(loaded)) == {**EXPECTED["slept_again"], "Bryn": SLEEP}
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_save_from_osrlib_2_8_0_gives_the_fields():
     """The fields come from the classes and the sleep counts, which a 2.8.0 save already has.
 
@@ -458,7 +434,6 @@ def _twin(moment: str) -> GameSession:
     return game
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize("moment", list(EXPECTED))
 def test_a_twin_that_differs_in_what_the_referee_knows_has_the_same_fields(moment):
     game = scenario(moment)
@@ -499,7 +474,6 @@ def _bullet(changelog: str, issue: str) -> str:
     return "\n".join(lines)
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_views_guide_and_the_changelog_describe_the_fields():
     root = Path(__file__).parent.parent
     guide = (root / "docs" / "guides" / "views-and-visibility.md").read_text(encoding="utf-8")

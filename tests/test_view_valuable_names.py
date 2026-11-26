@@ -14,8 +14,6 @@ every piece of jewellery `"Jewellery"`, the kind with a capital, which is no nam
 import json
 from pathlib import Path
 
-import pytest
-
 from crawl_fixtures import build_party
 from osrlib.core.events import Visibility
 from osrlib.core.items import ValuableInstance
@@ -35,8 +33,6 @@ from osrlib.crawl.events import ItemAcquiredEvent
 from osrlib.crawl.session import GameSession
 from osrlib.crawl.views import PlayerView
 from osrlib.persistence import load_game, save_game
-
-CHUNK = "chunk: view-prepare-and-valuables"
 
 SAVE_2_8_0 = Path(__file__).parent / "saves" / "view_valuable_names_2.8.0.json"
 """A save of `looted()`, written by osrlib 2.8.0 before `valuable_names` existed."""
@@ -175,7 +171,6 @@ def _shown(view: PlayerView) -> tuple[dict[str, str], dict[str, str]]:
 # ---------------------------------------------------------------------- what the map holds
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_valuable_names_has_each_named_piece_in_a_pack_or_a_pile():
     """The four named pieces, two carried and two in the pile. No unnamed or rolled piece is a key."""
     game, _ = looted()
@@ -185,7 +180,6 @@ def test_valuable_names_has_each_named_piece_in_a_pack_or_a_pile():
     assert set(view.valuable_names) <= set(view.item_names)
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_valuable_names_agree_with_the_inventory_and_the_pile():
     """Every valuable the view shows, in the packs and the pile, of every variant.
 
@@ -233,7 +227,6 @@ def test_item_names_still_names_every_valuable_by_its_kind():
         )
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_acquisitions_of_named_pieces_are_named_in_the_view_after_them():
     """The issue's case: `ItemAcquiredEvent` names each piece by its instance id, and the view after the take gives
     the own name of each named piece, so a client writes "Prior's chain of office" and not "a piece of jewellery"."""
@@ -248,7 +241,6 @@ def test_the_acquisitions_of_named_pieces_are_named_in_the_view_after_them():
     assert view.valuable_names[_placed_id(game, CHAIN)] == "Prior's chain of office"
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_piece_the_party_cant_see_has_no_name_in_the_view():
     """The tomb's mitre jewel is in a cache the party hasn't emptied, and the crown in a pile on a cell the party has
     never walked. Neither is a key in either map, and neither name is anywhere in the view."""
@@ -267,7 +259,6 @@ def test_a_piece_the_party_cant_see_has_no_name_in_the_view():
 # ---------------------------------------------------------------------- saves
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_session_restored_from_a_save_has_the_same_names():
     game, _ = looted()
 
@@ -276,7 +267,6 @@ def test_a_session_restored_from_a_save_has_the_same_names():
     assert _player_view(loaded).valuable_names == _player_view(game).valuable_names == _expected(game)
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_save_from_osrlib_2_8_0_gives_the_names():
     """The names come from the pieces, which a 2.8.0 save already has, and the whole view of the loaded save is the
     view of the same state built now."""
@@ -294,7 +284,6 @@ def test_a_save_from_osrlib_2_8_0_gives_the_names():
 # ---------------------------------------------------------------------- the docs
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_views_guide_and_the_changelog_describe_the_names():
     root = Path(__file__).parent.parent
     guide = (root / "docs" / "guides" / "views-and-visibility.md").read_text(encoding="utf-8")
