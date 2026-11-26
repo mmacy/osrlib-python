@@ -31,8 +31,6 @@ from osrlib.crawl.session import GameSession
 from osrlib.messages import format_message
 from test_member_reach import HURT, carries, feed, fight, grant, hand, heal_with_staff, hit_points, wound
 
-CHUNK = "chunk: session-reports"
-
 
 def _fizzles(events, code: str) -> list[DeclarationFizzledEvent]:
     return [event for event in events if isinstance(event, DeclarationFizzledEvent) and event.code == code]
@@ -65,7 +63,6 @@ def _assert_readable(message: str, *parts: str) -> None:
 # ---------------------------------------------------------------------- a potion or a hand-over that fails at its step
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_potion_for_a_member_who_dies_before_it_resolves_fizzles(monkeypatch):
     game = fight()
     potion = grant(game, "Tam", "potion_of_healing")
@@ -91,7 +88,6 @@ def test_a_potion_for_a_member_who_dies_before_it_resolves_fizzles(monkeypatch):
     assert not [event for event in events if event.code == "items.potion.drunk"]
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_hand_over_to_a_member_who_dies_before_it_resolves_fizzles(monkeypatch):
     game = fight()
     grant(game, "Tam", "oil_flask")
@@ -169,7 +165,6 @@ def test_a_fizzle_event_with_a_target_round_trips():
 TARGET_COUNT = "battle.declaration.target_count"
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_potion_for_two_members_is_refused_with_the_count():
     game = fight()
     potion = grant(game, "Tam", "potion_of_healing")
@@ -179,7 +174,6 @@ def test_a_potion_for_two_members_is_refused_with_the_count():
     assert pf.refused(game, declaration) == [(TARGET_COUNT, {"character": tam, "expected": 1, "supplied": 2})]
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_staff_of_healing_aimed_at_three_creatures_is_refused_with_the_count():
     game = fight()
     staff = grant(game, "Tam", "staff_of_healing")
@@ -191,7 +185,6 @@ def test_a_staff_of_healing_aimed_at_three_creatures_is_refused_with_the_count()
     ]
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize("names", [("Hild", "Osric"), ()], ids=["two recipients", "no recipient"])
 def test_a_hand_over_with_other_than_one_recipient_is_refused_with_the_count(names):
     """A hand-over has no default recipient, so an empty `targets` is a count of zero."""
@@ -233,7 +226,6 @@ def _open(groups: list[tuple[str, str, int]]) -> EncounterStartedEvent:
     return started
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_an_encounter_of_two_groups_names_both():
     started = _open([("goblin", "goblin", 2), ("orc", "orc", 3)])
 
@@ -247,7 +239,6 @@ def test_an_encounter_of_two_groups_names_both():
     assert format_message(started).startswith("Encounter: 2 goblins and 3 orcs at 40'")
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_an_encounter_of_three_groups_lists_them_with_and_before_the_last():
     """A group of one takes the singular label, and an irregular plural comes from the group, not an ending."""
     started = _open([("merman", "merman", 2), ("goblin", "goblin", 1), ("orc", "orc", 3)])
@@ -257,7 +248,6 @@ def test_an_encounter_of_three_groups_lists_them_with_and_before_the_last():
     assert format_message(started).startswith("Encounter: 2 mermen, 1 goblin, and 3 orcs at 40'")
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_an_encounter_of_one_group_fills_the_group_fields():
     game = pf.session(1)
     result = game.execute(SpawnMonsters(template_id="goblin", count_fixed=2, distance_feet=40))
@@ -289,7 +279,6 @@ def _spawned(template_id: str, count: int) -> tuple[GameSession, MonstersSpawned
     return game, spawned
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_spawn_line_names_the_monsters_by_their_display_name():
     _, spawned = _spawned("centipede_giant", 3)
 
@@ -301,7 +290,6 @@ def test_the_spawn_line_names_the_monsters_by_their_display_name():
     assert "centipede_giant" not in message
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_spawn_line_for_one_monster_is_singular():
     _, spawned = _spawned("centipede_giant", 1)
 
@@ -311,7 +299,6 @@ def test_the_spawn_line_for_one_monster_is_singular():
     assert "×" not in message
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_spawn_line_takes_an_irregular_plural():
     _, spawned = _spawned("merman", 2)
 
@@ -319,7 +306,6 @@ def test_the_spawn_line_takes_an_irregular_plural():
     _assert_readable(format_message(spawned), "2 mermen", f"{first} and {second}")
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_spawn_line_of_an_event_from_an_older_save_reads_as_a_sentence():
     """An event with no display name names the monsters by `template_id`, still without a multiplication sign."""
     legacy = MonstersSpawnedEvent(template_id="goblin", monster_ids=("monster-0001", "monster-0002"))
@@ -348,7 +334,6 @@ def _staff_use(game: GameSession, staff: str, target: str | None) -> UseItem:
     )
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize("target", ["Hild", None], ids=["another member", "its user"])
 def test_a_second_use_on_a_creature_healed_today_is_refused_and_costs_nothing(target):
     game, staff = _explore_with_staff()
@@ -401,7 +386,6 @@ def test_a_dead_creature_healed_today_gets_the_dead_code_first():
     assert [rejection.code for rejection in result.rejections] == ["items.use.target_cannot_be_healed"]
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_battle_declaration_on_a_creature_healed_today_is_refused():
     game = fight()
     staff = grant(game, "Tam", "staff_of_healing")
@@ -416,7 +400,6 @@ def test_a_battle_declaration_on_a_creature_healed_today_is_refused():
     ]
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_staff_use_that_becomes_useless_by_its_step_fizzles(monkeypatch):
     """The staff's record of whom it healed today changes after the round was accepted.
 
@@ -451,7 +434,6 @@ def test_a_staff_use_that_becomes_useless_by_its_step_fizzles(monkeypatch):
 # ------------------------------------------------------------------------------- findings from the chunk's review
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize(
     "fields",
     [
@@ -483,7 +465,6 @@ def test_an_encounter_event_with_matching_or_empty_group_fields_is_accepted():
     assert EncounterStartedEvent.model_validate(new.model_dump(mode="json")) == new
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize("item_id", ["magic-item-9999", "oil_flask"], ids=["an unknown id", "gear not carried"])
 def test_a_use_of_an_item_the_member_doesnt_carry_names_the_item_before_the_group(item_id):
     # With a group named, the session already refuses this with `battle.declaration.item_unusable` and the item.

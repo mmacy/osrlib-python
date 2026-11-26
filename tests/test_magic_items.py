@@ -711,7 +711,6 @@ class TestDevicesInPlay:
         result = session.execute(UseItem(character_id=member.id, item_id=wand.instance_id))
         assert not result.accepted and result.rejections[0].code == "items.use.not_usable"
 
-    @pytest.mark.xfail(reason="chunk: session-reports")
     def test_staff_of_healing_once_per_target_per_day(self):
         """The OSE SRD's staff "Is effective on any individual at most once per day", so a second use is refused."""
         session, member, staff = session_with_item("staff_of_healing")
