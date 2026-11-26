@@ -571,18 +571,24 @@ class EncounterGroupView(_Model):
 
     The value is the same however the group came to be: from a keyed area, a wandering monster check, or
     a [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters]. So match on it, not on the words in
-    `label`. Pass it to [`MonsterCatalog.family`][osrlib.core.monsters.MonsterCatalog.family] to read
-    what the players' rulebook says about the creature.
+    `label`.
 
-    It reveals no more than the label does. A family is the creature the players see, and it's shared
-    by every form the players can't tell apart, so a group of hellhounds is `"hellhound"` whatever their
-    Hit Dice.
+    The players see this value. A family is the creature the players see, and it's shared by
+    every form the players can't tell apart, so a group of hellhounds is `"hellhound"` whatever their
+    Hit Dice. For a template the adventure bundles in
+    [`Adventure.monsters`][osrlib.crawl.adventure.Adventure.monsters], the value is the template's `id`
+    unless its author set `family_id`. An author who disguises a creature as another, like a
+    doppelganger the players see as a goblin, sets the template's `family_id` to the family the players
+    should see, `"goblin"`, as well as its `display_name`. A group your code opens with
+    [`start_encounter`][osrlib.crawl.encounter.start_encounter] under a label of its own still reports
+    its templates' family here.
 
-    A group your code opens with [`start_encounter`][osrlib.crawl.encounter.start_encounter] under a
-    label of its own still reports its templates' family here. To show the players a creature under
-    another name, give it a template of its own in
-    [`Adventure.monsters`][osrlib.crawl.adventure.Adventure.monsters]. That template is its own
-    family."""
+    To read what the players' rulebook says about the creature, pass the value to
+    [`MonsterCatalog.family`][osrlib.core.monsters.MonsterCatalog.family] on
+    [`load_monsters`][osrlib.data.load_monsters]. A family that only the adventure bundles isn't in the
+    rulebook or in that catalog, and `family` raises `ValueError` for it. A session finds a bundled
+    family in [`GameSession.effective_monsters`][osrlib.crawl.session.GameSession.effective_monsters],
+    which a remote client doesn't have, so show such a group by its `label`."""
     categories: tuple[str, ...] = ()
     """The categories every member of the group has, like `("undead",)`, as in
     [`MonsterTemplate.categories`][osrlib.core.monsters.MonsterTemplate.categories]. A party of NPC

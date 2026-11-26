@@ -842,7 +842,9 @@ class MonsterTemplate(_Model):
     [`MonsterCatalog.family`][osrlib.core.monsters.MonsterCatalog.family] to get every form.
 
     A creature with one form is a family of one, and its family id is its `id`. A template you write that
-    leaves this out gets its `id` too.
+    leaves this out gets its `id` too. The player view shows the family id to the players, so a template
+    that disguises one creature as another, like a doppelganger the players see as a goblin, sets this to
+    the family the players should see, `"goblin"`.
     """
 
     page: str
