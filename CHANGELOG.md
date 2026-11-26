@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- [`SpellMode.display_name`][osrlib.core.spells.SpellMode.display_name] is a short label for a mode, such as `"Blind a creature"`, for a client to show where a player chooses one of a form's modes, such as a cast dialog (#340). It says what the caster does, in sentence case with no closing punctuation, and in the built-in catalog no two modes of one form have the same label. Each built-in label comes from the lead-in that the OSE SRD prints before the usage, such as "Blinding a creature:". Where the page prints no lead-in, or one that names a situation such as *bless*'s "Battle:", the SRD compiler has a label written from the page's words, such as `"Bless allies in battle"`. A mode that leaves the label out or gives an empty one gets a label made from its key, so `"kill_green_slime"` is labelled `"Kill green slime"`, and the one mode of a single-mode form is labelled that way too, such as *fire ball*'s `"Damage"`. As a result, a spell document, an adventure, or a save from 2.8.0 loads with a label on every mode, and [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] stays 4.
+
+### Changed
+
+- Each built-in mode of the reverses of *light* and *continual light*, of *charm monster*, and of *silence 15' radius* has the part of the SRD text that covers it as its [`prose`][osrlib.core.spells.SpellMode.prose], so no two modes of one form have the same prose (#340). Before, every mode of one of these forms had the whole passage. For example, the `blind` mode of *darkness*, the reverse of *light*, had "Creates a 15’ radius area of magical blackness, preventing normal sight (but not infravision). Like light, it may alternatively be used to blind creatures or to dispel a light spell." and now has "Like light, it may alternatively be used to blind creatures." Each mode of *charm monster* has only its own alternative from the first sentence, and the `area` mode of *silence 15' radius* leaves out the "Casting upon a creature:" bullet. [`ReversedForm.prose`][osrlib.core.spells.ReversedForm.prose] still has the whole text of the reverse, and a spell that an adventure bundles keeps the prose its author wrote.
+
 ## [2.8.0] - 2026-11-25
 
 ### Added

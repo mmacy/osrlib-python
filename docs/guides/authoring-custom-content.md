@@ -116,7 +116,7 @@ MEND_WOUNDS = SpellTemplate.model_validate(
 )
 ```
 
-Each `SpellMode` defines a castable `key`, a `targeting` spec, an optional `save`, and either an automated `effect` (such as `"heal"` or `"damage"` with `params`) or `manual=True` with `prose` (which expends the memorized spell and emits the cast event so your front end can resolve the effect). Reversible spells also accept an optional [`ReversedForm`][osrlib.core.spells.ReversedForm] with its reversed name and modes, matching built-in spells such as `cure_light_wounds`.
+Each `SpellMode` defines a castable `key`, an optional [`display_name`][osrlib.core.spells.SpellMode.display_name] that your front end shows where a player chooses one of a form's modes, a `targeting` spec, an optional `save`, and either an automated `effect` (such as `"heal"` or `"damage"` with `params`) or `manual=True` with `prose` (which expends the memorized spell and emits the cast event so your front end can resolve the effect). Reversible spells also accept an optional [`ReversedForm`][osrlib.core.spells.ReversedForm] with its reversed name and modes, matching built-in spells such as `cure_light_wounds`. A mode that leaves `display_name` out gets a label made from its key, so `"mend"` is labelled `"Mend"`. When a form has more than one mode, give each one a label that says what the caster does, such as `"Blind a creature"`, and give no two of them the same label, so a player can tell them apart.
 
 ## Validate custom class and spell catalogs
 
