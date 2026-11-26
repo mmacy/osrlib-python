@@ -20,8 +20,6 @@ the player view reports the creature as `"defeated"`. The OSE SRD's *raise dead*
 deceased human or demihuman", which a monster isn't. A staff of healing keeps the battle's order of checks: a
 creature outside the encounter is unknown first, and a dead creature of the encounter can't be healed. The
 spells that name a dead or petrified creature, *raise dead* and *stone to flesh*, still work on a party member.
-
-The tests marked `xfail` fail until the chunk lands. The unmarked tests pass today and guard what must not change.
 """
 
 import pytest
@@ -48,8 +46,6 @@ from osrlib.crawl.commands import (
 from osrlib.crawl.session import DeathRecord, GameSession
 from osrlib.crawl.views import PlayerView
 from osrlib.data import load_monsters
-
-CHUNK = pytest.mark.xfail(reason="chunk: target-in-encounter")
 
 ROSTER = (pf.HILD, pf.WREN, pf.TAM)
 """A fighter, a magic-user, and a cleric, at level 3 with 400 hit points each, unless a test sets their levels."""
@@ -223,7 +219,6 @@ def pursued_with_a_fled_group() -> tuple[GameSession, str, str]:
 # ---------------------------------------------------------------------- CastSpell outside an encounter
 
 
-@CHUNK
 def test_the_issue_a_cast_at_a_goblin_of_an_ended_encounter_is_refused():
     """The issue's repro: *magic missile* at `monster-0001` after the referee's `EndEncounter`."""
     game, (goblin, _) = ended(spells={"Wren": ("magic_missile",)})
@@ -231,7 +226,6 @@ def test_the_issue_a_cast_at_a_goblin_of_an_ended_encounter_is_refused():
     assert refusal(game, magic_missile(game, goblin)) == [("magic.cast.unknown_target", {"target": goblin})]
 
 
-@CHUNK
 def test_the_refusal_is_the_one_an_id_that_never_existed_gets():
     game, (goblin, dead_goblin) = ended(spells={"Wren": ("magic_missile",)})
     never = refusal(game, magic_missile(game, NEVER))
@@ -240,7 +234,6 @@ def test_the_refusal_is_the_one_an_id_that_never_existed_gets():
     assert as_never(refusal(game, magic_missile(game, dead_goblin)), dead_goblin) == never
 
 
-@CHUNK
 def test_an_area_spell_names_the_first_creature_the_party_cant_act_on():
     """*Fire ball* takes creature ids outside a battle, and each one is checked in the order given."""
     game, goblins = ended(levels={"Wren": 5}, spells={"Wren": ("fire_ball",)})
@@ -249,7 +242,6 @@ def test_an_area_spell_names_the_first_creature_the_party_cant_act_on():
     assert refusal(game, cast) == [("magic.cast.unknown_target", {"target": goblins[0]})]
 
 
-@CHUNK
 def test_a_cast_in_town_at_a_goblin_of_an_ended_encounter_is_refused():
     game, (goblin, _) = ended(spells={"Wren": ("magic_missile",)})
     accepted(game.execute(TravelToTown()))
@@ -258,7 +250,6 @@ def test_a_cast_in_town_at_a_goblin_of_an_ended_encounter_is_refused():
     assert refusal(game, magic_missile(game, goblin)) == [("magic.cast.unknown_target", {"target": goblin})]
 
 
-@CHUNK
 def test_a_cast_at_an_npc_adventurer_of_an_ended_encounter_is_refused():
     game = pf.battle(ROSTER, npc_party=True, engage=False, spells={"Wren": ("magic_missile",)})
     adventurer = game.encounter.groups[0].monster_ids[0]
@@ -268,7 +259,6 @@ def test_a_cast_at_an_npc_adventurer_of_an_ended_encounter_is_refused():
     assert refusal(game, magic_missile(game, adventurer)) == [("magic.cast.unknown_target", {"target": adventurer})]
 
 
-@CHUNK
 def test_a_cast_at_a_goblin_whose_group_fled_is_refused():
     """The craven goblin's group flees as the battle opens, and with no one left to fight, the encounter ends."""
     game, craven = fled_and_ended()
@@ -276,7 +266,6 @@ def test_a_cast_at_a_goblin_whose_group_fled_is_refused():
     assert refusal(game, magic_missile(game, craven)) == [("magic.cast.unknown_target", {"target": craven})]
 
 
-@CHUNK
 def test_a_cast_at_a_monster_spawned_into_no_encounter_is_refused():
     """`GameSession.spawn` puts a monster in the session and nothing in front of the party."""
     game = pf.session(0, ROSTER, spells={"Wren": ("magic_missile",)})
@@ -360,7 +349,6 @@ def test_the_staff_still_refuses_to_heal_a_dead_member():
 # ---------------------------------------------------------------------- UseItem outside an encounter
 
 
-@CHUNK
 def test_a_scroll_read_at_a_goblin_of_an_ended_encounter_is_refused():
     game, (goblin, _) = ended(light=True)
     instance = scroll(game, "Wren", "magic_missile")
@@ -368,7 +356,6 @@ def test_a_scroll_read_at_a_goblin_of_an_ended_encounter_is_refused():
     assert refusal(game, read(game, instance, goblin)) == [("magic.cast.unknown_target", {"target": goblin})]
 
 
-@CHUNK
 def test_a_scroll_read_at_a_monster_spawned_into_no_encounter_is_refused():
     game = pf.session(0, ROSTER, light=True)
     goblin = game.spawn("goblin", 1)[0].id
@@ -378,7 +365,6 @@ def test_a_scroll_read_at_a_monster_spawned_into_no_encounter_is_refused():
     assert refusal(game, read(game, instance, goblin)) == [("magic.cast.unknown_target", {"target": goblin})]
 
 
-@CHUNK
 def test_a_scroll_names_its_targets_in_targets_too():
     game, (goblin, _) = ended(light=True)
     instance = scroll(game, "Wren", "magic_missile")
@@ -387,7 +373,6 @@ def test_a_scroll_names_its_targets_in_targets_too():
     assert refusal(game, use) == [("magic.cast.unknown_target", {"target": goblin})]
 
 
-@CHUNK
 @pytest.mark.parametrize("which", [0, 1], ids=["living", "dead"])
 def test_the_staff_wont_heal_a_goblin_of_an_ended_encounter(which):
     """The dead goblin gets the unknown id's answer too, not `items.use.target_cannot_be_healed`."""
@@ -443,7 +428,6 @@ def test_a_scroll_read_at_an_npc_adventurer_of_the_open_encounter_is_accepted():
     accepted(game.execute(read(game, instance, adventurer)))
 
 
-@CHUNK
 def test_a_scroll_read_at_a_dead_goblin_of_the_open_encounter_is_refused():
     """As in a battle, a dead enemy isn't a target. Today the missile lands on the corpse."""
     game = pf.battle(ROSTER, engage=False, light=True)
@@ -466,7 +450,6 @@ def test_the_staff_still_refuses_to_heal_a_dead_goblin_of_the_open_encounter():
     ]
 
 
-@CHUNK
 def test_a_scroll_read_at_a_goblin_of_an_earlier_encounter_is_refused_while_another_is_open():
     game, (old_goblin, _) = second_encounter(SessionMode.ENCOUNTER, light=True)
     instance = scroll(game, "Wren", "magic_missile")
@@ -474,7 +457,6 @@ def test_a_scroll_read_at_a_goblin_of_an_earlier_encounter_is_refused_while_anot
     assert refusal(game, read(game, instance, old_goblin)) == [("magic.cast.unknown_target", {"target": old_goblin})]
 
 
-@CHUNK
 def test_a_scroll_read_at_a_goblin_whose_group_fled_is_refused_during_a_pursuit():
     game, _, craven = pursued_with_a_fled_group()
     instance = scroll(game, "Wren", "magic_missile")
@@ -489,7 +471,6 @@ def test_a_scroll_read_at_a_pursuing_goblin_is_accepted():
     accepted(game.execute(read(game, instance, pursuer)))
 
 
-@CHUNK
 def test_the_staff_wont_heal_a_goblin_whose_group_fled_during_a_pursuit():
     game, _, craven = pursued_with_a_fled_group()
     staff = staff_of_healing(game, "Tam")
@@ -500,7 +481,6 @@ def test_the_staff_wont_heal_a_goblin_whose_group_fled_during_a_pursuit():
 # ---------------------------------------------------------------------- the battle's staff of healing
 
 
-@CHUNK
 def test_a_battle_staff_answers_a_dead_goblin_of_an_ended_encounter_as_an_unknown_id():
     """The battle checks the encounter after the staff's own checks, so today the dead goblin can't be healed.
 

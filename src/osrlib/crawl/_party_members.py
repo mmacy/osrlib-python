@@ -22,9 +22,9 @@ def _actable_target(session, target_id: str) -> tuple[Any, Any]:
     """Return the creature with `target_id` that the party can act on now, and its encounter group.
 
     A command can name as a target only a party member, in any state, or a creature in a group of the open encounter
-    that hasn't fled: the creatures the player view lists in
-    [`PlayerView.party`][osrlib.crawl.views.PlayerView.party] and
-    [`EncounterGroupView.members`][osrlib.crawl.views.EncounterGroupView.members]. A monster or an NPC adventurer
+    that hasn't fled: the members in [`PlayerView.party`][osrlib.crawl.views.PlayerView.party], and the creatures
+    in [`EncounterGroupView.members`][osrlib.crawl.views.EncounterGroupView.members] of a group whose `fled` is
+    false. A monster or an NPC adventurer
     of an encounter that has ended, a monster of a group that fled, and a monster spawned into no encounter stay in
     `session.registry()`, but this returns `(None, None)` for them, as it does for an id that matches nothing, so
     a command's refusal reveals nothing about a creature the party can't see.
