@@ -1582,12 +1582,43 @@ def _canonical_edge(cell: Position, direction: Direction) -> str:
     return edge_key(cell, direction)
 
 
+_TESTS_AS = {"shield": "shield_plus_1", "worn_armour": "armour_plus_1"}
+"""The +1 template that every test shows for a cursed item worn in each armour slot."""
+
+
+def _armour_as_tested(member: Character) -> Character:
+    """Return the member as the players know their armour, for the armour class on the sheet.
+
+    The OSE SRD says every test shows a cursed shield or suit of armour as enchanted with a +1
+    bonus until the curse is revealed. So in the copy this returns, each worn cursed shield or suit
+    that is unidentified and whose curse isn't revealed becomes a copy of itself made from the +1
+    template, keeping its base item. The copy's armour class then comes from the rules that compute
+    the member's, and everything else the member wears counts as usual. With nothing to mask, it
+    returns the member itself. The copy is shallow and only read, so the member never changes.
+    """
+    inventory = member.inventory
+    masked = {}
+    for slot, lookalike in _TESTS_AS.items():
+        worn = getattr(inventory, slot)
+        if (
+            isinstance(worn, MagicItemInstance)
+            and not worn.identified
+            and not worn.cursed_revealed
+            and magic_item_template(worn).cursed
+        ):
+            masked[slot] = worn.model_copy(update={"template_id": lookalike})
+    if not masked:
+        return member
+    return member.model_copy(update={"inventory": inventory.model_copy(update=masked)})
+
+
 def _member_view(session, member) -> MemberView:
     """One member's sheet, read from the live character."""
     definition = member.definition
     thief_skills = {}
     if definition.thief_skills:
         thief_skills = definition.thief_skills[member.level - 1].model_dump(exclude={"level"})
+    shown = _armour_as_tested(member)
     return MemberView(
         id=member.id,
         name=member.name,
@@ -1616,8 +1647,8 @@ def _member_view(session, member) -> MemberView:
         open_doors_chance=member.open_doors_chance,
         thac0=member.thac0,
         attack_bonus=member.attack_bonus,
-        armour_class=member.armour_class,
-        armour_class_ascending=member.armour_class_ascending,
+        armour_class=shown.armour_class,
+        armour_class_ascending=shown.armour_class_ascending,
         saves=member.saves.model_dump(),
         movement_rate_feet=member.movement_rate(session.ruleset),
         languages=member.languages,
