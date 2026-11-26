@@ -104,7 +104,6 @@ class TestSchemaProse:
         }
         assert offenders == {}
 
-    @pytest.mark.xfail(reason="chunk: schema-model-descriptions")
     @pytest.mark.parametrize("artifact", ["commands/commands.json", "events/events.json"])
     def test_model_descriptions_follow_the_rule_for_model_descriptions(self, site: Path, artifact: str):
         offenders = {

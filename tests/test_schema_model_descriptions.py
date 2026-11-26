@@ -42,8 +42,6 @@ from osrlib.crawl.commands import AnyCommand, PurchaseEquipment
 from osrlib.crawl.views import PlayerView
 from test_schema_descriptions import _MODELS, _ROOTS, _descriptions, _without_references
 
-_CHUNK = pytest.mark.xfail(reason="chunk: schema-model-descriptions")
-
 # The sections a description keeps, because they describe what a command does on the wire.
 _KEPT = ("Modes", "Rejections", "Events")
 
@@ -154,7 +152,6 @@ def test_every_section_label_is_classified() -> None:
     assert stray == []
 
 
-@_CHUNK
 @pytest.mark.parametrize("cls", _SECTIONED_MODELS + _SECTIONED_ENUMS, ids=_name)
 def test_a_description_follows_the_rule(cls: type) -> None:
     description = _description(cls)
@@ -261,7 +258,6 @@ A serialized event contains the lowercase value. The values stay fixed within a 
 stamp of the saved format."""
 
 
-@_CHUNK
 @pytest.mark.parametrize("mode", ["validation", "serialization"])
 def test_a_command_description_keeps_its_modes_rejections_and_events(mode: str) -> None:
     assert PurchaseEquipment.model_json_schema(mode=mode)["description"] == _PURCHASE_EQUIPMENT
@@ -269,17 +265,14 @@ def test_a_command_description_keeps_its_modes_rejections_and_events(mode: str) 
     assert definitions["PurchaseEquipment"]["description"] == _PURCHASE_EQUIPMENT
 
 
-@_CHUNK
 def test_the_town_description_leaves_out_attributes_raises_and_examples() -> None:
     assert TownSpec.model_json_schema()["description"] == _TOWN_SPEC
 
 
-@_CHUNK
 def test_the_event_base_description_leaves_out_its_example() -> None:
     assert Event.model_json_schema()["description"] == _EVENT
 
 
-@_CHUNK
 def test_an_enum_description_leaves_out_its_example() -> None:
     assert TypeAdapter(Visibility).json_schema()["description"] == _VISIBILITY
     assert DamageDealtEvent.model_json_schema()["$defs"]["Visibility"]["description"] == _VISIBILITY
@@ -290,7 +283,6 @@ def _model_descriptions(schema: dict) -> dict[str, str]:
     return {path: text for path, text in _descriptions(schema) if "/properties/" not in path}
 
 
-@_CHUNK
 @pytest.mark.parametrize("mode", ["validation", "serialization"])
 @pytest.mark.parametrize("root", _ROOTS)
 def test_a_published_schema_follows_the_rule(root: str, mode: str) -> None:
@@ -299,7 +291,6 @@ def test_a_published_schema_follows_the_rule(root: str, mode: str) -> None:
     assert offenders == {}
 
 
-@_CHUNK
 def test_an_openapi_document_follows_the_rule() -> None:
     app = FastAPI()
 
@@ -350,13 +341,11 @@ class HoldsTheKind(_Model):
     """The kind."""
 
 
-@_CHUNK
 def test_a_kept_section_with_an_empty_body_is_left_out() -> None:
     # A label with nothing under it says nothing on the wire, and alone it would read as the start of the next part.
     assert EmptyKeptSection.model_json_schema()["description"] == "Lead.\n\nEvents:\n\nThe party moves."
 
 
-@_CHUNK
 @pytest.mark.parametrize("mode", ["validation", "serialization"])
 def test_a_model_whose_docstring_reduces_to_nothing_has_no_description(mode: str) -> None:
     # A model with no docstring has no `description` key, so neither does one whose docstring the rule empties.
@@ -364,7 +353,6 @@ def test_a_model_whose_docstring_reduces_to_nothing_has_no_description(mode: str
     assert OnlyDroppedSections.model_json_schema(mode=mode)["properties"]["value"]["description"] == "The value."
 
 
-@_CHUNK
 @pytest.mark.parametrize("mode", ["validation", "serialization"])
 def test_an_enum_whose_docstring_reduces_to_nothing_has_no_description(mode: str) -> None:
     assert "description" not in TypeAdapter(OnlyDroppedKind).json_schema(mode=mode)
