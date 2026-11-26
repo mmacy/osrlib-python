@@ -841,7 +841,7 @@ class TestPlayerWorldKnowledge:
     def test_the_world_components_have_minimal_public_shapes(self):
         from osrlib.crawl import views
 
-        assert views.EnteredAreaView.model_fields.keys() == {"id", "name", "description", "cells"}
+        assert views.EnteredAreaView.model_fields.keys() == {"id", "name", "description", "cells", "trap_state"}
         assert views.DungeonNameView.model_fields.keys() == {"id", "name"}
         assert views.TransitionView.model_fields.keys() == {"position", "kind", "side"}
         assert views.MapFeatureView.model_fields.keys() == {
@@ -851,6 +851,7 @@ class TestPlayerWorldKnowledge:
             "cell",
             "area_id",
             "trap_state",
+            "emptied",
         }
         for name in ("EnteredAreaView", "DungeonNameView", "MapFeatureView", "TransitionView"):
             assert name in views.__all__
@@ -1169,6 +1170,7 @@ class TestPlayerWorldKnowledge:
                 "cell",
                 "area_id",
                 "trap_state",
+                "emptied",
             }
             assert feature.id != "pile"
 

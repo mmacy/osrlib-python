@@ -4,7 +4,8 @@
 [`session_state`][osrlib.persistence.session_state] writes, minus the master seed and the RNG stream
 states, each as the session's own model rather than as a dict, so a front-end author reads
 `view.monsters[0].current_hp` and `view.flags["key"]` with the types the reference documents. The view's
-JSON dump is the save payload without its server-only keys, which keeps the layouts aligned. A view is a
+JSON dump is the save payload without its server-only keys, plus `feature_handles`, which the session derives
+from the handle key, so the layouts stay aligned. A view is a
 snapshot: the session moving on after the view was built changes nothing in
 it.
 """
@@ -28,6 +29,9 @@ from osrlib.persistence import session_state
 
 WITHHELD = ("master_seed", "rng_streams", "player_handle_key")
 """The save keys a referee view never contains."""
+
+DERIVED = ("feature_handles",)
+"""The referee view fields the save doesn't contain, because the session derives them from the handle key."""
 
 
 def played_session(player_handle_key: bytes | None = None) -> GameSession:
@@ -58,15 +62,16 @@ def expected_payload(session: GameSession) -> dict:
 
 
 class TestTheRefereeViewIsTyped:
-    def test_the_fields_are_the_save_groups_minus_the_withheld_two(self):
+    def test_the_fields_are_the_save_groups_minus_the_withheld_keys_plus_the_handles(self):
         session = played_session()
-        assert set(RefereeView.model_fields) == set(expected_payload(session))
+        assert set(RefereeView.model_fields) == set(expected_payload(session)) | set(DERIVED)
         assert "state" not in RefereeView.model_fields
 
     def test_the_view_dumps_as_the_save_does(self):
         session = played_session()
         view = build_referee_view(session)
-        assert view.model_dump(mode="json") == expected_payload(session)
+        dumped = view.model_dump(mode="json")
+        assert {key: value for key, value in dumped.items() if key not in DERIVED} == expected_payload(session)
 
     def test_session_view_and_the_builder_agree(self):
         session = played_session()

@@ -196,8 +196,12 @@ class TestHandshake:
                     )
                 )
             ).accepted
-        first_handle = feature_handle(get_view(client, first), "The idol rests in a hollow under the altar stone.")
-        second_handle = feature_handle(get_view(client, second), "The idol rests in a hollow under the altar stone.")
+        first_handle = feature_handle(
+            get_view(client, first), "A hollow is cut into the floor beneath the altar stone."
+        )
+        second_handle = feature_handle(
+            get_view(client, second), "A hollow is cut into the floor beneath the altar stone."
+        )
         assert first_handle != second_handle
 
     def test_create_ignores_a_client_player_handle_key(self, client):
@@ -243,7 +247,7 @@ class TestScriptedPlaythrough:
         run(client, session_id, {"command_type": "move_party", "direction": "east"})
         view = get_view(client, session_id)
         gold_before = sum(member["inventory"]["purse"]["gp"] for member in view["party"])
-        idol_handle = feature_handle(view, "The idol rests in a hollow under the altar stone.")
+        idol_handle = feature_handle(view, "A hollow is cut into the floor beneath the altar stone.")
         assert "idol_shrine" not in idol_handle
         result = run(client, session_id, {"command_type": "take_treasure", "feature_id": idol_handle})
         assert result["accepted"], result
@@ -465,7 +469,7 @@ class TestWireLeaks:
         run(client, session_id, {"command_type": "move_party", "direction": "east"}, capture=captured)
         idol_handle = feature_handle(
             get_view(client, session_id, capture=captured),
-            "The idol rests in a hollow under the altar stone.",
+            "A hollow is cut into the floor beneath the altar stone.",
         )
         run(
             client,

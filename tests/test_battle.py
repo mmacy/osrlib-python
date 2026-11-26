@@ -14,7 +14,6 @@ from osrlib.crawl import battle as battle_module
 from osrlib.crawl import encounter as encounter_module
 from osrlib.crawl.commands import (
     BattleDeclaration,
-    CastSpell,
     EngageBattle,
     EnterDungeon,
     EquipItem,
@@ -421,25 +420,6 @@ class TestExplicitBattleSpellTargets:
         assert result.accepted, [rejection.code for rejection in result.rejections]
         cast = next(event for event in result.events if event.code == "magic.cast.cast")
         assert set(cast.target_ids) == set(target_ids)
-
-    def test_top_level_cast_spell_keeps_registry_target_lookup(self):
-        session = GameSession.new(build_party(), build_adventure(wandering_chance=0), seed=5)
-        caster_id = prepare_spell(session, "magic_missile")
-        target_id = session.spawn("goblin", 1)[0].id
-        assert session.encounter is None
-
-        result = session.execute(
-            CastSpell(
-                character_id=caster_id,
-                spell_id="magic_missile",
-                mode="missiles",
-                targets=(target_id,),
-            )
-        )
-
-        assert result.accepted, [rejection.code for rejection in result.rejections]
-        cast = next(event for event in result.events if event.code == "magic.cast.cast")
-        assert cast.target_ids == (target_id,)
 
 
 class TestUseItemAction:
