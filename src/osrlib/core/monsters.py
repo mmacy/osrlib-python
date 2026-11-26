@@ -844,8 +844,8 @@ class MonsterTemplate(_Model):
     A creature with one form is a family of one, and its family id is its `id`. A template you write that
     leaves this out gets its `id` too. The player view shows the family id to the players, so a template
     that disguises one creature as another, like a doppelganger the players see as a goblin, sets this to
-    the family the players should see, `"goblin"`. It sets `display_name` and `categories` to the
-    goblin's as well, because the players see them too.
+    the family the players should see, `"goblin"`. The players also see the template's `display_name`
+    and its `categories`.
     """
 
     page: str
@@ -946,9 +946,7 @@ class MonsterTemplate(_Model):
     turning affects only `"undead"`.
 
     The player view shows them to the players, in
-    [`EncounterGroupView.categories`][osrlib.crawl.views.EncounterGroupView.categories]. A template that
-    disguises one creature as another shows its own categories unless you set them to the other
-    creature's. When you do, spells and turning treat it as having the other creature's categories.
+    [`EncounterGroupView.categories`][osrlib.crawl.views.EncounterGroupView.categories].
     """
 
     overrides_applied: tuple[str, ...] = ()

@@ -6,8 +6,6 @@ carries the name of every spell id in the view, read from the session's catalog,
 the view doesn't already show.
 """
 
-import pytest
-
 import positions_fixtures as pf
 from osrlib.core.events import Visibility
 from osrlib.core.items import MagicItemInstance
@@ -18,8 +16,6 @@ from osrlib.crawl.session import GameSession
 from osrlib.crawl.views import PlayerView
 from osrlib.data import load_spells
 from test_custom_spells import GLIMMER, adventure, custom_spell, prepare, session
-
-pytestmark = pytest.mark.xfail(reason="chunk: view-text")
 
 # A cleric's spell of the adventure's own: protection from evil under a new id. Its effect
 # sets no kind of its own, so the effect's kind is the spell's id.

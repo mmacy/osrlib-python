@@ -579,9 +579,8 @@ class EncounterGroupView(_Model):
     [`Adventure.monsters`][osrlib.crawl.adventure.Adventure.monsters], the value is the template's `id`
     unless its author set `family_id`. An author who disguises a creature as another, like a
     doppelganger the players see as a goblin, sets the template's `family_id` to the family the players
-    should see, `"goblin"`, and sets its `display_name` and
-    [`categories`][osrlib.core.monsters.MonsterTemplate.categories] to the goblin's, because the players
-    see those too. A group your code opens with
+    should see, `"goblin"`, as well as its `display_name`. The players also see the template's
+    [`categories`][osrlib.core.monsters.MonsterTemplate.categories]. A group your code opens with
     [`start_encounter`][osrlib.crawl.encounter.start_encounter] under a label of its own still reports
     its templates' family here.
 
