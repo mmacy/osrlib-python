@@ -672,7 +672,7 @@ class TestTheRolls:
 
         The digest is of the event log and every stream's final state after four rounds in which Brakk and Hild
         attack while the goblins stand and fight, and Sable holds, from the seed `_battle` takes. It was taken on
-        `main` at 6a508af, before hiding existed, by the same steps.
+        `main` at d31702f, before hiding existed, by the same steps.
         """
         game = _battle()
         group = game.encounter.groups[0]
@@ -699,7 +699,7 @@ class TestTheRolls:
         """Guards like the goblin fight's: a basic NPC party 30' away, and a red dragon that breathes from 20' away.
 
         Every member holds each round, from the seed `_battle` takes, and the digests were taken on `main` at
-        6a508af by the same steps. The NPC adventurers shoot, cast, and close by `NpcPartyPolicy`, and the dragon
+        d31702f by the same steps. The NPC adventurers shoot, cast, and close by `NpcPartyPolicy`, and the dragon
         breathes on the party's ranks, so both pass through the target choices that hiding changes.
         """
         game = _battle(**battle_args)
@@ -717,12 +717,12 @@ def _digest(game: GameSession) -> str:
     return hashlib.sha256(json.dumps(record, sort_keys=True).encode()).hexdigest()
 
 
-NO_HIDE_DIGEST = (0, "b4320e255c2e7ad618638ebc322949863b223ccf102d641f477b27d424a4fc59")
-"""The seed `_battle` takes and the digest of the no-hide goblin battle, taken on `main` at 6a508af."""
-NO_HIDE_NPC_DIGEST = (0, "707bfd5abdeba613386d6dcd4ea70e0b24b87c4acf8cdb15eb2e89934bd2a610")
-"""The seed and the digest of the no-hide battle against a basic NPC party, taken on `main` at 6a508af."""
-NO_HIDE_BREATH_DIGEST = (0, "240574ae1c4b66e009adf18d41bb4510f7a52b1db0298cde9799cc831892b439")
-"""The seed and the digest of the no-hide battle against a red dragon, taken on `main` at 6a508af."""
+NO_HIDE_DIGEST = (0, "bc7c3997b0221b53777c099c75bf16206ce611b063e239a82face5deda4c1363")
+"""The seed `_battle` takes and the digest of the no-hide goblin battle, taken on `main` at d31702f."""
+NO_HIDE_NPC_DIGEST = (0, "440142aecf3953833268105ee6269fad6fa87e65a5e382bc3e3314622b7c4af1")
+"""The seed and the digest of the no-hide battle against a basic NPC party, taken on `main` at d31702f."""
+NO_HIDE_BREATH_DIGEST = (0, "e4852b638ca671f4ccefef7a15b537c4dc3850fa4f08f9e8688a4f0a7003fde7")
+"""The seed and the digest of the no-hide battle against a red dragon, taken on `main` at d31702f."""
 
 
 # ---------------------------------------------------------------------- the arithmetic
