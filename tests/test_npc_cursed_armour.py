@@ -44,8 +44,6 @@ from osrlib.data import load_classes
 from positions_fixtures import HILD, _opened, named
 from positions_fixtures import session as dungeon_session
 
-CHUNK = pytest.mark.xfail(reason="chunk: npc-cursed-armour")
-
 LOOKALIKE = {
     "cursed_shield_minus_2": "shield_plus_1",
     "cursed_shield_ac_9": "shield_plus_1",
@@ -105,7 +103,6 @@ TESTED = [
 ]
 
 
-@CHUNK
 @pytest.mark.parametrize(("worn", "tested", "real"), TESTED)
 def test_the_kernel_counts_an_unrevealed_cursed_item_as_its_plus_1_lookalike(worn, tested, real):
     member = _wearing(worn)
@@ -118,7 +115,6 @@ def test_the_kernel_counts_an_unrevealed_cursed_item_as_its_plus_1_lookalike(wor
     assert member.model_dump(mode="json") == before, "the member never changes"
 
 
-@CHUNK
 def test_the_kernel_masks_only_the_cursed_item_and_keeps_the_dex_modifier():
     """The SRD's row "Cursed Armour -2 with Shield +1", in chainmail, on a fighter with DEX 16, -2 [+2].
 
@@ -132,7 +128,6 @@ def test_the_kernel_masks_only_the_cursed_item_and_keeps_the_dex_modifier():
     assert (member.armour_class, member.armour_class_ascending) == (3, 16)
 
 
-@CHUNK
 @pytest.mark.parametrize("flag", ["identified", "cursed_revealed"])
 def test_the_kernel_shows_the_real_number_once_the_item_is_known(flag):
     """Identified, or with its curse revealed, a cursed shield -2 tests as what it is: 10 [9]."""
@@ -145,7 +140,6 @@ def test_the_kernel_shows_the_real_number_once_the_item_is_known(flag):
     assert (shown.armour_class, shown.armour_class_ascending) == (10, 9)
 
 
-@CHUNK
 def test_the_kernel_returns_the_member_itself_with_nothing_to_mask():
     member = _wearing(("armour_plus_1", "chainmail"), ("cursed_shield_minus_2", "shield"))
     assert member.inventory.shield is not None
@@ -208,17 +202,17 @@ def _outcome(class_id: str, kind: str, template_id: str, base: str, shield_plus_
 CHOICES = [
     # A basic fighter wears chainmail and a shield: 5 - 1 = 4 [15]. Each lookalike tests as 3 [16], an upgrade.
     # Real -2 shield: 5 - (1 - 2) = 6 [13].
-    pytest.param("fighter", "basic", "cursed_shield_minus_2", "shield", False, True, (6, 13), marks=CHUNK, id="sh-2"),
+    pytest.param("fighter", "basic", "cursed_shield_minus_2", "shield", False, True, (6, 13), id="sh-2"),
     # Real: the shield sets 9 [10].
-    pytest.param("fighter", "basic", "cursed_shield_ac_9", "shield", False, True, (9, 10), marks=CHUNK, id="sh9"),
+    pytest.param("fighter", "basic", "cursed_shield_ac_9", "shield", False, True, (9, 10), id="sh9"),
     # Chainmail -1 is 6, less the shield: 5 [14].
-    pytest.param("fighter", "basic", "cursed_armour_minus_1", "chainmail", False, True, (5, 14), marks=CHUNK, id="a-1"),
+    pytest.param("fighter", "basic", "cursed_armour_minus_1", "chainmail", False, True, (5, 14), id="a-1"),
     # Chainmail -2 is 7, less the shield: 6 [13].
-    pytest.param("fighter", "basic", "cursed_armour_minus_2", "chainmail", False, True, (6, 13), marks=CHUNK, id="a-2"),
+    pytest.param("fighter", "basic", "cursed_armour_minus_2", "chainmail", False, True, (6, 13), id="a-2"),
     # The suit sets 9, less the shield: 8 [11].
-    pytest.param("fighter", "basic", "cursed_armour_ac_9", "chainmail", False, True, (8, 11), marks=CHUNK, id="a9"),
+    pytest.param("fighter", "basic", "cursed_armour_ac_9", "chainmail", False, True, (8, 11), id="a9"),
     # A thief wears leather, 7 [12]. Leather +1 tests as 6 [13], an upgrade. Real leather -1: 8 [11].
-    pytest.param("thief", "basic", "cursed_armour_minus_1", "leather", False, True, (8, 11), marks=CHUNK, id="thief"),
+    pytest.param("thief", "basic", "cursed_armour_minus_1", "leather", False, True, (8, 11), id="thief"),
     # An expert fighter wears plate and a shield, 2 [17]. Chainmail +1 tests as 4 - 1 = 3 [16], no upgrade.
     pytest.param("fighter", "expert", "cursed_armour_minus_1", "chainmail", False, False, (2, 17), id="plate_keeps"),
     # Leather +1 tests as 6 - 1 = 5 [14], no upgrade over plate either.
@@ -268,15 +262,15 @@ def _expert_party(seed: int):
 SEEDED = [
     # A cleric, DEX 13, in plate and a shield: 3 - 1 - 1 = 1. A shield +1 tests as 0, so the cursed shield -2 goes on.
     # Real: 3 - (1 - 2) - 1 = 3 [16 - 1 + 1 = 16].
-    pytest.param(0, "npc-0001", "cursed_shield_minus_2", "shield", "shield", (3, 16), marks=CHUNK, id="sh-2"),
+    pytest.param(0, "npc-0001", "cursed_shield_minus_2", "shield", "shield", (3, 16), id="sh-2"),
     # A cleric, DEX 15, in plate and a shield, 1. Real: the shield sets 9, less 1 for DEX: 8 [11].
-    pytest.param(108, "npc-0005", "cursed_shield_ac_9", "shield", "shield", (8, 11), marks=CHUNK, id="sh9"),
+    pytest.param(108, "npc-0005", "cursed_shield_ac_9", "shield", "shield", (8, 11), id="sh9"),
     # A halfling, DEX 10, in leather and a shield, 6. Leather +1 tests as 5. Real: 7 + 1 - 1 = 7 [12].
-    pytest.param(15, "npc-0005", "cursed_armour_minus_1", "leather", "leather", (7, 12), marks=CHUNK, id="a-1"),
+    pytest.param(15, "npc-0005", "cursed_armour_minus_1", "leather", "leather", (7, 12), id="a-1"),
     # A thief, DEX 8, +1 [-1], in leather, 8. Leather +1 tests as 7. Real: 7 + 2 + 1 = 10 [9].
-    pytest.param(24, "npc-0004", "cursed_armour_minus_2", "leather", "leather", (10, 9), marks=CHUNK, id="a-2"),
+    pytest.param(24, "npc-0004", "cursed_armour_minus_2", "leather", "leather", (10, 9), id="a-2"),
     # A cleric, DEX 9, in plate and a shield, 2. Plate +1 tests as 1. Real: the suit sets 9, less the shield: 8 [11].
-    pytest.param(149, "npc-0001", "cursed_armour_ac_9", "plate_mail", "plate_mail", (8, 11), marks=CHUNK, id="a9"),
+    pytest.param(149, "npc-0001", "cursed_armour_ac_9", "plate_mail", "plate_mail", (8, 11), id="a9"),
     # A cleric, DEX 16, in plate and a shield, 0. Chainmail +1 would test as 1, no upgrade, so the plate stays.
     pytest.param(18, "npc-0001", "cursed_armour_minus_2", "chainmail", None, (0, 19), id="cleric_keeps_plate"),
     # A fighter, DEX 14, in plate and a shield, 1. Chainmail +1 would test as 2, so the plate stays.
@@ -313,7 +307,6 @@ def test_a_generated_npc_wears_a_cursed_item_when_its_lookalike_is_an_upgrade(
     assert (member.armour_class, member.armour_class_ascending) == real
 
 
-@CHUNK
 def test_the_paired_row_puts_on_the_cursed_suit_and_the_shield_plus_1():
     """Seed 141: a halfling, DEX 7, +1 [-1], rolls the SRD's "Cursed Armour -2 with Shield +1" on leather.
 
@@ -331,7 +324,6 @@ def test_the_paired_row_puts_on_the_cursed_suit_and_the_shield_plus_1():
     assert (member.armour_class, member.armour_class_ascending) == (8, 11)
 
 
-@CHUNK
 def test_the_golden_roster_halfling_wears_the_cursed_shield_and_nothing_else_changes():
     """The roster in `phase5_npc_parties.json`, built as its generator builds it.
 
@@ -377,7 +369,6 @@ def _spawned_cleric():
     return game, result, npc
 
 
-@CHUNK
 def test_a_spawned_npc_wears_the_cursed_shield_and_the_referee_sees_the_real_number():
     game, result, npc = _spawned_cleric()
 
@@ -400,7 +391,6 @@ def test_a_spawned_npc_wears_the_cursed_shield_and_the_referee_sees_the_real_num
     assert "cursed_shield_minus_2" not in seen and shield_id not in seen, "the players see nothing of the NPC's gear"
 
 
-@CHUNK
 def test_the_party_strikes_the_npc_at_its_real_armour_class_and_learns_nothing_of_the_curse():
     """Hild attacks the cleric. The roll needs the real 3: the shield +1 it tests as would make it 0.
 
