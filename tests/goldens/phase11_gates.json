@@ -527,7 +527,7 @@
   "transcript": [
     "The party enters dungeon warren (level 1).",
     "The party moves to (1, 0), facing east.",
-    "character-0001 acquires brass_key, toll_token.",
+    "character-0001 acquires brass_key and toll_token.",
     "character-0001 gives brass_key to character-0004.",
     "The door east of (1, 0) opens. The brass key turns in the sentinel's palm and the door swings wide.",
     "The party moves to (2, 0), facing east.",
@@ -537,7 +537,7 @@
     "The party descends to level 2 of warren. The ferryman pockets the token and the stair opens onto the dark.",
     "The party moves to (1, 0), facing east.",
     "character-0001 acquires silver_seal.",
-    "Wandering check: skipped vs 0-in-6 — nothing comes.",
+    "Wandering check: skipped vs 0-in-6. Nothing comes.",
     "The party moves to (0, 0), facing west.",
     "The party climbs to level 1 of warren.",
     "The door east of (3, 0) opens.",
