@@ -579,23 +579,25 @@ class EncounterGroupView(_Model):
     [`Adventure.monsters`][osrlib.crawl.adventure.Adventure.monsters], the value is the template's `id`
     unless its author set `family_id`. An author who disguises a creature as another, like a
     doppelganger the players see as a goblin, sets the template's `family_id` to the family the players
-    should see, `"goblin"`, as well as its `display_name`. A group your code opens with
+    should see, `"goblin"`, and sets its `display_name` and
+    [`categories`][osrlib.core.monsters.MonsterTemplate.categories] to the goblin's, because the players
+    see those too. A group your code opens with
     [`start_encounter`][osrlib.crawl.encounter.start_encounter] under a label of its own still reports
     its templates' family here.
 
     To read what the players' rulebook says about the creature, pass the value to
     [`MonsterCatalog.family`][osrlib.core.monsters.MonsterCatalog.family] on
-    [`load_monsters`][osrlib.data.load_monsters]. A family that only the adventure bundles isn't in the
-    rulebook or in that catalog, and `family` raises `ValueError` for it. A session finds a bundled
-    family in [`GameSession.effective_monsters`][osrlib.crawl.session.GameSession.effective_monsters],
-    which a remote client doesn't have, so show such a group by its `label`."""
+    [`load_monsters`][osrlib.data.load_monsters]. A family that only the adventure bundles has no entry
+    in the rulebook, so it isn't in `load_monsters()`, and `family` raises `ValueError` for it. A session
+    finds it in [`GameSession.effective_monsters`][osrlib.crawl.session.GameSession.effective_monsters]."""
     categories: tuple[str, ...] = ()
     """The categories every member of the group has, like `("undead",)`, as in
     [`MonsterTemplate.categories`][osrlib.core.monsters.MonsterTemplate.categories]. A party of NPC
     adventurers is `("person",)`, because *hold person* and *charm person* affect any character.
 
     Use it to offer what works only against one kind of creature. Turning and holy water affect a group
-    with `"undead"`, and *hold person* affects a group with `"person"`."""
+    with `"undead"`, and *hold person* affects a group with `"person"`. The players see these categories,
+    as they see `family_id`."""
     count: int
     """How many of the group are still alive."""
     distance_feet: int
