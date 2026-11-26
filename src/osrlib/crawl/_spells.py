@@ -23,6 +23,8 @@ from osrlib.core.spells import (
     SpellCatalog,
     SpellEffect,
     SpellTemplate,
+    _learnable_spell_ids,
+    _preparable_spell_ids,
     add_spell_to_book,
     cast_spell,
     caster_profile,
@@ -57,14 +59,44 @@ def _handle_learn_spell(session, command: LearnSpell) -> tuple[list[Rejection], 
     if rejections:
         return rejections, []
     catalog = session.effective_spells
-    known = {spell.id for spell in catalog.spells}
-    # The room left at a spell level depends on the level of each spell already in the book, so
-    # the session can't check a book with a spell its catalog doesn't have.
-    unknown = next((spell_id for spell_id in member.spell_book if spell_id not in known), None)
+    unknown = _unknown_book_spell(catalog, member)
     if unknown is not None:
         return [Rejection(code="magic.book.unknown_spell", params={"spell": unknown})], []
     result = add_spell_to_book(member, member.definition, catalog, command.spell_id)
     return list(result.rejections), list(result.events)
+
+
+def _unknown_book_spell(catalog: SpellCatalog, member: Character) -> str | None:
+    """Return the first id in the member's spell book that the catalog lacks, or None when it has them all.
+
+    The room left at a spell level depends on the level of each spell already in the book, so the session can't
+    check a book with a spell its catalog doesn't have, and `LearnSpell` refuses every spell while the book has one.
+    """
+    if not member.spell_book:
+        return None
+    known = {spell.id for spell in catalog.spells}
+    return next((spell_id for spell_id in member.spell_book if spell_id not in known), None)
+
+
+def _preparable_spells(session, member: Character) -> tuple[str, ...]:
+    """Return the ids of the spells a `PrepareSpells` accepts one normal-form copy of, in the catalog's order.
+
+    The checks that belong to the moment don't apply: whether the party has slept, the session's mode, and whether
+    the member can act. It's the member view's `preparable_spells`.
+    """
+    return _preparable_spell_ids(member, member.definition, session.effective_spells)
+
+
+def _learnable_spells(session, member: Character) -> tuple[str, ...]:
+    """Return the ids of the spells a `LearnSpell` accepts, in the catalog's order.
+
+    It makes the same checks as `_handle_learn_spell` after `_member_able`, which checks the moment, so it's the
+    member view's `learnable_spells`.
+    """
+    catalog = session.effective_spells
+    if _unknown_book_spell(catalog, member) is not None:
+        return ()
+    return _learnable_spell_ids(member, member.definition, catalog)
 
 
 def _handle_cast_spell(session, command: CastSpell) -> tuple[list[Rejection], list[Event]]:

@@ -1141,13 +1141,19 @@ class GameSession:
         session that turns a spell id into a spell reads it: preparing, learning, and casting a
         spell, a `cast` declaration in a battle, reading a scroll, an NPC adventurer's casting, the
         temple, and a level drain, which forgets the memorized spells a lower level has no slot for.
-        Use it to list the spells a caster can choose with
-        [`SpellCatalog.by_list`][osrlib.core.spells.SpellCatalog.by_list], or to read more of a spell
-        than its name. [`load_spells`][osrlib.data.load_spells] doesn't have the spells the adventure
-        bundles. To show the name of a spell whose id is in a player view, read
+        Use it to read more of a spell than its name. [`load_spells`][osrlib.data.load_spells] doesn't
+        have the spells the adventure bundles. To list the spells a party member may prepare or learn,
+        read [`MemberView.preparable_spells`][osrlib.crawl.views.MemberView.preparable_spells] and
+        [`MemberView.learnable_spells`][osrlib.crawl.views.MemberView.learnable_spells] in a player
+        view. The session builds them with the checks that `PrepareSpells` and `LearnSpell` make. A
+        list from [`SpellCatalog.by_list`][osrlib.core.spells.SpellCatalog.by_list] also contains spells
+        that the session refuses, such as one at a spell level where the member has no slot. To show
+        the name of a spell whose id is in a player view, read
         [`PlayerView.spell_names`][osrlib.crawl.views.PlayerView.spell_names] and
-        [`PlayerView.reversed_spell_names`][osrlib.crawl.views.PlayerView.reversed_spell_names], which
-        contain the names from this catalog, so a remote client that has only the view can show them.
+        [`PlayerView.reversed_spell_names`][osrlib.crawl.views.PlayerView.reversed_spell_names], and
+        read its level in [`PlayerView.spell_levels`][osrlib.crawl.views.PlayerView.spell_levels].
+        They contain the names and levels from this catalog, so a remote client that has only the view
+        can show them.
 
         A character can have a spell in their spell book or memorized that this catalog doesn't
         have, like a caster from a party made for another adventure. The session leaves the id on
