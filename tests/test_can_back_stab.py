@@ -576,16 +576,16 @@ class TestThePreview:
 # ---------------------------------------------------------------------- the guides
 
 
-def _unreleased() -> str:
+def _released_in_2_8_0() -> str:
     changelog = (REPO / "CHANGELOG.md").read_text()
-    match = re.search(r"^## \[Unreleased\]\n(.*?)^## \[", changelog, flags=re.S | re.M)
+    match = re.search(r"^## \[2\.8\.0\][^\n]*\n(.*?)^## \[", changelog, flags=re.S | re.M)
     assert match is not None
     return match.group(1)
 
 
 def test_the_changelog_records_the_new_lists():
-    unreleased = _unreleased()
-    bullet = next((line for line in unreleased.splitlines() if "(#319)" in line), "")
+    released = _released_in_2_8_0()
+    bullet = next((line for line in released.splitlines() if "(#319)" in line), "")
     assert "EncounterView.can_back_stab" in bullet
     assert "BattleRoundPreview.can_hide" in bullet
     assert "BattleRoundPreview.can_back_stab" in bullet

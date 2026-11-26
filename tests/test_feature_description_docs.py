@@ -87,13 +87,13 @@ def test_the_guide_links_the_two_audiences():
     assert "][osrlib.crawl.dungeon.FeatureSpec.referee_notes]" in text
 
 
-def test_the_unreleased_changelog_tells_an_upgrading_author():
-    # One bullet under Unreleased says that the players read a cache's description since 2.6.0
-    # and names the new field. No released section is rewritten to say it.
+def test_the_changelog_tells_an_upgrading_author():
+    # One bullet under 2.8.0 says that the players read a cache's description since 2.6.0
+    # and names the new field. No other section is rewritten to say it.
     sections = _changelog_sections()
-    bullets = [line for line in sections["Unreleased"].splitlines() if line.startswith("- ")]
+    bullets = [line for line in sections["2.8.0"].splitlines() if line.startswith("- ")]
     matching = [line for line in bullets if "2.6.0" in line and "referee_notes" in line and "#318" in line]
     assert len(matching) == 1, bullets
     for name, text in sections.items():
-        if name != "Unreleased":
+        if name != "2.8.0":
             assert "referee_notes" not in text, name
