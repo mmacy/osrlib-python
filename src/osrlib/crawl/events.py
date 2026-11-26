@@ -966,9 +966,7 @@ class EncounterStartedEvent(Event):
     @model_validator(mode="after")
     def _group_fields_line_up(self) -> EncounterStartedEvent:
         if not len(self.group_labels) == len(self.group_labels_plural) == len(self.group_counts):
-            raise ValueError(
-                "group_labels, group_labels_plural, and group_counts must have one entry for each group"
-            )
+            raise ValueError("group_labels, group_labels_plural, and group_counts must have one entry for each group")
         return self
 
 
