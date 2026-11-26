@@ -461,6 +461,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
         f"{event.character_id} turns and retreats, and trades places in the marching order with {event.replacement_id}."
     ),
     "battle.side.fled": lambda event: f"{event.group_id} breaks and runs!",
+    "battle.side.escaped": lambda event: f"{event.group_id} gets away.",
     "battle.group.left_behind": lambda event: (
         f"{event.source_group_id} leaves {event.count} helpless behind as {event.group_id}."
     ),

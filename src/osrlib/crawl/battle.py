@@ -94,9 +94,18 @@ You follow the battle through events from [`osrlib.crawl.events`][osrlib.crawl.e
   line changes.
 - [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] when a group fails its morale check
   and flees, and when the turned members of a group split off as a new group and flee.
+- [`MonsterEscapedEvent`][osrlib.crawl.events.MonsterEscapedEvent] when a running group gets away
+  and leaves the battle, right after the `GroupMovedEvent` that takes it past
+  [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET]. A group with a morale score of 2 gets
+  away as it enters the battle, so its `MonsterEscapedEvent` comes right after its
+  `MonsterFledEvent`. A group whose living members are all turned or afraid, and which stands
+  past `FLEE_EXIT_FEET` without a move of its own when the battle ends, gets away as the battle
+  ends, so its `MonsterEscapedEvent` comes right before the `BattleEndedEvent`.
 - [`MonstersLeftBehindEvent`][osrlib.crawl.events.MonstersLeftBehindEvent] for helpless members a
   fleeing group leaves behind.
 - [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent] with victory, defeat, or flight.
+  When an escape leaves no group fighting, the `BattleEndedEvent` comes after the
+  `MonsterEscapedEvent`.
 
 Between them come the events of the rule functions in [`osrlib.core`][osrlib.core]: attacks,
 damage, saving throws, initiative, and morale.
@@ -384,6 +393,7 @@ from osrlib.crawl.events import (
     GroupMovedEvent,
     MemberMovedEvent,
     MemberWithdrewEvent,
+    MonsterEscapedEvent,
     MonsterFledEvent,
     MonstersLeftBehindEvent,
     SpellDeclaredEvent,
@@ -434,7 +444,9 @@ FLEE_EXIT_FEET = 120
 A group that fails a morale check turns and runs its full movement rate each round. Once it
 stands farther than this from every living party member, as
 [`member_distance_feet`][osrlib.crawl.battle.member_distance_feet] measures each one, the session
-marks the group fled. Until then, the party can still close on it or shoot at it. The distance is
+marks the group fled. It emits a [`MonsterEscapedEvent`][osrlib.crawl.events.MonsterEscapedEvent]
+in the same round, right after the [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent] of the
+move that took the group that far. Until then, the party can still close on it or shoot at it. The distance is
 measured from the members, not from the party line, so a member who closed on the group keeps it
 in the battle longer, and a move of the party line never pushes a group out.
 
@@ -444,6 +456,12 @@ victory.
 
 A group whose living members are all afraid or turned, but which didn't fail a morale check, also
 counts as gone for ending the battle once it stands farther than this from every living member.
+It can get there without a move of its own: a group turned where it stands 130' away, or a group
+the party leaves behind by falling back before the group's next move. When the battle ends with
+such a group, the session marks it fled and emits its `MonsterEscapedEvent` right before the
+[`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent]. The group then ends the encounter as
+it would have after a move of its own took it out: its members are routed, they count for the
+experience award, and they keep their treasure.
 """
 
 
@@ -2301,8 +2319,9 @@ def start_battle(session, *, party_free_round: bool = False, monsters_free_round
 
     Returns:
         The opening events: the [`BattleStartedEvent`][osrlib.crawl.events.BattleStartedEvent], a
-        [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] for each group that ran at once,
-        the events of the monsters' free round, including the clock advancing one round, and a
+        [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] followed by a
+        [`MonsterEscapedEvent`][osrlib.crawl.events.MonsterEscapedEvent] for each group that ran at
+        once, the events of the monsters' free round, including the clock advancing one round, and a
         [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent] when the opening alone ends the
         battle.
 
@@ -2382,12 +2401,13 @@ def _flee_if_unwilling(session, group) -> list[Event]:
     """Send a group whose morale score is 2 out of the battle, because the SRD says it won't fight.
 
     The group runs as it enters the battle: when the battle starts, or when a referee's spawn adds
-    it to a battle that's already running.
+    it to a battle that's already running. It gets away at once, so the `MonsterEscapedEvent` comes
+    right after its `MonsterFledEvent`.
     """
     if group.fled or _group_morale_score(session, group) != 2:
         return []
     group.fled = True
-    return [MonsterFledEvent(code="battle.side.fled", group_id=group.id)]
+    return [MonsterFledEvent(code="battle.side.fled", group_id=group.id), MonsterEscapedEvent(group_id=group.id)]
 
 
 def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
@@ -2407,7 +2427,18 @@ def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
     groups = session.encounter.groups
     done = all(group.fled or not _living_monsters(session, group) or _all_routed(session, group) for group in groups)
     if done:
-        return [BattleEndedEvent(code="battle.ended.victory"), *encounter_module.end_encounter(session, "victory")]
+        # A wholly turned or afraid group past FLEE_EXIT_FEET has got away too, even when its own move never took it
+        # out, so it ends the battle marked fled, as it would have after its next move.
+        escaped: list[Event] = []
+        for group in groups:
+            if not group.fled and _all_routed(session, group):
+                group.fled = True
+                escaped.append(MonsterEscapedEvent(group_id=group.id))
+        return [
+            *escaped,
+            BattleEndedEvent(code="battle.ended.victory"),
+            *encounter_module.end_encounter(session, "victory"),
+        ]
     if party_retreating:
         from osrlib.crawl.encounter import PursuitState
 
@@ -4930,7 +4961,8 @@ def _monster_block(
     """Resolve the monster side's block: morale, flight, gazes, and the actions each group's policy chose.
 
     A group that runs moves its full rate away, and it's gone once it stands farther than `FLEE_EXIT_FEET`
-    from the nearest living member. A `close` moves the group as `_closing_distance` works it out, and
+    from the nearest living member. The group's `MonsterEscapedEvent` then comes right after the
+    `GroupMovedEvent` of that move. A `close` moves the group as `_closing_distance` works it out, and
     `_place_closing_group` places it and reports the move. A `melee` resolves only on a target in
     the group's front rank within 5' of it when the action comes up (see `_reachable_front_rank`), so a
     member who stepped out of reach earlier in the round, or whom the group's close fell short of, isn't
@@ -4975,6 +5007,7 @@ def _monster_block(
             events.append(GroupMovedEvent(group_id=group.id, distance_feet=group.distance_feet))
             if _nearest_member_distance(session, group) > FLEE_EXIT_FEET:
                 group.fled = True
+                events.append(MonsterEscapedEvent(group_id=group.id))
             continue
         events.extend(_resolve_gazes(session, group, free_round=free_round, mirrored=mirrored))
         _watch_disruption(events, pending_casters, disrupted, acted)

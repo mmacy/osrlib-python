@@ -648,7 +648,11 @@ class EncounterGroupView(_Model):
     session refuses group-targeted declarations with `battle.declaration.unknown_group`. A spell or
     scroll that names one of its members in `targets` gets `magic.cast.unknown_target`. Don't offer
     the group or its members as targets. A group that's running but hasn't got away yet isn't fled.
-    You can still close on it, shoot at it, or cast at it."""
+    You can still close on it, shoot at it, or cast at it.
+
+    The session emits a [`MonsterEscapedEvent`][osrlib.crawl.events.MonsterEscapedEvent] for the
+    group in the command result in which `fled` becomes true, and in no other result. You can show
+    the group getting away from the event stream, and then drop it from your target lists."""
     fleeing: bool = False
     """True once the group has failed a morale check and turned to run, as in
     [`EncounterGroup.fleeing`][osrlib.crawl.encounter.EncounterGroup.fleeing].
