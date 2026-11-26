@@ -256,7 +256,7 @@ miri = create_character(
 assert miri.spell_book == ("frost_dart",)
 ```
 
-Once the session starts, [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells], [`LearnSpell`][osrlib.crawl.commands.LearnSpell], [`CastSpell`][osrlib.crawl.commands.CastSpell], and battle `cast` declarations resolve bundled spells alongside built-in spells. Because [`MemberView`][osrlib.crawl.views.MemberView] lists `spell_book` and `memorized_spells` by spell ID (such as `"frost_dart"`), look up display names in `session.effective_spells` rather than `load_spells()`:
+Once the session starts, [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells], [`LearnSpell`][osrlib.crawl.commands.LearnSpell], [`CastSpell`][osrlib.crawl.commands.CastSpell], and battle `cast` declarations resolve bundled spells alongside built-in spells. [`MemberView`][osrlib.crawl.views.MemberView] lists `spell_book` and `memorized_spells` by spell ID (such as `"frost_dart"`), and [`PlayerView.spell_names`][osrlib.crawl.views.PlayerView.spell_names] contains the name of each one, read from `session.effective_spells`, so show those names rather than looking the ids up in `load_spells()`, which lacks the spells the adventure bundles:
 
 ```{.python .no-run}
 bran = Character(
@@ -534,7 +534,7 @@ Add custom [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate] instances t
 Build a `MonsterTemplate` with `model_validate`, using [`thac0_for_hd`][osrlib.core.tables.thac0_for_hd], [`monster_save_band_label`][osrlib.core.tables.monster_save_band_label], and [`monster_xp`][osrlib.core.tables.monster_xp] to compute B/X attack numbers, save bands, and XP values from Hit Dice. Configure naming and validation fields as follows:
 
 - **Unique IDs and treasure types**: [`validate_adventure`][osrlib.crawl.adventure.validate_adventure] rejects bundled monster IDs that duplicate another bundled ID or collide with [`load_monsters`][osrlib.data.load_monsters] ([the monster id index][monsters-index]), and verifies that every letter in `treasure` appears in [the treasure type index][treasure-types-index].
-- **Display names and families**: Set [`display_name`][osrlib.core.monsters.MonsterTemplate.display_name] (for example, `"bone warden"`) for lowercase group labels and message formatting. Omitting it defaults to `name` with its capitalization, and regular plurals are formed automatically unless you override [`display_name_plural`][osrlib.core.monsters.MonsterTemplate.display_name_plural]. Each template defaults `family_id` to its `id`, though Hit Dice variants that look identical to players can share a [`family_id`][osrlib.core.monsters.MonsterTemplate.family_id] and `display_name` (matching how built-in hellhound variants share `"hellhound"`):
+- **Display names and families**: Set [`display_name`][osrlib.core.monsters.MonsterTemplate.display_name] (for example, `"bone warden"`) for lowercase group labels and message formatting. Omitting it defaults to `name` with its capitalization, and regular plurals are formed automatically unless you override [`display_name_plural`][osrlib.core.monsters.MonsterTemplate.display_name_plural]. The player view shows the players each group's [`family_id`][osrlib.core.monsters.MonsterTemplate.family_id], in [`EncounterGroupView.family_id`][osrlib.crawl.views.EncounterGroupView.family_id], so a client can tell what kind of creature a group is. It shows each group's [`categories`][osrlib.core.monsters.MonsterTemplate.categories] too. A template's `family_id` defaults to its `id`. Hit Dice variants that look identical to players share a `family_id` and `display_name` (matching how built-in hellhound variants share `"hellhound"`), and a creature disguised as another sets `family_id` and `display_name` to those of the creature the players see, as [Make a variant of a built-in monster](#make-a-variant-of-a-built-in-monster) shows:
 
 ```python
 from osrlib.core.alignment import Alignment
@@ -604,16 +604,16 @@ adventure = Adventure(
     monsters=(BONE_WARDEN,),
 )
 
-# The same gate the built-in content passes — the base catalog goes in unchanged,
-# and validation unions it with the bundle internally.
+# The same check the built-in content passes. You pass the base catalog unchanged,
+# and validation combines it with the bundle.
 validate_adventure(adventure, load_monsters(), load_equipment())
 
 rng = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
 hero = create_character(name="Hild", class_id="fighter", alignment=Alignment.LAWFUL, ruleset=Ruleset(), stream=rng)
 session = GameSession.new(Party(members=[hero.character]), adventure, seed=7)
 
-# The session's effective catalog resolves the bundled id — the very object the
-# adventure carries — and creation embeds it in each instance.
+# The session's effective catalog resolves the bundled id to the same object the
+# adventure contains, and spawning embeds it in each instance.
 assert session.effective_monsters.get("bone_warden") is BONE_WARDEN
 guards = session.spawn("bone_warden", 2)
 assert [guard.template.id for guard in guards] == ["bone_warden", "bone_warden"]
@@ -622,7 +622,7 @@ assert all(guard.max_hp >= 3 for guard in guards)  # 2d8+1 rolls at least 3
 
 ### Make a variant of a built-in monster
 
-Built-in templates and their nested `FrozenMap` fields are immutable (`TypeError` on item assignment) and shared across all sessions in the process. To modify nested fields (such as an ability's `params`), call `model_dump()` to obtain mutable dicts, edit the dump, and call `model_validate` with a distinct `id` (plus updated `display_name` and `family_id` unless players should treat the variant as indistinguishable from the base creature):
+Built-in templates and their nested `FrozenMap` fields are immutable (`TypeError` on item assignment) and shared across all sessions in the process. To modify nested fields (such as an ability's `params`), call `model_dump()` to obtain mutable dicts, edit the dump, and call `model_validate` with a distinct `id`. The dump contains the base creature's `display_name`, `family_id`, and `categories`, and the player view shows all three to the players. A variant that the players can tell from the base creature, like the bog troll below, gets a `display_name` and `family_id` of its own. A disguised variant, like a doppelganger the players see as a goblin, leaves the base creature's `display_name`, `family_id`, and `categories` as they are, so the players see a goblin:
 
 ```python
 from osrlib.core.monsters import MonsterTemplate
@@ -737,8 +737,8 @@ rng = RngStreams(master_seed=7).get(CHARACTER_CREATION_STREAM)
 hero = create_character(name="Hild", class_id="fighter", alignment=Alignment.LAWFUL, ruleset=Ruleset(), stream=rng)
 session = GameSession.new(Party(members=[hero.character]), adventure, seed=7)
 
-# The session's effective catalog resolves every bundled id — the very objects the
-# adventure carries — and a grant hands over that template.
+# The session's effective catalog resolves every bundled id to the same objects the
+# adventure contains, and a grant hands over that template.
 assert session.effective_equipment.get("temple_idol") is TEMPLE_IDOL
 assert [session.effective_equipment.get(item_id).item_type for item_id in BUNDLED_IDS] == [
     "gear",

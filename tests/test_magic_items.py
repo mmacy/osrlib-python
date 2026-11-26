@@ -712,6 +712,7 @@ class TestDevicesInPlay:
         assert not result.accepted and result.rejections[0].code == "items.use.not_usable"
 
     def test_staff_of_healing_once_per_target_per_day(self):
+        """The OSE SRD's staff "Is effective on any individual at most once per day", so a second use is refused."""
         session, member, staff = session_with_item("staff_of_healing")
         cleric = session.party.members[1]
         cleric.class_id = "cleric"
@@ -724,7 +725,7 @@ class TestDevicesInPlay:
         assert healed_once > 1
         cleric.current_hp = 1
         second = session.execute(UseItem(character_id=cleric.id, item_id=staff.instance_id))
-        assert second.accepted  # the activation happens; nothing more heals today
+        assert [rejection.code for rejection in second.rejections] == ["items.use.target_healed_today"]
         assert cleric.current_hp == 1
 
 

@@ -38,7 +38,8 @@ def grant(game: GameSession, name: str, item_id: str, quantity: int = 1) -> str:
     """Give `name` an item and return the id a command names it by."""
     member = game.member(pf.named(game, name))
     assert game.execute(GrantItem(character_id=member.id, item_id=item_id, quantity=quantity)).accepted
-    for entry in member.inventory.items:
+    # The newest instance is last, so a second grant of the same template returns the second item's id.
+    for entry in reversed(member.inventory.items):
         if isinstance(entry, MagicItemInstance) and entry.template_id == item_id:
             return entry.instance_id
     return item_id

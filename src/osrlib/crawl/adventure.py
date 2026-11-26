@@ -211,12 +211,13 @@ class PartySpec(_Model):
     min_level: int = Field(ge=1)
     """The lowest character level the adventure is written for, 1 or more."""
     max_level: int = Field(ge=1)
-    """The highest character level the adventure is written for. Equal to `min_level` for an
-    adventure written for one level."""
+    """The highest character level the adventure is written for, `min_level` or more. Equal to
+    `min_level` for an adventure written for one level."""
     min_size: int | None = Field(default=None, ge=1)
     """The fewest characters the adventure is written for, or `None` when it gives no number."""
     max_size: int | None = Field(default=None, ge=1)
-    """The most characters the adventure is written for, or `None` when it gives no number."""
+    """The most characters the adventure is written for, or `None` when it gives no number. When
+    `min_size` is also given, it's `min_size` or more."""
 
     @model_validator(mode="after")
     def _ranges_in_order(self) -> PartySpec:

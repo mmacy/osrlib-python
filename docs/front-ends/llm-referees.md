@@ -31,6 +31,8 @@ assert json.loads(json.dumps(tool_definition)) == tool_definition
 
 Every model property in `command_schema` and `observations` includes a `description` generated from its attribute docstring (with mkdocstrings cross-references such as ``[`MoveParty`][osrlib.crawl.commands.MoveParty]`` reduced to plain `` `MoveParty` `` labels), so an LLM reading `tool_definition` sees what each parameter controls and emits arguments such as `{"command": {"command_type": "move_party", "direction": "east"}}`.
 
+Each command, event, and enum definition has a `description` too, written as CommonMark. It is the class docstring's text before its first section, followed by the command's `Modes:`, `Rejections:`, and `Events:` sections when it has them, so an LLM reads which session modes accept the command, the codes that refuse it, and the events it emits. The docstring's `Attributes:`, `Raises:`, and `Examples:` sections are left out of the description, because each property has its own `description` and the other two describe Python use.
+
 On each step of your agent loop, stop once [`SessionMode.terminal`][osrlib.crawl.commands.SessionMode] becomes `True` (`game_over` or `victory`) or a `max_steps` retry cap is reached, validate the model's `command` dict with [`parse_command`][osrlib.crawl.commands.parse_command], and pass structured validation errors, [`Rejection`][osrlib.core.validation.Rejection] codes (see [the rejection code reference](../reference/rejection-codes.md)), or emitted events into the next `decide(observation, feedback)` call:
 
 ```{.python .no-run}
