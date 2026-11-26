@@ -1108,13 +1108,21 @@ def roll_ability_scores(stream: RngStream, *, method: Literal["3d6", "4d6_drop_l
         # {'str': 14, 'int': 6, 'wis': 9, 'dex': 10, 'con': 11, 'cha': 11}
         ```
     """
+    if method not in ("3d6", "4d6_drop_lowest"):
+        raise ValueError(f"unknown ability score method {method!r}: use '3d6' or '4d6_drop_lowest'")
     scores: dict[AbilityScore, int] = {}
     rolls: dict[AbilityScore, tuple[int, int, int]] = {}
+    dropped: dict[AbilityScore, int] = {}
     for ability in ABILITY_ROLL_ORDER:
-        result = roll("3d6", stream)
-        scores[ability] = result.total
-        rolls[ability] = (result.rolls[0], result.rolls[1], result.rolls[2])
-    return AbilityScoreRolls(scores=scores, rolls=rolls)
+        if method == "3d6":
+            thrown = list(roll("3d6", stream).rolls)
+        else:
+            thrown = list(roll("4d6", stream).rolls)
+            # `index` finds the first of the lowest dice thrown, so a tie drops the earliest one.
+            dropped[ability] = thrown.pop(thrown.index(min(thrown)))
+        scores[ability] = sum(thrown)
+        rolls[ability] = (thrown[0], thrown[1], thrown[2])
+    return AbilityScoreRolls(scores=scores, rolls=rolls, dropped=dropped)
 
 
 def validate_class_choice(scores: dict[AbilityScore, int], definition: ClassDefinition) -> list[Rejection]:
@@ -1228,7 +1236,14 @@ def roll_hit_points(
     if ruleset.hp_reroll_at_first_level:
         while rolls[-1] <= 2:
             rolls.append(stream.randbelow(die) + 1)
-    return HitPointRoll(rolls=tuple(rolls), hit_points=max(1, rolls[-1] + con_modifier))
+    # The maximum replaces only the counted value, after every die has been thrown, so the draws are
+    # the same with the option on or off.
+    counted = die if ruleset.max_hp_at_first_level else rolls[-1]
+    return HitPointRoll(
+        rolls=tuple(rolls),
+        hit_points=max(1, counted + con_modifier),
+        maximized=ruleset.max_hp_at_first_level,
+    )
 
 
 def validate_extra_languages(definition: ClassDefinition, int_score: int, choices: Sequence[str]) -> list[Rejection]:
@@ -1642,7 +1657,7 @@ def create_character(
     # `validate_purchase` refuses it.
     covered = sum(template.cost_gp * lots for template, lots in bought if lots > 0)
     _outfit(Inventory(purse=CoinPurse(gp=covered)), definition, bought, equip_ids)
-    ability_rolls = roll_ability_scores(stream)
+    ability_rolls = roll_ability_scores(stream, method=ruleset.ability_score_method)
     choice_rejections = validate_class_choice(ability_rolls.scores, definition)
     if choice_rejections:
         raise ValueError(f"illegal class choice: {[rejection.code for rejection in choice_rejections]}")
