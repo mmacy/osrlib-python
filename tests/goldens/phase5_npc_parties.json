@@ -19,6 +19,8 @@
               "quantity": 1,
               "template": {
                 "cost_gp": 0,
+                "display_name": "sling stone",
+                "display_name_plural": "sling stones",
                 "id": "sling_stones",
                 "item_type": "ammunition",
                 "lot_size": 1,
@@ -35,11 +37,16 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 5,
+                "display_name": "standard ration",
+                "display_name_plural": "standard rations",
                 "id": "rations_standard",
                 "item_type": "gear",
                 "lot_size": 7,
                 "name": "Rations (standard, 7 days)",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "ration": true
                 }
@@ -52,6 +59,8 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 1,
+                "display_name": "waterskin",
+                "display_name_plural": "waterskins",
                 "id": "waterskin",
                 "item_type": "gear",
                 "lot_size": 1,
@@ -75,11 +84,16 @@
                   ]
                 },
                 "cost_gp": 1,
+                "display_name": "torch",
+                "display_name_plural": "torches",
                 "id": "torch",
                 "item_type": "gear",
                 "lot_size": 6,
                 "name": "Torches (6)",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "brightness": "flame",
                   "burn_turns": 6,
@@ -105,6 +119,8 @@
               "ac_bonus": 1,
               "category": null,
               "cost_gp": 10,
+              "display_name": "shield",
+              "display_name_plural": "shields",
               "id": "shield",
               "item_type": "armour",
               "name": "Shield",
@@ -120,6 +136,8 @@
               "template": {
                 "cost_gp": 10,
                 "damage": "1d8",
+                "display_name": "sword",
+                "display_name_plural": "swords",
                 "id": "sword",
                 "item_type": "weapon",
                 "material": "standard",
@@ -138,6 +156,8 @@
               "template": {
                 "cost_gp": 2,
                 "damage": "1d4",
+                "display_name": "sling",
+                "display_name_plural": "slings",
                 "id": "sling",
                 "item_type": "weapon",
                 "material": "standard",
@@ -174,10 +194,15 @@
               "ac_bonus": null,
               "category": "light",
               "cost_gp": 20,
+              "display_name": "suit of leather armour",
+              "display_name_plural": "suits of leather armour",
               "id": "leather",
               "item_type": "armour",
               "name": "Leather",
-              "overrides_applied": [],
+              "overrides_applied": [
+                "display_name",
+                "display_name_plural"
+              ],
               "weight_coins": 200
             }
           }
@@ -220,6 +245,8 @@
                 "ac_bonus": 1,
                 "category": null,
                 "cost_gp": 10,
+                "display_name": "shield",
+                "display_name_plural": "shields",
                 "id": "shield",
                 "item_type": "armour",
                 "name": "Shield",
@@ -234,11 +261,16 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 5,
+                "display_name": "standard ration",
+                "display_name_plural": "standard rations",
                 "id": "rations_standard",
                 "item_type": "gear",
                 "lot_size": 7,
                 "name": "Rations (standard, 7 days)",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "ration": true
                 }
@@ -251,6 +283,8 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 1,
+                "display_name": "waterskin",
+                "display_name_plural": "waterskins",
                 "id": "waterskin",
                 "item_type": "gear",
                 "lot_size": 1,
@@ -274,11 +308,16 @@
                   ]
                 },
                 "cost_gp": 1,
+                "display_name": "torch",
+                "display_name_plural": "torches",
                 "id": "torch",
                 "item_type": "gear",
                 "lot_size": 6,
                 "name": "Torches (6)",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "brightness": "flame",
                   "burn_turns": 6,
@@ -304,6 +343,8 @@
               "template": {
                 "cost_gp": 7,
                 "damage": "1d8",
+                "display_name": "battle axe",
+                "display_name_plural": "battle axes",
                 "id": "battle_axe",
                 "item_type": "weapon",
                 "material": "standard",
@@ -328,6 +369,8 @@
               "ac_bonus": null,
               "category": "heavy",
               "cost_gp": 40,
+              "display_name": "suit of chainmail",
+              "display_name_plural": "suits of chainmail",
               "id": "chainmail",
               "item_type": "armour",
               "name": "Chainmail",
@@ -372,11 +415,16 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 25,
+                "display_name": "set of thieves’ tools",
+                "display_name_plural": "sets of thieves’ tools",
                 "id": "thieves_tools",
                 "item_type": "gear",
                 "lot_size": 1,
                 "name": "Thieves’ tools",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "required_for": "open_locks"
                 }
@@ -389,11 +437,16 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 5,
+                "display_name": "standard ration",
+                "display_name_plural": "standard rations",
                 "id": "rations_standard",
                 "item_type": "gear",
                 "lot_size": 7,
                 "name": "Rations (standard, 7 days)",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "ration": true
                 }
@@ -406,6 +459,8 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 1,
+                "display_name": "waterskin",
+                "display_name_plural": "waterskins",
                 "id": "waterskin",
                 "item_type": "gear",
                 "lot_size": 1,
@@ -429,11 +484,16 @@
                   ]
                 },
                 "cost_gp": 1,
+                "display_name": "torch",
+                "display_name_plural": "torches",
                 "id": "torch",
                 "item_type": "gear",
                 "lot_size": 6,
                 "name": "Torches (6)",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "brightness": "flame",
                   "burn_turns": 6,
@@ -459,6 +519,8 @@
               "template": {
                 "cost_gp": 10,
                 "damage": "1d8",
+                "display_name": "sword",
+                "display_name_plural": "swords",
                 "id": "sword",
                 "item_type": "weapon",
                 "material": "standard",
@@ -481,10 +543,15 @@
               "ac_bonus": null,
               "category": "light",
               "cost_gp": 20,
+              "display_name": "suit of leather armour",
+              "display_name_plural": "suits of leather armour",
               "id": "leather",
               "item_type": "armour",
               "name": "Leather",
-              "overrides_applied": [],
+              "overrides_applied": [
+                "display_name",
+                "display_name_plural"
+              ],
               "weight_coins": 200
             }
           }
@@ -527,6 +594,8 @@
                 "ac_bonus": 1,
                 "category": null,
                 "cost_gp": 10,
+                "display_name": "shield",
+                "display_name_plural": "shields",
                 "id": "shield",
                 "item_type": "armour",
                 "name": "Shield",
@@ -541,11 +610,16 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 5,
+                "display_name": "standard ration",
+                "display_name_plural": "standard rations",
                 "id": "rations_standard",
                 "item_type": "gear",
                 "lot_size": 7,
                 "name": "Rations (standard, 7 days)",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "ration": true
                 }
@@ -558,6 +632,8 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 1,
+                "display_name": "waterskin",
+                "display_name_plural": "waterskins",
                 "id": "waterskin",
                 "item_type": "gear",
                 "lot_size": 1,
@@ -581,11 +657,16 @@
                   ]
                 },
                 "cost_gp": 1,
+                "display_name": "torch",
+                "display_name_plural": "torches",
                 "id": "torch",
                 "item_type": "gear",
                 "lot_size": 6,
                 "name": "Torches (6)",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "brightness": "flame",
                   "burn_turns": 6,
@@ -611,6 +692,8 @@
               "template": {
                 "cost_gp": 7,
                 "damage": "1d8",
+                "display_name": "battle axe",
+                "display_name_plural": "battle axes",
                 "id": "battle_axe",
                 "item_type": "weapon",
                 "material": "standard",
@@ -635,6 +718,8 @@
               "ac_bonus": null,
               "category": "heavy",
               "cost_gp": 40,
+              "display_name": "suit of chainmail",
+              "display_name_plural": "suits of chainmail",
               "id": "chainmail",
               "item_type": "armour",
               "name": "Chainmail",
@@ -677,6 +762,8 @@
               "quantity": 20,
               "template": {
                 "cost_gp": 5,
+                "display_name": "arrow",
+                "display_name_plural": "arrows",
                 "id": "arrows",
                 "item_type": "ammunition",
                 "lot_size": 20,
@@ -693,11 +780,16 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 5,
+                "display_name": "standard ration",
+                "display_name_plural": "standard rations",
                 "id": "rations_standard",
                 "item_type": "gear",
                 "lot_size": 7,
                 "name": "Rations (standard, 7 days)",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "ration": true
                 }
@@ -710,6 +802,8 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 1,
+                "display_name": "waterskin",
+                "display_name_plural": "waterskins",
                 "id": "waterskin",
                 "item_type": "gear",
                 "lot_size": 1,
@@ -733,11 +827,16 @@
                   ]
                 },
                 "cost_gp": 1,
+                "display_name": "torch",
+                "display_name_plural": "torches",
                 "id": "torch",
                 "item_type": "gear",
                 "lot_size": 6,
                 "name": "Torches (6)",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "brightness": "flame",
                   "burn_turns": 6,
@@ -763,6 +862,8 @@
               "template": {
                 "cost_gp": 10,
                 "damage": "1d8",
+                "display_name": "sword",
+                "display_name_plural": "swords",
                 "id": "sword",
                 "item_type": "weapon",
                 "material": "standard",
@@ -781,6 +882,8 @@
               "template": {
                 "cost_gp": 40,
                 "damage": "1d6",
+                "display_name": "long bow",
+                "display_name_plural": "long bows",
                 "id": "long_bow",
                 "item_type": "weapon",
                 "material": "standard",
@@ -817,6 +920,8 @@
               "ac_bonus": null,
               "category": "heavy",
               "cost_gp": 40,
+              "display_name": "suit of chainmail",
+              "display_name_plural": "suits of chainmail",
               "id": "chainmail",
               "item_type": "armour",
               "name": "Chainmail",
@@ -907,11 +1012,16 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 5,
+                "display_name": "standard ration",
+                "display_name_plural": "standard rations",
                 "id": "rations_standard",
                 "item_type": "gear",
                 "lot_size": 7,
                 "name": "Rations (standard, 7 days)",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "ration": true
                 }
@@ -924,6 +1034,8 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 1,
+                "display_name": "waterskin",
+                "display_name_plural": "waterskins",
                 "id": "waterskin",
                 "item_type": "gear",
                 "lot_size": 1,
@@ -947,11 +1059,16 @@
                   ]
                 },
                 "cost_gp": 1,
+                "display_name": "torch",
+                "display_name_plural": "torches",
                 "id": "torch",
                 "item_type": "gear",
                 "lot_size": 6,
                 "name": "Torches (6)",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "brightness": "flame",
                   "burn_turns": 6,
@@ -980,6 +1097,8 @@
                 "ac_bonus": 1,
                 "category": null,
                 "cost_gp": 10,
+                "display_name": "shield",
+                "display_name_plural": "shields",
                 "id": "shield",
                 "item_type": "armour",
                 "name": "Shield",
@@ -1040,6 +1159,8 @@
               "template": {
                 "cost_gp": 10,
                 "damage": "1d8",
+                "display_name": "sword",
+                "display_name_plural": "swords",
                 "id": "sword",
                 "item_type": "weapon",
                 "material": "standard",
@@ -1062,6 +1183,8 @@
               "ac_bonus": null,
               "category": "heavy",
               "cost_gp": 60,
+              "display_name": "suit of plate mail",
+              "display_name_plural": "suits of plate mail",
               "id": "plate_mail",
               "item_type": "armour",
               "name": "Plate mail",
@@ -1104,6 +1227,8 @@
               "quantity": 1,
               "template": {
                 "cost_gp": 0,
+                "display_name": "sling stone",
+                "display_name_plural": "sling stones",
                 "id": "sling_stones",
                 "item_type": "ammunition",
                 "lot_size": 1,
@@ -1120,11 +1245,16 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 5,
+                "display_name": "standard ration",
+                "display_name_plural": "standard rations",
                 "id": "rations_standard",
                 "item_type": "gear",
                 "lot_size": 7,
                 "name": "Rations (standard, 7 days)",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "ration": true
                 }
@@ -1137,6 +1267,8 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 1,
+                "display_name": "waterskin",
+                "display_name_plural": "waterskins",
                 "id": "waterskin",
                 "item_type": "gear",
                 "lot_size": 1,
@@ -1160,11 +1292,16 @@
                   ]
                 },
                 "cost_gp": 1,
+                "display_name": "torch",
+                "display_name_plural": "torches",
                 "id": "torch",
                 "item_type": "gear",
                 "lot_size": 6,
                 "name": "Torches (6)",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "brightness": "flame",
                   "burn_turns": 6,
@@ -1181,6 +1318,8 @@
                 "ac_bonus": 1,
                 "category": null,
                 "cost_gp": 10,
+                "display_name": "shield",
+                "display_name_plural": "shields",
                 "id": "shield",
                 "item_type": "armour",
                 "name": "Shield",
@@ -1229,6 +1368,8 @@
               "template": {
                 "cost_gp": 10,
                 "damage": "1d8",
+                "display_name": "sword",
+                "display_name_plural": "swords",
                 "id": "sword",
                 "item_type": "weapon",
                 "material": "standard",
@@ -1247,6 +1388,8 @@
               "template": {
                 "cost_gp": 2,
                 "damage": "1d4",
+                "display_name": "sling",
+                "display_name_plural": "slings",
                 "id": "sling",
                 "item_type": "weapon",
                 "material": "standard",
@@ -1283,10 +1426,15 @@
               "ac_bonus": null,
               "category": "light",
               "cost_gp": 20,
+              "display_name": "suit of leather armour",
+              "display_name_plural": "suits of leather armour",
               "id": "leather",
               "item_type": "armour",
               "name": "Leather",
-              "overrides_applied": [],
+              "overrides_applied": [
+                "display_name",
+                "display_name_plural"
+              ],
               "weight_coins": 200
             }
           }
@@ -1325,6 +1473,8 @@
               "quantity": 1,
               "template": {
                 "cost_gp": 0,
+                "display_name": "sling stone",
+                "display_name_plural": "sling stones",
                 "id": "sling_stones",
                 "item_type": "ammunition",
                 "lot_size": 1,
@@ -1341,11 +1491,16 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 5,
+                "display_name": "standard ration",
+                "display_name_plural": "standard rations",
                 "id": "rations_standard",
                 "item_type": "gear",
                 "lot_size": 7,
                 "name": "Rations (standard, 7 days)",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "ration": true
                 }
@@ -1358,6 +1513,8 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 1,
+                "display_name": "waterskin",
+                "display_name_plural": "waterskins",
                 "id": "waterskin",
                 "item_type": "gear",
                 "lot_size": 1,
@@ -1381,11 +1538,16 @@
                   ]
                 },
                 "cost_gp": 1,
+                "display_name": "torch",
+                "display_name_plural": "torches",
                 "id": "torch",
                 "item_type": "gear",
                 "lot_size": 6,
                 "name": "Torches (6)",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "brightness": "flame",
                   "burn_turns": 6,
@@ -1423,6 +1585,8 @@
               "ac_bonus": 1,
               "category": null,
               "cost_gp": 10,
+              "display_name": "shield",
+              "display_name_plural": "shields",
               "id": "shield",
               "item_type": "armour",
               "name": "Shield",
@@ -1438,6 +1602,8 @@
               "template": {
                 "cost_gp": 10,
                 "damage": "1d8",
+                "display_name": "sword",
+                "display_name_plural": "swords",
                 "id": "sword",
                 "item_type": "weapon",
                 "material": "standard",
@@ -1456,6 +1622,8 @@
               "template": {
                 "cost_gp": 2,
                 "damage": "1d4",
+                "display_name": "sling",
+                "display_name_plural": "slings",
                 "id": "sling",
                 "item_type": "weapon",
                 "material": "standard",
@@ -1520,10 +1688,15 @@
               "ac_bonus": null,
               "category": "light",
               "cost_gp": 20,
+              "display_name": "suit of leather armour",
+              "display_name_plural": "suits of leather armour",
               "id": "leather",
               "item_type": "armour",
               "name": "Leather",
-              "overrides_applied": [],
+              "overrides_applied": [
+                "display_name",
+                "display_name_plural"
+              ],
               "weight_coins": 200
             }
           }
@@ -1564,11 +1737,16 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 25,
+                "display_name": "set of thieves’ tools",
+                "display_name_plural": "sets of thieves’ tools",
                 "id": "thieves_tools",
                 "item_type": "gear",
                 "lot_size": 1,
                 "name": "Thieves’ tools",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "required_for": "open_locks"
                 }
@@ -1581,11 +1759,16 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 5,
+                "display_name": "standard ration",
+                "display_name_plural": "standard rations",
                 "id": "rations_standard",
                 "item_type": "gear",
                 "lot_size": 7,
                 "name": "Rations (standard, 7 days)",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "ration": true
                 }
@@ -1598,6 +1781,8 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 1,
+                "display_name": "waterskin",
+                "display_name_plural": "waterskins",
                 "id": "waterskin",
                 "item_type": "gear",
                 "lot_size": 1,
@@ -1621,11 +1806,16 @@
                   ]
                 },
                 "cost_gp": 1,
+                "display_name": "torch",
+                "display_name_plural": "torches",
                 "id": "torch",
                 "item_type": "gear",
                 "lot_size": 6,
                 "name": "Torches (6)",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "brightness": "flame",
                   "burn_turns": 6,
@@ -1651,6 +1841,8 @@
               "template": {
                 "cost_gp": 10,
                 "damage": "1d8",
+                "display_name": "sword",
+                "display_name_plural": "swords",
                 "id": "sword",
                 "item_type": "weapon",
                 "material": "standard",
@@ -1673,10 +1865,15 @@
               "ac_bonus": null,
               "category": "light",
               "cost_gp": 20,
+              "display_name": "suit of leather armour",
+              "display_name_plural": "suits of leather armour",
               "id": "leather",
               "item_type": "armour",
               "name": "Leather",
-              "overrides_applied": [],
+              "overrides_applied": [
+                "display_name",
+                "display_name_plural"
+              ],
               "weight_coins": 200
             }
           }
@@ -1717,11 +1914,16 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 5,
+                "display_name": "standard ration",
+                "display_name_plural": "standard rations",
                 "id": "rations_standard",
                 "item_type": "gear",
                 "lot_size": 7,
                 "name": "Rations (standard, 7 days)",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "ration": true
                 }
@@ -1734,6 +1936,8 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 1,
+                "display_name": "waterskin",
+                "display_name_plural": "waterskins",
                 "id": "waterskin",
                 "item_type": "gear",
                 "lot_size": 1,
@@ -1757,11 +1961,16 @@
                   ]
                 },
                 "cost_gp": 1,
+                "display_name": "torch",
+                "display_name_plural": "torches",
                 "id": "torch",
                 "item_type": "gear",
                 "lot_size": 6,
                 "name": "Torches (6)",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "brightness": "flame",
                   "burn_turns": 6,
@@ -1811,6 +2020,8 @@
               "ac_bonus": 1,
               "category": null,
               "cost_gp": 10,
+              "display_name": "shield",
+              "display_name_plural": "shields",
               "id": "shield",
               "item_type": "armour",
               "name": "Shield",
@@ -1826,6 +2037,8 @@
               "template": {
                 "cost_gp": 10,
                 "damage": "1d8",
+                "display_name": "sword",
+                "display_name_plural": "swords",
                 "id": "sword",
                 "item_type": "weapon",
                 "material": "standard",
@@ -1860,6 +2073,8 @@
               "ac_bonus": null,
               "category": "heavy",
               "cost_gp": 60,
+              "display_name": "suit of plate mail",
+              "display_name_plural": "suits of plate mail",
               "id": "plate_mail",
               "item_type": "armour",
               "name": "Plate mail",
@@ -1904,11 +2119,16 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 25,
+                "display_name": "set of thieves’ tools",
+                "display_name_plural": "sets of thieves’ tools",
                 "id": "thieves_tools",
                 "item_type": "gear",
                 "lot_size": 1,
                 "name": "Thieves’ tools",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "required_for": "open_locks"
                 }
@@ -1921,11 +2141,16 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 5,
+                "display_name": "standard ration",
+                "display_name_plural": "standard rations",
                 "id": "rations_standard",
                 "item_type": "gear",
                 "lot_size": 7,
                 "name": "Rations (standard, 7 days)",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "ration": true
                 }
@@ -1938,6 +2163,8 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 1,
+                "display_name": "waterskin",
+                "display_name_plural": "waterskins",
                 "id": "waterskin",
                 "item_type": "gear",
                 "lot_size": 1,
@@ -1961,11 +2188,16 @@
                   ]
                 },
                 "cost_gp": 1,
+                "display_name": "torch",
+                "display_name_plural": "torches",
                 "id": "torch",
                 "item_type": "gear",
                 "lot_size": 6,
                 "name": "Torches (6)",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "brightness": "flame",
                   "burn_turns": 6,
@@ -1991,6 +2223,8 @@
               "template": {
                 "cost_gp": 10,
                 "damage": "1d8",
+                "display_name": "sword",
+                "display_name_plural": "swords",
                 "id": "sword",
                 "item_type": "weapon",
                 "material": "standard",
@@ -2025,10 +2259,15 @@
               "ac_bonus": null,
               "category": "light",
               "cost_gp": 20,
+              "display_name": "suit of leather armour",
+              "display_name_plural": "suits of leather armour",
               "id": "leather",
               "item_type": "armour",
               "name": "Leather",
-              "overrides_applied": [],
+              "overrides_applied": [
+                "display_name",
+                "display_name_plural"
+              ],
               "weight_coins": 200
             }
           }
@@ -2069,11 +2308,16 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 5,
+                "display_name": "standard ration",
+                "display_name_plural": "standard rations",
                 "id": "rations_standard",
                 "item_type": "gear",
                 "lot_size": 7,
                 "name": "Rations (standard, 7 days)",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "ration": true
                 }
@@ -2086,6 +2330,8 @@
                 "capacity_coins": null,
                 "combat": null,
                 "cost_gp": 1,
+                "display_name": "waterskin",
+                "display_name_plural": "waterskins",
                 "id": "waterskin",
                 "item_type": "gear",
                 "lot_size": 1,
@@ -2109,11 +2355,16 @@
                   ]
                 },
                 "cost_gp": 1,
+                "display_name": "torch",
+                "display_name_plural": "torches",
                 "id": "torch",
                 "item_type": "gear",
                 "lot_size": 6,
                 "name": "Torches (6)",
-                "overrides_applied": [],
+                "overrides_applied": [
+                  "display_name",
+                  "display_name_plural"
+                ],
                 "params": {
                   "brightness": "flame",
                   "burn_turns": 6,
@@ -2139,6 +2390,8 @@
               "ac_bonus": 1,
               "category": null,
               "cost_gp": 10,
+              "display_name": "shield",
+              "display_name_plural": "shields",
               "id": "shield",
               "item_type": "armour",
               "name": "Shield",
@@ -2154,6 +2407,8 @@
               "template": {
                 "cost_gp": 10,
                 "damage": "1d8",
+                "display_name": "sword",
+                "display_name_plural": "swords",
                 "id": "sword",
                 "item_type": "weapon",
                 "material": "standard",
@@ -2176,6 +2431,8 @@
               "ac_bonus": null,
               "category": "heavy",
               "cost_gp": 60,
+              "display_name": "suit of plate mail",
+              "display_name_plural": "suits of plate mail",
               "id": "plate_mail",
               "item_type": "armour",
               "name": "Plate mail",

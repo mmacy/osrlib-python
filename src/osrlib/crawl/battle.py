@@ -2275,7 +2275,10 @@ class BattleRoundPreview(_Model):
 
     [`preview_battle_round`][osrlib.crawl.battle.preview_battle_round] returns one. Read `rejections`
     to grey out a choice the session would refuse, and read `advance_feet` and `front_rank` to show
-    where the members would stand once their declared moves are made. The model is frozen.
+    where the members would stand once their declared moves are made. Read `can_hide` and
+    `can_back_stab` to offer a member a `hide` or a back-stab the session would accept beside the
+    choices already made. The model is frozen. A preview without `can_hide` or `can_back_stab`,
+    like one built by osrlib 2.7.0, parses with each of them empty.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -2301,6 +2304,35 @@ class BattleRoundPreview(_Model):
     within 5' of it once the planned moves are made, in marching order. It means what
     [`EncounterGroupView.front_rank`][osrlib.crawl.views.EncounterGroupView.front_rank] means, after the
     moves."""
+    can_hide: tuple[str, ...] = ()
+    """The declarers who could declare `hide` in this round beside the other planned declarations, in
+    marching order. It's what [`EncounterView.can_hide`][osrlib.crawl.views.EncounterView.can_hide]
+    means, judged where the members would stand once the other members' planned moves are made, as
+    the session judges a `hide`. So a thief in the front rank is here once another member's planned
+    `close` takes their place in it, and a thief behind the front rank isn't here once another
+    member's planned fighting withdrawal leaves them in it.
+
+    A member declares one action in a round, so each member is judged as if the `hide` took the
+    place of their own planned declaration. A member's own planned move never takes them out of the
+    list, and a member whose planned declaration is the `hide` is here exactly when `rejections`
+    accepts it. For every declarer, membership matches what this function returns for the same plan
+    with that member's declaration replaced by a `hide`: the member is here exactly when that
+    preview has no rejection for them. When the plan makes no move, the list is the view's
+    `can_hide`."""
+    can_back_stab: tuple[str, ...] = ()
+    """The declarers who could declare an `attack` with
+    [`BattleDeclaration.back_stab`][osrlib.crawl.commands.BattleDeclaration.back_stab] in this round
+    beside the other planned declarations, in marching order. It's what
+    [`EncounterView.can_back_stab`][osrlib.crawl.views.EncounterView.can_back_stab] means, and the
+    same rejection codes bound it: a member here never gets `battle.declaration.back_stab_no_ability`
+    or `battle.declaration.back_stab_target_aware`, and a declarer outside it always gets one of
+    them.
+
+    The session judges every declaration of a round before any of them resolves, and neither check
+    reads where the members stand, so the planned declarations don't change the list and it's
+    always the view's `can_back_stab`. A member whose planned declaration is a `hide` hasn't hidden
+    yet, so outside the party's free round they're here only when they were already hiding. A
+    hiding member whose planned move will end the attempt when it comes up is still here."""
 
 
 def preview_battle_round(session, declarations: Sequence[BattleDeclaration]) -> BattleRoundPreview:
@@ -2336,6 +2368,13 @@ def preview_battle_round(session, declarations: Sequence[BattleDeclaration]) -> 
     because the session decides that after it rolls initiative. So when the monsters act first, a
     member's `close` can fall short of where the preview put them.
 
+    The result's `can_hide` and `can_back_stab` list the members who could still declare a `hide`
+    or a back-stab beside the declarations planned so far. Each member is judged as if that
+    declaration took the place of their own, so a thief who has planned to close stays in
+    `can_hide`, and a thief behind the front rank leaves it once another member's planned fighting
+    withdrawal would put them in the front rank. Offer the choice to the members in the list, and
+    call this function again once the player picks it.
+
     The call reads the session and changes nothing. It takes no random number and no game time, so
     calling it after every choice costs the game nothing.
 
@@ -2346,7 +2385,8 @@ def preview_battle_round(session, declarations: Sequence[BattleDeclaration]) -> 
 
     Returns:
         A [`BattleRoundPreview`][osrlib.crawl.battle.BattleRoundPreview] with each declaration's
-            rejections, each living member's projected advance, and each group's projected front rank.
+            rejections, each living member's projected advance, each group's projected front rank,
+            and who could hide or back-stab beside the plan.
 
     Raises:
         ValueError: If no battle is running, a declaration names a member who isn't in
@@ -2378,6 +2418,44 @@ def preview_battle_round(session, declarations: Sequence[BattleDeclaration]) -> 
             for group in session.encounter.groups
             if not group.fled
         },
+        can_hide=tuple(member.id for member in declarers if _could_hide(session, declarers, declarations, member)),
+        can_back_stab=_back_stabbers(session, declarers),
+    )
+
+
+def _could_hide(session, declarers, declarations: Sequence[BattleDeclaration], member) -> bool:
+    """Whether the round would accept a `hide` by `member` in place of their own declaration in `declarations`.
+
+    It judges the plan with the member's declaration replaced by a `hide`, with `_judge_round`, so the
+    `hide` is judged where the other members' planned moves would leave the party, without the member's
+    own planned declaration. The member could hide when that judgement gives them no rejection, neither on
+    the `hide` nor on a trade of marching-order places. The call reads state and takes no draw.
+    """
+    hide = BattleDeclaration(character_id=member.id, action="hide")
+    plan = [*(declaration for declaration in declarations if declaration.character_id != member.id), hide]
+    judgement = _judge_round(session, declarers, plan)
+    traded = any(rejection.params.get("character") == member.id for rejection in judgement.trade_rejections)
+    return not judgement.rejections[member.id] and not traded
+
+
+def _back_stabbers(session, declarers) -> tuple[str, ...]:
+    """The declarers whose back-stab the round wouldn't refuse for the member, in the order of `declarers`.
+
+    Each declarer is judged by `_back_stab_rejection` on a bare-handed `attack` that sets `back_stab`, so
+    the list is who passes `battle.declaration.back_stab_no_ability` and
+    `battle.declaration.back_stab_target_aware`, the two checks that read the member and not the
+    declaration. Neither check reads where the members stand, so the round's planned moves don't change
+    the list. [`EncounterView.can_back_stab`][osrlib.crawl.views.EncounterView.can_back_stab] and
+    [`BattleRoundPreview.can_back_stab`][osrlib.crawl.battle.BattleRoundPreview.can_back_stab] both come
+    from here. The call reads state and takes no draw.
+    """
+    return tuple(
+        member.id
+        for member in declarers
+        if _back_stab_rejection(
+            session, BattleDeclaration(character_id=member.id, action="attack", back_stab=True), member
+        )
+        is None
     )
 
 
@@ -3071,7 +3149,8 @@ def _cast_targets(
     An explicit enemy id must name a living member of a current group that hasn't fled. An unknown,
     dead, out-of-encounter, or fled enemy gets `magic.cast.unknown_target` before the visibility or
     reach checks. Party member and cell targets retain their existing checks. A scroll declaration
-    uses the same target lookup.
+    uses the same target lookup, and so do `CastSpell` and a scroll read with `UseItem` outside a
+    battle (see `_party_members._spell_target`).
     """
     try:
         mode = spell.mode(declaration.spell_mode, reversed=declaration.reversed)
@@ -3097,8 +3176,6 @@ def _cast_targets(
         else:
             candidates = _living_monsters(session, group)
         return candidates, placement.distance(declaration.character_id, group), []
-    registry = session.registry()
-    party_ids = {member.id for member in session.party.members}
     touch = spell.range_spec.kind == "touch"
     targets: list = []
     distance: int | None = None
@@ -3106,19 +3183,14 @@ def _cast_targets(
         if target_ref.startswith("cell:"):
             targets.append(target_ref)
             continue
-        entity = registry.get(target_ref)
+        entity, group = _party_members._spell_target(session, target_ref)
         if entity is None:
             return [], None, [Rejection(code="magic.cast.unknown_target", params={"target": target_ref})]
-        group = None
-        if target_ref not in party_ids:
-            group = next((group for group in session.encounter.groups if target_ref in group.monster_ids), None)
-            if group is None or group.fled or has_condition(entity, Condition.DEAD):
-                return [], None, [Rejection(code="magic.cast.unknown_target", params={"target": target_ref})]
         if has_condition(entity, Condition.INVISIBLE):
             # The player already knows the target is invisible, so this rejection reveals nothing.
             return [], None, [Rejection(code="battle.declaration.invisible_target", params={"target": target_ref})]
         targets.append(entity)
-        if target_ref in party_ids:
+        if group is None:
             distance = max(distance or 0, placement.between(declaration.character_id, target_ref))
             continue
         reach = placement.distance(declaration.character_id, group)
@@ -3345,11 +3417,11 @@ def _healing_touch(session, declaration: BattleDeclaration, member, instance, pl
 
     1. `battle.declaration.target_count` for more than one id in `targets` (see `_sole_target`).
     2. The checks [`UseItem`][osrlib.crawl.commands.UseItem] makes (see `_magic_items._healing_target`):
-       `items.use.unknown_target` for an id that matches no creature, `items.use.target_cannot_be_healed` for a
-       creature that's dead or turned to stone, and `items.use.target_healed_today` for a creature the staff
-       already healed today.
-    3. `items.use.unknown_target` for a monster outside the encounter's groups that haven't fled.
-    4. Reach. Another member has to stand within 5' of the user in `placement` (see `_reach_rejection`). A touch on
+       `items.use.unknown_target` for an id that isn't a party member's and isn't a creature's in a group of the
+       encounter that hasn't fled, `items.use.target_cannot_be_healed` for a creature that's dead or turned to
+       stone, and `items.use.target_healed_today` for a creature the staff already healed today. A dead creature
+       of an encounter that has ended gets `items.use.unknown_target`, as an id that matches nothing does.
+    3. Reach. Another member has to stand within 5' of the user in `placement` (see `_reach_rejection`). A touch on
        a monster takes the checks of `_touch_rejection`.
 
     The target is None when there are rejections. The call reads state and takes no draw.
@@ -3362,12 +3434,10 @@ def _healing_touch(session, declaration: BattleDeclaration, member, instance, pl
     target, rejections = _magic_items._healing_target(session, member, instance, target_id)
     if target is None or target is member:
         return target, rejections
-    if any(other.id == target.id for other in session.party.members):
+    _, group = _party_members._actable_target(session, target.id)
+    if group is None:
         refused = _reach_rejection(placement, member.id, target.id)
     else:
-        group = next((group for group in session.encounter.groups if target.id in group.monster_ids), None)
-        if group is None or group.fled:
-            return None, [Rejection(code="items.use.unknown_target", params={"target": target.id})]
         refused = _touch_rejection(session, member.id, target, group, placement)
     return (None, [refused]) if refused is not None else (target, [])
 

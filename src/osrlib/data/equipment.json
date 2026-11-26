@@ -11,6 +11,8 @@
   "ammunition": [
     {
       "cost_gp": 5,
+      "display_name": "arrow",
+      "display_name_plural": "arrows",
       "id": "arrows",
       "item_type": "ammunition",
       "lot_size": 20,
@@ -21,6 +23,8 @@
     },
     {
       "cost_gp": 10,
+      "display_name": "crossbow bolt",
+      "display_name_plural": "crossbow bolts",
       "id": "crossbow_bolts",
       "item_type": "ammunition",
       "lot_size": 30,
@@ -31,6 +35,8 @@
     },
     {
       "cost_gp": 5,
+      "display_name": "silver tipped arrow",
+      "display_name_plural": "silver tipped arrows",
       "id": "silver_tipped_arrow",
       "item_type": "ammunition",
       "lot_size": 1,
@@ -41,6 +47,8 @@
     },
     {
       "cost_gp": 0,
+      "display_name": "sling stone",
+      "display_name_plural": "sling stones",
       "id": "sling_stones",
       "item_type": "ammunition",
       "lot_size": 1,
@@ -57,6 +65,8 @@
       "ac_bonus": null,
       "category": "heavy",
       "cost_gp": 40,
+      "display_name": "suit of chainmail",
+      "display_name_plural": "suits of chainmail",
       "id": "chainmail",
       "item_type": "armour",
       "name": "Chainmail",
@@ -69,10 +79,15 @@
       "ac_bonus": null,
       "category": "light",
       "cost_gp": 20,
+      "display_name": "suit of leather armour",
+      "display_name_plural": "suits of leather armour",
       "id": "leather",
       "item_type": "armour",
       "name": "Leather",
-      "overrides_applied": [],
+      "overrides_applied": [
+        "display_name",
+        "display_name_plural"
+      ],
       "weight_coins": 200
     },
     {
@@ -81,6 +96,8 @@
       "ac_bonus": null,
       "category": "heavy",
       "cost_gp": 60,
+      "display_name": "suit of plate mail",
+      "display_name_plural": "suits of plate mail",
       "id": "plate_mail",
       "item_type": "armour",
       "name": "Plate mail",
@@ -93,6 +110,8 @@
       "ac_bonus": 1,
       "category": null,
       "cost_gp": 10,
+      "display_name": "shield",
+      "display_name_plural": "shields",
       "id": "shield",
       "item_type": "armour",
       "name": "Shield",
@@ -105,6 +124,8 @@
       "capacity_coins": 400,
       "combat": null,
       "cost_gp": 5,
+      "display_name": "backpack",
+      "display_name_plural": "backpacks",
       "id": "backpack",
       "item_type": "gear",
       "lot_size": 1,
@@ -116,6 +137,8 @@
       "capacity_coins": null,
       "combat": null,
       "cost_gp": 10,
+      "display_name": "crowbar",
+      "display_name_plural": "crowbars",
       "id": "crowbar",
       "item_type": "gear",
       "lot_size": 1,
@@ -127,17 +150,24 @@
       "capacity_coins": null,
       "combat": null,
       "cost_gp": 5,
+      "display_name": "bulb of garlic",
+      "display_name_plural": "bulbs of garlic",
       "id": "garlic",
       "item_type": "gear",
       "lot_size": 1,
       "name": "Garlic",
-      "overrides_applied": [],
+      "overrides_applied": [
+        "display_name",
+        "display_name_plural"
+      ],
       "params": {}
     },
     {
       "capacity_coins": null,
       "combat": null,
       "cost_gp": 25,
+      "display_name": "grappling hook",
+      "display_name_plural": "grappling hooks",
       "id": "grappling_hook",
       "item_type": "gear",
       "lot_size": 1,
@@ -149,17 +179,24 @@
       "capacity_coins": null,
       "combat": null,
       "cost_gp": 2,
+      "display_name": "small hammer",
+      "display_name_plural": "small hammers",
       "id": "hammer",
       "item_type": "gear",
       "lot_size": 1,
       "name": "Hammer (small)",
-      "overrides_applied": [],
+      "overrides_applied": [
+        "display_name",
+        "display_name_plural"
+      ],
       "params": {}
     },
     {
       "capacity_coins": null,
       "combat": null,
       "cost_gp": 25,
+      "display_name": "holy symbol",
+      "display_name_plural": "holy symbols",
       "id": "holy_symbol",
       "item_type": "gear",
       "lot_size": 1,
@@ -191,22 +228,32 @@
         ]
       },
       "cost_gp": 25,
+      "display_name": "vial of holy water",
+      "display_name_plural": "vials of holy water",
       "id": "holy_water",
       "item_type": "gear",
       "lot_size": 1,
       "name": "Holy water (vial)",
-      "overrides_applied": [],
+      "overrides_applied": [
+        "display_name",
+        "display_name_plural"
+      ],
       "params": {}
     },
     {
       "capacity_coins": null,
       "combat": null,
       "cost_gp": 1,
+      "display_name": "iron spike",
+      "display_name_plural": "iron spikes",
       "id": "iron_spikes",
       "item_type": "gear",
       "lot_size": 12,
       "name": "Iron spikes (12)",
-      "overrides_applied": [],
+      "overrides_applied": [
+        "display_name",
+        "display_name_plural"
+      ],
       "params": {
         "wedges_doors": true
       }
@@ -215,6 +262,8 @@
       "capacity_coins": null,
       "combat": null,
       "cost_gp": 10,
+      "display_name": "lantern",
+      "display_name_plural": "lanterns",
       "id": "lantern",
       "item_type": "gear",
       "lot_size": 1,
@@ -230,11 +279,16 @@
       "capacity_coins": null,
       "combat": null,
       "cost_gp": 5,
+      "display_name": "hand mirror",
+      "display_name_plural": "hand mirrors",
       "id": "mirror",
       "item_type": "gear",
       "lot_size": 1,
       "name": "Mirror (hand-sized, steel)",
-      "overrides_applied": [],
+      "overrides_applied": [
+        "display_name",
+        "display_name_plural"
+      ],
       "params": {}
     },
     {
@@ -261,11 +315,16 @@
         ]
       },
       "cost_gp": 2,
+      "display_name": "flask of oil",
+      "display_name_plural": "flasks of oil",
       "id": "oil_flask",
       "item_type": "gear",
       "lot_size": 1,
       "name": "Oil (1 flask)",
-      "overrides_applied": [],
+      "overrides_applied": [
+        "display_name",
+        "display_name_plural"
+      ],
       "params": {
         "fuels_lantern": true
       }
@@ -274,22 +333,32 @@
       "capacity_coins": null,
       "combat": null,
       "cost_gp": 1,
+      "display_name": "10’ pole",
+      "display_name_plural": "10’ poles",
       "id": "pole",
       "item_type": "gear",
       "lot_size": 1,
       "name": "Pole (10’ long, wooden)",
-      "overrides_applied": [],
+      "overrides_applied": [
+        "display_name",
+        "display_name_plural"
+      ],
       "params": {}
     },
     {
       "capacity_coins": null,
       "combat": null,
       "cost_gp": 15,
+      "display_name": "iron ration",
+      "display_name_plural": "iron rations",
       "id": "rations_iron",
       "item_type": "gear",
       "lot_size": 7,
       "name": "Rations (iron, 7 days)",
-      "overrides_applied": [],
+      "overrides_applied": [
+        "display_name",
+        "display_name_plural"
+      ],
       "params": {
         "ration": true
       }
@@ -298,11 +367,16 @@
       "capacity_coins": null,
       "combat": null,
       "cost_gp": 5,
+      "display_name": "standard ration",
+      "display_name_plural": "standard rations",
       "id": "rations_standard",
       "item_type": "gear",
       "lot_size": 7,
       "name": "Rations (standard, 7 days)",
-      "overrides_applied": [],
+      "overrides_applied": [
+        "display_name",
+        "display_name_plural"
+      ],
       "params": {
         "ration": true
       }
@@ -311,55 +385,80 @@
       "capacity_coins": null,
       "combat": null,
       "cost_gp": 1,
+      "display_name": "50’ coil of rope",
+      "display_name_plural": "50’ coils of rope",
       "id": "rope",
       "item_type": "gear",
       "lot_size": 1,
       "name": "Rope (50’)",
-      "overrides_applied": [],
+      "overrides_applied": [
+        "display_name",
+        "display_name_plural"
+      ],
       "params": {}
     },
     {
       "capacity_coins": 600,
       "combat": null,
       "cost_gp": 2,
+      "display_name": "large sack",
+      "display_name_plural": "large sacks",
       "id": "sack_large",
       "item_type": "gear",
       "lot_size": 1,
       "name": "Sack (large)",
-      "overrides_applied": [],
+      "overrides_applied": [
+        "display_name",
+        "display_name_plural"
+      ],
       "params": {}
     },
     {
       "capacity_coins": 200,
       "combat": null,
       "cost_gp": 1,
+      "display_name": "small sack",
+      "display_name_plural": "small sacks",
       "id": "sack_small",
       "item_type": "gear",
       "lot_size": 1,
       "name": "Sack (small)",
-      "overrides_applied": [],
+      "overrides_applied": [
+        "display_name",
+        "display_name_plural"
+      ],
       "params": {}
     },
     {
       "capacity_coins": null,
       "combat": null,
       "cost_gp": 3,
+      "display_name": "set of stakes and mallet",
+      "display_name_plural": "sets of stakes and mallet",
       "id": "stakes_and_mallet",
       "item_type": "gear",
       "lot_size": 1,
       "name": "Stakes (3) and mallet",
-      "overrides_applied": [],
+      "overrides_applied": [
+        "display_name",
+        "display_name_plural"
+      ],
       "params": {}
     },
     {
       "capacity_coins": null,
       "combat": null,
       "cost_gp": 25,
+      "display_name": "set of thieves’ tools",
+      "display_name_plural": "sets of thieves’ tools",
       "id": "thieves_tools",
       "item_type": "gear",
       "lot_size": 1,
       "name": "Thieves’ tools",
-      "overrides_applied": [],
+      "overrides_applied": [
+        "display_name",
+        "display_name_plural"
+      ],
       "params": {
         "required_for": "open_locks"
       }
@@ -368,6 +467,8 @@
       "capacity_coins": null,
       "combat": null,
       "cost_gp": 3,
+      "display_name": "tinder box",
+      "display_name_plural": "tinder boxes",
       "id": "tinder_box",
       "item_type": "gear",
       "lot_size": 1,
@@ -387,11 +488,16 @@
         ]
       },
       "cost_gp": 1,
+      "display_name": "torch",
+      "display_name_plural": "torches",
       "id": "torch",
       "item_type": "gear",
       "lot_size": 6,
       "name": "Torches (6)",
-      "overrides_applied": [],
+      "overrides_applied": [
+        "display_name",
+        "display_name_plural"
+      ],
       "params": {
         "brightness": "flame",
         "burn_turns": 6,
@@ -402,6 +508,8 @@
       "capacity_coins": null,
       "combat": null,
       "cost_gp": 1,
+      "display_name": "waterskin",
+      "display_name_plural": "waterskins",
       "id": "waterskin",
       "item_type": "gear",
       "lot_size": 1,
@@ -415,22 +523,32 @@
       "capacity_coins": null,
       "combat": null,
       "cost_gp": 1,
+      "display_name": "pint of wine",
+      "display_name_plural": "pints of wine",
       "id": "wine",
       "item_type": "gear",
       "lot_size": 2,
       "name": "Wine (2 pints)",
-      "overrides_applied": [],
+      "overrides_applied": [
+        "display_name",
+        "display_name_plural"
+      ],
       "params": {}
     },
     {
       "capacity_coins": null,
       "combat": null,
       "cost_gp": 10,
+      "display_name": "bunch of wolfsbane",
+      "display_name_plural": "bunches of wolfsbane",
       "id": "wolfsbane",
       "item_type": "gear",
       "lot_size": 1,
       "name": "Wolfsbane (1 bunch)",
-      "overrides_applied": [],
+      "overrides_applied": [
+        "display_name",
+        "display_name_plural"
+      ],
       "params": {}
     }
   ],
@@ -472,6 +590,8 @@
     {
       "cost_gp": 7,
       "damage": "1d8",
+      "display_name": "battle axe",
+      "display_name_plural": "battle axes",
       "id": "battle_axe",
       "item_type": "weapon",
       "material": "standard",
@@ -488,6 +608,8 @@
     {
       "cost_gp": 3,
       "damage": "1d4",
+      "display_name": "club",
+      "display_name_plural": "clubs",
       "id": "club",
       "item_type": "weapon",
       "material": "standard",
@@ -503,6 +625,8 @@
     {
       "cost_gp": 30,
       "damage": "1d6",
+      "display_name": "crossbow",
+      "display_name_plural": "crossbows",
       "id": "crossbow",
       "item_type": "weapon",
       "material": "standard",
@@ -533,6 +657,8 @@
     {
       "cost_gp": 3,
       "damage": "1d4",
+      "display_name": "dagger",
+      "display_name_plural": "daggers",
       "id": "dagger",
       "item_type": "weapon",
       "material": "standard",
@@ -561,6 +687,8 @@
     {
       "cost_gp": 4,
       "damage": "1d6",
+      "display_name": "hand axe",
+      "display_name_plural": "hand axes",
       "id": "hand_axe",
       "item_type": "weapon",
       "material": "standard",
@@ -589,6 +717,8 @@
     {
       "cost_gp": 1,
       "damage": "1d4",
+      "display_name": "javelin",
+      "display_name_plural": "javelins",
       "id": "javelin",
       "item_type": "weapon",
       "material": "standard",
@@ -616,6 +746,8 @@
     {
       "cost_gp": 5,
       "damage": "1d6",
+      "display_name": "lance",
+      "display_name_plural": "lances",
       "id": "lance",
       "item_type": "weapon",
       "material": "standard",
@@ -631,6 +763,8 @@
     {
       "cost_gp": 40,
       "damage": "1d6",
+      "display_name": "long bow",
+      "display_name_plural": "long bows",
       "id": "long_bow",
       "item_type": "weapon",
       "material": "standard",
@@ -659,6 +793,8 @@
     {
       "cost_gp": 5,
       "damage": "1d6",
+      "display_name": "mace",
+      "display_name_plural": "maces",
       "id": "mace",
       "item_type": "weapon",
       "material": "standard",
@@ -674,6 +810,8 @@
     {
       "cost_gp": 7,
       "damage": "1d10",
+      "display_name": "pole arm",
+      "display_name_plural": "pole arms",
       "id": "pole_arm",
       "item_type": "weapon",
       "material": "standard",
@@ -691,6 +829,8 @@
     {
       "cost_gp": 25,
       "damage": "1d6",
+      "display_name": "short bow",
+      "display_name_plural": "short bows",
       "id": "short_bow",
       "item_type": "weapon",
       "material": "standard",
@@ -719,6 +859,8 @@
     {
       "cost_gp": 7,
       "damage": "1d6",
+      "display_name": "short sword",
+      "display_name_plural": "short swords",
       "id": "short_sword",
       "item_type": "weapon",
       "material": "standard",
@@ -733,6 +875,8 @@
     {
       "cost_gp": 30,
       "damage": "1d4",
+      "display_name": "silver dagger",
+      "display_name_plural": "silver daggers",
       "id": "silver_dagger",
       "item_type": "weapon",
       "material": "silver",
@@ -761,6 +905,8 @@
     {
       "cost_gp": 2,
       "damage": "1d4",
+      "display_name": "sling",
+      "display_name_plural": "slings",
       "id": "sling",
       "item_type": "weapon",
       "material": "standard",
@@ -789,6 +935,8 @@
     {
       "cost_gp": 3,
       "damage": "1d6",
+      "display_name": "spear",
+      "display_name_plural": "spears",
       "id": "spear",
       "item_type": "weapon",
       "material": "standard",
@@ -818,6 +966,8 @@
     {
       "cost_gp": 2,
       "damage": "1d4",
+      "display_name": "staff",
+      "display_name_plural": "staves",
       "id": "staff",
       "item_type": "weapon",
       "material": "standard",
@@ -835,6 +985,8 @@
     {
       "cost_gp": 10,
       "damage": "1d8",
+      "display_name": "sword",
+      "display_name_plural": "swords",
       "id": "sword",
       "item_type": "weapon",
       "material": "standard",
@@ -849,6 +1001,8 @@
     {
       "cost_gp": 15,
       "damage": "1d10",
+      "display_name": "two-handed sword",
+      "display_name_plural": "two-handed swords",
       "id": "two_handed_sword",
       "item_type": "weapon",
       "material": "standard",
@@ -865,6 +1019,8 @@
     {
       "cost_gp": 5,
       "damage": "1d6",
+      "display_name": "war hammer",
+      "display_name_plural": "war hammers",
       "id": "war_hammer",
       "item_type": "weapon",
       "material": "standard",

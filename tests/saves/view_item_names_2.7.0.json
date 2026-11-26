@@ -1,0 +1,850 @@
+{
+  "engine_version": "2.7.0",
+  "kind": "save",
+  "payload": {
+    "adventure": {
+      "description": "",
+      "dungeons": [
+        {
+          "id": "shrine",
+          "levels": [
+            {
+              "areas": [],
+              "edges": {},
+              "entrance": [
+                0,
+                0
+              ],
+              "features": [],
+              "guidance": "",
+              "height": 1,
+              "number": 1,
+              "transitions": [],
+              "wandering": {
+                "chance_in_six": 1,
+                "interval_turns": 2,
+                "table": null
+              },
+              "width": 1
+            }
+          ],
+          "name": "The Shrine"
+        }
+      ],
+      "hooks": [],
+      "items": [
+        {
+          "capacity_coins": null,
+          "combat": null,
+          "cost_gp": 0,
+          "id": "temple_idol",
+          "item_type": "gear",
+          "lot_size": 1,
+          "name": "Idol of the drowned saint",
+          "overrides_applied": [],
+          "params": {}
+        }
+      ],
+      "monsters": [],
+      "name": "The Drowned Saint",
+      "party": null,
+      "quests": [],
+      "spells": [],
+      "town": {
+        "description": "",
+        "healing_prices": {},
+        "name": "Threshold",
+        "services": [],
+        "travel_turns": {
+          "shrine": 1
+        }
+      },
+      "triggers": []
+    },
+    "allocator": {
+      "counters": {
+        "character": 4,
+        "magic-item": 1
+      }
+    },
+    "battle": null,
+    "clock_rounds": 60,
+    "command_log": [
+      {
+        "character_id": "character-0001",
+        "command_type": "grant_item",
+        "item_id": "holy_water",
+        "quantity": 2,
+        "source": null
+      },
+      {
+        "character_id": "character-0001",
+        "command_type": "grant_item",
+        "item_id": "torch",
+        "quantity": 6,
+        "source": null
+      },
+      {
+        "character_id": "character-0001",
+        "command_type": "grant_item",
+        "item_id": "sword",
+        "quantity": 1,
+        "source": null
+      },
+      {
+        "character_id": "character-0001",
+        "command_type": "grant_item",
+        "item_id": "chainmail",
+        "quantity": 1,
+        "source": null
+      },
+      {
+        "character_id": "character-0001",
+        "command_type": "grant_item",
+        "item_id": "arrows",
+        "quantity": 20,
+        "source": null
+      },
+      {
+        "character_id": "character-0001",
+        "command_type": "grant_item",
+        "item_id": "short_bow",
+        "quantity": 1,
+        "source": null
+      },
+      {
+        "character_id": "character-0001",
+        "command_type": "grant_item",
+        "item_id": "temple_idol",
+        "quantity": 2,
+        "source": null
+      },
+      {
+        "character_id": "character-0001",
+        "command_type": "grant_item",
+        "item_id": "oil_flask",
+        "quantity": 2,
+        "source": null
+      },
+      {
+        "character_id": "character-0001",
+        "command_type": "grant_item",
+        "item_id": "potion_of_healing",
+        "quantity": 1,
+        "source": null
+      },
+      {
+        "character_id": "character-0001",
+        "command_type": "equip_item",
+        "item_id": "sword",
+        "source": null
+      },
+      {
+        "character_id": "character-0001",
+        "command_type": "equip_item",
+        "item_id": "chainmail",
+        "source": null
+      },
+      {
+        "command_type": "enter_dungeon",
+        "dungeon_id": "shrine",
+        "source": null
+      },
+      {
+        "character_id": "character-0001",
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "command_type": "drop_items",
+        "item_ids": [
+          "oil_flask",
+          "oil_flask",
+          "temple_idol"
+        ],
+        "source": null
+      }
+    ],
+    "death_records": {},
+    "defeated_monsters": [],
+    "deprivation": {},
+    "dungeon_state": {
+      "doors": {},
+      "emptied_caches": [],
+      "explored": {
+        "shrine:1": [
+          [
+            0,
+            0
+          ]
+        ]
+      },
+      "found_traps": [],
+      "found_tricks": [],
+      "generated_caches": {},
+      "generated_lair_hoards": [],
+      "generated_treasure_areas": [],
+      "inspect_attempts": {},
+      "listen_attempts": {},
+      "location": {
+        "dungeon_id": "shrine",
+        "facing": "north",
+        "kind": "dungeon",
+        "level_number": 1,
+        "position": [
+          0,
+          0
+        ]
+      },
+      "lock_failures": {},
+      "piles": {
+        "cell:shrine:1:0,0": {
+          "coins": {
+            "cp": 0,
+            "ep": 0,
+            "gp": 0,
+            "pp": 0,
+            "sp": 0
+          },
+          "items": [
+            {
+              "item_id": "oil_flask",
+              "quantity": 2
+            },
+            {
+              "item_id": "temple_idol",
+              "quantity": 1
+            }
+          ],
+          "magic_items": [],
+          "valuables": []
+        }
+      },
+      "removal_attempts": {},
+      "removed_traps": [],
+      "resolved_encounters": [],
+      "search_attempts": {},
+      "seen": {},
+      "sprung_traps": []
+    },
+    "encounter": null,
+    "event_log": [
+      {
+        "character_id": "character-0001",
+        "code": "exploration.item.acquired",
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "coins_gp_value": 0,
+        "event_type": "item_acquired",
+        "item_ids": [
+          "holy_water",
+          "holy_water"
+        ],
+        "origin": "grant",
+        "visibility": "player"
+      },
+      {
+        "character_id": "character-0001",
+        "code": "exploration.item.acquired",
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "coins_gp_value": 0,
+        "event_type": "item_acquired",
+        "item_ids": [
+          "torch",
+          "torch",
+          "torch",
+          "torch",
+          "torch",
+          "torch"
+        ],
+        "origin": "grant",
+        "visibility": "player"
+      },
+      {
+        "character_id": "character-0001",
+        "code": "exploration.item.acquired",
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "coins_gp_value": 0,
+        "event_type": "item_acquired",
+        "item_ids": [
+          "sword"
+        ],
+        "origin": "grant",
+        "visibility": "player"
+      },
+      {
+        "character_id": "character-0001",
+        "code": "exploration.item.acquired",
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "coins_gp_value": 0,
+        "event_type": "item_acquired",
+        "item_ids": [
+          "chainmail"
+        ],
+        "origin": "grant",
+        "visibility": "player"
+      },
+      {
+        "character_id": "character-0001",
+        "code": "exploration.item.acquired",
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "coins_gp_value": 0,
+        "event_type": "item_acquired",
+        "item_ids": [
+          "arrows",
+          "arrows",
+          "arrows",
+          "arrows",
+          "arrows",
+          "arrows",
+          "arrows",
+          "arrows",
+          "arrows",
+          "arrows",
+          "arrows",
+          "arrows",
+          "arrows",
+          "arrows",
+          "arrows",
+          "arrows",
+          "arrows",
+          "arrows",
+          "arrows",
+          "arrows"
+        ],
+        "origin": "grant",
+        "visibility": "player"
+      },
+      {
+        "character_id": "character-0001",
+        "code": "exploration.item.acquired",
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "coins_gp_value": 0,
+        "event_type": "item_acquired",
+        "item_ids": [
+          "short_bow"
+        ],
+        "origin": "grant",
+        "visibility": "player"
+      },
+      {
+        "character_id": "character-0001",
+        "code": "exploration.item.acquired",
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "coins_gp_value": 0,
+        "event_type": "item_acquired",
+        "item_ids": [
+          "temple_idol",
+          "temple_idol"
+        ],
+        "origin": "grant",
+        "visibility": "player"
+      },
+      {
+        "character_id": "character-0001",
+        "code": "exploration.item.acquired",
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "coins_gp_value": 0,
+        "event_type": "item_acquired",
+        "item_ids": [
+          "oil_flask",
+          "oil_flask"
+        ],
+        "origin": "grant",
+        "visibility": "player"
+      },
+      {
+        "character_id": "character-0001",
+        "code": "exploration.item.acquired",
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "coins_gp_value": 0,
+        "event_type": "item_acquired",
+        "item_ids": [
+          "magic-item-0001"
+        ],
+        "origin": "grant",
+        "visibility": "player"
+      },
+      {
+        "code": "exploration.location.entered",
+        "dungeon_id": null,
+        "event_type": "location_entered",
+        "level_number": 1,
+        "location_id": "shrine",
+        "location_kind": "dungeon",
+        "narrative": null,
+        "transition_ref": null,
+        "via": "entrance",
+        "visibility": "player"
+      },
+      {
+        "character_id": "character-0001",
+        "code": "exploration.item.dropped",
+        "coins": {
+          "cp": 0,
+          "ep": 0,
+          "gp": 0,
+          "pp": 0,
+          "sp": 0
+        },
+        "coins_gp_value": 0,
+        "event_type": "items_dropped",
+        "item_ids": [
+          "oil_flask",
+          "oil_flask",
+          "temple_idol"
+        ],
+        "visibility": "player"
+      }
+    ],
+    "exploration": {
+      "alerted_areas": [],
+      "heard_areas": [],
+      "last_prepared_sleep": {},
+      "noise_since_check": false,
+      "odometer_thirds": 0,
+      "provisions_day": 0,
+      "sleep_count": 0,
+      "turns_since_rest": 0,
+      "wandering_counter": 0
+    },
+    "fired_triggers": [],
+    "flags": {},
+    "journal": [],
+    "ledger": {
+      "effects": []
+    },
+    "listener_state": {},
+    "master_seed": 5,
+    "mode": "exploring",
+    "monsters": [],
+    "npcs": [],
+    "party": {
+      "members": [
+        {
+          "alignment": "lawful",
+          "carrying_treasure": false,
+          "class_id": "fighter",
+          "conditions": [],
+          "current_hp": 6,
+          "custom_class": null,
+          "extra_languages": [],
+          "id": "character-0001",
+          "inventory": {
+            "items": [
+              {
+                "instance_type": "item",
+                "quantity": 2,
+                "template": {
+                  "capacity_coins": null,
+                  "combat": {
+                    "damage": "1d8",
+                    "missile_ranges": {
+                      "long": {
+                        "max_feet": 50,
+                        "min_feet": 31
+                      },
+                      "medium": {
+                        "max_feet": 30,
+                        "min_feet": 11
+                      },
+                      "short": {
+                        "max_feet": 10,
+                        "min_feet": 5
+                      }
+                    },
+                    "qualities": [
+                      "missile",
+                      "splash"
+                    ]
+                  },
+                  "cost_gp": 25,
+                  "id": "holy_water",
+                  "item_type": "gear",
+                  "lot_size": 1,
+                  "name": "Holy water (vial)",
+                  "overrides_applied": [],
+                  "params": {}
+                }
+              },
+              {
+                "instance_type": "item",
+                "quantity": 6,
+                "template": {
+                  "capacity_coins": null,
+                  "combat": {
+                    "damage": "1d4",
+                    "missile_ranges": null,
+                    "qualities": [
+                      "melee"
+                    ]
+                  },
+                  "cost_gp": 1,
+                  "id": "torch",
+                  "item_type": "gear",
+                  "lot_size": 6,
+                  "name": "Torches (6)",
+                  "overrides_applied": [],
+                  "params": {
+                    "brightness": "flame",
+                    "burn_turns": 6,
+                    "light_radius_feet": 30
+                  }
+                }
+              },
+              {
+                "instance_type": "item",
+                "quantity": 20,
+                "template": {
+                  "cost_gp": 5,
+                  "id": "arrows",
+                  "item_type": "ammunition",
+                  "lot_size": 20,
+                  "material": "standard",
+                  "name": "Arrows (quiver of 20)",
+                  "overrides_applied": [],
+                  "weight_coins": 0
+                }
+              },
+              {
+                "instance_type": "item",
+                "quantity": 1,
+                "template": {
+                  "cost_gp": 25,
+                  "damage": "1d6",
+                  "id": "short_bow",
+                  "item_type": "weapon",
+                  "material": "standard",
+                  "missile_ranges": {
+                    "long": {
+                      "max_feet": 150,
+                      "min_feet": 101
+                    },
+                    "medium": {
+                      "max_feet": 100,
+                      "min_feet": 51
+                    },
+                    "short": {
+                      "max_feet": 50,
+                      "min_feet": 5
+                    }
+                  },
+                  "name": "Short bow",
+                  "overrides_applied": [],
+                  "qualities": [
+                    "missile",
+                    "two_handed"
+                  ],
+                  "weight_coins": 30
+                }
+              },
+              {
+                "instance_type": "item",
+                "quantity": 1,
+                "template": {
+                  "capacity_coins": null,
+                  "combat": null,
+                  "cost_gp": 0,
+                  "id": "temple_idol",
+                  "item_type": "gear",
+                  "lot_size": 1,
+                  "name": "Idol of the drowned saint",
+                  "overrides_applied": [],
+                  "params": {}
+                }
+              },
+              {
+                "base_item_id": null,
+                "charges_remaining": null,
+                "cursed_revealed": false,
+                "identified": false,
+                "instance_id": "magic-item-0001",
+                "instance_type": "magic_item",
+                "quantity": 1,
+                "sentience": null,
+                "state": {},
+                "template_id": "potion_of_healing"
+              }
+            ],
+            "purse": {
+              "cp": 0,
+              "ep": 0,
+              "gp": 0,
+              "pp": 0,
+              "sp": 0
+            },
+            "rings": [],
+            "shield": null,
+            "valuables": [],
+            "wielded": [
+              {
+                "instance_type": "item",
+                "quantity": 1,
+                "template": {
+                  "cost_gp": 10,
+                  "damage": "1d8",
+                  "id": "sword",
+                  "item_type": "weapon",
+                  "material": "standard",
+                  "missile_ranges": null,
+                  "name": "Sword",
+                  "overrides_applied": [],
+                  "qualities": [
+                    "melee"
+                  ],
+                  "weight_coins": 60
+                }
+              }
+            ],
+            "worn_armour": {
+              "instance_type": "item",
+              "quantity": 1,
+              "template": {
+                "ac": 5,
+                "ac_ascending": 14,
+                "ac_bonus": null,
+                "category": "heavy",
+                "cost_gp": 40,
+                "id": "chainmail",
+                "item_type": "armour",
+                "name": "Chainmail",
+                "overrides_applied": [],
+                "weight_coins": 400
+              }
+            }
+          },
+          "level": 1,
+          "max_hp": 6,
+          "memorized_spells": [],
+          "name": "Brakk",
+          "nonregen_damage": 0,
+          "race": "human",
+          "scores": {
+            "cha": 11,
+            "con": 11,
+            "dex": 11,
+            "int": 11,
+            "str": 11,
+            "wis": 11
+          },
+          "spell_book": [],
+          "stat_modifiers": [],
+          "xp": 0
+        },
+        {
+          "alignment": "lawful",
+          "carrying_treasure": false,
+          "class_id": "thief",
+          "conditions": [],
+          "current_hp": 6,
+          "custom_class": null,
+          "extra_languages": [],
+          "id": "character-0002",
+          "inventory": {
+            "items": [],
+            "purse": {
+              "cp": 0,
+              "ep": 0,
+              "gp": 0,
+              "pp": 0,
+              "sp": 0
+            },
+            "rings": [],
+            "shield": null,
+            "valuables": [],
+            "wielded": [],
+            "worn_armour": null
+          },
+          "level": 1,
+          "max_hp": 6,
+          "memorized_spells": [],
+          "name": "Sable",
+          "nonregen_damage": 0,
+          "race": "human",
+          "scores": {
+            "cha": 11,
+            "con": 11,
+            "dex": 11,
+            "int": 11,
+            "str": 11,
+            "wis": 11
+          },
+          "spell_book": [],
+          "stat_modifiers": [],
+          "xp": 0
+        },
+        {
+          "alignment": "lawful",
+          "carrying_treasure": false,
+          "class_id": "cleric",
+          "conditions": [],
+          "current_hp": 6,
+          "custom_class": null,
+          "extra_languages": [],
+          "id": "character-0003",
+          "inventory": {
+            "items": [],
+            "purse": {
+              "cp": 0,
+              "ep": 0,
+              "gp": 0,
+              "pp": 0,
+              "sp": 0
+            },
+            "rings": [],
+            "shield": null,
+            "valuables": [],
+            "wielded": [],
+            "worn_armour": null
+          },
+          "level": 1,
+          "max_hp": 6,
+          "memorized_spells": [],
+          "name": "Wynn",
+          "nonregen_damage": 0,
+          "race": "human",
+          "scores": {
+            "cha": 11,
+            "con": 11,
+            "dex": 11,
+            "int": 11,
+            "str": 11,
+            "wis": 13
+          },
+          "spell_book": [],
+          "stat_modifiers": [],
+          "xp": 0
+        },
+        {
+          "alignment": "lawful",
+          "carrying_treasure": false,
+          "class_id": "magic_user",
+          "conditions": [],
+          "current_hp": 6,
+          "custom_class": null,
+          "extra_languages": [],
+          "id": "character-0004",
+          "inventory": {
+            "items": [],
+            "purse": {
+              "cp": 0,
+              "ep": 0,
+              "gp": 0,
+              "pp": 0,
+              "sp": 0
+            },
+            "rings": [],
+            "shield": null,
+            "valuables": [],
+            "wielded": [],
+            "worn_armour": null
+          },
+          "level": 1,
+          "max_hp": 6,
+          "memorized_spells": [],
+          "name": "Elara",
+          "nonregen_damage": 0,
+          "race": "human",
+          "scores": {
+            "cha": 11,
+            "con": 11,
+            "dex": 11,
+            "int": 11,
+            "str": 11,
+            "wis": 11
+          },
+          "spell_book": [
+            "sleep"
+          ],
+          "stat_modifiers": [],
+          "xp": 0
+        }
+      ]
+    },
+    "quests": {},
+    "rng_streams": {
+      "effects": {
+        "inc": 83995303103106262482337783037166368733,
+        "state": 170194833506817835568259385413023180433
+      },
+      "treasure": {
+        "inc": 53476702257389784988669638314557571929,
+        "state": 310646460157342966311778912749120787293
+      }
+    },
+    "ruleset": {
+      "aoe_friendly_fire": true,
+      "back_stab_needs_both_skills": true,
+      "deprivation_penalties": false,
+      "encumbrance": "basic",
+      "failed_trap_removal_springs": true,
+      "formation_width_limit": true,
+      "hd5_counts_as_magical": false,
+      "hp_reroll_at_first_level": false,
+      "individual_initiative": false,
+      "magic_item_death_save": true,
+      "thac0_arithmetic": false,
+      "variable_weapon_damage": true,
+      "weapon_reload": false,
+      "xp_award_timing": "on_return"
+    },
+    "treasure_snapshot_cp": 0
+  },
+  "schema_version": 4
+}

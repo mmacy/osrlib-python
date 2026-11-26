@@ -1,0 +1,384 @@
+{
+  "engine_version": "2.7.0",
+  "kind": "party",
+  "payload": {
+    "characters": [
+      {
+        "alignment": "lawful",
+        "carrying_treasure": false,
+        "class_id": "fighter",
+        "conditions": [],
+        "current_hp": 6,
+        "custom_class": null,
+        "extra_languages": [],
+        "id": "character-0001",
+        "inventory": {
+          "items": [
+            {
+              "instance_type": "item",
+              "quantity": 2,
+              "template": {
+                "capacity_coins": null,
+                "combat": {
+                  "damage": "1d8",
+                  "missile_ranges": {
+                    "long": {
+                      "max_feet": 50,
+                      "min_feet": 31
+                    },
+                    "medium": {
+                      "max_feet": 30,
+                      "min_feet": 11
+                    },
+                    "short": {
+                      "max_feet": 10,
+                      "min_feet": 5
+                    }
+                  },
+                  "qualities": [
+                    "missile",
+                    "splash"
+                  ]
+                },
+                "cost_gp": 25,
+                "id": "holy_water",
+                "item_type": "gear",
+                "lot_size": 1,
+                "name": "Holy water (vial)",
+                "overrides_applied": [],
+                "params": {}
+              }
+            },
+            {
+              "instance_type": "item",
+              "quantity": 6,
+              "template": {
+                "capacity_coins": null,
+                "combat": {
+                  "damage": "1d4",
+                  "missile_ranges": null,
+                  "qualities": [
+                    "melee"
+                  ]
+                },
+                "cost_gp": 1,
+                "id": "torch",
+                "item_type": "gear",
+                "lot_size": 6,
+                "name": "Torches (6)",
+                "overrides_applied": [],
+                "params": {
+                  "brightness": "flame",
+                  "burn_turns": 6,
+                  "light_radius_feet": 30
+                }
+              }
+            },
+            {
+              "instance_type": "item",
+              "quantity": 20,
+              "template": {
+                "cost_gp": 5,
+                "id": "arrows",
+                "item_type": "ammunition",
+                "lot_size": 20,
+                "material": "standard",
+                "name": "Arrows (quiver of 20)",
+                "overrides_applied": [],
+                "weight_coins": 0
+              }
+            },
+            {
+              "instance_type": "item",
+              "quantity": 1,
+              "template": {
+                "cost_gp": 25,
+                "damage": "1d6",
+                "id": "short_bow",
+                "item_type": "weapon",
+                "material": "standard",
+                "missile_ranges": {
+                  "long": {
+                    "max_feet": 150,
+                    "min_feet": 101
+                  },
+                  "medium": {
+                    "max_feet": 100,
+                    "min_feet": 51
+                  },
+                  "short": {
+                    "max_feet": 50,
+                    "min_feet": 5
+                  }
+                },
+                "name": "Short bow",
+                "overrides_applied": [],
+                "qualities": [
+                  "missile",
+                  "two_handed"
+                ],
+                "weight_coins": 30
+              }
+            },
+            {
+              "instance_type": "item",
+              "quantity": 2,
+              "template": {
+                "capacity_coins": null,
+                "combat": null,
+                "cost_gp": 0,
+                "id": "temple_idol",
+                "item_type": "gear",
+                "lot_size": 1,
+                "name": "Idol of the drowned saint",
+                "overrides_applied": [],
+                "params": {}
+              }
+            },
+            {
+              "instance_type": "item",
+              "quantity": 2,
+              "template": {
+                "capacity_coins": null,
+                "combat": {
+                  "damage": "1d8",
+                  "missile_ranges": {
+                    "long": {
+                      "max_feet": 50,
+                      "min_feet": 31
+                    },
+                    "medium": {
+                      "max_feet": 30,
+                      "min_feet": 11
+                    },
+                    "short": {
+                      "max_feet": 10,
+                      "min_feet": 5
+                    }
+                  },
+                  "qualities": [
+                    "missile",
+                    "splash"
+                  ]
+                },
+                "cost_gp": 2,
+                "id": "oil_flask",
+                "item_type": "gear",
+                "lot_size": 1,
+                "name": "Oil (1 flask)",
+                "overrides_applied": [],
+                "params": {
+                  "fuels_lantern": true
+                }
+              }
+            },
+            {
+              "base_item_id": null,
+              "charges_remaining": null,
+              "cursed_revealed": false,
+              "identified": false,
+              "instance_id": "magic-item-0001",
+              "instance_type": "magic_item",
+              "quantity": 1,
+              "sentience": null,
+              "state": {},
+              "template_id": "potion_of_healing"
+            }
+          ],
+          "purse": {
+            "cp": 0,
+            "ep": 0,
+            "gp": 0,
+            "pp": 0,
+            "sp": 0
+          },
+          "rings": [],
+          "shield": null,
+          "valuables": [],
+          "wielded": [
+            {
+              "instance_type": "item",
+              "quantity": 1,
+              "template": {
+                "cost_gp": 10,
+                "damage": "1d8",
+                "id": "sword",
+                "item_type": "weapon",
+                "material": "standard",
+                "missile_ranges": null,
+                "name": "Sword",
+                "overrides_applied": [],
+                "qualities": [
+                  "melee"
+                ],
+                "weight_coins": 60
+              }
+            }
+          ],
+          "worn_armour": {
+            "instance_type": "item",
+            "quantity": 1,
+            "template": {
+              "ac": 5,
+              "ac_ascending": 14,
+              "ac_bonus": null,
+              "category": "heavy",
+              "cost_gp": 40,
+              "id": "chainmail",
+              "item_type": "armour",
+              "name": "Chainmail",
+              "overrides_applied": [],
+              "weight_coins": 400
+            }
+          }
+        },
+        "level": 1,
+        "max_hp": 6,
+        "memorized_spells": [],
+        "name": "Brakk",
+        "nonregen_damage": 0,
+        "race": "human",
+        "scores": {
+          "cha": 11,
+          "con": 11,
+          "dex": 11,
+          "int": 11,
+          "str": 11,
+          "wis": 11
+        },
+        "spell_book": [],
+        "stat_modifiers": [],
+        "xp": 0
+      },
+      {
+        "alignment": "lawful",
+        "carrying_treasure": false,
+        "class_id": "thief",
+        "conditions": [],
+        "current_hp": 6,
+        "custom_class": null,
+        "extra_languages": [],
+        "id": "character-0002",
+        "inventory": {
+          "items": [],
+          "purse": {
+            "cp": 0,
+            "ep": 0,
+            "gp": 0,
+            "pp": 0,
+            "sp": 0
+          },
+          "rings": [],
+          "shield": null,
+          "valuables": [],
+          "wielded": [],
+          "worn_armour": null
+        },
+        "level": 1,
+        "max_hp": 6,
+        "memorized_spells": [],
+        "name": "Sable",
+        "nonregen_damage": 0,
+        "race": "human",
+        "scores": {
+          "cha": 11,
+          "con": 11,
+          "dex": 11,
+          "int": 11,
+          "str": 11,
+          "wis": 11
+        },
+        "spell_book": [],
+        "stat_modifiers": [],
+        "xp": 0
+      },
+      {
+        "alignment": "lawful",
+        "carrying_treasure": false,
+        "class_id": "cleric",
+        "conditions": [],
+        "current_hp": 6,
+        "custom_class": null,
+        "extra_languages": [],
+        "id": "character-0003",
+        "inventory": {
+          "items": [],
+          "purse": {
+            "cp": 0,
+            "ep": 0,
+            "gp": 0,
+            "pp": 0,
+            "sp": 0
+          },
+          "rings": [],
+          "shield": null,
+          "valuables": [],
+          "wielded": [],
+          "worn_armour": null
+        },
+        "level": 1,
+        "max_hp": 6,
+        "memorized_spells": [],
+        "name": "Wynn",
+        "nonregen_damage": 0,
+        "race": "human",
+        "scores": {
+          "cha": 11,
+          "con": 11,
+          "dex": 11,
+          "int": 11,
+          "str": 11,
+          "wis": 13
+        },
+        "spell_book": [],
+        "stat_modifiers": [],
+        "xp": 0
+      },
+      {
+        "alignment": "lawful",
+        "carrying_treasure": false,
+        "class_id": "magic_user",
+        "conditions": [],
+        "current_hp": 6,
+        "custom_class": null,
+        "extra_languages": [],
+        "id": "character-0004",
+        "inventory": {
+          "items": [],
+          "purse": {
+            "cp": 0,
+            "ep": 0,
+            "gp": 0,
+            "pp": 0,
+            "sp": 0
+          },
+          "rings": [],
+          "shield": null,
+          "valuables": [],
+          "wielded": [],
+          "worn_armour": null
+        },
+        "level": 1,
+        "max_hp": 6,
+        "memorized_spells": [],
+        "name": "Elara",
+        "nonregen_damage": 0,
+        "race": "human",
+        "scores": {
+          "cha": 11,
+          "con": 11,
+          "dex": 11,
+          "int": 11,
+          "str": 11,
+          "wis": 11
+        },
+        "spell_book": [
+          "sleep"
+        ],
+        "stat_modifiers": [],
+        "xp": 0
+      }
+    ]
+  },
+  "schema_version": 4
+}

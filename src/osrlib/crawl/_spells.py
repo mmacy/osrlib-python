@@ -33,7 +33,7 @@ from osrlib.core.spells import (
 )
 from osrlib.core.validation import Rejection
 from osrlib.crawl._party_location import _cell_ref, _location
-from osrlib.crawl._party_members import _member_able
+from osrlib.crawl._party_members import _member_able, _spell_target
 from osrlib.crawl.commands import CastSpell, LearnSpell, PrepareSpells
 
 
@@ -109,15 +109,15 @@ def _handle_cast_spell(session, command: CastSpell) -> tuple[list[Rejection], li
         return [Rejection(code="magic.cast.unknown_spell", params={"spell": command.spell_id})], []
     if _location(session).kind == "dungeon" and session.ledger.active_on(_cell_ref(session), "silence"):
         return [Rejection(code="magic.cast.silenced_area", params={"caster": member.id})], []
-    registry = session.registry()
     targets: list[Creature | str] = []
     for target_ref in command.targets:
         if target_ref.startswith("cell:"):
             targets.append(target_ref)
-        elif target_ref in registry:
-            targets.append(registry[target_ref])
-        else:
+            continue
+        target, _ = _spell_target(session, target_ref)
+        if target is None:
             return [Rejection(code="magic.cast.unknown_target", params={"target": target_ref})], []
+        targets.append(target)
     context = _cast_context(session, targets, in_combat=False)
     profile = caster_profile(member.definition)
     if profile is None:
@@ -148,7 +148,7 @@ def _handle_cast_spell(session, command: CastSpell) -> tuple[list[Rejection], li
         ledger=session.ledger,
         clock=session.clock,
         allocator=session.allocator,
-        registry=registry,
+        registry=session.registry(),
         ruleset=session.ruleset,
         stream=session.streams.get(MAGIC_STREAM),
         effects_stream=session.streams.get(EFFECTS_STREAM),
