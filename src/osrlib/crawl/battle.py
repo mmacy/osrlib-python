@@ -3071,7 +3071,8 @@ def _cast_targets(
     An explicit enemy id must name a living member of a current group that hasn't fled. An unknown,
     dead, out-of-encounter, or fled enemy gets `magic.cast.unknown_target` before the visibility or
     reach checks. Party member and cell targets retain their existing checks. A scroll declaration
-    uses the same target lookup.
+    uses the same target lookup, and so do `CastSpell` and a scroll read with `UseItem` outside a
+    battle (see `_party_members._spell_target`).
     """
     try:
         mode = spell.mode(declaration.spell_mode, reversed=declaration.reversed)
@@ -3097,8 +3098,6 @@ def _cast_targets(
         else:
             candidates = _living_monsters(session, group)
         return candidates, placement.distance(declaration.character_id, group), []
-    registry = session.registry()
-    party_ids = {member.id for member in session.party.members}
     touch = spell.range_spec.kind == "touch"
     targets: list = []
     distance: int | None = None
@@ -3106,19 +3105,14 @@ def _cast_targets(
         if target_ref.startswith("cell:"):
             targets.append(target_ref)
             continue
-        entity = registry.get(target_ref)
+        entity, group = _party_members._spell_target(session, target_ref)
         if entity is None:
             return [], None, [Rejection(code="magic.cast.unknown_target", params={"target": target_ref})]
-        group = None
-        if target_ref not in party_ids:
-            group = next((group for group in session.encounter.groups if target_ref in group.monster_ids), None)
-            if group is None or group.fled or has_condition(entity, Condition.DEAD):
-                return [], None, [Rejection(code="magic.cast.unknown_target", params={"target": target_ref})]
         if has_condition(entity, Condition.INVISIBLE):
             # The player already knows the target is invisible, so this rejection reveals nothing.
             return [], None, [Rejection(code="battle.declaration.invisible_target", params={"target": target_ref})]
         targets.append(entity)
-        if target_ref in party_ids:
+        if group is None:
             distance = max(distance or 0, placement.between(declaration.character_id, target_ref))
             continue
         reach = placement.distance(declaration.character_id, group)
@@ -3345,11 +3339,11 @@ def _healing_touch(session, declaration: BattleDeclaration, member, instance, pl
 
     1. `battle.declaration.target_count` for more than one id in `targets` (see `_sole_target`).
     2. The checks [`UseItem`][osrlib.crawl.commands.UseItem] makes (see `_magic_items._healing_target`):
-       `items.use.unknown_target` for an id that matches no creature, `items.use.target_cannot_be_healed` for a
-       creature that's dead or turned to stone, and `items.use.target_healed_today` for a creature the staff
-       already healed today.
-    3. `items.use.unknown_target` for a monster outside the encounter's groups that haven't fled.
-    4. Reach. Another member has to stand within 5' of the user in `placement` (see `_reach_rejection`). A touch on
+       `items.use.unknown_target` for an id that isn't a party member's and isn't a creature's in a group of the
+       encounter that hasn't fled, `items.use.target_cannot_be_healed` for a creature that's dead or turned to
+       stone, and `items.use.target_healed_today` for a creature the staff already healed today. A dead creature
+       of an encounter that has ended gets `items.use.unknown_target`, as an id that matches nothing does.
+    3. Reach. Another member has to stand within 5' of the user in `placement` (see `_reach_rejection`). A touch on
        a monster takes the checks of `_touch_rejection`.
 
     The target is None when there are rejections. The call reads state and takes no draw.
@@ -3362,12 +3356,10 @@ def _healing_touch(session, declaration: BattleDeclaration, member, instance, pl
     target, rejections = _magic_items._healing_target(session, member, instance, target_id)
     if target is None or target is member:
         return target, rejections
-    if any(other.id == target.id for other in session.party.members):
+    _, group = _party_members._actable_target(session, target.id)
+    if group is None:
         refused = _reach_rejection(placement, member.id, target.id)
     else:
-        group = next((group for group in session.encounter.groups if target.id in group.monster_ids), None)
-        if group is None or group.fled:
-            return None, [Rejection(code="items.use.unknown_target", params={"target": target.id})]
         refused = _touch_rejection(session, member.id, target, group, placement)
     return (None, [refused]) if refused is not None else (target, [])
 

@@ -1,8 +1,9 @@
-"""The party member a command names, and the helpers that find, take, add, and remove a member's items."""
+"""The party member or creature a command names, and the helpers that find, take, add, and remove a member's items."""
 
 from typing import Any
 
 from osrlib.core.combat import incapacitated
+from osrlib.core.effects import Condition, has_condition
 from osrlib.core.items import ItemInstance, ItemTemplate, MagicItemInstance
 from osrlib.core.validation import Rejection
 
@@ -15,6 +16,45 @@ def _member_able(session, character_id: str) -> tuple[Any, list[Rejection]]:
     if incapacitated(member):
         return None, [Rejection(code="session.command.member_incapacitated", params={"character": character_id})]
     return member, []
+
+
+def _actable_target(session, target_id: str) -> tuple[Any, Any]:
+    """Return the creature with `target_id` that the party can act on now, and its encounter group.
+
+    A command can name as a target only a party member, in any state, or a creature in a group of the open encounter
+    that hasn't fled: the creatures the player view lists in
+    [`PlayerView.party`][osrlib.crawl.views.PlayerView.party] and
+    [`EncounterGroupView.members`][osrlib.crawl.views.EncounterGroupView.members]. A monster or an NPC adventurer
+    of an encounter that has ended, a monster of a group that fled, and a monster spawned into no encounter stay in
+    `session.registry()`, but this returns `(None, None)` for them, as it does for an id that matches nothing, so
+    a command's refusal reveals nothing about a creature the party can't see.
+
+    Returns:
+        `(member, None)` for a party member, `(creature, group)` for a creature of the open encounter, and
+            `(None, None)` for any other id. The call reads state and takes no draw.
+    """
+    for member in session.party.members:
+        if member.id == target_id:
+            return member, None
+    if session.encounter is None:
+        return None, None
+    group = next((group for group in session.encounter.groups if target_id in group.monster_ids), None)
+    creature = session.registry().get(target_id) if group is not None and not group.fled else None
+    return (creature, group) if creature is not None else (None, None)
+
+
+def _spell_target(session, target_id: str) -> tuple[Any, Any]:
+    """Return the creature with `target_id` that a spell or a scroll can name, and its encounter group.
+
+    This is `_actable_target` without the dead creatures of the encounter, because a spell can't name a dead enemy.
+    A party member counts in any state, so *raise dead* and *stone to flesh* can name a dead or petrified member.
+    `CastSpell`, a scroll read with `UseItem`, and a battle's `cast` and scroll declarations use this lookup, and
+    each refuses with `magic.cast.unknown_target` any id for which it returns `(None, None)`.
+    """
+    creature, group = _actable_target(session, target_id)
+    if group is not None and has_condition(creature, Condition.DEAD):
+        return None, None
+    return creature, group
 
 
 def _consume_item(member, item_id: str, quantity: int = 1) -> ItemInstance | MagicItemInstance | None:

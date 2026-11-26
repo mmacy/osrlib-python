@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Outside a battle, [`CastSpell`][osrlib.crawl.commands.CastSpell] and [`UseItem`][osrlib.crawl.commands.UseItem] refuse a target that isn't a party member and isn't a creature in a group of the open encounter that hasn't fled (#317). The refusal is the one an id that matches nothing gets, `magic.cast.unknown_target` for a spell or a scroll and `items.use.unknown_target` for a staff of healing, with the same params, and it costs no draw, no time, and no state. Before, the session accepted as a target any creature still in `session.registry()`, so after the referee's `EndEncounter` a magic-user's *magic missile* at `monster-0001` damaged a goblin that the player view no longer listed. A monster or an NPC adventurer of an encounter that has ended, a monster of a group that fled, and a monster spawned into no encounter now get the unknown id's answer, alive or dead. A party member is still a target in any state, so *raise dead* and *stone to flesh* work as before. The fix also changes two related rejections. A scroll read at a dead creature of the open encounter gets `magic.cast.unknown_target`, as a `cast` declaration in a battle does, where before the spell landed on the corpse. A staff of healing declared in a battle at a dead creature of an encounter that has ended gets `items.use.unknown_target`, where before it got `items.use.target_cannot_be_healed`, which told you the creature was dead. A refused scroll read also no longer adds the `magic` stream to the session's saved RNG state. A command log recorded on 2.7.0 that holds such a command no longer replays, because the command is now refused. A session with no such command draws exactly as before on every stream.
+
 ## [2.7.0] - 2026-11-25
 
 ### Added
