@@ -6,7 +6,7 @@ discard the character and start again."
 
 osrlib reads it as two tests. The scores are sub-par when every score is 8 or less, the SRD's own example, or when two
 or more scores are 5 or less, osrlib's threshold for "an extremely low rating". Every ability table on the SRD's
-Ability Scores page steps down between 6 and 5. `scores_are_sub_par` answers for six scores, and
+Ability Scores page has a row boundary between 6 and 5. `scores_are_sub_par` answers for six scores, and
 `AbilityScoreRolls.sub_par` answers for a roll, computed from its `scores`, the scores as rolled before the adjustment
 step. osrlib never discards or rerolls a character, so no draw changes.
 
@@ -39,8 +39,6 @@ from osrlib.core.character import (
 )
 from osrlib.core.rng import RngStream, RngStreams
 from osrlib.core.ruleset import Ruleset
-
-CHUNK = "chunk: sub-par-scores"
 
 REPO = Path(__file__).resolve().parent.parent
 SAVES = Path(__file__).parent / "saves"
@@ -96,7 +94,6 @@ BOUNDARIES = {
 }
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize("case", sorted(BOUNDARIES))
 def test_each_clause_at_its_boundary(case):
     values, expected = BOUNDARIES[case]
@@ -105,7 +102,6 @@ def test_each_clause_at_its_boundary(case):
     assert scores_are_sub_par(by_ability(values)) is expected
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize("ability", ABILITY_ROLL_ORDER)
 def test_a_single_9_in_any_ability_breaks_the_first_clause(ability):
     scores = dict.fromkeys(ABILITY_ROLL_ORDER, 8)
@@ -116,7 +112,6 @@ def test_a_single_9_in_any_ability_breaks_the_first_clause(ability):
     assert scores_are_sub_par(scores) is False
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize("pair", list(combinations(ABILITY_ROLL_ORDER, 2)), ids=lambda pair: "-".join(pair))
 def test_any_two_abilities_at_5_meet_the_second_clause(pair):
     # The 15 pairs of the six abilities. Each one alone at 5 is not enough, and the two together are.
@@ -130,7 +125,6 @@ def test_any_two_abilities_at_5_meet_the_second_clause(pair):
     assert scores_are_sub_par(scores) is True
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_function_draws_nothing_and_leaves_its_argument_alone():
     scores = by_ability([4, 5, 12, 12, 8, 15])
     before = dict(scores)
@@ -143,7 +137,6 @@ def test_the_function_draws_nothing_and_leaves_its_argument_alone():
     assert creation.export_state() == state
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_function_reads_a_characters_scores():
     # Seed 6's fighter keeps its rolled scores: STR 4 and INT 5.
     result = create_character(
@@ -153,7 +146,6 @@ def test_the_function_reads_a_characters_scores():
     assert scores_are_sub_par(result.character.scores) is True
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize(
     "scores",
     [
@@ -204,7 +196,6 @@ def test_the_named_seeds_roll_the_scores_written_here(case):
     assert the_rule(rolled.scores) is expected
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize("case", sorted(NAMED_ROLLS))
 def test_a_named_roll_says_whether_it_is_sub_par(case):
     seed, method = case
@@ -216,7 +207,6 @@ def test_a_named_roll_says_whether_it_is_sub_par(case):
     assert scores_are_sub_par(rolled.scores) is expected
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize("method", ["3d6", "4d6_drop_lowest"])
 def test_the_field_and_the_function_agree_for_every_roll(method):
     answers = []
@@ -231,7 +221,6 @@ def test_the_field_and_the_function_agree_for_every_roll(method):
         assert True in answers and False in answers
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_field_is_in_the_dump_and_the_json():
     rolled = roll_ability_scores(stream(6))
 
@@ -242,7 +231,6 @@ def test_the_field_is_in_the_dump_and_the_json():
     assert json.loads(not_sub_par.model_dump_json())["sub_par"] is False
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_creation_result_dumps_the_field_inside_ability_rolls():
     result = create_character(
         name="Grub", class_id="fighter", alignment=Alignment.CHAOTIC, ruleset=Ruleset(), stream=stream(6)
@@ -254,7 +242,6 @@ def test_a_creation_result_dumps_the_field_inside_ability_rolls():
     assert CharacterCreationResult.model_validate(document) == result
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize(("seed", "stated"), [(6, False), (7, True)])
 def test_a_document_that_states_the_wrong_value_does_not_change_it(seed, stated):
     # Seed 6's scores are sub-par and seed 7's are not, and each document says the opposite.
@@ -270,7 +257,6 @@ def test_a_document_that_states_the_wrong_value_does_not_change_it(seed, stated)
         assert model.model_dump()["sub_par"] is not stated
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_copy_cannot_set_the_field():
     rolled = roll_ability_scores(stream(6))
 
@@ -282,7 +268,6 @@ def test_a_copy_cannot_set_the_field():
         rolled.sub_par = False  # type: ignore[misc]
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_copy_with_new_scores_answers_for_them():
     rolled = roll_ability_scores(stream(6))
 
@@ -292,7 +277,6 @@ def test_a_copy_with_new_scores_answers_for_them():
     assert raised.sub_par is False
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize(
     "scores",
     [
@@ -330,7 +314,6 @@ def test_the_serialization_schema_lists_the_field_and_the_validation_schema_does
 # ---------------------------------------------------------------------- what 2.8.0 wrote
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_2_8_0_result_that_is_not_sub_par_parses_with_the_field_false():
     document = json.loads(HOUSE_RULES_RESULT_2_8_0.read_text(encoding="utf-8"))
     assert "sub_par" not in document["ability_rolls"]
@@ -342,7 +325,6 @@ def test_a_2_8_0_result_that_is_not_sub_par_parses_with_the_field_false():
     assert json.loads(result.model_dump_json())["ability_rolls"]["sub_par"] is False
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_2_8_0_result_that_is_sub_par_parses_with_the_field_true():
     document = json.loads(SUB_PAR_RESULT_2_8_0.read_text(encoding="utf-8"))
     assert document["character"]["name"] == "Grub"
@@ -405,7 +387,6 @@ def test_create_character_draws_what_it_drew_before_for_a_sub_par_roll(case):
     assert creation.next_uint64() == next_draw
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize("case", sorted(SUB_PAR_FIGHTERS))
 def test_create_character_creates_a_sub_par_character_and_says_so(case):
     scores, _, hit_points, _, _, next_draw = SUB_PAR_FIGHTERS[case]
@@ -418,7 +399,6 @@ def test_create_character_creates_a_sub_par_character_and_says_so(case):
     assert creation.next_uint64() == next_draw
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_adjustment_does_not_change_the_answer_on_the_roll():
     # Seed 6 rolls STR 4, INT 5, WIS 12, DEX 12, CON 8, CHA 15, which is sub-par. A magic-user lowers WIS by 2 to
     # raise INT, its prime requisite, by 1. The character has STR 4, INT 6, and WIS 10, which alone would not be
@@ -476,7 +456,6 @@ def _section(text: str, start: str, end: str) -> str:
     return text[text.index(start) : text.index(end, text.index(start))]
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_adaptations_register_records_the_threshold_as_an_interpretation():
     register = (REPO / "docs" / "adaptations.md").read_text(encoding="utf-8")
     interpretations = _section(register, "\n## Interpretations\n", "\n## Documented adaptations\n")
@@ -488,7 +467,6 @@ def test_the_adaptations_register_records_the_threshold_as_an_interpretation():
         assert text in entry
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_creation_walkthrough_mentions_the_check_at_the_ability_roll():
     module_doc = character_module.__doc__
     assert module_doc is not None
@@ -498,7 +476,6 @@ def test_the_creation_walkthrough_mentions_the_check_at_the_ability_roll():
     assert "sub_par" in step_one
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_quickstart_mentions_the_check_where_it_describes_the_roll():
     quickstart = (REPO / "docs" / "getting-started" / "quickstart.md").read_text(encoding="utf-8")
     described = "`create_character` rolls 1st-level ability scores"
@@ -507,7 +484,6 @@ def test_the_quickstart_mentions_the_check_where_it_describes_the_roll():
     assert "sub_par" in paragraph
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_spec_mentions_the_check_in_the_ability_score_scope():
     spec = (REPO / "docs" / "spec.md").read_text(encoding="utf-8")
     (line,) = [line for line in spec.splitlines() if line.startswith("- Ability scores 3d6")]
@@ -515,7 +491,6 @@ def test_the_spec_mentions_the_check_in_the_ability_score_scope():
     assert "sub-par" in line
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_changelog_bullet_names_the_function_and_the_field():
     bullets = [line for line in CHANGELOG.read_text(encoding="utf-8").splitlines() if "(#345)" in line]
     assert len(bullets) == 1

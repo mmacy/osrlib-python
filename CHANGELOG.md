@@ -13,7 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
-- [`AbilityScoreRolls`][osrlib.core.character.AbilityScoreRolls] refuses `scores` that don't have all six abilities, each from 3 to 18, with a `pydantic.ValidationError`. The docstring of `scores` already stated that range, but nothing enforced it, so a document with a missing or out-of-range score parsed without an error.
+- [`AbilityScoreRolls`][osrlib.core.character.AbilityScoreRolls] refuses `scores` that don't have all six abilities, each from 3 to 18, with a `pydantic.ValidationError`. The docstring of `scores` already stated that range, but nothing enforced it, so a document with a missing or out-of-range score parsed without an error. No save contains a roll result, and every result that `roll_ability_scores` and `create_character` have returned has six scores in that range, so a result recorded by an earlier release still parses, and [`SCHEMA_VERSION`][osrlib.versioning.SCHEMA_VERSION] stays 4.
 
 ## [2.8.0] - 2026-11-25
 

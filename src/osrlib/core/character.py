@@ -1168,9 +1168,10 @@ def scores_are_sub_par(scores: Mapping[AbilityScore, int]) -> bool:
 
     - Every score is 8 or less, the SRD's own example.
     - Two or more scores are 5 or less. The SRD leaves "an extremely low rating" to the referee, so osrlib fixes it
-      at 5 or less. Every ability's table in the SRD steps down between 6 and 5: at 5 or less, STR, WIS, CON, and
-      DEX's armour class and missile adjustments are -2 or worse, INT leaves the character illiterate, CHA allows
-      fewer retainers with lower loyalty, and a prime requisite costs 20% of the experience instead of 10%.
+      at 5 or less. Every ability's table in the SRD has a row boundary between 6 and 5: at 5 or less, STR's melee
+      adjustment, WIS's and CON's, and DEX's armour class and missile adjustments are -2 or worse, INT leaves the
+      character illiterate, CHA allows fewer retainers with lower loyalty, and a prime requisite costs 20% of the
+      experience instead of 10%.
 
     Pass the scores as rolled, before any adjustment, which are the `scores` of the
     [`AbilityScoreRolls`][osrlib.core.character.AbilityScoreRolls] that
