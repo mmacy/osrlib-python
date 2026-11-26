@@ -218,7 +218,8 @@ class _Model(BaseModel):
     assigning a field enforces.
 
     The class also gives each model's JSON Schema a description for each field: the field's docstring, from the
-    class or from the nearest base class that documents the field.
+    class or from the nearest base class that documents the field. The model's own description is the class
+    docstring's text before its first section, followed by its `Modes:`, `Rejections:`, and `Events:` sections.
     """
 
     def model_copy(self, *, update: Mapping[str, Any] | None = None, deep: bool = False) -> Self:
