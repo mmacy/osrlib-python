@@ -1434,9 +1434,7 @@ def memorize_spells(
     """
     profile = caster_profile(definition)
     if profile is None:
-        return MemorizationResult(
-            rejections=(Rejection(code="magic.memorize.not_a_caster", params={"class": definition.id}),)
-        )
+        return MemorizationResult(rejections=(_not_a_caster(definition),))
     rejections: list[Rejection] = []
     counts: dict[int, int] = {}
     for selection in selections:
@@ -1470,6 +1468,22 @@ def memorize_spells(
     return MemorizationResult(events=(event,))
 
 
+def _not_a_caster(definition: ClassDefinition) -> Rejection:
+    """Return the refusal of a preparation for a class that casts nothing, for which `caster_profile` is None."""
+    return Rejection(code="magic.memorize.not_a_caster", params={"class": definition.id})
+
+
+def _reverses_at(profile: CasterProfile) -> Literal["memorize", "cast"]:
+    """Return when a caster of this kind chooses the form of a spell that reverses.
+
+    An arcane caster chooses it when memorizing, so `memorize_spells` takes a reversed selection and a cast must match
+    the copy's form. A divine caster chooses it when casting, so `memorize_spells` refuses a reversed selection with
+    `magic.memorize.divine_reverses_at_cast` and a cast matches any copy of the spell. It's the member view's
+    `reverses_at`.
+    """
+    return "cast" if profile.kind == "divine" else "memorize"
+
+
 def _slot_count(slots: Sequence[int], spell_level: int) -> int:
     """Return a progression row's slot count at a spell level, which is 0 past the end of the row."""
     return slots[spell_level - 1] if spell_level <= len(slots) else 0
@@ -1487,7 +1501,7 @@ def _selection_rejection(
         return Rejection(
             code="magic.memorize.wrong_list", params={"spell": selection.spell_id, "list": template.spell_list}
         )
-    if profile.kind == "divine" and selection.reversed:
+    if _reverses_at(profile) == "cast" and selection.reversed:
         return Rejection(code="magic.memorize.divine_reverses_at_cast", params={"spell": selection.spell_id})
     if profile.kind == "arcane":
         if selection.spell_id not in getattr(caster, "spell_book", ()):
@@ -2046,7 +2060,7 @@ def _memorized_index(caster: Any, spell: SpellTemplate, reversed: bool, profile:
     for index, copy in enumerate(getattr(caster, "memorized_spells", ())):
         if copy.spell_id != spell.id:
             continue
-        if profile.kind == "divine" or copy.reversed == reversed:
+        if _reverses_at(profile) == "cast" or copy.reversed == reversed:
             return index
     return None
 
