@@ -28,8 +28,6 @@ from osrlib.crawl.session import GameSession
 from osrlib.crawl.views import PileItemView, PlayerView
 from osrlib.persistence import load_game, save_game
 
-CHUNK = "chunk: valuable-phrases"
-
 SAVES = Path(__file__).parent / "saves"
 SAVE_2_9_0 = SAVES / "view_valuable_phrases_2.9.0.json"
 """A save of `hauled(OLD_KEPT, OLD_DROPPED)`, written by osrlib 2.9.0 before `phrase` existed."""
@@ -227,7 +225,6 @@ MADE = [
 ]
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize(("name", "phrase"), MADE, ids=[name for name, _ in MADE])
 def test_a_piece_with_no_phrase_has_the_phrase_made_from_its_name(name, phrase):
     """The same piece's phrase, made by the rule, in a member's pack and in a known pile."""
@@ -239,7 +236,6 @@ def test_a_piece_with_no_phrase_has_the_phrase_made_from_its_name(name, phrase):
     assert view.valuable_names == {"valuable-0101": name, "valuable-0102": name}
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize(
     ("name", "phrase"),
     [
@@ -258,7 +254,6 @@ def test_a_piece_with_a_phrase_has_it_as_written(name, phrase):
     assert view.valuable_phrases == {"valuable-0101": phrase, "valuable-0102": phrase}
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_spaces_around_a_name_or_a_phrase_dont_count():
     """The view shows a name and a phrase without the whitespace around them, and judges whether a piece has a name
     of its own without it. So a gem named `" Gem "` is a rolled gem's lookalike, with a key in neither map, and a
@@ -288,7 +283,6 @@ def test_spaces_around_a_name_or_a_phrase_dont_count():
     assert [piece.name for piece in game.party.members[0].inventory.valuables] == [name for name, _, _ in pieces]
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize("blank", ["", " ", "\t", " \n\t "])
 def test_a_phrase_of_whitespace_alone_counts_as_empty(blank):
     """As `SpellMode.display_name` treats a label of whitespace alone. "Star" takes "a", first letter lowered."""
@@ -297,7 +291,6 @@ def test_a_phrase_of_whitespace_alone_counts_as_empty(blank):
     assert _player_view(game).valuable_phrases == {"valuable-0101": "a star of the lower chapel"}
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_keys_are_exactly_the_keys_of_valuable_names():
     """Every variant, in a member's pack and in a known pile.
 
@@ -332,7 +325,6 @@ def test_the_keys_are_exactly_the_keys_of_valuable_names():
     }
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize("blank", [" ", "\t", " \n\t "])
 def test_a_name_of_whitespace_alone_is_no_name_of_its_own(blank):
     """A piece whose name is only whitespace has no name of its own, like a piece whose name is empty (issue #355).
@@ -360,7 +352,6 @@ def test_a_name_of_whitespace_alone_is_no_name_of_its_own(blank):
 # ---------------------------------------------------------------------- the haul
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_taking_a_placed_piece_copies_its_phrase():
     """The session copies each spec's `phrase` to the piece it makes, as it copies `name`, whitespace and all. The
     inventory's `valuables` show it as they show `name`, and the view has the phrase of each named piece, carried
@@ -378,7 +369,6 @@ def test_taking_a_placed_piece_copies_its_phrase():
     assert set(view.valuable_phrases) == set(view.valuable_names)
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_session_restored_from_a_save_has_the_same_phrases():
     game = hauled(NEW_KEPT, NEW_DROPPED)
 
@@ -416,7 +406,6 @@ def test_a_piece_the_party_cant_see_has_no_phrase_in_the_view():
 # ---------------------------------------------------------------------- what osrlib 2.9.0 wrote
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_a_save_from_osrlib_2_9_0_gives_a_phrase_for_every_named_piece():
     """A 2.9.0 save's pieces have no phrase, so each named piece's phrase is made from its name, and the keys are the
     keys of `valuable_names`. The whole view of the loaded save is the view of the same state built now."""
@@ -457,7 +446,6 @@ def _description(model: type, field: str) -> str:
     return model.model_json_schema()["properties"][field]["description"]
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_docstrings_send_a_sentence_to_valuable_phrases():
     """Each place that told a client to show a valuable's name in a sentence names `valuable_phrases` instead."""
     guidance = {
@@ -470,7 +458,6 @@ def test_the_docstrings_send_a_sentence_to_valuable_phrases():
         assert "Sam takes Prior's chain of office" not in text, place
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_guides_and_the_changelog_describe_the_phrases():
     root = Path(__file__).parent.parent
     views_guide = (root / "docs" / "guides" / "views-and-visibility.md").read_text(encoding="utf-8")
