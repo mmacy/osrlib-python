@@ -94,9 +94,18 @@ You follow the battle through events from [`osrlib.crawl.events`][osrlib.crawl.e
   line changes.
 - [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] when a group fails its morale check
   and flees, and when the turned members of a group split off as a new group and flee.
+- [`MonsterEscapedEvent`][osrlib.crawl.events.MonsterEscapedEvent] when a running group gets away
+  and leaves the battle, right after the `GroupMovedEvent` that takes it past
+  [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET]. A group with a morale score of 2 gets
+  away as it enters the battle, so its `MonsterEscapedEvent` comes right after its
+  `MonsterFledEvent`. A group whose living members are all turned or afraid, and which stands
+  past `FLEE_EXIT_FEET` without a move of its own when the battle ends, gets away as the battle
+  ends, so its `MonsterEscapedEvent` comes right before the `BattleEndedEvent`.
 - [`MonstersLeftBehindEvent`][osrlib.crawl.events.MonstersLeftBehindEvent] for helpless members a
   fleeing group leaves behind.
 - [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent] with victory, defeat, or flight.
+  When an escape leaves no group fighting, the `BattleEndedEvent` comes after the
+  `MonsterEscapedEvent`.
 
 Between them come the events of the rule functions in [`osrlib.core`][osrlib.core]: attacks,
 damage, saving throws, initiative, and morale.
@@ -384,6 +393,7 @@ from osrlib.crawl.events import (
     GroupMovedEvent,
     MemberMovedEvent,
     MemberWithdrewEvent,
+    MonsterEscapedEvent,
     MonsterFledEvent,
     MonstersLeftBehindEvent,
     SpellDeclaredEvent,
@@ -434,7 +444,9 @@ FLEE_EXIT_FEET = 120
 A group that fails a morale check turns and runs its full movement rate each round. Once it
 stands farther than this from every living party member, as
 [`member_distance_feet`][osrlib.crawl.battle.member_distance_feet] measures each one, the session
-marks the group fled. Until then, the party can still close on it or shoot at it. The distance is
+marks the group fled. It emits a [`MonsterEscapedEvent`][osrlib.crawl.events.MonsterEscapedEvent]
+in the same round, right after the [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent] of the
+move that took the group that far. Until then, the party can still close on it or shoot at it. The distance is
 measured from the members, not from the party line, so a member who closed on the group keeps it
 in the battle longer, and a move of the party line never pushes a group out.
 
@@ -444,6 +456,12 @@ victory.
 
 A group whose living members are all afraid or turned, but which didn't fail a morale check, also
 counts as gone for ending the battle once it stands farther than this from every living member.
+It can get there without a move of its own: a group turned where it stands 130' away, or a group
+the party leaves behind by falling back before the group's next move. When the battle ends with
+such a group, the session marks it fled and emits its `MonsterEscapedEvent` right before the
+[`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent]. The group then ends the encounter as
+it would have after a move of its own took it out: its members are routed, they count for the
+experience award, and they keep their treasure.
 """
 
 
@@ -2301,8 +2319,9 @@ def start_battle(session, *, party_free_round: bool = False, monsters_free_round
 
     Returns:
         The opening events: the [`BattleStartedEvent`][osrlib.crawl.events.BattleStartedEvent], a
-        [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] for each group that ran at once,
-        the events of the monsters' free round, including the clock advancing one round, and a
+        [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] followed by a
+        [`MonsterEscapedEvent`][osrlib.crawl.events.MonsterEscapedEvent] for each group that ran at
+        once, the events of the monsters' free round, including the clock advancing one round, and a
         [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent] when the opening alone ends the
         battle.
 
@@ -2382,12 +2401,13 @@ def _flee_if_unwilling(session, group) -> list[Event]:
     """Send a group whose morale score is 2 out of the battle, because the SRD says it won't fight.
 
     The group runs as it enters the battle: when the battle starts, or when a referee's spawn adds
-    it to a battle that's already running.
+    it to a battle that's already running. It gets away at once, so the `MonsterEscapedEvent` comes
+    right after its `MonsterFledEvent`.
     """
     if group.fled or _group_morale_score(session, group) != 2:
         return []
     group.fled = True
-    return [MonsterFledEvent(code="battle.side.fled", group_id=group.id)]
+    return [MonsterFledEvent(code="battle.side.fled", group_id=group.id), MonsterEscapedEvent(group_id=group.id)]
 
 
 def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
@@ -2407,7 +2427,18 @@ def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
     groups = session.encounter.groups
     done = all(group.fled or not _living_monsters(session, group) or _all_routed(session, group) for group in groups)
     if done:
-        return [BattleEndedEvent(code="battle.ended.victory"), *encounter_module.end_encounter(session, "victory")]
+        # A wholly turned or afraid group past FLEE_EXIT_FEET has got away too, even when its own move never took it
+        # out, so it ends the battle marked fled, as it would have after its next move.
+        escaped: list[Event] = []
+        for group in groups:
+            if not group.fled and _all_routed(session, group):
+                group.fled = True
+                escaped.append(MonsterEscapedEvent(group_id=group.id))
+        return [
+            *escaped,
+            BattleEndedEvent(code="battle.ended.victory"),
+            *encounter_module.end_encounter(session, "victory"),
+        ]
     if party_retreating:
         from osrlib.crawl.encounter import PursuitState
 
@@ -2542,16 +2573,28 @@ def _group_by_id(session, group_id: str | None):
     return None
 
 
-def _sole_target(declaration: BattleDeclaration) -> str | None:
-    """The one id in `targets` that a potion, a healing device, or a hand-over acts on.
+def _sole_target(
+    declaration: BattleDeclaration, member_id: str, *, required: bool
+) -> tuple[str | None, list[Rejection]]:
+    """Return the one id in `targets` that a potion, a staff of healing, or a hand-over acts on, as a pair.
 
-    It's None when `targets` is empty. It's an empty string when `targets` has more than one id, because such
-    a declaration has no single target, and the empty string matches no member or creature. So the checks
-    refuse the declaration as one with an unknown target.
+    The pair is `(target_id, rejections)`. A potion and a staff of healing act on at most one creature, and an
+    empty `targets` means the declaring member, so `target_id` is None then. A hand-over has no default recipient,
+    so `_hand_over` passes `required=True`, and the declaration needs exactly one id. Any other number of ids gets
+    `battle.declaration.target_count`, with the declaring member's id as `character`, 1 as `expected`, and the
+    number of ids given as `supplied`. The target is None when there are rejections.
     """
-    if not declaration.targets:
-        return None
-    return declaration.targets[0] if len(declaration.targets) == 1 else ""
+    supplied = len(declaration.targets)
+    if supplied == 1:
+        return declaration.targets[0], []
+    if supplied == 0 and not required:
+        return None, []
+    return None, [
+        Rejection(
+            code="battle.declaration.target_count",
+            params={"character": member_id, "expected": 1, "supplied": supplied},
+        )
+    ]
 
 
 _DEFENSIVE_MOVES = ("fighting_withdrawal", "retreat")
@@ -2816,14 +2859,16 @@ def _validate_declaration(
         magic = member.inventory.magic_item(declaration.item_id) if declaration.item_id else None
         if magic is not None:
             return _validate_magic_item_declaration(session, declaration, member, magic, placement=placement)
-        group = _group_by_id(session, declaration.target_group_id)
-        if group is None or group.fled:
-            return [Rejection(code="battle.declaration.unknown_group", params={"character": member.id})]
+        # The item is judged before the group, so a player who names an item the member can't throw is told
+        # about the item, not sent looking for a group.
         instance = _party_members._find_item(member, declaration.item_id) if declaration.item_id else None
         facet = getattr(instance.template, "combat", None) if instance is not None else None
         if instance is None or facet is None or WeaponQuality.SPLASH not in facet.qualities:
             # Only a splash weapon, like holy water or a flask of oil, is thrown. A torch is swung.
             return [Rejection(code="battle.declaration.item_unusable", params={"item": declaration.item_id or ""})]
+        group = _group_by_id(session, declaration.target_group_id)
+        if group is None or group.fled:
+            return [Rejection(code="battle.declaration.unknown_group", params={"character": member.id})]
         pool = _monster_pool(session, group)
         if not pool:
             return [Rejection(code="battle.declaration.no_target", params={"group": group.id})]
@@ -3136,7 +3181,7 @@ def _validate_magic_item_declaration(
                 if not _monster_pool(session, group):
                     return [Rejection(code="battle.declaration.no_target", params={"group": group.id})]
         if effect_spec is not None and effect_spec.kind == "healing":
-            return _healing_touch(session, declaration, member, placement)[1]
+            return _healing_touch(session, declaration, member, instance, placement)[1]
         return []
     return [Rejection(code="battle.declaration.item_unusable", params={"item": instance.instance_id})]
 
@@ -3144,14 +3189,18 @@ def _validate_magic_item_declaration(
 def _drinker(session, declaration: BattleDeclaration, carrier, instance, placement: _Placement):
     """Return who drinks a declared potion, with every reason they can't, as a `(drinker, rejections)` pair.
 
-    The drinker is the member whose id is the one id in `targets`, or the carrier when `targets` is empty. The
+    The drinker is the member whose id is the one id in `targets`, or the carrier when `targets` is empty. A
+    declaration with more than one id gets `battle.declaration.target_count` (see `_sole_target`). The other
     checks are those of [`UseItem`][osrlib.crawl.commands.UseItem] (see `_magic_items._potion_drinker`), then
     reach: another member has to stand within 5' of the carrier in `placement` (see `_reach_rejection`). The
     drinker is None when there are rejections. The call reads state and takes no draw.
     """
     from osrlib.crawl import _magic_items
 
-    drinker, rejections = _magic_items._potion_drinker(session, carrier, instance, _sole_target(declaration))
+    target_id, rejections = _sole_target(declaration, carrier.id, required=False)
+    if rejections:
+        return None, rejections
+    drinker, rejections = _magic_items._potion_drinker(session, carrier, instance, target_id)
     if drinker is None:
         return None, rejections
     out_of_reach = _reach_rejection(placement, carrier.id, drinker.id)
@@ -3160,26 +3209,30 @@ def _drinker(session, declaration: BattleDeclaration, carrier, instance, placeme
     return drinker, []
 
 
-def _healing_touch(session, declaration: BattleDeclaration, member, placement: _Placement):
+def _healing_touch(session, declaration: BattleDeclaration, member, instance, placement: _Placement):
     """Return whom a declared staff of healing touches, with every reason it can't, as a `(target, rejections)` pair.
 
     The OSE SRD's staff "Has the power to heal those touched". The target is the creature whose id is the one
-    id in `targets`, or the member using the staff when `targets` is empty. The checks come in this order:
+    id in `targets`, or the member using the staff when `targets` is empty. `instance` is the staff. The checks
+    come in this order:
 
-    1. The checks [`UseItem`][osrlib.crawl.commands.UseItem] makes (see `_magic_items._healing_target`):
-       `items.use.unknown_target` for an id that matches no creature, and `items.use.target_cannot_be_healed` for a
-       creature that's dead or turned to stone.
-    2. `items.use.unknown_target` for a monster outside the encounter's groups that haven't fled.
-    3. Reach. Another member has to stand within 5' of the user in `placement` (see `_reach_rejection`). A touch on
+    1. `battle.declaration.target_count` for more than one id in `targets` (see `_sole_target`).
+    2. The checks [`UseItem`][osrlib.crawl.commands.UseItem] makes (see `_magic_items._healing_target`):
+       `items.use.unknown_target` for an id that matches no creature, `items.use.target_cannot_be_healed` for a
+       creature that's dead or turned to stone, and `items.use.target_healed_today` for a creature the staff
+       already healed today.
+    3. `items.use.unknown_target` for a monster outside the encounter's groups that haven't fled.
+    4. Reach. Another member has to stand within 5' of the user in `placement` (see `_reach_rejection`). A touch on
        a monster takes the checks of `_touch_rejection`.
 
     The target is None when there are rejections. The call reads state and takes no draw.
     """
     from osrlib.crawl import _magic_items
 
-    target, rejections = _magic_items._healing_target(
-        session, member, declaration.item_id or "", _sole_target(declaration)
-    )
+    target_id, rejections = _sole_target(declaration, member.id, required=False)
+    if rejections:
+        return None, rejections
+    target, rejections = _magic_items._healing_target(session, member, instance, target_id)
     if target is None or target is member:
         return target, rejections
     if any(other.id == target.id for other in session.party.members):
@@ -3219,21 +3272,23 @@ def _hand_over(session, declaration: BattleDeclaration, giver, placement: _Place
     is the one id in `targets`. It gets the checks of [`GiveItems`][osrlib.crawl.commands.GiveItems], in that
     command's order, and then reach:
 
-    1. `exploration.give.same_member` when the recipient is the giver.
-    2. `session.command.unknown_member` when the recipient isn't a party member, including a declaration
-       whose `targets` is empty or has more than one id. Then `session.command.member_incapacitated` when
-       the recipient can't act. Both have the giver's id as `character` and the recipient's id as `target`,
-       which is an empty string for a declaration with no single id in `targets`.
-    3. `items.curse.stuck` for a magic item whose curse has been revealed, and `exploration.item.not_carried`
+    1. `battle.declaration.target_count` when `targets` doesn't have exactly one id (see `_sole_target`).
+    2. `exploration.give.same_member` when the recipient is the giver.
+    3. `session.command.unknown_member` when the recipient isn't a party member. Then
+       `session.command.member_incapacitated` when the recipient can't act. Both have the giver's id as
+       `character` and the recipient's id as `target`.
+    4. `items.curse.stuck` for a magic item whose curse has been revealed, and `exploration.item.not_carried`
        for an item the giver doesn't carry, or a declaration with no `item_id`.
-    4. `battle.declaration.member_out_of_reach` when the two members stand farther than 5' apart in
+    5. `battle.declaration.member_out_of_reach` when the two members stand farther than 5' apart in
        `placement` (see `_reach_rejection`).
 
     The recipient is None when there are rejections. The call reads state and takes no draw.
     """
     from osrlib.crawl import _items
 
-    recipient_id = _sole_target(declaration) or ""
+    recipient_id, rejections = _sole_target(declaration, giver.id, required=True)
+    if recipient_id is None:
+        return None, rejections
     if recipient_id == giver.id:
         return None, [Rejection(code="exploration.give.same_member", params={"character": giver.id})]
     recipient, rejections = _party_members._member_able(session, recipient_id)
@@ -3252,20 +3307,37 @@ def _hand_over(session, declaration: BattleDeclaration, giver, placement: _Place
     return recipient, []
 
 
+def _member_fizzle(code: str, actor, declaration: BattleDeclaration, rejections: list[Rejection]) -> Event:
+    """Report a potion for another member or a hand-over that the magic phase's re-check refused.
+
+    The event is a `DeclarationFizzledEvent` at `code`, `magic.potion.fizzled` or `battle.give.fizzled`, with the
+    declaration's `item_id`, the one id in its `targets` as `target_id`, and the first rejection's code as
+    `reason`. The pre-phase accepted the declaration, so `targets` has exactly one id.
+    """
+    return DeclarationFizzledEvent(
+        code=code,
+        actor_id=actor.id,
+        item_id=declaration.item_id,
+        target_id=declaration.targets[0],
+        reason=rejections[0].code,
+    )
+
+
 def _resolve_hand_over(session, giver, declaration: BattleDeclaration) -> list[Event]:
     """Resolve a `give_item` declaration in the magic phase, with the party's other item uses.
 
     The declaration is judged again first, where the members stand now. When the recipient can no longer act,
-    the item has left the giver, or the two members now stand out of reach of each other, nothing changes hands
-    and nothing is reported, as with any other action a member can't take when its step comes. Otherwise the
-    item moves as [`GiveItems`][osrlib.crawl.commands.GiveItems] moves it, with an `ItemsGivenEvent`. The hand-over
-    takes no draw.
+    the item has left the giver, or the two members now stand out of reach of each other, nothing changes hands.
+    The hand-over fizzles with a `DeclarationFizzledEvent` at `battle.give.fizzled`, with the item in `item_id`,
+    the recipient in `target_id`, and the first rejection code of the re-check in `reason`. Otherwise the item
+    moves as [`GiveItems`][osrlib.crawl.commands.GiveItems] moves it, with an `ItemsGivenEvent`. The hand-over
+    takes no draw either way.
     """
     from osrlib.crawl import _items
 
-    recipient, _ = _hand_over(session, declaration, giver, _placement(session))
+    recipient, rejections = _hand_over(session, declaration, giver, _placement(session))
     if recipient is None:
-        return []
+        return [_member_fizzle("battle.give.fizzled", giver, declaration, rejections)]
     # A declaration with no `item_id` has no recipient, because `_hand_over` finds no such item carried.
     return _items._apply_give(session, giver, recipient, (cast(str, declaration.item_id),), Coins())
 
@@ -3275,7 +3347,10 @@ def _resolve_magic_item_use(session, member, declaration: BattleDeclaration, sta
 
     A potion is judged again first, where the members stand now (see `_drinker`). When the drinker is dead or
     turned to stone, or now stands out of the carrier's reach, the potion isn't used. It stays with the carrier,
-    and nothing is reported, as with any other action a member can't take when its step comes.
+    unidentified, and the use fizzles with a `DeclarationFizzledEvent` at `magic.potion.fizzled`, with the
+    potion in `item_id`, the drinker in `target_id`, and the first rejection code of the re-check in `reason`.
+    Only a potion given to another member can fizzle. A potion the carrier drinks needs no reach, and
+    `_party_magic` skips a carrier who can no longer act.
 
     A device use spends a charge and emits `items.device.activated`. A use the session leaves to the referee
     (see `_magic_items._left_to_referee`) has the device's `manual` text on that event and resolves nothing else.
@@ -3291,9 +3366,9 @@ def _resolve_magic_item_use(session, member, declaration: BattleDeclaration, sta
     category = template.category
     events: list[Event] = []
     if category is MagicItemCategory.POTION:
-        drinker, _ = _drinker(session, declaration, member, instance, _placement(session))
+        drinker, rejections = _drinker(session, declaration, member, instance, _placement(session))
         if drinker is None:
-            return []
+            return [_member_fizzle("magic.potion.fizzled", member, declaration, rejections)]
         return _magic_items._use_potion(session, member, drinker, instance, template)
     if category is MagicItemCategory.SCROLL:
         if template.cursed or template.effect is not None or "spell_count" not in template.params:
@@ -3490,23 +3565,18 @@ def _resolve_strike(session, member, declaration: BattleDeclaration) -> list[Eve
 
 
 def _resolve_device_healing(session, member, instance, template, declaration: BattleDeclaration) -> list[Event]:
-    """Heal the creature a staff of healing touches, once a day for each creature, as the OSE SRD's usage limit says.
+    """Heal the creature a staff of healing touches, and record the day (see `_magic_items._heal_with_device`).
 
     The magic phase's re-check has already judged the touch (see `_healing_touch`), so the target is the one
-    the round accepted, measured where the members stand now.
+    the round accepted, measured where the members stand now, and the staff hasn't healed it today. A staff the
+    re-check refuses fizzles before it comes here (see `_party_magic`).
     """
-    from osrlib.core.combat import apply_healing
+    from osrlib.crawl import _magic_items
 
-    target, _ = _healing_touch(session, declaration, member, _placement(session))
+    target, _ = _healing_touch(session, declaration, member, instance, _placement(session))
     if target is None:
         return []
-    day_key = f"healed:{target.id}"
-    today = session.clock.days
-    if template.effect.params.get("once_per_target_per_day") and instance.state.get(day_key) == today:
-        return []
-    instance.state = {**instance.state, day_key: today}
-    amount = roll(str(template.effect.heal_dice), session.streams.get(MAGIC_STREAM)).total
-    return apply_healing(target, amount, source="magical")
+    return _magic_items._heal_with_device(session, instance, template, target)
 
 
 # ---------------------------------------------------------------------- the round
@@ -4451,8 +4521,7 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
     are each checked again just before they resolve, with the checks they passed at the top of the round.
     One that now fails fizzles instead of resolving. The re-check takes no draw, so a declaration that
     passes it resolves with the same draws as before. A potion and a `give_item` are checked again too,
-    where the members stand now. One that fails doesn't happen, and nothing reports it, as with an attack
-    by a member who can no longer act (see `_resolve_magic_item_use` and `_resolve_hand_over`).
+    where the members stand now. One that fails doesn't happen, and the item stays where it was.
 
     - A fizzled cast or scroll read reports a `SpellDisruptedEvent` at `magic.cast.fizzled`. The caster
       loses the memorized copy, or the scroll loses its spell, as with a disruption.
@@ -4461,6 +4530,10 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
       `items.device.activated`, and breaks no invisibility.
     - A fizzled turning reports a `DeclarationFizzledEvent` at `magic.turning.fizzled`, with no
       `item_id`. It costs nothing and makes no random roll.
+    - A potion given to another member that fizzles reports a `DeclarationFizzledEvent` at
+      `magic.potion.fizzled`, and a fizzled `give_item` reports one at `battle.give.fizzled`. Each has the item
+      as `item_id` and the member it was for as `target_id` (see `_resolve_magic_item_use` and
+      `_resolve_hand_over`). Neither costs more than a hold.
 
     Each fizzle event's `reason` is the first rejection code of the re-check. A fizzled device use or
     turning still releases the actor's concentration, as every declaration other than a cast or a hold
@@ -4888,7 +4961,8 @@ def _monster_block(
     """Resolve the monster side's block: morale, flight, gazes, and the actions each group's policy chose.
 
     A group that runs moves its full rate away, and it's gone once it stands farther than `FLEE_EXIT_FEET`
-    from the nearest living member. A `close` moves the group as `_closing_distance` works it out, and
+    from the nearest living member. The group's `MonsterEscapedEvent` then comes right after the
+    `GroupMovedEvent` of that move. A `close` moves the group as `_closing_distance` works it out, and
     `_place_closing_group` places it and reports the move. A `melee` resolves only on a target in
     the group's front rank within 5' of it when the action comes up (see `_reachable_front_rank`), so a
     member who stepped out of reach earlier in the round, or whom the group's close fell short of, isn't
@@ -4933,6 +5007,7 @@ def _monster_block(
             events.append(GroupMovedEvent(group_id=group.id, distance_feet=group.distance_feet))
             if _nearest_member_distance(session, group) > FLEE_EXIT_FEET:
                 group.fled = True
+                events.append(MonsterEscapedEvent(group_id=group.id))
             continue
         events.extend(_resolve_gazes(session, group, free_round=free_round, mirrored=mirrored))
         _watch_disruption(events, pending_casters, disrupted, acted)

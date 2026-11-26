@@ -1100,10 +1100,13 @@ class GameSession:
         session that turns a spell id into a spell reads it: preparing, learning, and casting a
         spell, a `cast` declaration in a battle, reading a scroll, an NPC adventurer's casting, the
         temple, and a level drain, which forgets the memorized spells a lower level has no slot for.
-        Use it to show the name of a spell whose id is in a view, like an entry in
-        [`MemberView.spell_book`][osrlib.crawl.views.MemberView.spell_book], or to list the spells a
-        caster can choose with [`SpellCatalog.by_list`][osrlib.core.spells.SpellCatalog.by_list].
-        [`load_spells`][osrlib.data.load_spells] doesn't have the spells the adventure bundles.
+        Use it to list the spells a caster can choose with
+        [`SpellCatalog.by_list`][osrlib.core.spells.SpellCatalog.by_list], or to read more of a spell
+        than its name. [`load_spells`][osrlib.data.load_spells] doesn't have the spells the adventure
+        bundles. To show the name of a spell whose id is in a player view, read
+        [`PlayerView.spell_names`][osrlib.crawl.views.PlayerView.spell_names] and
+        [`PlayerView.reversed_spell_names`][osrlib.crawl.views.PlayerView.reversed_spell_names], which
+        contain the names from this catalog, so a remote client that has only the view can show them.
 
         A character can have a spell in their spell book or memorized that this catalog doesn't
         have, like a caster from a party made for another adventure. The session leaves the id on
@@ -2829,7 +2832,7 @@ def _handle_spawn_monsters(session: GameSession, command: SpawnMonsters) -> tupl
     from osrlib.crawl import encounter as encounter_module
 
     try:
-        session.effective_monsters.get(command.template_id)
+        template = session.effective_monsters.get(command.template_id)
     except ValueError:
         return [Rejection(code="session.command.unknown_monster", params={"template": command.template_id})], []
     if session.encounter is not None and session.encounter.pursuit is not None:
@@ -2845,7 +2848,12 @@ def _handle_spawn_monsters(session: GameSession, command: SpawnMonsters) -> tupl
     count = max(1, count)
     instances = session.spawn(command.template_id, count)
     events: list[Event] = [
-        MonstersSpawnedEvent(template_id=command.template_id, monster_ids=tuple(instance.id for instance in instances))
+        MonstersSpawnedEvent(
+            template_id=command.template_id,
+            monster_ids=tuple(instance.id for instance in instances),
+            display_name=template.display_name,
+            display_name_plural=template.display_name_plural,
+        )
     ]
     if session.encounter is not None:
         # Monsters that arrive mid-fight, like a lycanthrope's summoned animals, join the

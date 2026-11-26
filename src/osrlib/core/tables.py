@@ -839,16 +839,17 @@ class NpcPartyComposition(_Model):
     roll its `count_dice` with [`roll`][osrlib.core.dice.roll], and pass the total as `count`
     to [`generate_npc_party`][osrlib.core.npc.generate_npc_party].
 
-    ```python
-    from osrlib.core.dice import roll
-    from osrlib.core.rng import RngStreams
-    from osrlib.data import load_encounter_tables
+    Examples:
+        ```python
+        from osrlib.core.dice import roll
+        from osrlib.core.rng import RngStreams
+        from osrlib.data import load_encounter_tables
 
-    stream = RngStreams(master_seed=3).get("encounter")
-    composition = next(entry for entry in load_encounter_tables().npc_compositions if entry.kind == "basic")
-    size = roll(composition.count_dice, stream).total
-    assert 5 <= size <= 8
-    ```
+        stream = RngStreams(master_seed=3).get("encounter")
+        composition = next(entry for entry in load_encounter_tables().npc_compositions if entry.kind == "basic")
+        size = roll(composition.count_dice, stream).total
+        assert 5 <= size <= 8
+        ```
     """
 
     model_config = ConfigDict(frozen=True)

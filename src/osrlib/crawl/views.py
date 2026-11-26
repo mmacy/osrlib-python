@@ -245,7 +245,10 @@ class MemberView(_Model):
     memorized_spells: tuple[dict, ...]
     """The prepared spells, one dumped
     [`MemorizedSpell`][osrlib.core.spells.MemorizedSpell] per copy, in memorization
-    order. Empty for a class that casts nothing."""
+    order. Empty for a class that casts nothing. To show a copy's name, look its `spell_id` up in
+    [`PlayerView.spell_names`][osrlib.crawl.views.PlayerView.spell_names], or in
+    [`PlayerView.reversed_spell_names`][osrlib.crawl.views.PlayerView.reversed_spell_names] for a copy
+    whose `reversed` is true."""
     encounter_rate_feet: int = 0
     """How far the member can move in one round of a battle or an encounter, in feet.
 
@@ -372,7 +375,8 @@ class MemberView(_Model):
     """The ids of the spells in the member's spell book, as in
     [`Character.spell_book`][osrlib.core.character.Character.spell_book]. They're the spells the member
     can choose from in a [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells]. Empty for a class that
-    has no spell book."""
+    has no spell book. To show a spell's name, look its id up in
+    [`PlayerView.spell_names`][osrlib.crawl.views.PlayerView.spell_names]."""
     thief_skills: dict[str, int] = {}
     """The member's chance at each thief skill at their level, keyed by the skill field names of
     [`ThiefSkillRow`][osrlib.core.classes.ThiefSkillRow], like `"open_locks"` and `"move_silently"`.
@@ -395,7 +399,10 @@ class MemberEffectView(_Model):
     [`MemberView.id`][osrlib.crawl.views.MemberView]."""
     kind: str
     """The effect kind, like `"light"` or `"fatigue"`. It's the same string an
-    [`EffectActiveCondition`][osrlib.crawl.gates.EffectActiveCondition] checks for."""
+    [`EffectActiveCondition`][osrlib.crawl.gates.EffectActiveCondition] checks for. A spell's effect
+    has the spell's id as its kind unless the spell's data gives it a kind of its own, and
+    [`PlayerView.spell_names`][osrlib.crawl.views.PlayerView.spell_names] contains the name for a kind
+    that is a spell id."""
     remaining_rounds: int | None
     """Rounds left before the effect expires, never below zero. `None` when the effect has no
     expiry, and for any effect a potion gave, because by the rules the referee tracks a potion's
@@ -592,25 +599,32 @@ class EncounterGroupView(_Model):
 
     The value is the same however the group came to be: from a keyed area, a wandering monster check, or
     a [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters]. So match on it, not on the words in
-    `label`. Pass it to [`MonsterCatalog.family`][osrlib.core.monsters.MonsterCatalog.family] to read
-    what the players' rulebook says about the creature.
+    `label`.
 
-    It reveals no more than the label does. A family is the creature the players see, and it's shared
-    by every form the players can't tell apart, so a group of hellhounds is `"hellhound"` whatever their
-    Hit Dice.
+    The players see this value. A family is the creature the players see, and it's shared by
+    every form the players can't tell apart, so a group of hellhounds is `"hellhound"` whatever their
+    Hit Dice. For a template the adventure bundles in
+    [`Adventure.monsters`][osrlib.crawl.adventure.Adventure.monsters], the value is the template's `id`
+    unless its author set `family_id`. An author who disguises a creature as another, like a
+    doppelganger the players see as a goblin, sets the template's `family_id` to the family the players
+    should see, `"goblin"`, as well as its `display_name`. The players also see the template's
+    [`categories`][osrlib.core.monsters.MonsterTemplate.categories]. A group your code opens with
+    [`start_encounter`][osrlib.crawl.encounter.start_encounter] under a label of its own still reports
+    its templates' family here.
 
-    A group your code opens with [`start_encounter`][osrlib.crawl.encounter.start_encounter] under a
-    label of its own still reports its templates' family here. To show the players a creature under
-    another name, give it a template of its own in
-    [`Adventure.monsters`][osrlib.crawl.adventure.Adventure.monsters]. That template is its own
-    family."""
+    To read what the players' rulebook says about the creature, pass the value to
+    [`MonsterCatalog.family`][osrlib.core.monsters.MonsterCatalog.family] on
+    [`load_monsters`][osrlib.data.load_monsters]. A family that only the adventure bundles has no entry
+    in the rulebook, so it isn't in `load_monsters()`, and `family` raises `ValueError` for it. A session
+    finds it in [`GameSession.effective_monsters`][osrlib.crawl.session.GameSession.effective_monsters]."""
     categories: tuple[str, ...] = ()
     """The categories every member of the group has, like `("undead",)`, as in
     [`MonsterTemplate.categories`][osrlib.core.monsters.MonsterTemplate.categories]. A party of NPC
     adventurers is `("person",)`, because *hold person* and *charm person* affect any character.
 
     Use it to offer what works only against one kind of creature. Turning and holy water affect a group
-    with `"undead"`, and *hold person* affects a group with `"person"`."""
+    with `"undead"`, and *hold person* affects a group with `"person"`. The players see these categories,
+    as they see `family_id`."""
     count: int
     """How many of the group are still alive."""
     distance_feet: int
@@ -634,7 +648,11 @@ class EncounterGroupView(_Model):
     session refuses group-targeted declarations with `battle.declaration.unknown_group`. A spell or
     scroll that names one of its members in `targets` gets `magic.cast.unknown_target`. Don't offer
     the group or its members as targets. A group that's running but hasn't got away yet isn't fled.
-    You can still close on it, shoot at it, or cast at it."""
+    You can still close on it, shoot at it, or cast at it.
+
+    The session emits a [`MonsterEscapedEvent`][osrlib.crawl.events.MonsterEscapedEvent] for the
+    group in the command result in which `fled` becomes true, and in no other result. You can show
+    the group getting away from the event stream, and then drop it from your target lists."""
     fleeing: bool = False
     """True once the group has failed a morale check and turned to run, as in
     [`EncounterGroup.fleeing`][osrlib.crawl.encounter.EncounterGroup.fleeing].
@@ -936,6 +954,39 @@ class PlayerView(_Model):
     before use."""
     effects: tuple[MemberEffectView, ...]
     """The active effects on party members, in ledger order."""
+    spell_names: dict[str, str] = {}
+    """The name of each spell whose id the view shows, keyed by spell id, like
+    `{"magic_missile": "Magic Missile"}`. Show these names, not the ids.
+
+    A spell id appears in three places in the view: in a member's
+    [`spell_book`][osrlib.crawl.views.MemberView.spell_book], as the `spell_id` of a copy in a member's
+    [`memorized_spells`][osrlib.crawl.views.MemberView.memorized_spells], and as the
+    [`kind`][osrlib.crawl.views.MemberEffectView.kind] of an effect in `effects`, because a spell's
+    effect has the spell's id as its kind unless the spell's data gives it a kind of its own. Every one
+    of those ids that the session's catalog,
+    [`GameSession.effective_spells`][osrlib.crawl.session.GameSession.effective_spells], has is a key
+    here, with the spell's [`name`][osrlib.core.spells.SpellTemplate.name]. A spell the adventure
+    bundles has its name here too, which [`load_spells`][osrlib.data.load_spells] doesn't have. An
+    effect kind that isn't a spell id, like a torch's `"light"`, has no entry.
+
+    It names no spell whose id the view doesn't show, so the spells on a scroll stay hidden. A spell id
+    on a member that the session's catalog doesn't have, like one from a party made for another
+    adventure, has no entry either, and the session refuses to prepare or cast that spell. The name here
+    is always the spell's normal form. For a copy prepared reversed, show its name from
+    `reversed_spell_names`."""
+    reversed_spell_names: dict[str, str] = {}
+    """The name of each spell's reverse, keyed by spell id, like `{"light_mu": "Darkness"}`, for every
+    spell in `spell_names` that has one.
+
+    Each value is the [`name`][osrlib.core.spells.ReversedForm.name] of the spell's
+    [`reversed_form`][osrlib.core.spells.SpellTemplate.reversed_form], read from the same catalog as
+    `spell_names`, so a spell the adventure bundles has the name its author gave the reverse. A spell
+    that doesn't reverse has no entry.
+
+    Show this name for an arcane caster's copy whose `reversed` is true in
+    [`memorized_spells`][osrlib.crawl.views.MemberView.memorized_spells]. A divine caster prepares the
+    normal form and chooses the form when casting, so every memorized copy of a reversible spell can be
+    cast either way. To offer that choice, show both names."""
     fatigued: bool
     """Whether any member is fatigued."""
     exhausted: bool
@@ -1332,6 +1383,7 @@ def build_player_view(session) -> PlayerView:
         for member_id, state in session.deprivation.items()
         if state.worst > 0
     }
+    spell_names, reversed_spell_names = _spell_names(session, members, effects)
     return PlayerView(
         adventure_name=session.adventure.name,
         adventure_description=session.adventure.description,
@@ -1352,6 +1404,8 @@ def build_player_view(session) -> PlayerView:
         piles=piles,
         emptied_caches=tuple(session.dungeon_state.emptied_caches),
         effects=effects,
+        spell_names=spell_names,
+        reversed_spell_names=reversed_spell_names,
         fatigued=fatigued,
         exhausted=exhausted,
         deprivation=deprivation,
@@ -1359,6 +1413,27 @@ def build_player_view(session) -> PlayerView:
         quests=tuple(_quest_views(session)),
         encounter=_encounter_view(session),
     )
+
+
+def _spell_names(session, members, effects) -> tuple[dict[str, str], dict[str, str]]:
+    # Only the ids the view already shows are named, so a scroll's spells stay hidden. An id the
+    # session's catalog lacks, and an effect kind that is no spell's id, get no entry.
+    catalog = {spell.id: spell for spell in session.effective_spells.spells}
+    shown = [
+        *(spell_id for member in members for spell_id in member.spell_book),
+        *(copy["spell_id"] for member in members for copy in member.memorized_spells),
+        *(effect.kind for effect in effects),
+    ]
+    names: dict[str, str] = {}
+    reversed_names: dict[str, str] = {}
+    for spell_id in shown:
+        spell = catalog.get(spell_id)
+        if spell is None or spell_id in names:
+            continue
+        names[spell_id] = spell.name
+        if spell.reversed_form is not None:
+            reversed_names[spell_id] = spell.reversed_form.name
+    return names, reversed_names
 
 
 def _quest_views(session):

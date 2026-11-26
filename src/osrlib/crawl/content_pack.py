@@ -258,7 +258,7 @@ class ContentPack(_Model):
     monsters: tuple[MonsterTemplate, ...] = ()
     """The [`MonsterTemplate`][osrlib.core.monsters.MonsterTemplate]s that the pack's encounters and
     wandering tables use and that the built-in catalog doesn't have. Bundle every monster your rooms
-    use and the pack is self-contained.
+    use and the pack is self-contained. No two bundled monsters can have the same id.
 
     There is no field for bundled items, because an item you bundle in an adventure exists only in
     that adventure. A pack's features use the built-in equipment and magic-item catalogs, and

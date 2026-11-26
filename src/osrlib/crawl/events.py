@@ -81,7 +81,7 @@ from collections.abc import Mapping
 from functools import cache
 from typing import Annotated, ClassVar, Literal, Union
 
-from pydantic import Field, ValidationInfo, field_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 
 from osrlib.core.events import KERNEL_EVENT_CLASSES, Event, Visibility, _classes_by_type, _parse_record
 from osrlib.core.items import Coins
@@ -130,6 +130,7 @@ __all__ = [
     "MemberRemovedEvent",
     "MemberWithdrewEvent",
     "MonsterDefeatedEvent",
+    "MonsterEscapedEvent",
     "MonsterFledEvent",
     "MonstersLeftBehindEvent",
     "MonstersSpawnedEvent",
@@ -906,11 +907,16 @@ class EncounterStartedEvent(Event):
     [`SpawnNpcParty`][osrlib.crawl.commands.SpawnNpcParty]. The session mode becomes
     `encounter`, where the party can talk, run, wait, or fight.
 
-    It contains only what the party can see: a name, a count, and a distance. The dice
-    behind the meeting are on the
+    It contains only what the party can see: a name and a count for each group, and a distance.
+    The dice behind the meeting are on the
     [`SurpriseRolledEvent`][osrlib.crawl.events.SurpriseRolledEvent]s and the reaction
     roll's kernel event, both at referee visibility. The two surprise outcomes are here,
     because the party knows when it's caught off guard.
+
+    An encounter can open with more than one group, like goblins and the orcs they march with.
+    `monster_name` and `monster_name_plural` name the first group, and `count` counts the
+    creatures of every group. `group_labels`, `group_labels_plural`, and `group_counts` give
+    each group in the encounter's order, so a line like "2 goblins and 3 orcs" can name them all.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"encounter.started"})
@@ -940,11 +946,29 @@ class EncounterStartedEvent(Event):
     monsters_surprised: bool = False
     """Whether the monsters were caught off guard, which gives the party a free round if the fight
     starts."""
+    group_labels: tuple[str, ...] = ()
+    """The [`label`][osrlib.crawl.encounter.EncounterGroup.label] of each group in the encounter, in
+    the order of [`EncounterState.groups`][osrlib.crawl.encounter.EncounterState.groups]. The first
+    entry is `monster_name`. `group_labels_plural` and `group_counts` line up with this tuple, and
+    the counts add up to `count`. The three tuples have the same length, and building or loading an
+    event whose tuples differ in length raises pydantic's `ValidationError`. An event loaded from a
+    save written before the field existed has an empty tuple in all three."""
+    group_labels_plural: tuple[str, ...] = ()
+    """Each group's [`label_plural`][osrlib.crawl.encounter.EncounterGroup.label_plural], like
+    `"goblins"`, in the order of `group_labels`."""
+    group_counts: tuple[int, ...] = ()
+    """How many creatures each group has when the encounter opens, in the order of `group_labels`."""
 
     @field_validator("monster_name_plural")
     @classmethod
     def _plural_defaults_to_regular_ending(cls, value: str, info: ValidationInfo) -> str:
         return value or _regular_plural(info.data.get("monster_name", ""))
+
+    @model_validator(mode="after")
+    def _group_fields_line_up(self) -> EncounterStartedEvent:
+        if not len(self.group_labels) == len(self.group_labels_plural) == len(self.group_counts):
+            raise ValueError("group_labels, group_labels_plural, and group_counts must have one entry for each group")
+        return self
 
 
 class EncounterGroupJoinedEvent(Event):
@@ -1437,9 +1461,11 @@ class MonsterFledEvent(Event):
     """A monster group broke and ran.
 
     Emitted by [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] when
-    a group fails its morale check and flees. When a battle opens, it's also emitted for a
-    group whose morale is so low that it never fights at all, and that group leaves the
-    battle at once.
+    a group fails its morale check and flees. When a battle opens, or when a
+    [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] adds a group to a running battle, it's
+    also emitted for a group whose morale is so low that it never fights at all. That group leaves
+    the battle at once, and a [`MonsterEscapedEvent`][osrlib.crawl.events.MonsterEscapedEvent] for
+    it comes right after this event.
 
     When a cleric turns only some of a group, the turned members leave the group and flee as
     a new group, and `group_id` is the new group's id.
@@ -1448,8 +1474,12 @@ class MonsterFledEvent(Event):
     [`EncounterGroupView.fleeing`][osrlib.crawl.views.EncounterGroupView.fleeing] is true from
     then on. It moves away each round, and it has left the battle once it's more than
     [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET] from the party, when
-    [`EncounterGroupView.fled`][osrlib.crawl.views.EncounterGroupView.fled] becomes true. Its
-    members still count as defeated for the experience award.
+    [`EncounterGroupView.fled`][osrlib.crawl.views.EncounterGroupView.fled] becomes true. That
+    happens in the round its move takes it that far. A group that breaks far enough away gets away
+    in the round it breaks, and any other group in a later round. The result of the round in which
+    it gets away contains a `MonsterEscapedEvent` for the group right after the group's
+    [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent]. Its members still count as defeated
+    for the experience award.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"battle.side.fled"})
@@ -1461,6 +1491,56 @@ class MonsterFledEvent(Event):
     """Player visibility: the party sees them break."""
     group_id: str
     """Which group broke, as its encounter group id."""
+
+
+class MonsterEscapedEvent(Event):
+    """A monster group got away and left the battle.
+
+    A group that's running leaves the battle once it stands farther than
+    [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET] from every living party member. A group
+    runs when it fails its morale check, or when its living members are all turned or afraid. The
+    session emits this event in the round the group's move takes it that far, right after that
+    group's [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent]. That's a round that
+    [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] resolves, or the monsters'
+    free first round, which the command that opens the battle resolves.
+
+    A group whose morale score is 2 never fights, so it gets away as it enters the battle, either
+    when the battle opens or when a [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] adds it
+    to a battle that's already running. The command that brings the group into the battle then
+    emits this event right after that group's
+    [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent].
+
+    A group whose living members are all turned or afraid can also end up farther than
+    `FLEE_EXIT_FEET` from every living member without a move of its own: a group turned where it
+    stands 130' away, or a group the party leaves behind by falling back before the group's next
+    move. Such a group counts as gone, so once no other group is left fighting, the battle ends.
+    The session then marks each such group fled and emits this event for it right before the
+    [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent].
+
+    The session emits one of these events for a group in the same command result in which
+    [`EncounterGroupView.fled`][osrlib.crawl.views.EncounterGroupView.fled] becomes true, and
+    never in any other result, so you can tell that the group got away from the event stream
+    alone. When the escape leaves no group fighting, the battle ends in the same result, and the
+    [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent] comes after this event.
+
+    The group stays in [`EncounterView.groups`][osrlib.crawl.views.EncounterView.groups] with
+    `fled` true, and the session refuses every declaration aimed at it with
+    `battle.declaration.unknown_group`. When the encounter ends, its living members count as
+    defeated for the experience award, as `routed` in their
+    [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent]s.
+    """
+
+    allowed_codes: ClassVar[frozenset[str]] = frozenset({"battle.side.escaped"})
+    """The only message code this event uses."""
+
+    event_type: Literal["monster_escaped"] = "monster_escaped"
+    """The event type, `monster_escaped`, which identifies this class in serialized form."""
+    code: str = "battle.side.escaped"
+    """The message code, always `battle.side.escaped`."""
+    visibility: Visibility = Visibility.PLAYER
+    """Player visibility: the party sees the group get away."""
+    group_id: str
+    """Which group got away, as its encounter group id."""
 
 
 class MonstersLeftBehindEvent(Event):
@@ -1874,8 +1954,8 @@ class MonstersSpawnedEvent(Event):
     result. When no encounter is open, the events of the encounter's opening follow. When
     one is open, the monsters join it as a new group.
 
-    It has referee visibility, and it contains ids rather than a description. The party
-    learns which monsters arrived from
+    It has referee visibility. It names the monsters by catalog id and by the template's display
+    name, and lists the session ids of the new instances. The party learns which monsters arrived from
     [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent] when the
     encounter opens, or from
     [`EncounterGroupJoinedEvent`][osrlib.crawl.events.EncounterGroupJoinedEvent] when the
@@ -1896,6 +1976,15 @@ class MonstersSpawnedEvent(Event):
     monster_ids: tuple[str, ...]
     """The session ids of the new instances, in spawn order. Every later event about
     those creatures refers to them by these ids."""
+    display_name: str = ""
+    """The template's [`display_name`][osrlib.core.monsters.MonsterTemplate.display_name], like
+    `"giant centipede"` for `centipede_giant`, for a line about one monster. An event loaded from a
+    save written before the field existed has an empty string, and
+    [`format_message`][osrlib.messages.format_message] names the monsters by `template_id`."""
+    display_name_plural: str = ""
+    """The template's [`display_name_plural`][osrlib.core.monsters.MonsterTemplate.display_name_plural],
+    like `"giant centipedes"`, for a line about more than one. It's empty on an event loaded from a
+    save written before the field existed."""
 
 
 class XpAwardedEvent(Event):
@@ -2436,6 +2525,7 @@ CRAWL_EVENT_CLASSES: tuple[type[Event], ...] = (
     MemberMovedEvent,
     MemberWithdrewEvent,
     MonsterFledEvent,
+    MonsterEscapedEvent,
     MonstersLeftBehindEvent,
     MonsterDefeatedEvent,
     BattleEndedEvent,

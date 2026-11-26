@@ -258,9 +258,20 @@ class EncounterGroup(_Model):
     party can still attack it."""
     fled: bool = False
     """True once the group has run past [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET] and left
-    the fight, or when its morale score is 2 and it ran as it entered the battle. The session refuses
+    the fight, or when its morale score is 2 and it ran as it entered the battle. It also becomes true
+    when a battle ends with the group's living members all turned or afraid and the group past
+    `FLEE_EXIT_FEET` without a move of its own, so the group ends the encounter routed, as a group
+    that ran out does. The session refuses
     every battle declaration aimed at the group, whether an attack, a move to close, an item, or a
-    spell, with `battle.declaration.unknown_group`."""
+    spell, with `battle.declaration.unknown_group`.
+
+    The session emits a [`MonsterEscapedEvent`][osrlib.crawl.events.MonsterEscapedEvent] for the
+    group in the command result in which this becomes true, and in no other result. For a group
+    that runs past `FLEE_EXIT_FEET`, the event comes right after the group's
+    [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent]. For a group of morale 2, it comes
+    right after the group's [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent]. For a group
+    marked fled as the battle ends, it comes right before the
+    [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent]."""
     member_treasure: dict[str, TreasureBundle] = {}
     """The treasure each member carries, keyed by monster id. The session rolls it when it spawns the
     monster, from the treasure types for individuals (P through T). When the encounter closes, a slain
@@ -686,6 +697,9 @@ def _open_encounter(
             distance_feet=distance_feet,
             party_surprised=party_surprised,
             monsters_surprised=monsters_surprised,
+            group_labels=tuple(group.label for group in group_models),
+            group_labels_plural=tuple(group.label_plural for group in group_models),
+            group_counts=tuple(len(group.monster_ids) for group in group_models),
         )
     )
     if party_surprised:
@@ -742,7 +756,8 @@ def _join_encounter(session, *, instances: list, distance_feet: int) -> list[Eve
     Returns:
         An [`EffectAttachedEvent`][osrlib.core.events.EffectAttachedEvent] for each monster that
         regenerates, the [`EncounterGroupJoinedEvent`][osrlib.crawl.events.EncounterGroupJoinedEvent],
-        and a [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] when the group runs at once.
+        and, when the group runs at once, a [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent]
+        followed by a [`MonsterEscapedEvent`][osrlib.crawl.events.MonsterEscapedEvent].
     """
     events = _attach_regeneration(session, instances)
     label, plural = _group_labels(instances)
