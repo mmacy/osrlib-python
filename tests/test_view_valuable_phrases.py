@@ -296,6 +296,31 @@ def test_the_keys_are_exactly_the_keys_of_valuable_names():
     }
 
 
+@pytest.mark.xfail(reason=CHUNK)
+@pytest.mark.parametrize("blank", [" ", "\t", " \n\t "])
+def test_a_name_of_whitespace_alone_is_no_name_of_its_own(blank):
+    """A piece whose name is only whitespace has no name of its own, like a piece whose name is empty (issue #355).
+
+    It is a key in neither map, with or without a phrase, in a pack and in a pile, and the pile's `items` show its
+    kind, as they do for a piece with an empty name.
+    """
+    pack = [_piece(101, blank, kind="gem"), _piece(102, blank, "a cloudy opal", kind="gem")]
+    pile = [_piece(201, blank), _piece(202, blank, "a tarnished brooch")]
+    game = _with_pieces(pack, pile)
+
+    view = _player_view(game)
+
+    assert view.valuable_names == {}
+    assert view.valuable_phrases == {}
+    assert [view.item_names[f"valuable-{n:04d}"] for n in (101, 102, 201, 202)] == [
+        "gem",
+        "gem",
+        "piece of jewellery",
+        "piece of jewellery",
+    ]
+    assert view.piles[NAVE].items == ["jewellery", "jewellery"]
+
+
 # ---------------------------------------------------------------------- the haul
 
 
