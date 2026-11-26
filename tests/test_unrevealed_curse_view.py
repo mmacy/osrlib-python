@@ -46,7 +46,6 @@ from osrlib.crawl.views import MemberView, PlayerView, RefereeView
 from positions_fixtures import HILD, SEEDS, _opened, named
 from positions_fixtures import session as dungeon_session
 
-CHUNK = "chunk: unrevealed-curse-view"
 FIGHTER = "character-0001"
 
 CASES = [
@@ -139,7 +138,6 @@ def _refereed(game: GameSession, member_id: str = FIGHTER) -> tuple[int, int]:
 # ---------------------------------------------------------------------- before the reveal
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize(("item_id", "base", "masked", "real"), CASES)
 def test_an_unrevealed_cursed_item_reads_as_the_plus_1_item_it_tests_as(item_id, base, masked, real):
     game = _town()
@@ -151,7 +149,6 @@ def test_an_unrevealed_cursed_item_reads_as_the_plus_1_item_it_tests_as(item_id,
     assert _refereed(game) == real, "the referee sees the real number"
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize(("cursed", "lookalike"), LOOKALIKES)
 def test_the_player_view_and_events_match_the_plus_1_item(cursed, lookalike):
     """Everything the players get, the whole view and every event of the grant and the equip, is the same."""
@@ -174,7 +171,6 @@ def test_the_player_view_and_events_match_the_plus_1_item(cursed, lookalike):
     assert cursed_view == lookalike_view
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_unequipping_before_the_first_battle_stays_legal():
     """The SRD binds the curse once the armour "has been used", so an unused item comes off."""
     game = _town()
@@ -188,7 +184,6 @@ def test_unequipping_before_the_first_battle_stays_legal():
     assert _shown(game) == _real(game) == (9, 10), "unarmoured again"
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_rest_of_the_suit_counts_beside_the_masked_shield():
     """A ring of protection adds 1. Masked: 9 - 2 - 1 = 6 [10 + 2 + 1 = 13]. Real: 9 - (-1) - 1 = 9 [10]."""
     game = _town()
@@ -200,7 +195,6 @@ def test_the_rest_of_the_suit_counts_beside_the_masked_shield():
     assert _real(game) == (9, 10)
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_cursed_armour_with_a_shield_plus_1_masks_only_the_armour():
     """The SRD's row "Cursed Armour -2 with Shield +1", in chainmail.
 
@@ -214,7 +208,6 @@ def test_cursed_armour_with_a_shield_plus_1_masks_only_the_armour():
     assert _real(game) == (5, 14)
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_dex_modifier_counts_on_top_of_the_masked_armour_class():
     """DEX 16 gives -2 [+2]. The SRD's AC 9 [10] is "before modifiers due to Dexterity".
 
@@ -231,7 +224,6 @@ def test_the_dex_modifier_counts_on_top_of_the_masked_armour_class():
 # ---------------------------------------------------------------------- the reveal
 
 
-@pytest.mark.xfail(reason=CHUNK)
 @pytest.mark.parametrize(("item_id", "base", "masked", "real"), CASES)
 def test_identify_item_reveals_the_curse_and_the_real_numbers(item_id, base, masked, real):
     game = _town()
@@ -261,7 +253,6 @@ def _cursed_shield_battle(first_seed: int) -> GameSession:
     raise AssertionError("precondition: no seed opened the battle")
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_first_attack_in_a_battle_reveals_the_curse_and_monsters_roll_against_the_real_number():
     """Plate is 3 [16]. Masked as a shield +1: 3 - 2 = 1 [18]. Real -2: 3 - (1 - 2) = 4 [15]."""
     seed = SEEDS.start
@@ -288,7 +279,6 @@ def test_the_first_attack_in_a_battle_reveals_the_curse_and_monsters_roll_agains
     raise AssertionError("precondition: no seed had a goblin attack Hild")
 
 
-@pytest.mark.xfail(reason=CHUNK)
 def test_the_sheet_keeps_the_real_numbers_after_remove_curse():
     """*Remove curse* clears `cursed_revealed`, but the item stays identified, so the players know what it is."""
     game = _town()
