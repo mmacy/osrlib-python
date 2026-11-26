@@ -1,10 +1,10 @@
 # Ruleset options
 
-Configure optional B/X rules and referee adaptations by constructing a [`Ruleset`][osrlib.core.ruleset.Ruleset] and passing it to [`GameSession.new`][osrlib.crawl.session.GameSession.new] or to standalone `osrlib.core` functions. `Ruleset` is frozen (`extra="forbid"`), persists in saves and replays, and raises Pydantic's `ValidationError` if you pass an unrecognized flag name.
+Configure optional B/X rules, referee adaptations, and house rules by constructing a [`Ruleset`][osrlib.core.ruleset.Ruleset] and passing it to [`GameSession.new`][osrlib.crawl.session.GameSession.new] or to standalone `osrlib.core` functions. `Ruleset` is frozen (`extra="forbid"`), persists in saves and replays, and raises Pydantic's `ValidationError` if you pass an unrecognized flag name.
 
 ## Construct a `Ruleset`
 
-Call `Ruleset()` with no arguments for the default B/X configuration, or override specific flags such as [`EncumbranceMode`][osrlib.core.ruleset.EncumbranceMode] to change how functions such as [`Character.movement_rate`][osrlib.core.character.Character.movement_rate] behave:
+Call `Ruleset()` with no arguments for the default B/X configuration, which is the SRD as written with no house rule on. You can also override specific flags such as [`EncumbranceMode`][osrlib.core.ruleset.EncumbranceMode] to change how functions such as [`Character.movement_rate`][osrlib.core.character.Character.movement_rate] behave:
 
 ```python
 from pydantic import ValidationError
@@ -61,11 +61,13 @@ else:
 
 ## Quick reference
 
-Every `Ruleset` field falls into one of two categories: optional rules printed in the OSE SRD alongside standard B/X procedures, or documented adaptations that supply a deterministic rule where tabletop B/X leaves a judgment call to a human referee (see [the adaptations register](../adaptations.md)):
+Every `Ruleset` field falls into one of three categories: optional rules printed in the OSE SRD alongside standard B/X procedures, documented adaptations that supply a deterministic rule where tabletop B/X leaves a judgment call to a human referee (see [the adaptations register](../adaptations.md)), or house rules, which the SRD doesn't print and which `Ruleset()` leaves off:
 
 | Flag | Kind | Type and default | Effect |
 | --- | --- | --- | --- |
 | `hp_reroll_at_first_level` | Optional rule | `bool`, `False` | Reroll a 1st-level Hit Die when the raw roll is 1 or 2. |
+| `max_hp_at_first_level` | House rule | `bool`, `False` | Count a 1st-level Hit Die as its maximum, without changing the dice thrown. |
+| `ability_score_method` | House rule | `"3d6" \| "4d6_drop_lowest"`, `"3d6"` | Roll each new character's ability scores as 3d6, or as 4d6 with the lowest die dropped. |
 | `encumbrance` | Optional rule | `EncumbranceMode`, `BASIC` | Select which encumbrance rule tracks carried weight and movement rate. |
 | `variable_weapon_damage` | Optional rule | `bool`, `True` | Roll each weapon or combat-gear item's listed damage die instead of a flat `1d6`. |
 | `individual_initiative` | Optional rule | `bool`, `False` | Roll `1d6` initiative per combatant instead of once per side. |
@@ -103,6 +105,30 @@ These options govern rules where tabletop B/X leaves the outcome to referee judg
 - **`formation_width_limit`** (`True` by default): When `True`, osrlib caps front-rank width at 5 feet per combatant across the widest unbroken square of floor around the party (2 abreast in a 10-foot corridor, 4 in a `2x2`-cell room, 8 in a `4x4`-cell room). Only a monster group's front rank (up to `min(count, formation_width)`) can make melee attacks, and formation width bounds how much of an area effect's footprint hits a rank. When `False`, all party members within 5 feet of a group and all living monsters in that group can fight in melee simultaneously.
 - **`failed_trap_removal_springs`** (`True` by default): When `True`, a thief who fails [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap] immediately springs the trap on themselves. When `False`, a failed attempt emits [`TrapEvent`][osrlib.crawl.events.TrapEvent] (`exploration.trap.removal_failed`) and leaves the discovered trap armed: that thief cannot retry, another thief may try, and taking the treasure still has a 2-in-6 chance to spring the trap.
 - **`back_stab_needs_both_skills`** (`True` by default): A thief who hides during a battle, with a [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration] whose `action` is `hide`, can back-stab from hiding. The session rolls hide in shadows when the hide resolves and move silently when the back-stab comes up, and only the referee sees either roll. When `True`, the attack is a back-stab only when both rolls passed. When `False`, either roll passing is enough. The session makes both rolls under either setting, so the flag changes no draw, and the monsters' choice of targets reads the hide in shadows roll alone under either setting. At first level, where hide in shadows is 10% and move silently 20%, a thief's attack from hiding is a back-stab 2% of the time with the flag on and 28% with it off. At seventh level, where they're 45% and 55%, it's about 25% and about 75%. Neither setting is the rules as written, as [the adaptations register](../adaptations.md#a-back-stab-needs-surprised-monsters-or-a-hiding-thief) explains.
+
+## House rules
+
+These options change character creation in ways the OSE SRD doesn't print. `Ruleset()` leaves both off, so a game uses them only when you turn them on:
+
+- **`ability_score_method`** (`"3d6"` by default): With `"3d6"`, each ability score is the sum of three d6, as the SRD says. With `"4d6_drop_lowest"`, each ability throws four d6 and the lowest one doesn't count. When two or more tie for lowest, the first of them thrown is dropped. [`AbilityScoreRolls.rolls`][osrlib.core.character.AbilityScoreRolls.rolls] keeps the three dice that count, and [`AbilityScoreRolls.dropped`][osrlib.core.character.AbilityScoreRolls.dropped] has the dropped die of each ability, so a client can show all four. The method draws 24 dice from the creation stream instead of 18, so the same seed gives different scores and a different character. NPC adventurers always roll 3d6.
+- **`max_hp_at_first_level`** (`False` by default): When `True`, a first-level character's hit points are the class's hit die at its maximum plus the CON modifier, and at least 1, and [`HitPointRoll.maximized`][osrlib.core.character.HitPointRoll.maximized] is `True`. The hit die is still thrown, and so are the rerolls of `hp_reroll_at_first_level`, so the starting gold roll after them is the same either way. Later levels roll their hit dice as usual.
+
+`examples/rulesets/creation_house_rules.json` in the osrlib repository is a ruleset document with both house rules on and every other field at its default. It writes out every field, so a copy shows the whole ruleset:
+
+```json
+--8<-- "examples/rulesets/creation_house_rules.json"
+```
+
+Load it with [`Ruleset.model_validate_json`](https://docs.pydantic.dev/latest/api/base_model/#pydantic.BaseModel.model_validate_json), and pass the result wherever you'd pass a `Ruleset`:
+
+```{.python .no-run}
+from pathlib import Path
+
+from osrlib.core.ruleset import Ruleset
+
+rules = Ruleset.model_validate_json(Path("examples/rulesets/creation_house_rules.json").read_text(encoding="utf-8"))
+assert rules == Ruleset(ability_score_method="4d6_drop_lowest", max_hp_at_first_level=True)
+```
 
 ## Where next
 

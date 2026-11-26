@@ -1,9 +1,10 @@
 # Adaptations and interpretations
 
-osrlib follows OSE rules-as-written (RAW). Every place where that isn't enough is recorded here, as one of two kinds of entry:
+osrlib follows OSE rules-as-written (RAW). Every place where that isn't enough, and every house rule osrlib offers, is recorded here, as one of three kinds of entry:
 
 - **Interpretations**, where the SRD text is ambiguous or silent, and osrlib commits to one reading.
 - **Documented adaptations**, where the tabletop game assumes a human referee, and osrlib provides a default behind a `Ruleset` flag.
+- **House rules**, which change a procedure in a way the SRD doesn't print. Each one is a `Ruleset` flag that's off by default, so `Ruleset()` is the SRD as written.
 
 Look here instead of searching docstrings. Every entry is also stated in the docstring of the member it applies to and locked by a test.
 
@@ -19,7 +20,7 @@ Each entry also cites the source files and test names that lock it. Those citati
 - **Stable order** - When the engine sorts things that tie, it keeps them in the order it was given them, so the result never depends on chance.
 - **Kernel and session** - The kernel is `osrlib.core`, the rules functions you can call directly (see [Rules without a session](guides/rules-without-a-session.md)). The session is a [`GameSession`][osrlib.crawl.session.GameSession], which runs a whole adventure through commands and calls the kernel for you.
 - **Caller** - The code that calls a kernel function: your game, or the session. A value "the caller supplies" is an argument that code passes, because the kernel can't work it out.
-- **Ruleset flags** - Options on [`Ruleset`][osrlib.core.ruleset.Ruleset]. Some switch the SRD's optional rules on or off, and others switch the defaults that [Documented adaptations](#documented-adaptations) lists.
+- **Ruleset flags** - Options on [`Ruleset`][osrlib.core.ruleset.Ruleset]. Some switch the SRD's optional rules on or off, others switch the defaults that [Documented adaptations](#documented-adaptations) lists, and the rest turn on the rules that [House rules](#house-rules) lists.
 - **Marching order** - The order of the party's members. In battle, it decides who stands in front among members at the same distance from a group who got there in the same round. It also decides which member a rule means by "the first living member".
 - **Front rank and back rank** - In battle, the ranks toward a monster group are the living members sorted by their distance to it and cut into rows as wide as the formation width. The first row is the front rank toward that group, and every member behind it is in the back rank. Melee reaches only the members of the front rank who stand within 5' of the group. See [The battle round](#the-battle-round).
 - **Range track** - In battle, each monster group has a separate distance from the party line, where the party stood when the encounter opened, in the style of The Bard's Tale, instead of a position on a map. Each party member has a place on the same track, in feet forward of the line.
@@ -1883,7 +1884,7 @@ Locked by `test_session.py` and the phase 5 milestone golden.
 
 ## Documented adaptations
 
-`Ruleset`-flagged deviations from rules-as-written. The flags `hp_reroll_at_first_level`, `encumbrance`, `variable_weapon_damage`, `individual_initiative`, `thac0_arithmetic`, `weapon_reload`, and `hd5_counts_as_magical` are SRD optional rules rather than adaptations, so this section doesn't list them.
+`Ruleset`-flagged deviations from rules-as-written. The flags `hp_reroll_at_first_level`, `encumbrance`, `variable_weapon_damage`, `individual_initiative`, `thac0_arithmetic`, `weapon_reload`, and `hd5_counts_as_magical` are SRD optional rules rather than adaptations, so this section doesn't list them. The flags `ability_score_method` and `max_hp_at_first_level` are house rules, which [House rules](#house-rules) lists.
 
 ### `deprivation_penalties` (default off)
 
@@ -1933,3 +1934,28 @@ Items that survive go to the drop pile, a [`DropPile`][osrlib.crawl.dungeon.Drop
 - Dropping treasure never refunds its XP, so the return to town then awards nothing.
 
 Neither timing pays twice. Locked by `test_award.py::TestImmediateTiming`.
+
+## House rules
+
+These `Ruleset` flags turn on rules that the SRD doesn't print. Each one is off by default, so a game uses it only when you turn it on. `examples/rulesets/creation_house_rules.json` in the osrlib repository is a ruleset with both of these on.
+
+### `ability_score_method` (default `3d6`)
+
+`3d6` is RAW: each ability score is the sum of three d6.
+
+`4d6_drop_lowest` throws four d6 for each ability, and the lowest die doesn't count, so the score is the sum of the other three, from 3 to 18:
+
+- When two or more dice tie for lowest, the first of them thrown is dropped, so the same draws always give the same three dice in the same order.
+- [`AbilityScoreRolls.rolls`][osrlib.core.character.AbilityScoreRolls.rolls] keeps the three dice that count, in the order thrown, and [`AbilityScoreRolls.dropped`][osrlib.core.character.AbilityScoreRolls.dropped] has the dropped die of each ability.
+- All four dice of STR are thrown before any of INT, and so on in the SRD's order, so the scores take 24 draws from the creation stream instead of 18. The same seed gives different scores, and a different hit die and starting gold after them, than it gives with `3d6`.
+
+The method affects only the characters you create, and NPC adventurers always roll 3d6. Locked by `test_creation_house_rules.py::test_4d6_drop_lowest_counts_three_dice_and_names_the_dropped_one` and `test_creation_house_rules.py::test_4d6_drop_lowest_throws_the_draws_in_order_and_advances_24_dice`.
+
+### `max_hp_at_first_level` (default off)
+
+With the flag off, a first-level character's hit points are the class's hit die as rolled plus the CON modifier, as RAW says. With the flag on, they're the hit die's size plus the CON modifier, and at least 1, and [`HitPointRoll.maximized`][osrlib.core.character.HitPointRoll.maximized] is `True`:
+
+- The hit die is still thrown, and so are the rerolls of `hp_reroll_at_first_level`, so [`HitPointRoll.rolls`][osrlib.core.character.HitPointRoll.rolls] lists the same dice as with the flag off. The stream ends in the same place, so the starting gold roll after the hit die is the same either way.
+- The flag affects only character creation. [`level_up`][osrlib.core.classes.level_up] rolls each later level's hit die as usual.
+
+Locked by `test_creation_house_rules.py::test_the_maximum_draws_what_the_roll_draws_so_the_gold_is_the_same` and `test_creation_house_rules.py::test_the_maximum_is_the_die_size_plus_the_modifier_and_at_least_1`.
