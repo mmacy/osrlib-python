@@ -260,8 +260,9 @@ class _Model(BaseModel):
         Pydantic calls this each time it builds the model's JSON Schema, for `model_json_schema()` and for a
         `TypeAdapter`. It reduces each mkdocstrings cross-reference in a description to its label. When the model's
         module has no readable source, like one installed as bytecode alone, the schema doesn't have the field
-        docstrings. It still has the descriptions that pydantic writes itself, like the model's docstring, a computed
-        field's docstring, and a `Field(description=...)`.
+        docstrings. It still has the model's description, which the class docstring in the bytecode gives, so it's the
+        same as with the source. It also has the descriptions that pydantic writes itself, from a computed field's
+        docstring and from a `Field(description=...)`.
         """
         json_schema = handler(schema)
         _describe(cls, json_schema, handler)

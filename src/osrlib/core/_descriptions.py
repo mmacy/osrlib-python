@@ -16,9 +16,10 @@ first section, followed by its `Modes:`, `Rejections:`, and `Events:` sections, 
 the wire. Each kept section is its label on a line of its own, a blank line, and its body moved to the left margin, so
 its lists and paragraphs render as they do on the documentation site. The other sections, such as `Attributes:`,
 `Raises:`, and `Examples:`, are left out, because each property has its own description and the rest describe Python
-use. A section starts at a line at the left margin that is one or more words and a colon when the line after it is
-indented, so a sentence that ends with a colon and introduces text at the left margin isn't a section. Field
-descriptions keep their whole docstring.
+use. A kept section whose body is only whitespace is left out too, and a schema whose description the rule empties has
+no `description` key, as the schema of a class with no docstring has none. A section starts at a line at the left margin
+that is one or more words and a colon when the line after it is indented, so a sentence that ends with a colon and
+introduces text at the left margin isn't a section. Field descriptions keep their whole docstring.
 
 A description reaches its reader as raw text, outside the documentation site, so `_describe` and `_StrEnum` reduce each
 mkdocstrings cross-reference, like ``[`MoveParty`][osrlib.crawl.commands.MoveParty]``, to its label, `` `MoveParty` ``.
@@ -140,14 +141,14 @@ def _sectioned(description: str) -> str:
     A section starts at a line at the left margin that matches `_LABEL` when the line after it is indented, and it
     runs to the next section or to the end of the docstring. The `Modes:`, `Rejections:`, and `Events:` sections are
     kept, in the docstring's order, each as its label on a line of its own, a blank line, and its body moved to the
-    left margin. Every other section is left out. A docstring with no sections is returned whole. `_sectioned` reduces
-    the cross-references in each part.
+    left margin. A kept section whose body is only whitespace is left out, and so is every other section. A docstring
+    with no sections is returned whole. `_sectioned` reduces the cross-references in each part.
 
     Args:
         description: The class docstring as pydantic writes it, already cleaned by `inspect.cleandoc`.
 
     Returns:
-        The description for the class's JSON Schema.
+        The description for the class's JSON Schema, which is empty when the docstring has nothing it keeps.
     """
     lines = description.split("\n")
     lead: list[str] = []
@@ -163,16 +164,23 @@ def _sectioned(description: str) -> str:
         return _plain(description)
     parts = [_plain("\n".join(lead)).rstrip()]
     for label, body in sections:
-        if label in _KEPT:
-            text = _plain(textwrap.dedent("\n".join(body))).strip("\n")
+        text = _plain(textwrap.dedent("\n".join(body))).strip("\n")
+        if label in _KEPT and text.strip():
             parts.append(f"{label}:\n\n{text}")
-    return "\n\n".join(parts)
+    return "\n\n".join(part for part in parts if part)
 
 
 def _reduce_class(schema: dict[str, Any]) -> None:
-    """Rewrite a model's or an enum's top-level `description` as `_sectioned` gives it."""
+    """Rewrite a model's or an enum's top-level `description` as `_sectioned` gives it.
+
+    When the rewritten description is empty, the schema has no `description` key, as the schema of a class with no
+    docstring has none.
+    """
     if isinstance(description := schema.get("description"), str):
-        schema["description"] = _sectioned(description)
+        if text := _sectioned(description):
+            schema["description"] = text
+        else:
+            del schema["description"]
 
 
 def _property_name(name: str, info: FieldInfo, mode: JsonSchemaMode) -> str:
