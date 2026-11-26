@@ -1,0 +1,1724 @@
+{
+ "engine_version": "2.7.0",
+ "kind": "save",
+ "payload": {
+  "adventure": {
+   "description": "",
+   "dungeons": [
+    {
+     "id": "crypt",
+     "levels": [
+      {
+       "areas": [],
+       "edges": {
+        "1,0:west": {
+         "door": null,
+         "kind": "open"
+        }
+       },
+       "entrance": [
+        0,
+        0
+       ],
+       "features": [],
+       "guidance": "",
+       "height": 1,
+       "number": 1,
+       "transitions": [],
+       "wandering": {
+        "chance_in_six": 1,
+        "interval_turns": 2,
+        "table": null
+       },
+       "width": 2
+      }
+     ],
+     "name": "Crypt"
+    }
+   ],
+   "hooks": [],
+   "items": [],
+   "monsters": [],
+   "name": "A",
+   "party": null,
+   "quests": [],
+   "spells": [
+    {
+     "conjured_monster_ids": [],
+     "conjured_monsters": [],
+     "duration": "Instant",
+     "duration_spec": {
+      "amount": null,
+      "concentration_cap_amount": null,
+      "concentration_cap_unit": null,
+      "dice": null,
+      "kind": "instant",
+      "per_level": 0,
+      "unit": null
+     },
+     "id": "balm",
+     "intro": "This spell has two usages:",
+     "level": 1,
+     "modes": [
+      {
+       "effect": {
+        "condition": null,
+        "cures_conditions": [],
+        "cures_effect_kinds": [],
+        "kind": "heal",
+        "modifiers": [],
+        "params": {
+         "dice": "1d6+1"
+        }
+       },
+       "key": "heal",
+       "manual": false,
+       "prose": "Healing a living subject: Restores 1d6+1 hit points of damage. This cannot raise the subject\u2019s hit points above their normal maximum.",
+       "save": null,
+       "targeting": {
+        "count": null,
+        "count_dice": null,
+        "dimensions": {},
+        "hd_budget_dice": null,
+        "hd_cap": null,
+        "hd_min": null,
+        "mode": "single",
+        "shape": null
+       }
+      },
+      {
+       "effect": {
+        "condition": null,
+        "cures_conditions": [
+         "paralysed"
+        ],
+        "cures_effect_kinds": [],
+        "kind": "cure",
+        "modifiers": [],
+        "params": {}
+       },
+       "key": "cure_paralysis",
+       "manual": false,
+       "prose": "Curing paralysis: Paralysing effects are negated.",
+       "save": null,
+       "targeting": {
+        "count": null,
+        "count_dice": null,
+        "dimensions": {},
+        "hd_budget_dice": null,
+        "hd_cap": null,
+        "hd_min": null,
+        "mode": "single",
+        "shape": null
+       }
+      }
+     ],
+     "name": "Balm",
+     "overrides_applied": [],
+     "range": "The caster or a creature touched",
+     "range_spec": {
+      "feet": null,
+      "kind": "touch",
+      "per_level_feet": null
+     },
+     "reversed_form": {
+      "duration": null,
+      "duration_spec": null,
+      "modes": [
+       {
+        "effect": {
+         "condition": null,
+         "cures_conditions": [],
+         "cures_effect_kinds": [],
+         "kind": "damage",
+         "modifiers": [],
+         "params": {
+          "dice": "1d6+1",
+          "touch_attack": true
+         }
+        },
+        "key": "harm",
+        "manual": false,
+        "prose": "Inflicts 1d6+1 hit points of damage to a touched creature. In combat, a melee attack roll is required.",
+        "save": null,
+        "targeting": {
+         "count": null,
+         "count_dice": null,
+         "dimensions": {},
+         "hd_budget_dice": null,
+         "hd_cap": null,
+         "hd_min": null,
+         "mode": "single",
+         "shape": null
+        }
+       }
+      ],
+      "name": "Bane",
+      "prose": "Inflicts 1d6+1 hit points of damage to a touched creature. In combat, a melee attack roll is required."
+     },
+     "spell_list": "cleric"
+    },
+    {
+     "conjured_monster_ids": [],
+     "conjured_monsters": [],
+     "duration": "Instant / Permanent (curse)",
+     "duration_spec": {
+      "amount": null,
+      "concentration_cap_amount": null,
+      "concentration_cap_unit": null,
+      "dice": null,
+      "kind": "instant",
+      "per_level": 0,
+      "unit": null
+     },
+     "id": "sanctum",
+     "intro": "This spell removes a single curse from the subject. It may allow a character to discard a cursed magic item.",
+     "level": 3,
+     "modes": [
+      {
+       "effect": null,
+       "key": "cast",
+       "manual": true,
+       "prose": "This spell removes a single curse from the subject. It may allow a character to discard a cursed magic item.",
+       "save": null,
+       "targeting": null
+      }
+     ],
+     "name": "Sanctum",
+     "overrides_applied": [],
+     "range": "The caster or a creature touched",
+     "range_spec": {
+      "feet": null,
+      "kind": "touch",
+      "per_level_feet": null
+     },
+     "reversed_form": {
+      "duration": "Permanent (curse)",
+      "duration_spec": {
+       "amount": null,
+       "concentration_cap_amount": null,
+       "concentration_cap_unit": null,
+       "dice": null,
+       "kind": "permanent",
+       "per_level": 0,
+       "unit": null
+      },
+      "modes": [
+       {
+        "effect": null,
+        "key": "cast",
+        "manual": true,
+        "prose": "Places a deleterious effect upon a creature, if it fails a save versus spells.\nEffects: The exact form and effects of the curse are determined by the caster.\nMaximum possible effects include: A \u20132 penalty to saving throws, a \u20134 penalty to attack rolls, reducing an ability score by 50%.\nMultiple curses: May afflict a creature, as long as each has a different effect.\nReferee judgement: The referee should judge the effects of this spell and may turn overly powerful curses back onto the caster!",
+        "save": null,
+        "targeting": null
+       }
+      ],
+      "name": "Curse",
+      "prose": "Places a deleterious effect upon a creature, if it fails a save versus spells.\nEffects: The exact form and effects of the curse are determined by the caster.\nMaximum possible effects include: A \u20132 penalty to saving throws, a \u20134 penalty to attack rolls, reducing an ability score by 50%.\nMultiple curses: May afflict a creature, as long as each has a different effect.\nReferee judgement: The referee should judge the effects of this spell and may turn overly powerful curses back onto the caster!"
+     },
+     "spell_list": "cleric"
+    },
+    {
+     "conjured_monster_ids": [],
+     "conjured_monsters": [],
+     "duration": "2 turns",
+     "duration_spec": {
+      "amount": 2,
+      "concentration_cap_amount": null,
+      "concentration_cap_unit": null,
+      "dice": null,
+      "kind": "fixed",
+      "per_level": 0,
+      "unit": "turn"
+     },
+     "id": "glimmer",
+     "intro": "Conjures a barrier of magic that gives the caster an improved AC:",
+     "level": 1,
+     "modes": [
+      {
+       "effect": {
+        "condition": null,
+        "cures_conditions": [],
+        "cures_effect_kinds": [],
+        "kind": "modifiers",
+        "modifiers": [
+         {
+          "dice": null,
+          "element": null,
+          "from_item": false,
+          "kind": "ac_set_vs_missile",
+          "melee_only": false,
+          "save_categories": [],
+          "value": 2,
+          "versus_other_alignment": false
+         },
+         {
+          "dice": null,
+          "element": null,
+          "from_item": false,
+          "kind": "ac_set",
+          "melee_only": false,
+          "save_categories": [],
+          "value": 4,
+          "versus_other_alignment": false
+         }
+        ],
+        "params": {}
+       },
+       "key": "shield",
+       "manual": false,
+       "prose": "Conjures a barrier of magic that gives the caster an improved AC:\nAgainst missile attacks: AC 2 [17].\nAgainst other attacks: AC 4 [15].",
+       "save": null,
+       "targeting": {
+        "count": null,
+        "count_dice": null,
+        "dimensions": {},
+        "hd_budget_dice": null,
+        "hd_cap": null,
+        "hd_min": null,
+        "mode": "self",
+        "shape": null
+       }
+      }
+     ],
+     "name": "Glimmer",
+     "overrides_applied": [],
+     "range": "The caster",
+     "range_spec": {
+      "feet": null,
+      "kind": "caster",
+      "per_level_feet": null
+     },
+     "reversed_form": null,
+     "spell_list": "magic_user"
+    },
+    {
+     "conjured_monster_ids": [],
+     "conjured_monsters": [],
+     "duration": "48 turns",
+     "duration_spec": {
+      "amount": 48,
+      "concentration_cap_amount": null,
+      "concentration_cap_unit": null,
+      "dice": null,
+      "kind": "fixed",
+      "per_level": 0,
+      "unit": "turn"
+     },
+     "id": "mire",
+     "intro": "Conjures a volume of sticky webbing, blocking a 10\u2019 cube area.",
+     "level": 2,
+     "modes": [
+      {
+       "effect": {
+        "condition": "entangled",
+        "cures_conditions": [],
+        "cures_effect_kinds": [],
+        "kind": "condition",
+        "modifiers": [],
+        "params": {
+         "augmented_strength_rounds": 4,
+         "effect_kind": "web",
+         "escape_dice": "2d4",
+         "escape_unit": "turn",
+         "giant_strength_rounds": 2
+        }
+       },
+       "key": "entangle",
+       "manual": false,
+       "prose": "Conjures a volume of sticky webbing, blocking a 10\u2019 cube area.\nEntanglement: Creatures caught within a web become entangled among the gluey fibres. Entangled creatures can\u2019t move, but can break free depending on their strength (see below).\nFlammable: The web can be destroyed by fire in two rounds. All creatures caught within flaming webs suffer 1d6 damage from the flames.\nBreaking free: Depends on STR:\nNormal human range: The creature can break free in 2d4 turns.\nMagically augmented STR above 18: The creature can break free in 4 rounds.\nGiant strength: The creature can break free in 2 rounds.",
+       "save": null,
+       "targeting": {
+        "count": null,
+        "count_dice": null,
+        "dimensions": {
+         "side_feet": 10
+        },
+        "hd_budget_dice": null,
+        "hd_cap": null,
+        "hd_min": null,
+        "mode": "area",
+        "shape": "cube"
+       }
+      }
+     ],
+     "name": "Mire",
+     "overrides_applied": [],
+     "range": "10\u2019",
+     "range_spec": {
+      "feet": 10,
+      "kind": "feet",
+      "per_level_feet": null
+     },
+     "reversed_form": null,
+     "spell_list": "magic_user"
+    },
+    {
+     "conjured_monster_ids": [],
+     "conjured_monsters": [],
+     "duration": "Instant",
+     "duration_spec": {
+      "amount": null,
+      "concentration_cap_amount": null,
+      "concentration_cap_unit": null,
+      "dice": null,
+      "kind": "instant",
+      "per_level": 0,
+      "unit": null
+     },
+     "id": "mend_wounds",
+     "intro": "This spell has two usages:",
+     "level": 1,
+     "modes": [
+      {
+       "effect": {
+        "condition": null,
+        "cures_conditions": [],
+        "cures_effect_kinds": [],
+        "kind": "heal",
+        "modifiers": [],
+        "params": {
+         "dice": "1d6+1"
+        }
+       },
+       "key": "heal",
+       "manual": false,
+       "prose": "Healing a living subject: Restores 1d6+1 hit points of damage. This cannot raise the subject\u2019s hit points above their normal maximum.",
+       "save": null,
+       "targeting": {
+        "count": null,
+        "count_dice": null,
+        "dimensions": {},
+        "hd_budget_dice": null,
+        "hd_cap": null,
+        "hd_min": null,
+        "mode": "single",
+        "shape": null
+       }
+      },
+      {
+       "effect": {
+        "condition": null,
+        "cures_conditions": [
+         "paralysed"
+        ],
+        "cures_effect_kinds": [],
+        "kind": "cure",
+        "modifiers": [],
+        "params": {}
+       },
+       "key": "cure_paralysis",
+       "manual": false,
+       "prose": "Curing paralysis: Paralysing effects are negated.",
+       "save": null,
+       "targeting": {
+        "count": null,
+        "count_dice": null,
+        "dimensions": {},
+        "hd_budget_dice": null,
+        "hd_cap": null,
+        "hd_min": null,
+        "mode": "single",
+        "shape": null
+       }
+      }
+     ],
+     "name": "Mend Wounds",
+     "overrides_applied": [],
+     "range": "The caster or a creature touched",
+     "range_spec": {
+      "feet": null,
+      "kind": "touch",
+      "per_level_feet": null
+     },
+     "reversed_form": {
+      "duration": null,
+      "duration_spec": null,
+      "modes": [
+       {
+        "effect": {
+         "condition": null,
+         "cures_conditions": [],
+         "cures_effect_kinds": [],
+         "kind": "damage",
+         "modifiers": [],
+         "params": {
+          "dice": "1d6+1",
+          "touch_attack": true
+         }
+        },
+        "key": "harm",
+        "manual": false,
+        "prose": "Inflicts 1d6+1 hit points of damage to a touched creature. In combat, a melee attack roll is required.",
+        "save": null,
+        "targeting": {
+         "count": null,
+         "count_dice": null,
+         "dimensions": {},
+         "hd_budget_dice": null,
+         "hd_cap": null,
+         "hd_min": null,
+         "mode": "single",
+         "shape": null
+        }
+       }
+      ],
+      "name": "Cause Light Wounds",
+      "prose": "Inflicts 1d6+1 hit points of damage to a touched creature. In combat, a melee attack roll is required."
+     },
+     "spell_list": "warden"
+    },
+    {
+     "conjured_monster_ids": [],
+     "conjured_monsters": [],
+     "duration": "6 turns",
+     "duration_spec": {
+      "amount": 6,
+      "concentration_cap_amount": null,
+      "concentration_cap_unit": null,
+      "dice": null,
+      "kind": "fixed",
+      "per_level": 0,
+      "unit": "turn"
+     },
+     "id": "ward_of_ages",
+     "intro": "May be used in one of two situations:",
+     "level": 2,
+     "modes": [
+      {
+       "effect": {
+        "condition": null,
+        "cures_conditions": [],
+        "cures_effect_kinds": [],
+        "kind": "modifiers",
+        "modifiers": [
+         {
+          "dice": null,
+          "element": null,
+          "from_item": false,
+          "kind": "attack_bonus",
+          "melee_only": false,
+          "save_categories": [],
+          "value": 1,
+          "versus_other_alignment": false
+         },
+         {
+          "dice": null,
+          "element": null,
+          "from_item": false,
+          "kind": "damage_bonus",
+          "melee_only": false,
+          "save_categories": [],
+          "value": 1,
+          "versus_other_alignment": false
+         },
+         {
+          "dice": null,
+          "element": null,
+          "from_item": false,
+          "kind": "morale_bonus",
+          "melee_only": false,
+          "save_categories": [],
+          "value": 1,
+          "versus_other_alignment": false
+         }
+        ],
+        "params": {}
+       },
+       "key": "battle",
+       "manual": false,
+       "prose": "Battle: Allies within a 20\u2019 square area who are not yet in melee gain a +1 bonus to attack and damage rolls and a +1 bonus to morale.",
+       "save": null,
+       "targeting": {
+        "count": null,
+        "count_dice": null,
+        "dimensions": {
+         "side_feet": 20
+        },
+        "hd_budget_dice": null,
+        "hd_cap": null,
+        "hd_min": null,
+        "mode": "area",
+        "shape": "square"
+       }
+      },
+      {
+       "effect": null,
+       "key": "ritual",
+       "manual": true,
+       "prose": "Ritual: Casting bless may also form part of rituals of purification or consecration, at the referee\u2019s discretion.",
+       "save": null,
+       "targeting": null
+      }
+     ],
+     "name": "Ward Of Ages",
+     "overrides_applied": [],
+     "range": "60\u2019",
+     "range_spec": {
+      "feet": 60,
+      "kind": "feet",
+      "per_level_feet": null
+     },
+     "reversed_form": {
+      "duration": null,
+      "duration_spec": null,
+      "modes": [
+       {
+        "effect": {
+         "condition": null,
+         "cures_conditions": [],
+         "cures_effect_kinds": [],
+         "kind": "modifiers",
+         "modifiers": [
+          {
+           "dice": null,
+           "element": null,
+           "from_item": false,
+           "kind": "attack_bonus",
+           "melee_only": false,
+           "save_categories": [],
+           "value": -1,
+           "versus_other_alignment": false
+          },
+          {
+           "dice": null,
+           "element": null,
+           "from_item": false,
+           "kind": "damage_bonus",
+           "melee_only": false,
+           "save_categories": [],
+           "value": -1,
+           "versus_other_alignment": false
+          },
+          {
+           "dice": null,
+           "element": null,
+           "from_item": false,
+           "kind": "morale_bonus",
+           "melee_only": false,
+           "save_categories": [],
+           "value": -1,
+           "versus_other_alignment": false
+          }
+         ],
+         "params": {}
+        },
+        "key": "battle",
+        "manual": false,
+        "prose": "Incurs a -1 penalty to morale checks, attack rolls, and damage rolls of enemies within a 20\u2019 square area. A save versus spells is allowed to resist the blight.",
+        "save": {
+         "category": "spells",
+         "modifier": 0,
+         "on_save": "negates"
+        },
+        "targeting": {
+         "count": null,
+         "count_dice": null,
+         "dimensions": {
+          "side_feet": 20
+         },
+         "hd_budget_dice": null,
+         "hd_cap": null,
+         "hd_min": null,
+         "mode": "area",
+         "shape": "square"
+        }
+       }
+      ],
+      "name": "Blight",
+      "prose": "Incurs a -1 penalty to morale checks, attack rolls, and damage rolls of enemies within a 20\u2019 square area. A save versus spells is allowed to resist the blight."
+     },
+     "spell_list": "warden"
+    },
+    {
+     "conjured_monster_ids": [],
+     "conjured_monsters": [],
+     "duration": "4d4 turns",
+     "duration_spec": {
+      "amount": null,
+      "concentration_cap_amount": null,
+      "concentration_cap_unit": null,
+      "dice": "4d4",
+      "kind": "fixed",
+      "per_level": 0,
+      "unit": "turn"
+     },
+     "id": "hex",
+     "intro": "Causes creatures (except undead) to fall into a magical slumber. The spell may target either:",
+     "level": 1,
+     "modes": [
+      {
+       "effect": {
+        "condition": "asleep",
+        "cures_conditions": [],
+        "cures_effect_kinds": [],
+        "kind": "condition",
+        "modifiers": [],
+        "params": {
+         "excludes_undead": true,
+         "hd_bonus_required": true,
+         "hd_count": 4
+        }
+       },
+       "key": "single_4_plus",
+       "manual": false,
+       "prose": "A single creature with 4+1 Hit Dice (see Hit point modifiers).",
+       "save": null,
+       "targeting": {
+        "count": null,
+        "count_dice": null,
+        "dimensions": {},
+        "hd_budget_dice": null,
+        "hd_cap": null,
+        "hd_min": null,
+        "mode": "single",
+        "shape": null
+       }
+      },
+      {
+       "effect": {
+        "condition": "asleep",
+        "cures_conditions": [],
+        "cures_effect_kinds": [],
+        "kind": "condition",
+        "modifiers": [],
+        "params": {
+         "excludes_hd_4_plus": true,
+         "excludes_undead": true
+        }
+       },
+       "key": "hd_budget",
+       "manual": false,
+       "prose": "A total of 2d8 Hit Dice of creatures of 4 HD or lower each.",
+       "save": null,
+       "targeting": {
+        "count": null,
+        "count_dice": null,
+        "dimensions": {},
+        "hd_budget_dice": "2d8",
+        "hd_cap": 4,
+        "hd_min": null,
+        "mode": "hd_budget",
+        "shape": null
+       }
+      }
+     ],
+     "name": "Hex",
+     "overrides_applied": [],
+     "range": "240\u2019",
+     "range_spec": {
+      "feet": 240,
+      "kind": "feet",
+      "per_level_feet": null
+     },
+     "reversed_form": null,
+     "spell_list": "witch"
+    }
+   ],
+   "town": {
+    "description": "",
+    "healing_prices": {},
+    "name": "Threshold",
+    "services": [],
+    "travel_turns": {
+     "crypt": 1
+    }
+   },
+   "triggers": []
+  },
+  "allocator": {
+   "counters": {
+    "character": 10
+   }
+  },
+  "battle": null,
+  "clock_rounds": 2880,
+  "command_log": [
+   {
+    "command_type": "rest",
+    "hidden": false,
+    "kind": "night",
+    "source": null
+   }
+  ],
+  "death_records": {},
+  "defeated_monsters": [],
+  "deprivation": {},
+  "dungeon_state": {
+   "doors": {},
+   "emptied_caches": [],
+   "explored": {},
+   "found_traps": [],
+   "found_tricks": [],
+   "generated_caches": {},
+   "generated_lair_hoards": [],
+   "generated_treasure_areas": [],
+   "inspect_attempts": {},
+   "listen_attempts": {},
+   "location": {
+    "dungeon_id": null,
+    "facing": null,
+    "kind": "town",
+    "level_number": null,
+    "position": null
+   },
+   "lock_failures": {},
+   "piles": {},
+   "removal_attempts": {},
+   "removed_traps": [],
+   "resolved_encounters": [],
+   "search_attempts": {},
+   "seen": {},
+   "sprung_traps": []
+  },
+  "encounter": null,
+  "event_log": [
+   {
+    "code": "exploration.rest.rested",
+    "event_type": "rested",
+    "kind": "night",
+    "visibility": "player"
+   }
+  ],
+  "exploration": {
+   "alerted_areas": [],
+   "heard_areas": [],
+   "last_prepared_sleep": {},
+   "noise_since_check": false,
+   "odometer_thirds": 0,
+   "provisions_day": 0,
+   "sleep_count": 1,
+   "turns_since_rest": 0,
+   "wandering_counter": 0
+  },
+  "fired_triggers": [],
+  "flags": {},
+  "journal": [],
+  "ledger": {
+   "effects": []
+  },
+  "listener_state": {},
+  "master_seed": 7,
+  "mode": "town",
+  "monsters": [],
+  "npcs": [],
+  "party": {
+   "members": [
+    {
+     "alignment": "lawful",
+     "carrying_treasure": false,
+     "class_id": "fighter",
+     "conditions": [],
+     "current_hp": 400,
+     "custom_class": null,
+     "extra_languages": [],
+     "id": "character-0001",
+     "inventory": {
+      "items": [],
+      "purse": {
+       "cp": 0,
+       "ep": 0,
+       "gp": 0,
+       "pp": 0,
+       "sp": 0
+      },
+      "rings": [],
+      "shield": null,
+      "valuables": [],
+      "wielded": [],
+      "worn_armour": null
+     },
+     "level": 3,
+     "max_hp": 400,
+     "memorized_spells": [],
+     "name": "Hild",
+     "nonregen_damage": 0,
+     "race": "human",
+     "scores": {
+      "cha": 10,
+      "con": 10,
+      "dex": 10,
+      "int": 10,
+      "str": 10,
+      "wis": 10
+     },
+     "spell_book": [],
+     "stat_modifiers": [],
+     "xp": 4000
+    },
+    {
+     "alignment": "lawful",
+     "carrying_treasure": false,
+     "class_id": "thief",
+     "conditions": [],
+     "current_hp": 400,
+     "custom_class": null,
+     "extra_languages": [],
+     "id": "character-0002",
+     "inventory": {
+      "items": [],
+      "purse": {
+       "cp": 0,
+       "ep": 0,
+       "gp": 0,
+       "pp": 0,
+       "sp": 0
+      },
+      "rings": [],
+      "shield": null,
+      "valuables": [],
+      "wielded": [],
+      "worn_armour": null
+     },
+     "level": 3,
+     "max_hp": 400,
+     "memorized_spells": [],
+     "name": "Nim",
+     "nonregen_damage": 0,
+     "race": "human",
+     "scores": {
+      "cha": 10,
+      "con": 10,
+      "dex": 10,
+      "int": 10,
+      "str": 10,
+      "wis": 10
+     },
+     "spell_book": [],
+     "stat_modifiers": [],
+     "xp": 2400
+    },
+    {
+     "alignment": "lawful",
+     "carrying_treasure": false,
+     "class_id": "elf",
+     "conditions": [],
+     "current_hp": 400,
+     "custom_class": null,
+     "extra_languages": [],
+     "id": "character-0003",
+     "inventory": {
+      "items": [],
+      "purse": {
+       "cp": 0,
+       "ep": 0,
+       "gp": 0,
+       "pp": 0,
+       "sp": 0
+      },
+      "rings": [],
+      "shield": null,
+      "valuables": [],
+      "wielded": [],
+      "worn_armour": null
+     },
+     "level": 1,
+     "max_hp": 400,
+     "memorized_spells": [],
+     "name": "Aelin",
+     "nonregen_damage": 0,
+     "race": "elf",
+     "scores": {
+      "cha": 10,
+      "con": 10,
+      "dex": 10,
+      "int": 10,
+      "str": 10,
+      "wis": 10
+     },
+     "spell_book": [
+      "sleep"
+     ],
+     "stat_modifiers": [],
+     "xp": 0
+    },
+    {
+     "alignment": "lawful",
+     "carrying_treasure": false,
+     "class_id": "magic_user",
+     "conditions": [],
+     "current_hp": 400,
+     "custom_class": null,
+     "extra_languages": [],
+     "id": "character-0004",
+     "inventory": {
+      "items": [],
+      "purse": {
+       "cp": 0,
+       "ep": 0,
+       "gp": 0,
+       "pp": 0,
+       "sp": 0
+      },
+      "rings": [],
+      "shield": null,
+      "valuables": [],
+      "wielded": [],
+      "worn_armour": null
+     },
+     "level": 3,
+     "max_hp": 400,
+     "memorized_spells": [],
+     "name": "Wren",
+     "nonregen_damage": 0,
+     "race": "human",
+     "scores": {
+      "cha": 10,
+      "con": 10,
+      "dex": 10,
+      "int": 10,
+      "str": 10,
+      "wis": 10
+     },
+     "spell_book": [
+      "magic_missile",
+      "light_mu"
+     ],
+     "stat_modifiers": [],
+     "xp": 5000
+    },
+    {
+     "alignment": "lawful",
+     "carrying_treasure": false,
+     "class_id": "magic_user",
+     "conditions": [],
+     "current_hp": 400,
+     "custom_class": null,
+     "extra_languages": [],
+     "id": "character-0005",
+     "inventory": {
+      "items": [],
+      "purse": {
+       "cp": 0,
+       "ep": 0,
+       "gp": 0,
+       "pp": 0,
+       "sp": 0
+      },
+      "rings": [],
+      "shield": null,
+      "valuables": [],
+      "wielded": [],
+      "worn_armour": null
+     },
+     "level": 1,
+     "max_hp": 400,
+     "memorized_spells": [],
+     "name": "Sefa",
+     "nonregen_damage": 0,
+     "race": "human",
+     "scores": {
+      "cha": 10,
+      "con": 10,
+      "dex": 10,
+      "int": 10,
+      "str": 10,
+      "wis": 10
+     },
+     "spell_book": [
+      "sleep",
+      "web"
+     ],
+     "stat_modifiers": [],
+     "xp": 0
+    },
+    {
+     "alignment": "lawful",
+     "carrying_treasure": false,
+     "class_id": "magic_user",
+     "conditions": [],
+     "current_hp": 400,
+     "custom_class": null,
+     "extra_languages": [],
+     "id": "character-0006",
+     "inventory": {
+      "items": [],
+      "purse": {
+       "cp": 0,
+       "ep": 0,
+       "gp": 0,
+       "pp": 0,
+       "sp": 0
+      },
+      "rings": [],
+      "shield": null,
+      "valuables": [],
+      "wielded": [],
+      "worn_armour": null
+     },
+     "level": 3,
+     "max_hp": 400,
+     "memorized_spells": [],
+     "name": "Ivo",
+     "nonregen_damage": 0,
+     "race": "human",
+     "scores": {
+      "cha": 10,
+      "con": 10,
+      "dex": 10,
+      "int": 10,
+      "str": 10,
+      "wis": 10
+     },
+     "spell_book": [
+      "frost_dart",
+      "sleep"
+     ],
+     "stat_modifiers": [],
+     "xp": 5000
+    },
+    {
+     "alignment": "lawful",
+     "carrying_treasure": false,
+     "class_id": "cleric",
+     "conditions": [],
+     "current_hp": 400,
+     "custom_class": null,
+     "extra_languages": [],
+     "id": "character-0007",
+     "inventory": {
+      "items": [],
+      "purse": {
+       "cp": 0,
+       "ep": 0,
+       "gp": 0,
+       "pp": 0,
+       "sp": 0
+      },
+      "rings": [],
+      "shield": null,
+      "valuables": [],
+      "wielded": [],
+      "worn_armour": null
+     },
+     "level": 1,
+     "max_hp": 400,
+     "memorized_spells": [],
+     "name": "Tam",
+     "nonregen_damage": 0,
+     "race": "human",
+     "scores": {
+      "cha": 10,
+      "con": 10,
+      "dex": 10,
+      "int": 10,
+      "str": 10,
+      "wis": 10
+     },
+     "spell_book": [],
+     "stat_modifiers": [],
+     "xp": 0
+    },
+    {
+     "alignment": "lawful",
+     "carrying_treasure": false,
+     "class_id": "cleric",
+     "conditions": [],
+     "current_hp": 400,
+     "custom_class": null,
+     "extra_languages": [],
+     "id": "character-0008",
+     "inventory": {
+      "items": [],
+      "purse": {
+       "cp": 0,
+       "ep": 0,
+       "gp": 0,
+       "pp": 0,
+       "sp": 0
+      },
+      "rings": [],
+      "shield": null,
+      "valuables": [],
+      "wielded": [],
+      "worn_armour": null
+     },
+     "level": 2,
+     "max_hp": 400,
+     "memorized_spells": [],
+     "name": "Oswin",
+     "nonregen_damage": 0,
+     "race": "human",
+     "scores": {
+      "cha": 10,
+      "con": 10,
+      "dex": 10,
+      "int": 10,
+      "str": 10,
+      "wis": 10
+     },
+     "spell_book": [],
+     "stat_modifiers": [],
+     "xp": 1500
+    },
+    {
+     "alignment": "lawful",
+     "carrying_treasure": false,
+     "class_id": "cleric",
+     "conditions": [],
+     "current_hp": 400,
+     "custom_class": null,
+     "extra_languages": [],
+     "id": "character-0009",
+     "inventory": {
+      "items": [],
+      "purse": {
+       "cp": 0,
+       "ep": 0,
+       "gp": 0,
+       "pp": 0,
+       "sp": 0
+      },
+      "rings": [],
+      "shield": null,
+      "valuables": [],
+      "wielded": [],
+      "worn_armour": null
+     },
+     "level": 4,
+     "max_hp": 400,
+     "memorized_spells": [],
+     "name": "Mara",
+     "nonregen_damage": 0,
+     "race": "human",
+     "scores": {
+      "cha": 10,
+      "con": 10,
+      "dex": 10,
+      "int": 10,
+      "str": 10,
+      "wis": 10
+     },
+     "spell_book": [],
+     "stat_modifiers": [],
+     "xp": 6000
+    },
+    {
+     "alignment": "lawful",
+     "carrying_treasure": false,
+     "class_id": "warden",
+     "conditions": [],
+     "current_hp": 400,
+     "custom_class": {
+      "abilities": [
+       {
+        "manual": false,
+        "name": "Divine Magic",
+        "params": {
+         "spell_list": "warden"
+        },
+        "prose": "See Spells for full details on divine magic.\nHoly symbol: A cleric must carry a holy symbol (see Adventuring Gear).\nDeity disfavour: Clerics must be faithful to the tenets of their alignment, clergy, and religion. Clerics who fall from favour with their deity may incur penalties.\nMagical research: A cleric of any level may spend time and money on magical research. This allows them to create new spells or other magical effects associated with their deity. When a cleric reaches 9th level, they are also able to create magic items.\nSpell casting: Once a cleric has proven their faith (from 2nd level), the character may pray to receive spells. The level progression table (below) shows the number of spells a cleric may memorize, based on their experience level. The list of spells available to clerics is found in Cleric Spells.\nUsing magic items: As spell casters, clerics can use magic scrolls of spells on their spell list. They can also use items that may only be used by divine spell casters (e.g. some magic staves).",
+        "tag": "divine_magic"
+       },
+       {
+        "manual": false,
+        "name": "Turning the Undead",
+        "params": {},
+        "prose": "Clerics can invoke the power of their deity to repel undead monsters encountered. To turn the undead, the player rolls 2d6. The referee then consults the table below, comparing the roll against the HD of the type of undead monsters targeted.",
+        "tag": "turn_undead"
+       }
+      ],
+      "armour": {
+       "kind": "any",
+       "shields_allowed": true
+      },
+      "hit_die": 6,
+      "id": "warden",
+      "languages": [
+       "common"
+      ],
+      "level_titles": [
+       "Acolyte",
+       "Adept",
+       "Priest(ess)",
+       "Vicar",
+       "Curate",
+       "Elder",
+       "Bishop",
+       "Lama",
+       "Matriarch (Patriarch)"
+      ],
+      "max_level": 14,
+      "may_not_lower": [],
+      "name": "Warden",
+      "overrides_applied": [],
+      "prime_requisites": [
+       "wis"
+      ],
+      "progression": [
+       {
+        "attack_bonus": 0,
+        "hit_dice": {
+         "bonus": 0,
+         "con_applies": true,
+         "count": 1,
+         "die": 6
+        },
+        "level": 1,
+        "saves": {
+         "breath": 16,
+         "death": 11,
+         "paralysis": 14,
+         "spells": 15,
+         "wands": 12
+        },
+        "spell_slots": [
+         0,
+         0,
+         0,
+         0,
+         0
+        ],
+        "thac0": 19,
+        "xp": 0
+       },
+       {
+        "attack_bonus": 0,
+        "hit_dice": {
+         "bonus": 0,
+         "con_applies": true,
+         "count": 2,
+         "die": 6
+        },
+        "level": 2,
+        "saves": {
+         "breath": 16,
+         "death": 11,
+         "paralysis": 14,
+         "spells": 15,
+         "wands": 12
+        },
+        "spell_slots": [
+         1,
+         0,
+         0,
+         0,
+         0
+        ],
+        "thac0": 19,
+        "xp": 1500
+       },
+       {
+        "attack_bonus": 0,
+        "hit_dice": {
+         "bonus": 0,
+         "con_applies": true,
+         "count": 3,
+         "die": 6
+        },
+        "level": 3,
+        "saves": {
+         "breath": 16,
+         "death": 11,
+         "paralysis": 14,
+         "spells": 15,
+         "wands": 12
+        },
+        "spell_slots": [
+         2,
+         0,
+         0,
+         0,
+         0
+        ],
+        "thac0": 19,
+        "xp": 3000
+       },
+       {
+        "attack_bonus": 0,
+        "hit_dice": {
+         "bonus": 0,
+         "con_applies": true,
+         "count": 4,
+         "die": 6
+        },
+        "level": 4,
+        "saves": {
+         "breath": 16,
+         "death": 11,
+         "paralysis": 14,
+         "spells": 15,
+         "wands": 12
+        },
+        "spell_slots": [
+         2,
+         1,
+         0,
+         0,
+         0
+        ],
+        "thac0": 19,
+        "xp": 6000
+       },
+       {
+        "attack_bonus": 2,
+        "hit_dice": {
+         "bonus": 0,
+         "con_applies": true,
+         "count": 5,
+         "die": 6
+        },
+        "level": 5,
+        "saves": {
+         "breath": 14,
+         "death": 9,
+         "paralysis": 12,
+         "spells": 12,
+         "wands": 10
+        },
+        "spell_slots": [
+         2,
+         2,
+         0,
+         0,
+         0
+        ],
+        "thac0": 17,
+        "xp": 12000
+       },
+       {
+        "attack_bonus": 2,
+        "hit_dice": {
+         "bonus": 0,
+         "con_applies": true,
+         "count": 6,
+         "die": 6
+        },
+        "level": 6,
+        "saves": {
+         "breath": 14,
+         "death": 9,
+         "paralysis": 12,
+         "spells": 12,
+         "wands": 10
+        },
+        "spell_slots": [
+         2,
+         2,
+         1,
+         1,
+         0
+        ],
+        "thac0": 17,
+        "xp": 25000
+       },
+       {
+        "attack_bonus": 2,
+        "hit_dice": {
+         "bonus": 0,
+         "con_applies": true,
+         "count": 7,
+         "die": 6
+        },
+        "level": 7,
+        "saves": {
+         "breath": 14,
+         "death": 9,
+         "paralysis": 12,
+         "spells": 12,
+         "wands": 10
+        },
+        "spell_slots": [
+         2,
+         2,
+         2,
+         1,
+         1
+        ],
+        "thac0": 17,
+        "xp": 50000
+       },
+       {
+        "attack_bonus": 2,
+        "hit_dice": {
+         "bonus": 0,
+         "con_applies": true,
+         "count": 8,
+         "die": 6
+        },
+        "level": 8,
+        "saves": {
+         "breath": 14,
+         "death": 9,
+         "paralysis": 12,
+         "spells": 12,
+         "wands": 10
+        },
+        "spell_slots": [
+         3,
+         3,
+         2,
+         2,
+         1
+        ],
+        "thac0": 17,
+        "xp": 100000
+       },
+       {
+        "attack_bonus": 5,
+        "hit_dice": {
+         "bonus": 0,
+         "con_applies": true,
+         "count": 9,
+         "die": 6
+        },
+        "level": 9,
+        "saves": {
+         "breath": 11,
+         "death": 6,
+         "paralysis": 9,
+         "spells": 9,
+         "wands": 7
+        },
+        "spell_slots": [
+         3,
+         3,
+         3,
+         2,
+         2
+        ],
+        "thac0": 14,
+        "xp": 200000
+       },
+       {
+        "attack_bonus": 5,
+        "hit_dice": {
+         "bonus": 1,
+         "con_applies": false,
+         "count": 9,
+         "die": 6
+        },
+        "level": 10,
+        "saves": {
+         "breath": 11,
+         "death": 6,
+         "paralysis": 9,
+         "spells": 9,
+         "wands": 7
+        },
+        "spell_slots": [
+         4,
+         4,
+         3,
+         3,
+         2
+        ],
+        "thac0": 14,
+        "xp": 300000
+       },
+       {
+        "attack_bonus": 5,
+        "hit_dice": {
+         "bonus": 2,
+         "con_applies": false,
+         "count": 9,
+         "die": 6
+        },
+        "level": 11,
+        "saves": {
+         "breath": 11,
+         "death": 6,
+         "paralysis": 9,
+         "spells": 9,
+         "wands": 7
+        },
+        "spell_slots": [
+         4,
+         4,
+         4,
+         3,
+         3
+        ],
+        "thac0": 14,
+        "xp": 400000
+       },
+       {
+        "attack_bonus": 5,
+        "hit_dice": {
+         "bonus": 3,
+         "con_applies": false,
+         "count": 9,
+         "die": 6
+        },
+        "level": 12,
+        "saves": {
+         "breath": 11,
+         "death": 6,
+         "paralysis": 9,
+         "spells": 9,
+         "wands": 7
+        },
+        "spell_slots": [
+         5,
+         5,
+         4,
+         4,
+         3
+        ],
+        "thac0": 14,
+        "xp": 500000
+       },
+       {
+        "attack_bonus": 7,
+        "hit_dice": {
+         "bonus": 4,
+         "con_applies": false,
+         "count": 9,
+         "die": 6
+        },
+        "level": 13,
+        "saves": {
+         "breath": 8,
+         "death": 3,
+         "paralysis": 7,
+         "spells": 7,
+         "wands": 5
+        },
+        "spell_slots": [
+         5,
+         5,
+         5,
+         4,
+         4
+        ],
+        "thac0": 12,
+        "xp": 600000
+       },
+       {
+        "attack_bonus": 7,
+        "hit_dice": {
+         "bonus": 5,
+         "con_applies": false,
+         "count": 9,
+         "die": 6
+        },
+        "level": 14,
+        "saves": {
+         "breath": 8,
+         "death": 3,
+         "paralysis": 7,
+         "spells": 7,
+         "wands": 5
+        },
+        "spell_slots": [
+         6,
+         5,
+         5,
+         5,
+         4
+        ],
+        "thac0": 12,
+        "xp": 700000
+       }
+      ],
+      "race": "human",
+      "requirements": {},
+      "thief_skills": [],
+      "weapons": {
+       "kind": "allowed",
+       "manual_notes": [],
+       "weapon_ids": [
+        "club",
+        "mace",
+        "sling",
+        "staff",
+        "war_hammer"
+       ]
+      },
+      "xp_tiers": [
+       {
+        "minimums": {
+         "wis": 16
+        },
+        "modifier_pct": 10
+       },
+       {
+        "minimums": {
+         "wis": 13
+        },
+        "modifier_pct": 5
+       },
+       {
+        "minimums": {
+         "wis": 9
+        },
+        "modifier_pct": 0
+       },
+       {
+        "minimums": {
+         "wis": 6
+        },
+        "modifier_pct": -10
+       },
+       {
+        "minimums": {
+         "wis": 3
+        },
+        "modifier_pct": -20
+       }
+      ]
+     },
+     "extra_languages": [],
+     "id": "character-0010",
+     "inventory": {
+      "items": [],
+      "purse": {
+       "cp": 0,
+       "ep": 0,
+       "gp": 0,
+       "pp": 0,
+       "sp": 0
+      },
+      "rings": [],
+      "shield": null,
+      "valuables": [],
+      "wielded": [],
+      "worn_armour": null
+     },
+     "level": 2,
+     "max_hp": 400,
+     "memorized_spells": [],
+     "name": "Bryn",
+     "nonregen_damage": 0,
+     "race": "human",
+     "scores": {
+      "cha": 10,
+      "con": 10,
+      "dex": 10,
+      "int": 10,
+      "str": 10,
+      "wis": 10
+     },
+     "spell_book": [],
+     "stat_modifiers": [],
+     "xp": 1500
+    }
+   ]
+  },
+  "quests": {},
+  "rng_streams": {
+   "effects": {
+    "inc": 110921974297112361420962594425958014099,
+    "state": 323578275112908533770403587567316273018
+   }
+  },
+  "ruleset": {
+   "aoe_friendly_fire": true,
+   "back_stab_needs_both_skills": true,
+   "deprivation_penalties": false,
+   "encumbrance": "basic",
+   "failed_trap_removal_springs": true,
+   "formation_width_limit": true,
+   "hd5_counts_as_magical": false,
+   "hp_reroll_at_first_level": false,
+   "individual_initiative": false,
+   "magic_item_death_save": true,
+   "thac0_arithmetic": false,
+   "variable_weapon_damage": true,
+   "weapon_reload": false,
+   "xp_award_timing": "on_return"
+  },
+  "treasure_snapshot_cp": null
+ },
+ "schema_version": 4
+}

@@ -376,9 +376,74 @@ class MemberView(_Model):
     [`Character.languages`][osrlib.core.character.Character.languages] lists them."""
     spell_book: tuple[str, ...] = ()
     """The ids of the spells in the member's spell book, as in
-    [`Character.spell_book`][osrlib.core.character.Character.spell_book]. They're the spells the member
-    can choose from in a [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells]. Empty for a class that
-    has no spell book. To show a spell's name, look its id up in
+    [`Character.spell_book`][osrlib.core.character.Character.spell_book], in the order they were
+    written in. Empty for a class that has no spell book. An arcane caster prepares only from the
+    book, and `preparable_spells` lists the spells in it that the member has a slot for. To show a
+    spell's name, look its id up in
+    [`PlayerView.spell_names`][osrlib.crawl.views.PlayerView.spell_names]."""
+    spell_slots: tuple[int, ...] = ()
+    """How many spells the member can memorize at each spell level, lowest level first, as in the
+    [`spell_slots`][osrlib.core.classes.ProgressionRow.spell_slots] of the class's progression row
+    for the member's level. Entry `i` is the slot count at spell level `i + 1`. It comes from
+    [`Character.definition`][osrlib.core.character.Character.definition], so it's right for a custom
+    class too.
+
+    A [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells] fits these counts: at each spell level,
+    select no more copies than the count there, and group `preparable_spells` by
+    [`PlayerView.spell_levels`][osrlib.crawl.views.PlayerView.spell_levels] to fill them. An arcane
+    caster's book has room at a spell level for this count less the spells the book already has
+    there. A 1st-level cleric has a count of 0 at every level, and a class that casts nothing has an
+    empty tuple."""
+    preparable_spells: tuple[str, ...] = ()
+    """The ids of the spells the member may select in a
+    [`PrepareSpells`][osrlib.crawl.commands.PrepareSpells], in the order of the session's catalog,
+    [`GameSession.effective_spells`][osrlib.crawl.session.GameSession.effective_spells]. Build a
+    prepare dialog from it.
+
+    For an arcane caster, they're the spells in `spell_book` at the spell levels where the member has
+    a slot, so a spell that a lost level left in the book without a slot isn't here. For a divine
+    caster, they're the spells on the class's spell list at every spell level where the member has a
+    slot, and the spells the adventure bundles for that list are among them. A cleric has no slot
+    until 2nd level, so the tuple is empty for a 1st-level cleric. It's empty for a class that casts
+    nothing.
+
+    A spell id is here exactly when a `PrepareSpells` that selects one copy of it in its normal form
+    is refused with none of these codes, which belong to the spell and the member:
+    `magic.memorize.not_a_caster`, `magic.memorize.unknown_spell`, `magic.memorize.wrong_list`,
+    `magic.memorize.not_in_book`, and `magic.memorize.slots_exceeded`. The tuple doesn't depend on
+    the moment, so it's the same before the party has slept (`magic.memorize.needs_sleep`), during an
+    encounter or a battle (`session.command.wrong_mode`), and while the member can't act
+    (`session.command.member_incapacitated`). The selections as a whole still have to fit
+    `spell_slots` at each spell level.
+
+    The form of a copy is up to the caster's kind. An arcane caster may select the reversed form of a
+    spell that has an entry in
+    [`PlayerView.reversed_spell_names`][osrlib.crawl.views.PlayerView.reversed_spell_names], and the
+    session refuses the reversed form of any other spell with `magic.memorize.not_reversible`. A
+    divine caster selects the normal form and chooses the form when casting, and the session refuses a
+    reversed selection with `magic.memorize.divine_reverses_at_cast`. To show a spell's name, look its
+    id up in [`PlayerView.spell_names`][osrlib.crawl.views.PlayerView.spell_names]."""
+    learnable_spells: tuple[str, ...] = ()
+    """The ids of the spells the member may write into their spell book with
+    [`LearnSpell`][osrlib.crawl.commands.LearnSpell], in the order of the session's catalog,
+    [`GameSession.effective_spells`][osrlib.crawl.session.GameSession.effective_spells]. Build a learn
+    dialog from it.
+
+    They're the spells on the class's spell list that aren't in `spell_book`, at each spell level
+    where the book has room. The room at a spell level is the member's count there in `spell_slots`,
+    less the spells the book already has at that level. The spells the adventure bundles for that list
+    are among them. The tuple is empty for a divine caster and for a class that casts nothing,
+    because neither keeps a spell book. It's also empty while the book has a spell that the session's
+    catalog doesn't have, because the session can't tell that spell's level, and so can't tell how
+    much room the book has left.
+
+    A spell id is here exactly when a `LearnSpell` for it is refused with none of these codes, which
+    belong to the spell and the member: `magic.book.not_arcane`, `magic.book.unknown_spell`,
+    `magic.book.wrong_list`, `magic.book.duplicate`, and `magic.book.capacity_exceeded`. The tuple
+    doesn't depend on the moment, so it's the same during an encounter or a battle
+    (`session.command.wrong_mode`) and while the member can't act
+    (`session.command.member_incapacitated`). Learning one spell can fill the book at that spell's
+    level, so read the view again after each `LearnSpell`. To show a spell's name, look its id up in
     [`PlayerView.spell_names`][osrlib.crawl.views.PlayerView.spell_names]."""
     thief_skills: dict[str, int] = {}
     """The member's chance at each thief skill at their level, keyed by the skill field names of
@@ -1037,9 +1102,11 @@ class PlayerView(_Model):
     """The name of each spell whose id the view shows, keyed by spell id, like
     `{"magic_missile": "Magic Missile"}`. Show these names, not the ids.
 
-    A spell id appears in three places in the view: in a member's
-    [`spell_book`][osrlib.crawl.views.MemberView.spell_book], as the `spell_id` of a copy in a member's
-    [`memorized_spells`][osrlib.crawl.views.MemberView.memorized_spells], and as the
+    A spell id appears in five places in the view: in a member's
+    [`spell_book`][osrlib.crawl.views.MemberView.spell_book],
+    [`preparable_spells`][osrlib.crawl.views.MemberView.preparable_spells], and
+    [`learnable_spells`][osrlib.crawl.views.MemberView.learnable_spells], as the `spell_id` of a copy in
+    a member's [`memorized_spells`][osrlib.crawl.views.MemberView.memorized_spells], and as the
     [`kind`][osrlib.crawl.views.MemberEffectView.kind] of an effect in `effects`, because a spell's
     effect has the spell's id as its kind unless the spell's data gives it a kind of its own. Every one
     of those ids that the session's catalog,
@@ -1048,8 +1115,10 @@ class PlayerView(_Model):
     bundles has its name here too, which [`load_spells`][osrlib.data.load_spells] doesn't have. An
     effect kind that isn't a spell id, like a torch's `"light"`, has no entry.
 
-    It names no spell whose id the view doesn't show, so the spells on a scroll stay hidden. A spell id
-    on a member that the session's catalog doesn't have, like one from a party made for another
+    It names no spell whose id the view doesn't show. So a spell the adventure bundles for a list that
+    no member casts from stays hidden, and so does a spell at a level where no member could prepare or
+    learn it. A spell on a scroll is named only when a member could prepare or learn it anyway. A spell
+    id on a member that the session's catalog doesn't have, like one from a party made for another
     adventure, has no entry either, and the session refuses to prepare or cast that spell. The name here
     is always the spell's normal form. For a copy prepared reversed, show its name from
     `reversed_spell_names`."""
@@ -1066,6 +1135,17 @@ class PlayerView(_Model):
     [`memorized_spells`][osrlib.crawl.views.MemberView.memorized_spells]. A divine caster prepares the
     normal form and chooses the form when casting, so every memorized copy of a reversible spell can be
     cast either way. To offer that choice, show both names."""
+    spell_levels: dict[str, int] = {}
+    """The level of each spell in `spell_names`, keyed by spell id, like
+    `{"magic_missile": 1, "web": 2}`. Group a prepare or learn dialog by it, because a member's slots
+    are counted per spell level, in
+    [`MemberView.spell_slots`][osrlib.crawl.views.MemberView.spell_slots].
+
+    Each value is the spell's [`level`][osrlib.core.spells.SpellTemplate.level], read from the same
+    catalog as `spell_names`, so a spell the adventure bundles has the level its author gave it. A
+    spell id belongs to exactly one spell list, like `light_mu` to the magic-user's and `light_c` to
+    the cleric's, so each id has one level for every class that casts from its list, like the elf,
+    who casts from the magic-user's list."""
     fatigued: bool
     """Whether any member is fatigued."""
     exhausted: bool
