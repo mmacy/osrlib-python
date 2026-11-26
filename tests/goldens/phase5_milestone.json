@@ -1311,6 +1311,12 @@
       "visibility": "player"
     },
     {
+      "code": "battle.side.escaped",
+      "event_type": "monster_escaped",
+      "group_id": "group-0001",
+      "visibility": "player"
+    },
+    {
       "code": "battle.ended.victory",
       "event_type": "battle_ended",
       "visibility": "player"
@@ -4157,6 +4163,7 @@
     "Battle round 3 begins.",
     "Initiative (side): party 3, monsters 4. Order: group-0001, character-0001, character-0002, character-0003, character-0004.",
     "group-0001 is now 140' away.",
+    "group-0001 gets away.",
     "The battle is won.",
     "monster-0001 (goblin) is slain.",
     "monster-0002 (goblin) is routed.",

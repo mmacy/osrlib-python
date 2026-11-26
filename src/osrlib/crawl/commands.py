@@ -2444,11 +2444,12 @@ class EngageBattle(Command):
 
     Events:
         [`BattleStartedEvent`][osrlib.crawl.events.BattleStartedEvent]. A monster group
-        whose morale score is 2 flees at once
-        ([`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent]). When every group
-        flees, the battle ends at once, with a
-        [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent] and the events of the
-        encounter's end.
+        whose morale score is 2 flees and gets away at once, with a
+        [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] followed right away by a
+        [`MonsterEscapedEvent`][osrlib.crawl.events.MonsterEscapedEvent]. When every group
+        has got away, the battle ends at once, with a
+        [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent] after the last
+        `MonsterEscapedEvent`, and the events of the encounter's end.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset({SessionMode.ENCOUNTER})
@@ -3202,7 +3203,11 @@ class ResolveBattleRound(Command):
         [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] for a group that
         fails its morale check and flees, and
         [`MonstersLeftBehindEvent`][osrlib.crawl.events.MonstersLeftBehindEvent]
-        when a fleeing group leaves behind members who can't move.
+        when a fleeing group leaves behind members who can't move. A group that broke and ran in an
+        earlier round runs on, and in the round its move takes it farther than
+        [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET] from every living member, a
+        [`MonsterEscapedEvent`][osrlib.crawl.events.MonsterEscapedEvent] comes right after
+        that move's `GroupMovedEvent`. The group has then left the battle.
 
         Closing the round: the clock advances one round, and these events report what
         that changes:
@@ -3213,7 +3218,8 @@ class ResolveBattleRound(Command):
         [`ProvisionsEvent`][osrlib.crawl.events.ProvisionsEvent].
 
         A round that ends the battle adds a
-        [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent] and the events of the
+        [`BattleEndedEvent`][osrlib.crawl.events.BattleEndedEvent], after the
+        `MonsterEscapedEvent` when an escape ended it, and the events of the
         encounter's end
         ([`EncounterEndedEvent`][osrlib.crawl.events.EncounterEndedEvent],
         [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent]s, a
@@ -3770,14 +3776,17 @@ class SpawnMonsters(Command):
         [`EncounterStartedEvent`][osrlib.crawl.events.EncounterStartedEvent], the
         reaction roll, and a
         [`StanceChangedEvent`][osrlib.crawl.events.StanceChangedEvent]. When the monsters'
-        reaction is to attack, battle opens at once.
+        reaction is to attack, battle opens at once. A group whose morale score is 2 then flees
+        and gets away as the battle opens, with a
+        [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] followed right away by a
+        [`MonsterEscapedEvent`][osrlib.crawl.events.MonsterEscapedEvent].
 
         When the monsters join an open encounter, an `EffectAttachedEvent` for each monster
         that regenerates follows instead, then an
         [`EncounterGroupJoinedEvent`][osrlib.crawl.events.EncounterGroupJoinedEvent], which
-        the players see. When the group joins a battle and its morale score is 2, a
-        [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent] comes last, because a
-        monster with that score won't fight.
+        the players see. When the group joins a battle and its morale score is 2, it gets away
+        at once, because a monster with that score won't fight. A `MonsterFledEvent` and then
+        a `MonsterEscapedEvent` come last.
     """
 
     allowed_modes: ClassVar[frozenset[SessionMode]] = frozenset(

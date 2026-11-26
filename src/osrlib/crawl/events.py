@@ -1438,9 +1438,11 @@ class MonsterFledEvent(Event):
     """A monster group broke and ran.
 
     Emitted by [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound] when
-    a group fails its morale check and flees. When a battle opens, it's also emitted for a
-    group whose morale is so low that it never fights at all, and that group leaves the
-    battle at once.
+    a group fails its morale check and flees. When a battle opens, or when a
+    [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters] adds a group to a running battle, it's
+    also emitted for a group whose morale is so low that it never fights at all. That group leaves
+    the battle at once, and a [`MonsterEscapedEvent`][osrlib.crawl.events.MonsterEscapedEvent] for
+    it comes right after this event.
 
     When a cleric turns only some of a group, the turned members leave the group and flee as
     a new group, and `group_id` is the new group's id.
@@ -1449,8 +1451,10 @@ class MonsterFledEvent(Event):
     [`EncounterGroupView.fleeing`][osrlib.crawl.views.EncounterGroupView.fleeing] is true from
     then on. It moves away each round, and it has left the battle once it's more than
     [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET] from the party, when
-    [`EncounterGroupView.fled`][osrlib.crawl.views.EncounterGroupView.fled] becomes true. Its
-    members still count as defeated for the experience award.
+    [`EncounterGroupView.fled`][osrlib.crawl.views.EncounterGroupView.fled] becomes true. That
+    happens in a later round, and that round's result contains a `MonsterEscapedEvent` for the group
+    right after the group's [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent]. Its members still count
+    as defeated for the experience award.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"battle.side.fled"})

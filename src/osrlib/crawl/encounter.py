@@ -260,7 +260,13 @@ class EncounterGroup(_Model):
     """True once the group has run past [`FLEE_EXIT_FEET`][osrlib.crawl.battle.FLEE_EXIT_FEET] and left
     the fight, or when its morale score is 2 and it ran as it entered the battle. The session refuses
     every battle declaration aimed at the group, whether an attack, a move to close, an item, or a
-    spell, with `battle.declaration.unknown_group`."""
+    spell, with `battle.declaration.unknown_group`.
+
+    The session emits a [`MonsterEscapedEvent`][osrlib.crawl.events.MonsterEscapedEvent] for the
+    group in the command result in which this becomes true, and in no other result. For a group
+    that runs past `FLEE_EXIT_FEET`, the event comes right after the group's
+    [`GroupMovedEvent`][osrlib.crawl.events.GroupMovedEvent]. For a group of morale 2, it comes
+    right after the group's [`MonsterFledEvent`][osrlib.crawl.events.MonsterFledEvent]."""
     member_treasure: dict[str, TreasureBundle] = {}
     """The treasure each member carries, keyed by monster id. The session rolls it when it spawns the
     monster, from the treasure types for individuals (P through T). When the encounter closes, a slain
