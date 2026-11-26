@@ -245,7 +245,7 @@
     "The party enters dungeon vault (level 1).",
     "The party moves to (1, 0), facing east.",
     "The party enters area gas_room (level 1).",
-    "Detection roll (trap_spring): 2 vs 2-in-6 — success.",
+    "Detection roll (trap_spring): 2 vs 2-in-6. Success.",
     "A trap springs (vault:1:gas_room) on character-0001!",
     "character-0001 is dead.",
     "character-0001 is killed.",
@@ -260,7 +260,7 @@
     "character-0004 is killed.",
     "character-0004 is at 0/6 hit points.",
     "The game is over: the party has fallen.",
-    "Referee rolls 2d6: [2, 2] — total 4.",
+    "Referee rolls 2d6: [2, 2], for a total of 4.",
     "Flag fume_vault_epitaph = 'four went in'."
   ]
 }

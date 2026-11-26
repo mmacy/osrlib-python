@@ -65,7 +65,7 @@ You do not need to read `session.event_log` to capture reactions from listeners.
 > move e
   The party moves to (2, 0), facing east.
   The party enters area guard_room (level 1).
-  Encounter: 2 goblins at 20' — the monsters are surprised.
+  Encounter: 2 goblins at 20'; the monsters are surprised.
   The monsters' bearing: hostile.
 ```
 
@@ -143,7 +143,7 @@ Four `move w` steps bring the party back to the entrance, where `town` resolves 
 ```text
 > town
   The party enters town town.
-  The adventure ends: 0 XP from monsters and 50 XP from treasure — 12 XP to each of 4 survivor(s).
+  The adventure ends: 0 XP from monsters and 50 XP from treasure, and each of 4 survivor(s) gets 12 XP.
   character-0001 gains 12 XP (base 12), now level 1.
   character-0002 gains 12 XP (base 12), now level 1.
   character-0003 gains 12 XP (base 12), now level 1.

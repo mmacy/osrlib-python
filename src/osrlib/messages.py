@@ -114,7 +114,7 @@ def _attack_auto(event: AttackRolledEvent) -> str:
         return (
             f"{event.attacker_id} back-stabs the helpless {event.defender_id} with {event.attack_name}. No roll needed."
         )
-    return f"{event.attacker_id} strikes the helpless {event.defender_id} with {event.attack_name} — no roll needed."
+    return f"{event.attacker_id} strikes the helpless {event.defender_id} with {event.attack_name}. No roll is needed."
 
 
 def _damage(event: DamageDealtEvent) -> str:
@@ -135,7 +135,7 @@ def _save(event: SavingThrowRolledEvent, outcome: str) -> str:
 
 
 def _morale(event: MoraleCheckedEvent, outcome: str) -> str:
-    return f"Morale check for {event.subject} (ML {event.score}): rolled {event.roll}{event.modifier:+d} — {outcome}."
+    return f"Morale check for {event.subject} (ML {event.score}): rolled {event.roll}{event.modifier:+d}, so {outcome}."
 
 
 def _morale_held(event: MoraleCheckedEvent) -> bool:
@@ -151,13 +151,13 @@ def _memorized(event: SpellsMemorizedEvent) -> str:
 def _cast(event: SpellCastEvent) -> str:
     spell = f"{event.spell_id} (reversed)" if event.reversed else event.spell_id
     at = f" at {', '.join(event.target_ids)}" if event.target_ids else ""
-    manual = " — the effect is narrated, not automated" if event.manual else ""
+    manual = ". The effect is narrated, not automated" if event.manual else ""
     return f"{event.caster_id} casts {spell} [{event.mode}]{at}{manual}."
 
 
 def _cast_no_effect(event: SpellCastEvent) -> str:
     spell = f"{event.spell_id} (reversed)" if event.reversed else event.spell_id
-    return f"{event.caster_id} casts {spell} [{event.mode}] — it has no effect."
+    return f"{event.caster_id} casts {spell} [{event.mode}]. It has no effect."
 
 
 def _healing_purchased(event: HealingPurchasedEvent) -> str:
@@ -200,11 +200,11 @@ def _goods(event: Any) -> str:
     """The items and coins an event moved, like `"jade-idol, 3 pp and 40 cp in coin"`.
 
     With coins, the items and the denominations make one list, with one "and" before the last part. Items
-    alone are joined by commas, like `"brass_key, toll_token"`.
+    alone make the same kind of list, like `"brass_key and toll_token"`.
     """
     coins = _coin_parts(event)
     if not coins:
-        return ", ".join(event.item_ids)
+        return _listed(list(event.item_ids)) if event.item_ids else ""
     return _listed([*event.item_ids, *coins]) + " in coin"
 
 
@@ -219,7 +219,7 @@ def _xp_awarded(event: Any) -> str:
 
 def _turning(event: UndeadTurnedEvent, outcome: str) -> str:
     pool = f", {event.hd_pool} HD affected" if event.hd_pool is not None else ""
-    return f"{event.caster_id} presents the holy symbol (rolled {event.roll}{pool}) — {outcome}."
+    return f"{event.caster_id} presents the holy symbol (rolled {event.roll}{pool}): {outcome}."
 
 
 # The registry dispatches on the event's `code`, so each template can assume its concrete
@@ -237,11 +237,11 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "combat.morale.held": lambda event: _morale(event, "they fight on"),
     "combat.morale.broke": lambda event: _morale(event, "they flee or surrender"),
     "combat.morale.exempt": lambda event: (
-        f"Morale check for {event.subject} (ML {event.score}): no roll — "
+        f"Morale check for {event.subject} (ML {event.score}): no roll, because "
         + ("they never check morale." if _morale_held(event) else "they never fight.")
     ),
     "encounter.reaction.rolled": lambda event: (
-        f"Reaction roll: {event.roll}{event.modifier:+d} = {event.total} — {event.result}."
+        f"Reaction roll: {event.roll}{event.modifier:+d} = {event.total} ({event.result})."
     ),
     "effects.condition.gained": lambda event: f"{event.target_id} is {event.condition}.",
     "effects.condition.removed": lambda event: f"{event.target_id} is no longer {event.condition}.",
@@ -270,9 +270,11 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "magic.cast.cast": _cast,
     "magic.cast.no_effect": _cast_no_effect,
     "magic.cast.disrupted": lambda event: (
-        f"{event.caster_id}'s casting of {event.spell_id} is disrupted — the spell is lost."
+        f"{event.caster_id}'s casting of {event.spell_id} is disrupted, and the spell is lost."
     ),
-    "magic.cast.fizzled": lambda event: f"{event.caster_id}'s casting of {event.spell_id} fizzles — the spell is lost.",
+    "magic.cast.fizzled": lambda event: (
+        f"{event.caster_id}'s casting of {event.spell_id} fizzles, and the spell is lost."
+    ),
     "magic.device.fizzled": lambda event: (
         f"{event.actor_id}'s use of {event.item_id} fizzles. The device keeps its charge."
     ),
@@ -306,7 +308,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     ),
     "exploration.door.stuck": lambda event: (
         f"The door {event.direction} of ({event.x}, {event.y}) won't budge"
-        + (f" — {event.character_id} strains in vain" if event.character_id else "")
+        + (f". {event.character_id} strains in vain" if event.character_id else "")
         + "."
     ),
     "exploration.door.wedged": lambda event: (
@@ -325,8 +327,8 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "exploration.detection.rolled": lambda event: (
         f"Detection roll ({event.kind}"
         + (f", {event.character_id}" if event.character_id else "")
-        + f"): {event.roll if event.roll is not None else 'no die'} vs {event.chance}-in-6 — "
-        + ("success." if event.passed else "failure.")
+        + f"): {event.roll if event.roll is not None else 'no die'} vs {event.chance}-in-6. "
+        + ("Success." if event.passed else "Failure.")
     ),
     "exploration.search.found": lambda event: (
         f"{event.character_id} searches ({event.kind}) and finds: {', '.join(event.found)}."
@@ -352,14 +354,14 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "exploration.item.consumed": lambda event: f"{event.character_id} uses up {event.item_id}.",
     "exploration.item.dropped": lambda event: f"{event.character_id} drops " + _goods(event) + ".",
     "exploration.item.left_behind": lambda event: (
-        "The party cannot carry it all — " + _goods(event) + " stays where it lies."
+        "The party cannot carry it all, so " + _goods(event) + " stays where it lies."
     ),
     "exploration.item.given": lambda event: (
         f"{event.character_id} gives " + _goods(event) + f" to {event.recipient_id}."
     ),
     "exploration.light.lit": lambda event: f"{event.character_id} lights a {event.source}.",
     "exploration.light.extinguished": lambda event: f"{event.character_id} extinguishes the {event.source}.",
-    "exploration.light.failed": lambda event: f"{event.character_id} fumbles with the tinder box — no flame.",
+    "exploration.light.failed": lambda event: f"{event.character_id} fumbles with the tinder box and gets no flame.",
     "exploration.light.expired": lambda event: (
         f"The {event.source}" + (f" carried by {event.character_id}" if event.character_id else "") + " gutters out."
     ),
@@ -370,14 +372,14 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "exploration.provisions.consumed": lambda event: f"{event.character_id} consumes the day's {event.kind}.",
     "exploration.provisions.short": lambda event: f"{event.character_id} has no {event.kind} for the day.",
     "exploration.wandering.checked": lambda event: (
-        f"Wandering check: {event.roll if event.roll is not None else 'skipped'} vs {event.chance}-in-6 — "
-        + ("an encounter!" if event.encounter else "nothing comes.")
+        f"Wandering check: {event.roll if event.roll is not None else 'skipped'} vs {event.chance}-in-6. "
+        + ("An encounter!" if event.encounter else "Nothing comes.")
     ),
     "encounter.started": lambda event: (
         f"Encounter: {event.count} {event.monster_name if event.count == 1 else event.monster_name_plural}"
         f" at {event.distance_feet}'"
-        + (" — the party is surprised" if event.party_surprised else "")
-        + (" — the monsters are surprised" if event.monsters_surprised else "")
+        + ("; the party is surprised" if event.party_surprised else "")
+        + ("; the monsters are surprised" if event.monsters_surprised else "")
         + "."
     ),
     "encounter.group.joined": lambda event: (
@@ -387,11 +389,11 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "encounter.surprise.rolled": lambda event: (
         f"Surprise ({event.side}): "
         + (f"rolled {event.roll}" if event.roll is not None else "no roll")
-        + f", surprised on 1-{event.threshold} — "
-        + ("surprised." if event.surprised else "not surprised.")
+        + f", surprised on 1-{event.threshold}. "
+        + ("Surprised." if event.surprised else "Not surprised.")
     ),
     "encounter.stance.changed": lambda event: f"The monsters' bearing: {event.stance}.",
-    "encounter.evasion.succeeded": lambda event: "The party slips away — the encounter is evaded.",
+    "encounter.evasion.succeeded": lambda event: "The party slips away and evades the encounter.",
     "encounter.evasion.pursuit": lambda event: "The monsters give chase!",
     "encounter.pursuit.round": lambda event: f"Pursuit round {event.round}: the gap is {event.gap_feet}'.",
     "encounter.pursuit.distracted": lambda event: (
@@ -400,7 +402,7 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "encounter.pursuit.escaped": lambda event: f"Pursuit round {event.round}: the party escapes.",
     "encounter.pursuit.caught": lambda event: f"Pursuit round {event.round}: the monsters catch the party!",
     "encounter.exhaustion.gained": lambda event: "The party is exhausted from running: -2 to attacks, damage, and AC.",
-    "encounter.exhaustion.recovered": lambda event: "The party catches its breath — exhaustion fades.",
+    "encounter.exhaustion.recovered": lambda event: "The party catches its breath, and the exhaustion fades.",
     "encounter.loot.dropped": lambda event: "The fallen leave behind " + _goods(event) + ".",
     "encounter.ended": lambda event: f"The encounter ends ({event.outcome}).",
     "battle.started": lambda event: "Battle is joined!",
@@ -440,14 +442,16 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
         else f"{event.character_id} drinks {event.instance_id}."
     ),
     "items.potion.mixed": lambda event: (
-        f"{event.target_id or event.character_id} mixes potions — both effects cancel and sickness takes hold!"
+        f"{event.target_id or event.character_id} mixes potions. Both effects cancel and sickness takes hold!"
     ),
-    "items.scroll.read": lambda event: f"{event.character_id} reads {event.instance_id} — the words disappear.",
-    "items.scroll.cursed": lambda event: f"{event.character_id} looks upon {event.instance_id} — a curse takes hold!",
+    "items.scroll.read": lambda event: f"{event.character_id} reads {event.instance_id}, and the words disappear.",
+    "items.scroll.cursed": lambda event: (
+        f"{event.character_id} looks upon {event.instance_id}, and a curse takes hold!"
+    ),
     "items.device.activated": lambda event: f"{event.character_id} activates {event.instance_id}.",
     "items.item.identified": lambda event: f"{event.instance_id} is identified: {event.template_id}.",
     "items.curse.revealed": lambda event: (
-        f"{event.instance_id} reveals its curse ({event.template_id}) — {event.character_id} cannot be rid of it."
+        f"{event.instance_id} reveals its curse ({event.template_id}), and {event.character_id} cannot be rid of it."
     ),
     "encounter.npc_party.spawned": lambda event: (
         f"An NPC party ({event.party_kind}, {event.alignment}) takes the field: "
@@ -458,8 +462,8 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
         + "."
     ),
     "session.xp.adventure_award": lambda event: (
-        f"The adventure ends: {event.monster_xp} XP from monsters and {event.treasure_xp} XP from treasure — "
-        f"{event.share} XP to each of {len(event.survivors)} survivor(s)."
+        f"The adventure ends: {event.monster_xp} XP from monsters and {event.treasure_xp} XP from treasure, "
+        f"and each of {len(event.survivors)} survivor(s) gets {event.share} XP."
     ),
     "town.treasure.sold": lambda event: (
         f"{event.character_id} sells {len(event.instance_ids)} valuable(s) for {event.gp_value} gp."
@@ -480,7 +484,8 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     "session.time.advanced": lambda event: f"Time advances {event.n} {event.unit}(s), to round {event.rounds_total}.",
     "session.game_over": lambda event: f"The game is over: {event.reason}.",
     "adjudication.dice_rolled": lambda event: (
-        f"Referee rolls {event.expression}: [{', '.join(str(die) for die in event.rolls)}] — total {event.total}."
+        f"Referee rolls {event.expression}: [{', '.join(str(die) for die in event.rolls)}]"
+        f", for a total of {event.total}."
     ),
     "session.trigger.fired": lambda event: f"Trigger {event.trigger_id} fired.",
     "session.journal.entry_added": lambda event: f"Journal: {event.text}",

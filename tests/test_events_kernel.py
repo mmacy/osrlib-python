@@ -282,6 +282,6 @@ class TestMessages:
         damage = sample_event(DamageDealtEvent, "combat.damage.dealt")
         assert format_message(damage) == "monster-0001 takes 5 damage from pc-1."
         morale = sample_event(MoraleCheckedEvent, "combat.morale.broke")
-        assert format_message(morale) == "Morale check for trolls (ML 10): rolled 8+0 — they flee or surrender."
+        assert format_message(morale) == "Morale check for trolls (ML 10): rolled 8+0, so they flee or surrender."
         initiative = sample_event(InitiativeRolledEvent, "combat.initiative.rolled")
         assert format_message(initiative) == "Initiative (side): party 4. Order: pc-1."
