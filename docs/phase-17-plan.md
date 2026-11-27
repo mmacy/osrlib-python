@@ -4,7 +4,7 @@ Phase 17 of [the osrlib spec](spec.md) adds the passage, a transition the party 
 
 ## Chunks
 
-The phase was one chunk, `passage`, built under the suite's working method.
+The phase was one chunk, `passage`.
 
 - **Contract**, pull requests 153 and 154: the `"passage"` kind and the `side` field on `TransitionSpec`, the `LevelSpec.passage_at` stub, the spec's passage bullet and roadmap entry, and `tests/test_passages.py`. Pull request 154 added a test that a passage may land on another level's cell with its own coordinates, and on a cell whose coordinates match a far cell on a different level.
 - **Implementation**: the model's side rule, `passage_at`, `transition_at` and `UseStairs` ignoring passages, the passage branch of `MoveParty`, the player view's open side, and the `validate_adventure` refusals.
