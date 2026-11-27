@@ -1,19 +1,28 @@
 """Tests for osrlib.core.abilities — checks, and the adjustment step's rule table."""
 
+import functools
+import itertools
+
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
 from osrlib.core.abilities import (
+    ADJUSTMENT_FLOOR,
+    MAX_SCORE,
     AbilityAdjustment,
+    AbilityAdjustmentLimit,
     AbilityScore,
+    AdjustmentLimits,
     ability_check,
+    adjustment_limits,
     apply_adjustment,
     open_doors_check,
     validate_adjustment,
 )
 from osrlib.core.rng import RngStream
-from osrlib.data import load_ability_tables
+from osrlib.core.validation import Rejection
+from osrlib.data import load_ability_tables, load_classes
 
 STR = AbilityScore.STR
 INT = AbilityScore.INT
@@ -190,3 +199,322 @@ def test_random_adjustments_are_rejected_never_raised(
         adjusted = apply_adjustment(base, adjustment, (STR, INT), may_not_lower=(WIS,))
         assert all(3 <= value <= 18 for value in adjusted.values())
         assert sum(adjusted.values()) == sum(base.values()) - sum(lowered.values()) + sum(raised.values())
+
+
+# ---------------------------------------------------------------------- adjustment_limits (#358)
+
+
+def _code(name: str, **params: int | str) -> Rejection:
+    return Rejection(code=f"creation.adjustment.{name}", params=params)
+
+
+def _limit(score: int, lowest: int, lowest_reason: Rejection, highest: int, highest_reason: Rejection):
+    return AbilityAdjustmentLimit(
+        can_lower=lowest < score,
+        can_raise=highest > score,
+        lowest=lowest,
+        lowest_reason=lowest_reason,
+        highest=highest,
+        highest_reason=highest_reason,
+    )
+
+
+def _fighter_scores(**overrides: int) -> dict[AbilityScore, int]:
+    base = {STR: 16, INT: 13, WIS: 12, DEX: 11, CON: 14, CHA: 9}
+    base.update({AbilityScore(key): value for key, value in overrides.items()})
+    return base
+
+
+class TestAdjustmentLimitsExamples:
+    def test_the_fighter_in_the_issue(self):
+        room = _code("no_room_to_raise", max_points=2)
+        assert adjustment_limits(_fighter_scores(), (STR,)) == AdjustmentLimits(
+            lower_step=2,
+            raise_step=1,
+            can_trade=True,
+            max_points=2,
+            max_points_reason=room,
+            abilities={
+                STR: _limit(
+                    16,
+                    16,
+                    _code("prime_requisite_lowered", ability="str"),
+                    18,
+                    _code("above_cap", ability="str", score=16, amount=3),
+                ),
+                INT: _limit(
+                    13,
+                    9,
+                    _code("below_floor", ability="int", score=13, amount=6),
+                    13,
+                    _code("raise_not_prime_requisite", ability="int"),
+                ),
+                WIS: _limit(
+                    12,
+                    10,
+                    _code("below_floor", ability="wis", score=12, amount=4),
+                    12,
+                    _code("raise_not_prime_requisite", ability="wis"),
+                ),
+                DEX: _limit(
+                    11, 11, _code("not_lowerable", ability="dex"), 11, _code("raise_not_prime_requisite", ability="dex")
+                ),
+                CON: _limit(
+                    14, 14, _code("not_lowerable", ability="con"), 14, _code("raise_not_prime_requisite", ability="con")
+                ),
+                CHA: _limit(
+                    9, 9, _code("not_lowerable", ability="cha"), 9, _code("raise_not_prime_requisite", ability="cha")
+                ),
+            },
+        )
+
+    def test_a_fighter_with_str_18_can_buy_nothing(self):
+        room = _code("no_room_to_raise", max_points=0)
+        assert adjustment_limits(_fighter_scores(str=18), (STR,)) == AdjustmentLimits(
+            lower_step=2,
+            raise_step=1,
+            can_trade=False,
+            max_points=0,
+            max_points_reason=room,
+            abilities={
+                STR: _limit(
+                    18,
+                    18,
+                    _code("prime_requisite_lowered", ability="str"),
+                    18,
+                    _code("above_cap", ability="str", score=18, amount=1),
+                ),
+                INT: _limit(13, 13, room, 13, _code("raise_not_prime_requisite", ability="int")),
+                WIS: _limit(12, 12, room, 12, _code("raise_not_prime_requisite", ability="wis")),
+                DEX: _limit(
+                    11, 11, _code("not_lowerable", ability="dex"), 11, _code("raise_not_prime_requisite", ability="dex")
+                ),
+                CON: _limit(
+                    14, 14, _code("not_lowerable", ability="con"), 14, _code("raise_not_prime_requisite", ability="con")
+                ),
+                CHA: _limit(
+                    9, 9, _code("not_lowerable", ability="cha"), 9, _code("raise_not_prime_requisite", ability="cha")
+                ),
+            },
+        )
+
+    def test_a_fighter_with_str_17_can_lower_int_by_two_only(self):
+        limits = adjustment_limits(_fighter_scores(str=17), (STR,))
+        assert limits.max_points == 1
+        assert limits.abilities[INT] == _limit(
+            13, 11, _code("no_room_to_raise", max_points=1), 13, _code("raise_not_prime_requisite", ability="int")
+        )
+
+    def test_a_tie_reports_no_room_to_raise(self):
+        limits = adjustment_limits(_fighter_scores(int=11, wis=11), (STR,))
+        reason = _code("no_room_to_raise", max_points=2)
+        assert (limits.max_points, limits.max_points_reason) == (2, reason)
+        assert limits.abilities[STR].highest_reason == _code("above_cap", ability="str", score=16, amount=3)
+
+    def test_a_prime_requisite_with_more_room_than_points_reports_no_room_to_lower(self):
+        limits = adjustment_limits(_fighter_scores(str=9, int=11, wis=10), (STR,))
+        reason = _code("no_room_to_lower", max_points=1)
+        assert (limits.max_points, limits.max_points_reason) == (1, reason)
+        assert limits.abilities[STR].highest == 10
+        assert limits.abilities[STR].highest_reason == reason
+        assert limits.abilities[INT].lowest_reason == _code("below_floor", ability="int", score=11, amount=4)
+
+    def test_the_abilities_come_in_ability_score_order(self):
+        assert list(adjustment_limits(_fighter_scores(), (STR,)).abilities) == list(AbilityScore)
+
+    def test_limits_round_trip_through_json(self):
+        limits = adjustment_limits(_fighter_scores(), (DEX,), may_not_lower=(STR,))
+        assert AdjustmentLimits.model_validate_json(limits.model_dump_json()) == limits
+
+
+# The brute-force grid. Each score set is (STR, INT, WIS, DEX, CON, CHA). Together they put STR, INT, WIS,
+# and DEX at 3, 8, 9, 10, 11, 17, and 18, and give each class cases where the points the lowerable abilities
+# can pay for are fewer than, equal to, and more than the points the prime requisites have room for.
+_SCORE_SETS = (
+    (16, 13, 12, 11, 14, 9),
+    (18, 13, 12, 11, 14, 9),
+    (17, 13, 12, 11, 14, 9),
+    (16, 11, 11, 16, 10, 10),
+    (15, 13, 13, 14, 10, 10),
+    (12, 11, 10, 15, 13, 8),
+    (3, 18, 17, 3, 10, 10),
+    (18, 3, 8, 18, 10, 10),
+    (17, 8, 18, 8, 18, 3),
+    (8, 17, 10, 17, 3, 18),
+    (10, 18, 3, 10, 10, 10),
+    (11, 10, 18, 9, 11, 17),
+    (9, 9, 9, 9, 9, 9),
+    (10, 10, 10, 10, 10, 10),
+    (11, 11, 11, 11, 11, 11),
+    (13, 15, 9, 16, 12, 12),
+    (3, 3, 3, 3, 3, 3),
+    (18, 18, 18, 18, 18, 18),
+)
+
+_SYNTHETIC_CLASSES = (
+    ((STR, WIS), ()),
+    ((DEX,), (INT,)),
+    ((INT, WIS), (STR,)),
+    ((CON,), (WIS, INT)),
+    ((), ()),
+)
+
+
+def _class_arguments() -> list[tuple[tuple[AbilityScore, ...], tuple[AbilityScore, ...]]]:
+    built_in = [(definition.prime_requisites, definition.may_not_lower) for definition in load_classes().classes]
+    return built_in + list(_SYNTHETIC_CLASSES)
+
+
+_CASES = [
+    (dict(zip(AbilityScore, score_set, strict=True)), prime_requisites, may_not_lower)
+    for score_set in _SCORE_SETS
+    for prime_requisites, may_not_lower in _class_arguments()
+]
+
+
+def _lowering_amounts(score: int) -> range:
+    """Every even amount to lower an ability by, from 0 to one step past the floor."""
+    return range(0, max(0, score - ADJUSTMENT_FLOOR) + 3, 2)
+
+
+@functools.cache
+def _candidates(case_index: int) -> list[tuple[AbilityAdjustment, bool]]:
+    """Every candidate trade for one case, each with whether `validate_adjustment` accepts it.
+
+    Lowered amounts are every even amount to one step past the floor for STR, INT, and WIS. Each of those sets is
+    also tried with its first amount made odd, and with one step off DEX, CON, or CHA, which no rule lets a trade
+    lower, taken in turn. Raised amounts run one point past the cap for every prime requisite, and the first ability
+    that isn't a prime requisite is tried at one point. Each set of lowered amounts is paired with the raises whose
+    total is within one point of half the lowered total. A raise further off breaks the balance rule, and leaving it
+    out keeps the enumeration to a few seconds.
+    """
+    case_scores, prime_requisites, may_not_lower = _CASES[case_index]
+    lowerable = (STR, INT, WIS)
+    lowered_options: list[dict[AbilityScore, int]] = []
+    evens = itertools.product(*(_lowering_amounts(case_scores[a]) for a in lowerable))
+    for index, amounts in enumerate(evens):
+        base = {a: amount for a, amount in zip(lowerable, amounts, strict=True) if amount}
+        lowered_options.append(base)
+        lowered_options.append({**base, (DEX, CON, CHA)[index % 3]: 2})
+        if base:
+            first = next(iter(base))
+            lowered_options.append({**base, first: base[first] - 1})
+    most_points = max(sum(option.values()) for option in lowered_options) // 2
+    raise_targets = [a for a in AbilityScore if a in prime_requisites]
+    outsider = next(a for a in AbilityScore if a not in prime_requisites)
+    raise_ranges = [range(min(MAX_SCORE - case_scores[a] + 1, most_points + 1) + 1) for a in raise_targets]
+    raised_by_total: dict[int, list[dict[AbilityScore, int]]] = {}
+    for amounts in itertools.product(*raise_ranges, (0, 1)):
+        raised = {a: amount for a, amount in zip([*raise_targets, outsider], amounts, strict=True) if amount}
+        raised_by_total.setdefault(sum(amounts), []).append(raised)
+    candidates = []
+    for lowered in lowered_options:
+        points = sum(lowered.values()) // 2
+        for raised in itertools.chain.from_iterable(
+            raised_by_total.get(t, []) for t in (points - 1, points, points + 1)
+        ):
+            trade = AbilityAdjustment(lowered=lowered, raised=raised)
+            legal = validate_adjustment(case_scores, trade, prime_requisites, may_not_lower) == []
+            candidates.append((trade, legal))
+    return candidates
+
+
+_CASE_IDS = range(len(_CASES))
+
+
+class TestAdjustmentLimitsAgainstValidateAdjustment:
+    @pytest.mark.parametrize("case_index", _CASE_IDS)
+    def test_each_limit_is_the_extreme_over_the_legal_trades(self, case_index):
+        case_scores, prime_requisites, may_not_lower = _CASES[case_index]
+        limits = adjustment_limits(case_scores, prime_requisites, may_not_lower)
+        legal = [trade for trade, ok in _candidates(case_index) if ok]
+        assert AbilityAdjustment() in legal
+        bought = [sum(trade.raised.values()) for trade in legal]
+        assert limits.max_points == max(bought)
+        assert limits.can_trade == (max(bought) > 0)
+        # The prime requisites are the limit exactly when some legal trade takes every one of them to the cap.
+        every_cap_reached = any(
+            all(case_scores[a] + trade.raised.get(a, 0) == MAX_SCORE for a in prime_requisites) for trade in legal
+        )
+        code = "no_room_to_raise" if every_cap_reached else "no_room_to_lower"
+        assert limits.max_points_reason == _code(code, max_points=max(bought))
+        for ability in AbilityScore:
+            score = case_scores[ability]
+            limit = limits.abilities[ability]
+            lowest = min(score - trade.lowered.get(ability, 0) for trade in legal)
+            highest = max(score + trade.raised.get(ability, 0) for trade in legal)
+            assert (limit.lowest, limit.highest) == (lowest, highest), ability
+            assert limit.can_lower == (lowest < score)
+            assert limit.can_raise == (highest > score)
+
+    @pytest.mark.parametrize("case_index", _CASE_IDS)
+    def test_each_reason_is_what_validate_adjustment_reports_one_step_past_the_limit(self, case_index):
+        case_scores, prime_requisites, may_not_lower = _CASES[case_index]
+        limits = adjustment_limits(case_scores, prime_requisites, may_not_lower)
+        for ability in AbilityScore:
+            score = case_scores[ability]
+            limit = limits.abilities[ability]
+            if limit.lowest_reason != limits.max_points_reason:
+                trade = AbilityAdjustment(lowered={ability: score - limit.lowest + limits.lower_step})
+                assert (
+                    validate_adjustment(case_scores, trade, prime_requisites, may_not_lower)[0] == limit.lowest_reason
+                )
+            if limit.highest_reason != limits.max_points_reason:
+                trade = AbilityAdjustment(raised={ability: limit.highest - score + limits.raise_step})
+                assert (
+                    validate_adjustment(case_scores, trade, prime_requisites, may_not_lower)[0] == limit.highest_reason
+                )
+
+    @pytest.mark.parametrize("case_index", _CASE_IDS)
+    def test_the_client_procedure_accepts_exactly_the_legal_trades(self, case_index):
+        case_scores, prime_requisites, may_not_lower = _CASES[case_index]
+        limits = adjustment_limits(case_scores, prime_requisites, may_not_lower)
+        for trade, legal in _candidates(case_index):
+            total_lowered = sum(trade.lowered.values())
+            total_raised = sum(trade.raised.values())
+            accepted = (
+                all(
+                    amount % limits.lower_step == 0 and amount <= case_scores[a] - limits.abilities[a].lowest
+                    for a, amount in trade.lowered.items()
+                )
+                and all(amount <= limits.abilities[a].highest - case_scores[a] for a, amount in trade.raised.items())
+                and total_raised == total_lowered // limits.lower_step * limits.raise_step
+                and total_raised <= limits.max_points
+            )
+            assert accepted == legal, trade
+
+    def test_the_grid_covers_every_kind_of_limit(self):
+        seen: set[str] = set()
+        for case_scores, prime_requisites, may_not_lower in _CASES:
+            limits = adjustment_limits(case_scores, prime_requisites, may_not_lower)
+            seen.add(limits.max_points_reason.code)
+            if limits.can_trade:
+                seen.add(f"trade:{limits.max_points_reason.code}")
+            for limit in limits.abilities.values():
+                seen.add(limit.lowest_reason.code)
+                seen.add(limit.highest_reason.code)
+        codes = {
+            "not_lowerable",
+            "prime_requisite_lowered",
+            "class_restriction",
+            "below_floor",
+            "above_cap",
+            "raise_not_prime_requisite",
+            "no_room_to_raise",
+            "no_room_to_lower",
+        }
+        assert {f"creation.adjustment.{code}" for code in codes} <= seen
+        assert {"trade:creation.adjustment.no_room_to_raise", "trade:creation.adjustment.no_room_to_lower"} <= seen
+
+    def test_the_grid_has_ties_and_both_inequalities(self):
+        relations = set()
+        for case_scores, prime_requisites, may_not_lower in _CASES:
+            payable = sum(
+                max(0, (case_scores[a] - ADJUSTMENT_FLOOR) // 2)
+                for a in (STR, INT, WIS)
+                if a not in prime_requisites and a not in may_not_lower
+            )
+            room = sum(MAX_SCORE - case_scores[a] for a in AbilityScore if a in prime_requisites)
+            if payable and room:
+                relations.add((payable > room) - (payable < room))
+        assert relations == {-1, 0, 1}

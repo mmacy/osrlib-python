@@ -88,7 +88,7 @@ The SRD's "Sub-Par Characters" rule gives two examples of very poor scores: "an 
 
 When a player lowers ability scores to raise another, each lowered score has to drop by an even amount, and the total raise must be exactly half the total reduction.
 
-The SRD says "For every two points by which an ability score is reduced, one point may be added". It doesn't say whether one score may drop by an odd amount as long as the total is even. osrlib applies the two-for-one trade to each score, so no point of a reduction goes unused. Locked by `test_abilities.py::TestAdjustment`.
+The SRD says "For every two points by which an ability score is reduced, one point may be added". It doesn't say whether one score may drop by an odd amount as long as the total is even. osrlib applies the two-for-one trade to each score, so no point of a reduction goes unused. [`adjustment_limits`][osrlib.core.abilities.adjustment_limits] reports the step as `lower_step`, and each ability's `lowest` is a whole number of steps below the rolled score. Locked by `test_abilities.py::TestAdjustment`.
 
 ### Gear combat facets are exempt from class weapon policies
 

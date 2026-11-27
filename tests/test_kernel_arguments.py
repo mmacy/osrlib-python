@@ -11,7 +11,7 @@ from contextlib import contextmanager
 
 import pytest
 
-from osrlib.core.abilities import AbilityAdjustment, AbilityScore, validate_adjustment
+from osrlib.core.abilities import AbilityAdjustment, AbilityScore, adjustment_limits, validate_adjustment
 from osrlib.core.alignment import Alignment
 from osrlib.core.character import CHARACTER_CREATION_STREAM, choose_starting_spells, create_character
 from osrlib.core.classes import detection_chance, level_title, thief_skill_check
@@ -362,6 +362,20 @@ def test_validate_adjustment_still_judges_a_legal_trade():
     scores = {ability: 12 for ability in AbilityScore}
     trade = AbilityAdjustment(lowered={AbilityScore.INT: 2}, raised={AbilityScore.STR: 1})
     assert validate_adjustment(scores, trade, (AbilityScore.STR,)) == []
+
+
+# ---------------------------------------------------------------------- adjustment_limits (#358)
+
+
+def test_adjustment_limits_refuses_a_missing_score():
+    with refused(match="int"):
+        adjustment_limits({AbilityScore.STR: 12}, (AbilityScore.STR,))
+
+
+@pytest.mark.parametrize("score", [0, 2, 19, 30])
+def test_adjustment_limits_refuses_scores_no_character_can_roll(score):
+    with refused():
+        adjustment_limits({ability: score for ability in AbilityScore}, (AbilityScore.STR,))
 
 
 # ---------------------------------------------------------------------- stock_area (#167, item 12)
