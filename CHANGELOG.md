@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [2.10.0] - 2026-11-27
+
 ### Added
 
 - [`adjustment_limits`][osrlib.core.abilities.adjustment_limits] returns the limits on the trade of ability points at character creation for a set of rolled scores and a class, so that a client can disable a control before the player uses it (#358). It takes the arguments that [`validate_adjustment`][osrlib.core.abilities.validate_adjustment] takes, without the trade, and raises the same `ValueError` for bad scores. The [`AdjustmentLimits`][osrlib.core.abilities.AdjustmentLimits] it returns has the exchange rate as `lower_step` (2) and `raise_step` (1), `can_trade`, and `max_points`, the most points a legal trade buys. Its `abilities` has an [`AbilityAdjustmentLimit`][osrlib.core.abilities.AbilityAdjustmentLimit] for each of the six abilities, with the `lowest` and `highest` score a legal trade leaves it at. Each limit is the extreme over every legal trade, so it accounts for the other abilities: a fighter with STR 17 and INT 13 can lower INT to 11 and no further. Each limit comes with the [`Rejection`][osrlib.core.validation.Rejection] that explains why the trade stops there, which is the first rejection `validate_adjustment` reports one step past the limit, or the reason for `max_points`. The new codes `creation.adjustment.no_room_to_raise` and `creation.adjustment.no_room_to_lower` state whether the prime requisites' room below 18 or the points that the lowerable abilities can pay for sets `max_points`. `validate_adjustment` never returns them, and it returns what it returned before for every trade.
@@ -740,7 +742,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The documentation site: quickstart, guides, front-end walk-throughs, and a full reference for every command, event, rejection code, message code, RNG stream, and content id.
 - The typed surface: complete type hints under `py.typed`, checked in CI.
 
-[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v2.9.0...HEAD
+[Unreleased]: https://github.com/mmacy/osrlib-python/compare/v2.10.0...HEAD
+[2.10.0]: https://github.com/mmacy/osrlib-python/compare/v2.9.0...v2.10.0
 [2.9.0]: https://github.com/mmacy/osrlib-python/compare/v2.8.0...v2.9.0
 [2.8.0]: https://github.com/mmacy/osrlib-python/compare/v2.7.0...v2.8.0
 [2.7.0]: https://github.com/mmacy/osrlib-python/compare/v2.6.0...v2.7.0
