@@ -17,10 +17,12 @@ attempt to force a stuck door. Both take an
 
 The rest of the module is the third step of character creation, where a player trades
 points between abilities before play.
+[`adjustment_limits`][osrlib.core.abilities.adjustment_limits] reports how far each score
+can move in a legal trade, so you can set up the controls before the player chooses.
 [`validate_adjustment`][osrlib.core.abilities.validate_adjustment] reports whether a
 proposed trade is legal, and [`apply_adjustment`][osrlib.core.abilities.apply_adjustment]
 applies it. [`create_character`][osrlib.core.character.create_character] runs the
-whole creation sequence, so call these two only when you build a character step by step
+whole creation sequence, so call these three only when you build a character step by step
 and let a player choose.
 
 The members, in the order you use them:
@@ -34,6 +36,10 @@ The members, in the order you use them:
   returns an [`AbilityCheckResult`][osrlib.core.abilities.AbilityCheckResult].
 - [`open_doors_check`][osrlib.core.abilities.open_doors_check]: takes a chance in 6 and a
   stream, and returns an [`OpenDoorsResult`][osrlib.core.abilities.OpenDoorsResult].
+- [`adjustment_limits`][osrlib.core.abilities.adjustment_limits]: takes the rolled scores
+  and the class's prime requisites and restrictions, and returns the
+  [`AdjustmentLimits`][osrlib.core.abilities.AdjustmentLimits] on a trade, with an
+  [`AbilityAdjustmentLimit`][osrlib.core.abilities.AbilityAdjustmentLimit] for each ability.
 - [`AbilityAdjustment`][osrlib.core.abilities.AbilityAdjustment]: a proposed trade, which
   [`validate_adjustment`][osrlib.core.abilities.validate_adjustment] checks and
   [`apply_adjustment`][osrlib.core.abilities.apply_adjustment] applies.
@@ -75,9 +81,11 @@ __all__ = [
     "MAX_SCORE",
     "MIN_SCORE",
     "AbilityAdjustment",
+    "AbilityAdjustmentLimit",
     "AbilityCheckResult",
     "AbilityScore",
     "AbilityTables",
+    "AdjustmentLimits",
     "CharismaRow",
     "ConstitutionRow",
     "DexterityRow",
@@ -89,6 +97,7 @@ __all__ = [
     "StrengthRow",
     "WisdomRow",
     "ability_check",
+    "adjustment_limits",
     "apply_adjustment",
     "open_doors_check",
     "validate_adjustment",
@@ -907,6 +916,265 @@ def open_doors_check(chance: int, stream: RngStream) -> OpenDoorsResult:
 
 _LOWERABLE = (AbilityScore.STR, AbilityScore.INT, AbilityScore.WIS)
 
+_LOWER_STEP = 2
+"""The points one step of the trade takes off a lowered ability."""
+
+_RAISE_STEP = 1
+"""The points one step of the trade adds to a raised ability."""
+
+
+class AbilityAdjustmentLimit(_Model):
+    """How far one ability score can move in a legal points trade, and why it can't move further.
+
+    [`adjustment_limits`][osrlib.core.abilities.adjustment_limits] returns one for each ability
+    in [`AdjustmentLimits.abilities`][osrlib.core.abilities.AdjustmentLimits.abilities]. Each
+    limit is the furthest that any legal trade moves this ability, counting the other abilities
+    that pay for its points or take the points it pays for. Use `lowest` and `highest` as the
+    bounds of the ability's control, and disable lowering when `can_lower` is false and raising
+    when `can_raise` is false.
+
+    Each limit is reachable on its own, but the player still has to balance the whole trade,
+    as [`AdjustmentLimits`][osrlib.core.abilities.AdjustmentLimits] describes. For example,
+    when two abilities can each pay for every point the prime requisites have room for, the
+    player can lower either one to its `lowest`, but not both.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    can_lower: bool
+    """Whether some legal trade lowers this ability. It's true exactly when `lowest` is below the rolled score."""
+
+    can_raise: bool
+    """Whether some legal trade raises this ability. It's true exactly when `highest` is above the rolled score."""
+
+    lowest: int
+    """The lowest score a legal trade leaves this ability at.
+
+    It's the rolled score when the ability can't be lowered. It's always the rolled score
+    less a multiple of [`lower_step`][osrlib.core.abilities.AdjustmentLimits.lower_step]. For
+    example, a score of 10 has a `lowest` of 10, because one step would take it to 8, below
+    [`ADJUSTMENT_FLOOR`][osrlib.core.abilities.ADJUSTMENT_FLOOR].
+    """
+
+    lowest_reason: Rejection
+    """Why no legal trade leaves this ability lower than `lowest`.
+
+    When a rule about this ability refuses one more step, this is the first rejection that
+    [`validate_adjustment`][osrlib.core.abilities.validate_adjustment] reports for lowering
+    the ability by `score - lowest + lower_step`, where `score` is the rolled score. The code is
+    `creation.adjustment.not_lowerable`, `creation.adjustment.prime_requisite_lowered`,
+    `creation.adjustment.class_restriction`, or `creation.adjustment.below_floor`, whose `score`
+    and `amount` params are the rolled score and that refused amount. When the ability has more
+    to give but the prime requisites have no room for the points, this is the same rejection as
+    [`max_points_reason`][osrlib.core.abilities.AdjustmentLimits.max_points_reason].
+    """
+
+    highest: int
+    """The highest score a legal trade leaves this ability at.
+
+    It's the rolled score when the ability can't be raised. Only a prime requisite of the
+    class can be raised, and no further than
+    [`MAX_SCORE`][osrlib.core.abilities.MAX_SCORE].
+    """
+
+    highest_reason: Rejection
+    """Why no legal trade leaves this ability higher than `highest`.
+
+    For an ability that isn't a prime requisite, this is
+    `creation.adjustment.raise_not_prime_requisite`. For a prime requisite that the cap
+    stops, it's the `creation.adjustment.above_cap` rejection that
+    [`validate_adjustment`][osrlib.core.abilities.validate_adjustment] reports for raising
+    the ability by `highest - score + raise_step`, where `score` is the rolled score. Its
+    `score` and `amount` params are the rolled score and that refused amount. When the cap
+    leaves room but the lowerable abilities can't
+    pay for more points, this is the same rejection as
+    [`max_points_reason`][osrlib.core.abilities.AdjustmentLimits.max_points_reason].
+    """
+
+
+class AdjustmentLimits(_Model):
+    """The limits on the points trade for one set of rolled scores and one class.
+
+    [`adjustment_limits`][osrlib.core.abilities.adjustment_limits] returns one. Read
+    `can_trade` to decide whether to offer the trade at all, and the entry for each ability
+    in `abilities` to set the bounds of its control.
+
+    A trade is legal exactly when all of these hold:
+
+    - Each lowered amount is a multiple of `lower_step` and no greater than the ability's
+      `score - lowest`.
+    - Each raised amount is no greater than the ability's `highest - score`.
+    - The points raised add up to the points lowered divided by `lower_step` and multiplied
+      by `raise_step`.
+    - The points raised add up to no more than `max_points`.
+
+    A client that enforces these conditions proposes only legal trades and doesn't need to
+    implement any trade rule itself.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    lower_step: int
+    """The points one step of the trade takes off a lowered ability, which is 2.
+
+    Move a lowering control in steps of this size.
+    """
+
+    raise_step: int
+    """The points one step of lowering buys for a prime requisite, which is 1."""
+
+    can_trade: bool
+    """Whether some legal trade changes a score. It's true exactly when `max_points` is above 0.
+
+    When it's false, the only legal trade is the empty one, so you can skip the trade step.
+    """
+
+    max_points: int
+    """The most points a legal trade buys for the prime requisites, and 0 when `can_trade` is false.
+
+    It's the smaller of two totals: the points the lowerable abilities can pay for before
+    they reach [`ADJUSTMENT_FLOOR`][osrlib.core.abilities.ADJUSTMENT_FLOOR], and the points
+    the prime requisites have room for below
+    [`MAX_SCORE`][osrlib.core.abilities.MAX_SCORE].
+    """
+
+    max_points_reason: Rejection
+    """Why no legal trade buys more than `max_points`.
+
+    The code is one of the following, and its `max_points` param equals `max_points`:
+
+    - `creation.adjustment.no_room_to_raise`: the prime requisites have no more room below
+      [`MAX_SCORE`][osrlib.core.abilities.MAX_SCORE]. This is the code when the two totals
+      that `max_points` compares are equal, and when every prime requisite is already 18.
+    - `creation.adjustment.no_room_to_lower`: the abilities that can be lowered can't pay for
+      more points without going below
+      [`ADJUSTMENT_FLOOR`][osrlib.core.abilities.ADJUSTMENT_FLOOR].
+
+    [`validate_adjustment`][osrlib.core.abilities.validate_adjustment] never returns these
+    two codes. They explain where the limits stop, and a proposed trade that goes past a
+    limit breaks one of the rules that `validate_adjustment` does report.
+    """
+
+    abilities: dict[AbilityScore, AbilityAdjustmentLimit]
+    """The limits on each of the six abilities, keyed in [`AbilityScore`][osrlib.core.abilities.AbilityScore] order."""
+
+
+def adjustment_limits(
+    scores: dict[AbilityScore, int],
+    prime_requisites: tuple[AbilityScore, ...],
+    may_not_lower: tuple[AbilityScore, ...] = (),
+) -> AdjustmentLimits:
+    """Return how far a points trade can move each ability score, and how many points it can buy.
+
+    Call this when you show the player the trade, before they choose anything, and use the
+    result to set the bounds of each control and disable the controls that can't move. Each
+    limit is the extreme over every legal trade, so it accounts for the other abilities: a
+    fighter with STR 17 has room for one point, so INT can come down by 2 at most, however
+    high it is. The limits depend only on the rolled scores and the class, and they don't
+    change while the player edits the trade, so call this once after the player chooses a
+    class.
+
+    [`validate_adjustment`][osrlib.core.abilities.validate_adjustment] judges one trade the
+    player has proposed. Call it on the finished trade before you apply it with
+    [`apply_adjustment`][osrlib.core.abilities.apply_adjustment], and use its rejections to
+    tell the player what's wrong. [`AdjustmentLimits`][osrlib.core.abilities.AdjustmentLimits]
+    states, in terms of these limits, the conditions that make a trade legal. A client that
+    enforces them proposes only legal trades.
+
+    Args:
+        scores: The rolled scores, with all six abilities present, each from
+            [`MIN_SCORE`][osrlib.core.abilities.MIN_SCORE] to
+            [`MAX_SCORE`][osrlib.core.abilities.MAX_SCORE].
+        prime_requisites: The chosen class's prime requisites, from
+            [`ClassDefinition`][osrlib.core.classes.ClassDefinition].
+        may_not_lower: Abilities this class forbids lowering, also from the class
+            definition.
+
+    Returns:
+        The limits on the trade as a whole and on each of the six abilities.
+
+    Raises:
+        ValueError: If `scores` is missing an ability, or has a score below 3 or above 18, as
+            [`validate_adjustment`][osrlib.core.abilities.validate_adjustment] raises.
+
+    Examples:
+        ```python
+        from osrlib.core.abilities import AbilityScore, adjustment_limits
+
+        scores = {
+            AbilityScore.STR: 16,
+            AbilityScore.INT: 13,
+            AbilityScore.WIS: 12,
+            AbilityScore.DEX: 11,
+            AbilityScore.CON: 14,
+            AbilityScore.CHA: 9,
+        }
+
+        # A fighter's prime requisite is STR, which has room for two points.
+        limits = adjustment_limits(scores, (AbilityScore.STR,))
+        assert limits.can_trade
+        assert limits.max_points == 2
+        assert limits.max_points_reason.code == "creation.adjustment.no_room_to_raise"
+
+        strength = limits.abilities[AbilityScore.STR]
+        assert (strength.can_lower, strength.highest) == (False, 18)
+        assert strength.highest_reason.code == "creation.adjustment.above_cap"
+
+        # INT can pay for both points. One step more would take it below 9.
+        intelligence = limits.abilities[AbilityScore.INT]
+        assert (intelligence.lowest, intelligence.can_raise) == (9, False)
+        assert intelligence.lowest_reason.code == "creation.adjustment.below_floor"
+        assert intelligence.lowest_reason.params["amount"] == 6
+
+        # Only STR, INT, and WIS can be lowered.
+        assert limits.abilities[AbilityScore.DEX].lowest_reason.code == "creation.adjustment.not_lowerable"
+        ```
+    """
+    _check_scores(scores)
+    capacity = {
+        ability: max(0, (scores[ability] - ADJUSTMENT_FLOOR) // _LOWER_STEP)
+        if ability in _LOWERABLE and ability not in prime_requisites and ability not in may_not_lower
+        else 0
+        for ability in AbilityScore
+    }
+    room = {ability: MAX_SCORE - scores[ability] for ability in AbilityScore if ability in prime_requisites}
+    points_payable = sum(capacity.values()) * _RAISE_STEP
+    room_total = sum(room.values())
+    max_points = min(points_payable, room_total)
+    if room_total <= points_payable:
+        max_points_reason = Rejection(code="creation.adjustment.no_room_to_raise", params={"max_points": max_points})
+    else:
+        max_points_reason = Rejection(code="creation.adjustment.no_room_to_lower", params={"max_points": max_points})
+
+    # Each reason is what the rule checks report one step past the limit. When they report nothing, the
+    # ability could move further, so the limit on total points is what stops it.
+    abilities: dict[AbilityScore, AbilityAdjustmentLimit] = {}
+    for ability in AbilityScore:
+        score = scores[ability]
+        steps = min(capacity[ability], room_total // _RAISE_STEP)
+        lowest = score - steps * _LOWER_STEP
+        refused_lowering = _lowering_rejections(
+            ability, score - lowest + _LOWER_STEP, prime_requisites, may_not_lower, score
+        )
+        highest = score + min(room.get(ability, 0), points_payable)
+        refused_raise = _raising_rejections(ability, highest - score + _RAISE_STEP, prime_requisites, score)
+        abilities[ability] = AbilityAdjustmentLimit(
+            can_lower=lowest < score,
+            can_raise=highest > score,
+            lowest=lowest,
+            lowest_reason=refused_lowering[0] if refused_lowering else max_points_reason,
+            highest=highest,
+            highest_reason=refused_raise[0] if refused_raise else max_points_reason,
+        )
+    return AdjustmentLimits(
+        lower_step=_LOWER_STEP,
+        raise_step=_RAISE_STEP,
+        can_trade=max_points > 0,
+        max_points=max_points,
+        max_points_reason=max_points_reason,
+        abilities=abilities,
+    )
+
 
 class AbilityAdjustment(_Model):
     """A proposed trade of ability points, made once while a character is being created.
@@ -1063,47 +1331,77 @@ def _adjustment_rejections(
     """
     rejections: list[Rejection] = []
     for ability, amount in adjustment.lowered.items():
-        if ability not in _LOWERABLE:
-            rejections.append(Rejection(code="creation.adjustment.not_lowerable", params={"ability": ability}))
-        if ability in prime_requisites:
-            rejections.append(
-                Rejection(code="creation.adjustment.prime_requisite_lowered", params={"ability": ability})
-            )
-        if ability in may_not_lower:
-            rejections.append(Rejection(code="creation.adjustment.class_restriction", params={"ability": ability}))
-        if amount % 2 != 0:
-            rejections.append(
-                Rejection(code="creation.adjustment.reduction_not_even", params={"ability": ability, "amount": amount})
-            )
-        if scores is not None and scores[ability] - amount < ADJUSTMENT_FLOOR:
-            rejections.append(
-                Rejection(
-                    code="creation.adjustment.below_floor",
-                    params={"ability": ability, "score": scores[ability], "amount": amount},
-                )
-            )
+        score = None if scores is None else scores[ability]
+        rejections.extend(_lowering_rejections(ability, amount, prime_requisites, may_not_lower, score))
     for ability, amount in adjustment.raised.items():
-        if ability not in prime_requisites:
-            rejections.append(
-                Rejection(code="creation.adjustment.raise_not_prime_requisite", params={"ability": ability})
-            )
-        elif scores is not None and scores[ability] + amount > MAX_SCORE:
-            rejections.append(
-                Rejection(
-                    code="creation.adjustment.above_cap",
-                    params={"ability": ability, "score": scores[ability], "amount": amount},
-                )
-            )
+        score = None if scores is None else scores[ability]
+        rejections.extend(_raising_rejections(ability, amount, prime_requisites, score))
     total_lowered = sum(adjustment.lowered.values())
     total_raised = sum(adjustment.raised.values())
-    if total_raised != total_lowered // 2:
+    points_available = total_lowered // _LOWER_STEP * _RAISE_STEP
+    if total_raised != points_available:
         rejections.append(
             Rejection(
                 code="creation.adjustment.points_mismatch",
-                params={"points_available": total_lowered // 2, "points_spent": total_raised},
+                params={"points_available": points_available, "points_spent": total_raised},
             )
         )
     return rejections
+
+
+def _lowering_rejections(
+    ability: AbilityScore,
+    amount: int,
+    prime_requisites: tuple[AbilityScore, ...],
+    may_not_lower: tuple[AbilityScore, ...],
+    score: int | None,
+) -> list[Rejection]:
+    """Return a rejection for each rule that lowering `ability` by `amount` breaks.
+
+    The rejections are in the order that `validate_adjustment` documents. When `score` is `None`,
+    the floor isn't checked.
+    """
+    rejections: list[Rejection] = []
+    if ability not in _LOWERABLE:
+        rejections.append(Rejection(code="creation.adjustment.not_lowerable", params={"ability": ability}))
+    if ability in prime_requisites:
+        rejections.append(Rejection(code="creation.adjustment.prime_requisite_lowered", params={"ability": ability}))
+    if ability in may_not_lower:
+        rejections.append(Rejection(code="creation.adjustment.class_restriction", params={"ability": ability}))
+    if amount % _LOWER_STEP != 0:
+        rejections.append(
+            Rejection(code="creation.adjustment.reduction_not_even", params={"ability": ability, "amount": amount})
+        )
+    if score is not None and score - amount < ADJUSTMENT_FLOOR:
+        rejections.append(
+            Rejection(
+                code="creation.adjustment.below_floor",
+                params={"ability": ability, "score": score, "amount": amount},
+            )
+        )
+    return rejections
+
+
+def _raising_rejections(
+    ability: AbilityScore,
+    amount: int,
+    prime_requisites: tuple[AbilityScore, ...],
+    score: int | None,
+) -> list[Rejection]:
+    """Return the rejection for the rule that raising `ability` by `amount` breaks, or an empty list.
+
+    When `score` is `None`, the cap isn't checked.
+    """
+    if ability not in prime_requisites:
+        return [Rejection(code="creation.adjustment.raise_not_prime_requisite", params={"ability": ability})]
+    if score is not None and score + amount > MAX_SCORE:
+        return [
+            Rejection(
+                code="creation.adjustment.above_cap",
+                params={"ability": ability, "score": score, "amount": amount},
+            )
+        ]
+    return []
 
 
 def apply_adjustment(

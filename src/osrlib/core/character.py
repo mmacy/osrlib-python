@@ -24,9 +24,11 @@ in the order the SRD gives for creating a character:
    so that a referee may let the player discard the character and start again.
 2. [`validate_class_choice`][osrlib.core.character.validate_class_choice] checks the scores against
    the class the player picks.
-3. [`validate_adjustment`][osrlib.core.abilities.validate_adjustment] and
-   [`apply_adjustment`][osrlib.core.abilities.apply_adjustment] check and apply a trade of ability
-   points, if the player wants one.
+3. [`adjustment_limits`][osrlib.core.abilities.adjustment_limits] reports how far a trade of ability
+   points can move each score, and
+   [`validate_adjustment`][osrlib.core.abilities.validate_adjustment] and
+   [`apply_adjustment`][osrlib.core.abilities.apply_adjustment] check and apply the trade, if the
+   player wants one.
 4. [`validate_starting_spells`][osrlib.core.character.validate_starting_spells] checks an arcane
    caster's first spell.
 5. [`roll_hit_points`][osrlib.core.character.roll_hit_points] rolls first-level hit points.
@@ -1100,8 +1102,10 @@ def roll_ability_scores(stream: RngStream, *, method: Literal["3d6", "4d6_drop_l
     player, then pass the scores to
     [`validate_class_choice`][osrlib.core.character.validate_class_choice] to find out which
     classes they qualify for. If the player wants to trade points between abilities after choosing
-    a class, check the trade with [`validate_adjustment`][osrlib.core.abilities.validate_adjustment]
-    and apply it with [`apply_adjustment`][osrlib.core.abilities.apply_adjustment].
+    a class, get the limits on the trade with
+    [`adjustment_limits`][osrlib.core.abilities.adjustment_limits], check the trade with
+    [`validate_adjustment`][osrlib.core.abilities.validate_adjustment], and apply it with
+    [`apply_adjustment`][osrlib.core.abilities.apply_adjustment].
 
     Call [`create_character`][osrlib.core.character.create_character] instead when the choices are
     already known and you want only the finished character. It passes the `ability_score_method` of

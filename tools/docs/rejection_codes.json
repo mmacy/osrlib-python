@@ -33,6 +33,8 @@
   "creation.adjustment.above_cap": "The player tried to raise a prime requisite ability score by an amount that would push it above the maximum score of 18.",
   "creation.adjustment.below_floor": "The player tried to lower an ability score by an amount that would drop it below the minimum allowed score of 9.",
   "creation.adjustment.class_restriction": "The player tried to lower an ability score that the chosen class specifically forbids lowering, such as a thief's Strength.",
+  "creation.adjustment.no_room_to_lower": "No legal trade buys more points than the `max_points` param, because the ability scores that can be lowered can't pay for more without dropping below the minimum allowed score of 9. Only `adjustment_limits` reports this code, as the reason that its limits stop where they do.",
+  "creation.adjustment.no_room_to_raise": "No legal trade buys more points than the `max_points` param, because the chosen class's prime requisite ability scores have no more room below the maximum score of 18. Only `adjustment_limits` reports this code, as the reason that its limits stop where they do.",
   "creation.adjustment.not_lowerable": "The player tried to lower an ability score other than Strength, Intelligence, or Wisdom, the only three scores that can be traded down during character creation.",
   "creation.adjustment.points_mismatch": "The points added to raised ability scores do not equal half the points removed from lowered ability scores, as the two-for-one trade requires.",
   "creation.adjustment.prime_requisite_lowered": "The player tried to lower one of the chosen class's prime requisite ability scores, which cannot be traded away.",
