@@ -304,19 +304,38 @@ def _radius_param(effect: SpellEffect) -> dict[str, int]:
     return {"radius_feet": radius} if isinstance(radius, int) and not isinstance(radius, bool) else {}
 
 
+_ITEM_CURSE_EFFECT_KINDS = frozenset({"ring_of_weakness", "ring_of_weakness_onset", "cursed_slow_healing"})
+"""The ledger effect kinds that item curses attach and *remove curse* releases: the Ring of Weakness's STR set and
+its onset, and the cursed scroll's slow healing."""
+
+
+def _has_curse_to_lift(session, member) -> bool:
+    """Return whether *remove curse* would lift anything from the member, which is what `_lift_curses` changes.
+
+    That's a carried item whose curse has been revealed, or an effect of a kind in `_ITEM_CURSE_EFFECT_KINDS` on the
+    member. The temple refuses the service when this is false. The check only reads the session.
+    """
+    if any(
+        isinstance(instance, MagicItemInstance) and instance.cursed_revealed
+        for instance in member.inventory.all_instances()
+    ):
+        return True
+    return any(effect.definition.kind in _ITEM_CURSE_EFFECT_KINDS for effect in session.ledger.active_on(member.id))
+
+
 def _lift_curses(session, member) -> list[Event]:
     """*Remove curse* lifts the bearer's item curses: stuck items become discardable.
 
     The item stays cursed and identified, the stuck marker clears, and item
     curse effects (the Ring of Weakness's STR set, the cursed scroll's slow
-    healing) release.
+    healing) release. `_has_curse_to_lift` says whether this changes anything.
     """
     events: list[Event] = []
     for instance in member.inventory.all_instances():
         if isinstance(instance, MagicItemInstance) and instance.cursed_revealed:
             instance.cursed_revealed = False
     for effect in list(session.ledger.active_on(member.id)):
-        if effect.definition.kind in ("ring_of_weakness", "ring_of_weakness_onset", "cursed_slow_healing"):
+        if effect.definition.kind in _ITEM_CURSE_EFFECT_KINDS:
             events.extend(session.ledger.release(effect.effect_id, session.registry()))
     return events
 

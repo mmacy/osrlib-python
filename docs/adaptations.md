@@ -1861,13 +1861,17 @@ Each service casts the real spell through the kernel and honours the windows in 
 
 The temple cleric is of the lowest level that can cast the service, unless the command sets `caster_level` ([#226](https://github.com/mmacy/osrlib-python/issues/226)). A higher level lets the temple raise a member who died days ago. Raise dead reaches back 4 days for each caster level above 7th, so the default level 7 cleric raises only a member who died less than a day ago, and a level 9 cleric raises one dead up to 8 days. The session refuses a level below the lowest that can cast the service, or above 14, the highest cleric level, with `town.healing.caster_level_out_of_range`. The price is the same at every level. A game that wants a higher-level priest to cost more sets the town's price.
 
-The temple refuses a service that would do nothing, with `town.healing.no_effect` ([#167](https://github.com/mmacy/osrlib-python/issues/167)):
+The temple refuses a service that would do nothing, with `town.healing.no_effect` ([#167](https://github.com/mmacy/osrlib-python/issues/167), [#363](https://github.com/mmacy/osrlib-python/issues/363)). The rejection's `reason` param, given here in parentheses, names the case:
 
-- Raise dead on a living member, or on a member dead longer than the spell reaches at the cleric's level. The session judges the reach with the same check the spell uses when it resolves, so the temple and a cleric's cast can't disagree.
-- Cure disease on a member who isn't diseased.
-- Neutralize poison on a member who is neither poisoned nor dead of poison within the spell's 10-round window.
+- Cure light wounds or cure serious wounds on a member who is dead (`dead`), `weakened` (`weakened`), `diseased` (`diseased`), or at full hit points (`full_hit_points`), checked in that order. Neither condition lets a member heal by magic, so the spell would restore nothing.
+- Cure disease on a member who isn't diseased (`not_diseased`).
+- Neutralize poison on a member who is neither poisoned nor dead of poison within the spell's 10-round window (`not_poisoned`).
+- Remove curse on a member who carries no item whose curse has been revealed and has no item curse's effect, such as a ring of weakness's or a cursed scroll's (`not_cursed`). These are the things the spell lifts.
+- Raise dead on a living member (`not_dead`), on a dead member whose death the session didn't record (`no_death_record`), or on a member dead longer than the spell reaches at the cleric's level. That case is `caster_level_too_low` when a higher temple cleric could raise the member, and `dead_too_long` when none could. The session judges the reach with the same check the spell uses when it resolves, so the temple and a cleric's cast can't disagree.
 
 The level check runs first and the funds check second, so a party that can't pay gets `items.purchase.insufficient_funds`, not `town.healing.no_effect`. Like every refusal, these take no coin, no draw, and no time.
+
+The player view states the temple's answer before the purchase, from the same checks the command makes. `PlayerView.town_healing_rejections` is empty for a member and service when some cleric level from the service's minimum to 14 can perform it, and `town_healing_caster_levels` gives the lowest such level. Otherwise the rejections are those of a purchase at the default level. Whether the temple sells a service never gets worse with the level, because only raise dead's reach depends on it, so the view tries the lowest and the highest level and searches between them only when the two differ. `town_healing_funds_gp` is the sum of each purse's whole gold pieces, the number the funds check compares with the price.
 
 The temple charges the party, not the patient:
 
@@ -1877,7 +1881,7 @@ The temple charges the party, not the patient:
 
 So what the party can spend is the whole gold pieces in each purse, not the purses' total worth. A party whose whole gold pieces fall short is refused with `items.purchase.insufficient_funds` and keeps every coin. For example, at 10 sp to 1 gp, two members who each have 12 gp and 5 sp are worth 25 gp between them, the fee for cure light wounds. Each purse can pay only 12 whole gold pieces, though, so together they pay 24 gp, and the party can't buy the service.
 
-Raise dead is the reason the party pays. The patient is a corpse, no rule gives a corpse coin, and a party that splits its treasure never has 1,500 gp in one purse. So the documented revival flow (game over, `PlaceParty` to town, raise dead) works only if the party's purses can pay together. Locked by `test_award.py::TestTownServices`, `test_award.py::TestPooledHealingFees`, `test_rules_calls.py::TestTempleRefusesAUselessService`, and `test_temple.py`.
+Raise dead is the reason the party pays. The patient is a corpse, no rule gives a corpse coin, and a party that splits its treasure never has 1,500 gp in one purse. So the documented revival flow (game over, `PlaceParty` to town, raise dead) works only if the party's purses can pay together. Locked by `test_award.py::TestTownServices`, `test_award.py::TestPooledHealingFees`, `test_rules_calls.py::TestTempleRefusesAUselessService`, `test_temple.py`, and `test_temple_services_view.py`.
 
 ### Listener-returned events are authored events
 

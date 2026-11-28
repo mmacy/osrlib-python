@@ -3268,7 +3268,7 @@ def apply_healing(target: Creature, amount: int, *, source: str = "magical") -> 
     target_id = _entity_id(target)
     if has_condition(target, Condition.DEAD):
         return []
-    if has_condition(target, Condition.WEAKENED) or (source == "magical" and has_condition(target, Condition.DISEASED)):
+    if _healing_blocked(target, source):
         return [HealingAppliedEvent(code="combat.healing.blocked", target_id=target_id, amount=0, source=source)]
     if source == "magical" and has_modifier(target, "magical_healing_half"):
         # The cursed scroll's slow healing: "healing spells only cure half the
@@ -3281,6 +3281,18 @@ def apply_healing(target: Creature, amount: int, *, source: str = "magical") -> 
         HealingAppliedEvent(code="combat.healing.applied", target_id=target_id, amount=healed, source=source),
         HitPointsReportedEvent(target_id=target_id, current_hp=target.current_hp, max_hp=target.max_hp),
     ]
+
+
+def _healing_blocked(target: Creature, source: str) -> bool:
+    """Return whether a condition stops a living target from healing anything from `source`.
+
+    The `weakened` condition blocks every source, and the `diseased` condition blocks a `magical` one.
+    [`apply_healing`][osrlib.core.combat.apply_healing] reports such healing with `combat.healing.blocked`, and the
+    temple refuses a cure it would block. The check only reads the target.
+    """
+    return has_condition(target, Condition.WEAKENED) or (
+        source == "magical" and has_condition(target, Condition.DISEASED)
+    )
 
 
 def natural_healing(target: Creature, stream: RngStream, *, ledger: EffectsLedger | None = None) -> list[Event]:
