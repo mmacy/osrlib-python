@@ -2141,7 +2141,9 @@ def _needs_creatures(mode: SpellMode) -> bool:
 
     A location can't roll a saving throw, take damage or healing, die, come back to life, or count against a pool
     of Hit Dice. An effect on a location grants no condition or modifiers either. *Web* is the one condition mode
-    that works on a location, because cast there it drops the condition and entangles whoever enters the cell.
+    that works on a location, because cast there it drops the condition and entangles whoever enters the cell. A
+    cure that ends only conditions, like *cure disease*, needs a creature, because only a creature has conditions.
+    A cure that ends effects, like *light*'s `cancel`, takes a location.
     """
     effect, targeting = mode.effect, mode.targeting
     if effect is None or targeting is None:
@@ -2151,6 +2153,8 @@ def _needs_creatures(mode: SpellMode) -> bool:
     if mode.save is not None or targeting.mode is TargetingMode.HD_BUDGET:
         return True
     if effect.kind in ("damage", "heal", "kill", "restore_life") or effect.modifiers:
+        return True
+    if effect.kind == "cure" and effect.cures_conditions and not effect.cures_effect_kinds:
         return True
     return effect.condition is not None and "escape_dice" not in effect.params
 
@@ -2205,9 +2209,11 @@ def validate_cast(
     - Each target is a creature when the mode works only on creatures. A location string can't
       make a saving throw, take damage or healing, die, come back to life, or count against a
       pool of Hit Dice, and an effect on a location grants no condition or modifiers. *Web*,
-      *dispel magic*, the modes that cure, and the modes that attach an effect with no condition
-      or modifiers, like *light*'s, still take a location. A mode whose targeting sets
-      [`creatures_only`][osrlib.core.spells.TargetingSpec.creatures_only], such as *fly*'s, needs a creature.
+      *dispel magic*, the cure modes that end effects, like *light*'s `cancel`, and the modes that
+      attach an effect with no condition or modifiers, like *light*'s `illuminate`, still take a
+      location. A cure mode that ends only conditions, such as *cure disease*'s, needs a creature,
+      and so does a mode whose targeting sets
+      [`creatures_only`][osrlib.core.spells.TargetingSpec.creatures_only], such as *fly*'s.
     - The target is in range, but only when the context gives a distance. A reversed cast is checked
       against the reverse's own range when it has one, such as *cause fear*'s 120'.
 
