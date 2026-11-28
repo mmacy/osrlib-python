@@ -10,6 +10,7 @@ from osrlib.core.character import party_to_document
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.commands import (
     AwardXP,
+    EngageBattle,
     EnterDungeon,
     ForceDoor,
     GrantItem,
@@ -17,7 +18,9 @@ from osrlib.crawl.commands import (
     LightSource,
     MoveParty,
     RollDice,
+    SessionMode,
     SetFlag,
+    SpawnMonsters,
 )
 from osrlib.crawl.dungeon import Direction
 from osrlib.crawl.session import GameSession
@@ -253,6 +256,57 @@ class TestMigrations:
         document = save_game(session)
         monkeypatch.setattr(persistence, "MIGRATIONS", {})
         assert save_game(load_game(document)) == document
+
+
+class TestModeNeedsWhatItSaysIsOpen:
+    """A save whose mode says an encounter or a battle is open must have it (#257)."""
+
+    @staticmethod
+    def _in_encounter() -> GameSession:
+        session = GameSession.new(build_party(), build_adventure(wandering_chance=0), seed=7)
+        assert session.execute(EnterDungeon(dungeon_id="delve")).accepted
+        assert session.execute(SpawnMonsters(template_id="goblin", count_fixed=2, distance_feet=60)).accepted
+        assert session.encounter is not None
+        return session
+
+    def test_a_save_taken_mid_encounter_loads(self):
+        session = self._in_encounter()
+        document = save_game(session)
+        assert save_game(load_game(document)) == document
+
+    def test_a_save_taken_mid_battle_loads(self):
+        session = self._in_encounter()
+        if session.battle is None:
+            assert session.execute(EngageBattle()).accepted
+        assert session.mode is SessionMode.BATTLE
+        document = save_game(session)
+        assert save_game(load_game(document)) == document
+
+    def test_encounter_mode_with_no_encounter_is_refused(self):
+        session, _ = drive_session()
+        document = save_game(session)
+        document["payload"]["mode"] = "encounter"
+        with pytest.raises(ContentValidationError, match="mode is 'encounter', and the save has no open encounter"):
+            load_game(document)
+
+    def test_battle_mode_with_no_battle_is_refused(self):
+        session = self._in_encounter()
+        assert session.battle is None  # this seed's goblins don't attack at once
+        document = save_game(session)
+        document["payload"]["mode"] = "battle"
+        with pytest.raises(ContentValidationError, match="mode is 'battle', and the save has no open battle"):
+            load_game(document)
+
+    def test_battle_mode_with_nothing_open_reports_both(self):
+        session, _ = drive_session()
+        document = save_game(session)
+        document["payload"]["mode"] = "battle"
+        with pytest.raises(ContentValidationError) as caught:
+            load_game(document)
+        assert str(caught.value).splitlines()[1:] == [
+            "mode is 'battle', and the save has no open encounter",
+            "mode is 'battle', and the save has no open battle",
+        ]
 
 
 class TestUnknownEventPreservation:

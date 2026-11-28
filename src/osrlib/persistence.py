@@ -446,6 +446,21 @@ def _migrate(payload: dict, from_version: int) -> dict:
     return payload
 
 
+def _open_state_problems(session: GameSession) -> list[str]:
+    """Return a message for each encounter or battle that the session's mode says is open and the save lacks.
+
+    The session opens an encounter whenever it enters `encounter` mode, and an encounter and a battle whenever it
+    enters `battle` mode, so these come from a hand-edited or damaged save. In such a session, the encounter and
+    battle commands refuse with `encounter.none_active` or `battle.none_active`, and play can't go on.
+    """
+    problems = []
+    if session.mode in (SessionMode.ENCOUNTER, SessionMode.BATTLE) and session.encounter is None:
+        problems.append(f"mode is {session.mode.value!r}, and the save has no open encounter")
+    if session.mode is SessionMode.BATTLE and session.battle is None:
+        problems.append("mode is 'battle', and the save has no open battle")
+    return problems
+
+
 def load_game(document: Mapping[str, object]) -> GameSession:
     """Restore a session from a save document.
 
@@ -491,8 +506,9 @@ def load_game(document: Mapping[str, object]) -> GameSession:
             adventure doesn't have: a party location on a missing dungeon, level, or cell, a generated
             cache whose `cell_ref` names no cell, a generated cache whose `lair_area_ref` doesn't fit
             its `origin` and its cell, or a drop pile keyed by a cell reference that names no cell. The
-            message identifies each such entry and its reference. A retry with the same document fails
-            the same way.
+            message identifies each such entry and its reference. It's raised too for a save whose
+            `mode` is `encounter` with no open encounter, or `battle` without both an open encounter
+            and an open battle. A retry with the same document fails the same way.
         osrlib.errors.SaveVersionError: If the document's schema version is newer than this osrlib
             reads. Tell the player to upgrade osrlib. The file itself is fine.
 
@@ -598,6 +614,9 @@ def load_game(document: Mapping[str, object]) -> GameSession:
             EncounterState.model_validate(payload["encounter"]) if payload.get("encounter") is not None else None
         )
         session.battle = BattleState.model_validate(payload["battle"]) if payload.get("battle") is not None else None
+        problems = _open_state_problems(session)
+        if problems:
+            raise ContentValidationError("save mode failed validation:\n" + "\n".join(problems))
         session.streams.restore_states(
             {key: RngStreamState.model_validate(value) for key, value in payload["rng_streams"].items()}
         )

@@ -3115,7 +3115,7 @@ def _handle_end_encounter(session: GameSession, command: EndEncounter) -> tuple[
     state = session.encounter
     if state is None:
         # Play never reaches this, because the session opens an encounter whenever it enters encounter or battle
-        # mode. A client that sets `mode` itself, or loads a save that it wrote that way, can reach it.
+        # mode, and load_game refuses a save that says otherwise. A client that sets `mode` itself can reach it.
         return [Rejection(code="encounter.none_active")], []
     area_ref = state.area_ref
     events = encounter_module.end_encounter(session, command.outcome)
