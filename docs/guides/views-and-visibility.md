@@ -28,7 +28,7 @@ assert "current_hp" not in player_group.model_dump()
 
 ## Read character sheets and masked magic items
 
-`PlayerView` includes the adventure and town names and descriptions, available town services, temple healing prices and which of those services the temple would refuse for each member, the party's position and facing, the elapsed clock, fatigue and deprivation status, how long the party's light and food will last, and the current `SessionMode`.
+`PlayerView` includes the adventure and town names and descriptions, available town services, temple healing prices, which of those services the temple can perform for each member and what the party can pay, the party's position and facing, the elapsed clock, fatigue and deprivation status, how long the party's light and food will last, and the current `SessionMode`.
 
 Each party member appears in `PlayerView.party` as a [`MemberView`][osrlib.crawl.views.MemberView] containing every stat needed to render a B/X character sheet: ID, name, race, class id and class name (`class_name`, which is right for a custom class too), level, title, alignment, XP and next-level XP threshold, current and maximum hit points, conditions, ability scores and modifiers, THAC0 and attack bonus, descending and ascending AC, saving throws, movement rate, languages, inventory, spell book, spell slots at each spell level (`spell_slots`), the spells the member may prepare (`preparable_spells`) and learn (`learnable_spells`), when the member chooses a spell's form (`reverses_at`), whether they can prepare spells now (`can_prepare_now`) and whether they need to sleep first (`needs_sleep_to_prepare`), memorized spells, and thief skill chances.
 
@@ -56,22 +56,34 @@ To show how much light and food the party has left, read [`PlayerView.supplies`]
 
 A dead member's items don't count until a living member takes them, and neither do the items in a dropped pile. The summary reports the same numbers in town as in a dungeon, so decide from `PlayerView.location` whether to show it. A `PlayerView` that osrlib 2.10.0 built has no `supplies`, and it validates with `supplies` set to `None`.
 
-To build the temple screen, read [`PlayerView.town_healing_prices`][osrlib.crawl.views.PlayerView.town_healing_prices] for what each service costs and [`PlayerView.town_healing_rejections`][osrlib.crawl.views.PlayerView.town_healing_rejections] for which services the temple would refuse for each member. The second map is keyed by the member's id and then by the service, like `"raise_dead"`, and covers every member, the dead included. Each value is the tuple of rejections that a [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] for that member and service would get, with the codes and params the command returns, so disable a service whose tuple isn't empty and show the reason from its code. An empty tuple means the temple sells the service. The code you'll meet is `town.healing.no_effect`, for a service that would do nothing, such as *cure light wounds* for a member at full hit points or *raise dead* for a living member.
+To build the temple screen, read these fields of the player view:
+
+- [`PlayerView.town_healing_prices`][osrlib.crawl.views.PlayerView.town_healing_prices] gives what each service costs.
+- [`PlayerView.town_healing_funds_gp`][osrlib.crawl.views.PlayerView.town_healing_funds_gp] gives the whole gold pieces the party's purses can pay toward a fee. A service is affordable when its price is at most this number. The session counts each purse's total value in every coin type, rounded down to a gold piece, and adds up the whole party, dead members included, so don't count the coins yourself.
+- [`PlayerView.town_healing_rejections`][osrlib.crawl.views.PlayerView.town_healing_rejections] is keyed by the member's id and then by the service, like `"raise_dead"`, and covers every member, the dead included. An empty tuple means some temple cleric can perform the service for the member. Otherwise the tuple contains the rejections that a [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] gets, with the codes and params the command returns, so disable the service and show the reason. The code you'll meet is `town.healing.no_effect`, for a service that would do nothing, and its `reason` param names the case, such as `full_hit_points`, `dead`, or `not_dead`.
+- [`PlayerView.town_healing_caster_levels`][osrlib.crawl.views.PlayerView.town_healing_caster_levels] gives, for each service with an empty tuple, the lowest cleric level that can perform it. Send that number as `PurchaseHealing.caster_level`. It's the service's minimum level except for *raise dead* on a member who died a day or more ago, whose reach needs a higher cleric. The price is the same at every level, and a higher level gives the party nothing more, so you don't need a level control.
 
 ```json
 {
-  "character-0001": {
-    "cure_light_wounds": [],
-    "raise_dead": [{"code": "town.healing.no_effect", "params": {"item": "raise_dead", "character": "character-0001"}}]
+  "town_healing_rejections": {
+    "character-0001": {
+      "cure_light_wounds": [],
+      "raise_dead": [{"code": "town.healing.no_effect", "params": {"item": "raise_dead", "character": "character-0001", "reason": "not_dead"}}]
+    },
+    "character-0002": {
+      "cure_light_wounds": [{"code": "town.healing.no_effect", "params": {"item": "cure_light_wounds", "character": "character-0002", "reason": "dead"}}],
+      "raise_dead": []
+    }
   },
-  "character-0002": {
-    "cure_light_wounds": [{"code": "town.healing.no_effect", "params": {"item": "cure_light_wounds", "character": "character-0002"}}],
-    "raise_dead": []
-  }
+  "town_healing_caster_levels": {
+    "character-0001": {"cure_light_wounds": 2, "cure_serious_wounds": 6},
+    "character-0002": {"raise_dead": 8}
+  },
+  "town_healing_funds_gp": 120
 }
 ```
 
-The example shows two of the services. In it, the first member is alive and wounded, and the second member died earlier the same day. The temple heals the first member and raises the second. A dead member's `raise_dead` entry is empty only while the lowest-level cleric can raise them, which is less than a day after death, because the map answers for a purchase that leaves `caster_level` unset. A purchase with a higher `caster_level` reaches further back. The fee isn't part of the answer. Compare the price with the party's purses yourself, because the session refuses a purchase the party can't pay for with `items.purchase.insufficient_funds`. The map is empty unless the session is in the `"town"` mode. A `PlayerView` that osrlib 2.10.0 built has no `town_healing_rejections`, and it validates with the map empty.
+The example shows two of the services in `town_healing_rejections`. In it, the first member is alive and wounded, and the second member died 3 days ago. The temple can heal the first member with a level 2 cleric, and raise the second with a level 8 cleric, because *raise dead* reaches back 4 days for each level above 7th. The party's purses can pay 120 gp, so it can afford *cure light wounds* and *cure serious wounds* but not *raise dead*. The rejections and the levels don't depend on the fee, because the session refuses a purchase the party can't pay for with `items.purchase.insufficient_funds` before it makes the other checks. Both maps are empty unless the session is in the `"town"` mode, and the funds are stated in every mode. A `PlayerView` that osrlib 2.10.0 built has none of these three fields, and it validates with both maps empty and the funds set to `None`.
 
 ## Render maps, encounters, and battle positions
 

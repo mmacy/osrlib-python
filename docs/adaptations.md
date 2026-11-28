@@ -1861,15 +1861,17 @@ Each service casts the real spell through the kernel and honours the windows in 
 
 The temple cleric is of the lowest level that can cast the service, unless the command sets `caster_level` ([#226](https://github.com/mmacy/osrlib-python/issues/226)). A higher level lets the temple raise a member who died days ago. Raise dead reaches back 4 days for each caster level above 7th, so the default level 7 cleric raises only a member who died less than a day ago, and a level 9 cleric raises one dead up to 8 days. The session refuses a level below the lowest that can cast the service, or above 14, the highest cleric level, with `town.healing.caster_level_out_of_range`. The price is the same at every level. A game that wants a higher-level priest to cost more sets the town's price.
 
-The temple refuses a service that would do nothing, with `town.healing.no_effect` ([#167](https://github.com/mmacy/osrlib-python/issues/167), [#363](https://github.com/mmacy/osrlib-python/issues/363)):
+The temple refuses a service that would do nothing, with `town.healing.no_effect` ([#167](https://github.com/mmacy/osrlib-python/issues/167), [#363](https://github.com/mmacy/osrlib-python/issues/363)). The rejection's `reason` param, given here in parentheses, names the case:
 
-- Cure light wounds or cure serious wounds on a member who is dead, at full hit points, or `diseased` or `weakened`. Neither condition lets a member heal by magic, so the spell would restore nothing. The temple's cure light wounds heals and never lifts paralysis, so a paralysed member at full hit points is refused too.
-- Cure disease on a member who isn't diseased.
-- Neutralize poison on a member who is neither poisoned nor dead of poison within the spell's 10-round window.
-- Remove curse on a member who carries no item whose curse has been revealed and has no item curse's effect, such as a ring of weakness's or a cursed scroll's. These are the things the spell lifts.
-- Raise dead on a living member, or on a member dead longer than the spell reaches at the cleric's level. The session judges the reach with the same check the spell uses when it resolves, so the temple and a cleric's cast can't disagree.
+- Cure light wounds or cure serious wounds on a member who is dead (`dead`), `weakened` (`weakened`), `diseased` (`diseased`), or at full hit points (`full_hit_points`), checked in that order. Neither condition lets a member heal by magic, so the spell would restore nothing.
+- Cure disease on a member who isn't diseased (`not_diseased`).
+- Neutralize poison on a member who is neither poisoned nor dead of poison within the spell's 10-round window (`not_poisoned`).
+- Remove curse on a member who carries no item whose curse has been revealed and has no item curse's effect, such as a ring of weakness's or a cursed scroll's (`not_cursed`). These are the things the spell lifts.
+- Raise dead on a living member (`not_dead`), on a dead member whose death the session didn't record (`no_death_record`), or on a member dead longer than the spell reaches at the cleric's level. That case is `caster_level_too_low` when a higher temple cleric could raise the member, and `dead_too_long` when none could. The session judges the reach with the same check the spell uses when it resolves, so the temple and a cleric's cast can't disagree.
 
-The level check runs first and the funds check second, so a party that can't pay gets `items.purchase.insufficient_funds`, not `town.healing.no_effect`. Like every refusal, these take no coin, no draw, and no time. `PlayerView.town_healing_rejections` reports, for each member and service, the rejections that follow the funds check, from the same check the command makes, so a client can disable a service before the player buys it.
+The level check runs first and the funds check second, so a party that can't pay gets `items.purchase.insufficient_funds`, not `town.healing.no_effect`. Like every refusal, these take no coin, no draw, and no time.
+
+The player view states the temple's answer before the purchase, from the same checks the command makes. `PlayerView.town_healing_rejections` is empty for a member and service when some cleric level from the service's minimum to 14 can perform it, and `town_healing_caster_levels` gives the lowest such level. Otherwise the rejections are those of a purchase at the default level. Whether the temple sells a service never gets worse with the level, because only raise dead's reach depends on it, so the view tries the lowest and the highest level and searches between them only when the two differ. `town_healing_funds_gp` is the sum of each purse's whole gold pieces, the number the funds check compares with the price.
 
 The temple charges the party, not the patient:
 

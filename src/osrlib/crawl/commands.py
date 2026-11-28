@@ -2317,11 +2317,14 @@ class PurchaseHealing(Command):
     Because the party pays, a dead member can be raised even when that member's purse is
     empty, and the party doesn't have to move coins between purses first.
 
-    To learn before you send the command which services the temple would refuse for each
-    member, and why, read
-    [`PlayerView.town_healing_rejections`][osrlib.crawl.views.PlayerView.town_healing_rejections].
-    It contains the rejections that follow the funds check, for a purchase that leaves
-    `caster_level` unset.
+    To learn before you send the command which services the temple can perform for each
+    member, read
+    [`PlayerView.town_healing_rejections`][osrlib.crawl.views.PlayerView.town_healing_rejections],
+    which contains the rejections that follow the funds check, and
+    [`PlayerView.town_healing_caster_levels`][osrlib.crawl.views.PlayerView.town_healing_caster_levels],
+    which gives the `caster_level` to send. To learn whether the party can pay, compare the
+    price with
+    [`PlayerView.town_healing_funds_gp`][osrlib.crawl.views.PlayerView.town_healing_funds_gp].
 
     Modes:
         `town`
@@ -2335,14 +2338,17 @@ class PurchaseHealing(Command):
           temple accepts for the service.
         - `items.purchase.insufficient_funds` - the whole gold pieces in the party's
           purses add up to less than the town's price for the service.
-        - `town.healing.no_effect` - the service would do nothing for the member. That's
-          `cure_light_wounds` or `cure_serious_wounds` for a member who is dead, at full hit
-          points, or `diseased` or `weakened`, because neither of those conditions lets a
-          member heal by magic. It's `cure_disease` for a member who isn't diseased, and
-          `neutralize_poison` for a member who isn't poisoned and didn't die of poison in the
-          last 10 rounds. It's `remove_curse` for a member who carries no item whose curse has
-          been revealed and has no item curse's effect on them. It's `raise_dead` for a living
-          member or for one dead longer than the spell reaches at the cleric's level. The
+        - `town.healing.no_effect` - the service would do nothing for the member. The
+          rejection's `reason` param says why. For `cure_light_wounds` and
+          `cure_serious_wounds` it's `dead`, `weakened`, `diseased`, or `full_hit_points`,
+          checked in that order, because neither condition lets a member heal by magic. For
+          `cure_disease` it's `not_diseased`. For `neutralize_poison` it's `not_poisoned`, for
+          a member who isn't poisoned and didn't die of poison in the last 10 rounds. For
+          `remove_curse` it's `not_cursed`, for a member who carries no item whose curse has
+          been revealed and has no item curse's effect. For `raise_dead` it's `not_dead` for a
+          living member, `no_death_record` for a dead member whose death the session didn't
+          record, `caster_level_too_low` for a member a higher-level cleric could raise, and
+          `dead_too_long` for a member no temple cleric can raise, checked in that order. The
           session checks the party's funds first, so a party that can't pay gets
           `items.purchase.insufficient_funds` instead.
 
@@ -2372,7 +2378,9 @@ class PurchaseHealing(Command):
     above 7th. A level 7 cleric raises only a member who died less than a day ago, and a level 9
     cleric raises a member dead up to 8 days. The session refuses a level below the lowest that can
     cast the service, or above 14, the highest level a cleric can reach. The price is the same at
-    every level."""
+    every level. For each member and service,
+    [`PlayerView.town_healing_caster_levels`][osrlib.crawl.views.PlayerView.town_healing_caster_levels]
+    gives the lowest level that works."""
 
 
 class Parley(Command):
