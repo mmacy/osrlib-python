@@ -142,6 +142,12 @@
       "item_ids": [
         "silver_dagger"
       ],
+      "item_names": {
+        "silver_dagger": "silver dagger"
+      },
+      "item_names_plural": {
+        "silver_dagger": "silver daggers"
+      },
       "origin": "grant",
       "visibility": "player"
     }

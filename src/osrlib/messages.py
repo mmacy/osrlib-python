@@ -516,7 +516,10 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
         f"{event.character_id} looks upon {event.instance_id}, and a curse takes hold!"
     ),
     "items.device.activated": lambda event: f"{event.character_id} activates {event.instance_id}.",
-    "items.item.identified": lambda event: f"{event.instance_id} is identified: {event.template_id}.",
+    # An event recorded before `display_name` existed has it empty, and names the item by its template id.
+    "items.item.identified": lambda event: (
+        f"{event.instance_id} is identified: {event.display_name or event.template_id}."
+    ),
     "items.curse.revealed": lambda event: (
         f"{event.instance_id} reveals its curse ({event.template_id}), and {event.character_id} cannot be rid of it."
     ),

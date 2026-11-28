@@ -68,7 +68,7 @@ from typing import Annotated, ClassVar, Literal
 from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from osrlib.core._descriptions import _StrEnum
-from osrlib.core.frozen import _Model
+from osrlib.core.frozen import FrozenMap, _Model
 
 __all__ = [
     "AttackRolledEvent",
@@ -869,6 +869,20 @@ class EquipmentDestroyedEvent(Event):
     saved_items: tuple[str, ...] = ()
     """The instance ids of the magic items that passed their save and still exist. Empty when none survived,
     which is always so when the ruleset's `magic_item_death_save` flag is off."""
+    saved_item_names: Annotated[Mapping[str, str], FrozenMap] = FrozenMap()
+    """What to call one of each item in `saved_items`, keyed by the same id, such as
+    `{"magic-item-0003": "sword with a faint aura"}`. Each name is the name that
+    [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] has for that id, so an unidentified magic
+    item has its masked name, such as `"potion"` or `"shield with a faint aura"`, and never its true name. The save
+    identifies nothing. The destroyed items are in `item_names`, in a different form: an unidentified item has an
+    article there, and a mundane item has its printed name. A client that replays an event log, or that didn't keep
+    a view, can name the items from the event. It's empty on an event from a log written before the field
+    existed."""
+    saved_item_names_plural: Annotated[Mapping[str, str], FrozenMap] = FrozenMap()
+    """What to call two or more of each item in `saved_item_names`, with the same keys, such as
+    `{"magic-item-0003": "swords with a faint aura"}`, from
+    [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural]. Use it with a count of your
+    own."""
 
 
 class LevelDrainedEvent(Event):
@@ -1278,6 +1292,20 @@ class DeclarationFizzledEvent(Event):
     Match on it as you match on the code of a [`Rejection`][osrlib.core.validation.Rejection].
     [The rejection code reference][rejection-codes] explains each code.
     """
+    item_names: Annotated[Mapping[str, str], FrozenMap] = FrozenMap()
+    """What to call the item in `item_id`, keyed by that id, such as `{"magic-item-0003": "wand"}`. Each name is the
+    name that [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] has for that id, so an
+    unidentified magic item has its masked name, such as `"potion"` or `"shield with a faint aura"`, and never its
+    true name. A fizzled declaration identifies nothing, so an unidentified item keeps its masked name. It's empty
+    on a `magic.turning.fizzled` or a `battle.melee.fizzled` event, which has no item, and on a
+    `battle.give.fizzled` event whose item has left the party. A client that replays an event log, or that didn't
+    keep a view, can name the items from the event. It's also empty on an event from a log written before the field
+    existed."""
+    item_names_plural: Annotated[Mapping[str, str], FrozenMap] = FrozenMap()
+    """What to call two or more of each item in `item_names`, with the same keys, such as
+    `{"magic-item-0003": "wands"}`, from
+    [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural]. Use it with a count of your
+    own."""
 
 
 class SpellForgottenEvent(Event):

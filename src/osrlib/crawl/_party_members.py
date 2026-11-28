@@ -4,7 +4,7 @@ from typing import Any
 
 from osrlib.core.combat import incapacitated
 from osrlib.core.effects import Condition, has_condition
-from osrlib.core.items import ItemInstance, ItemTemplate, MagicItemInstance
+from osrlib.core.items import ItemInstance, ItemTemplate, MagicItemInstance, ValuableInstance
 from osrlib.core.validation import Rejection
 
 
@@ -174,6 +174,23 @@ def _remove_instance(member, instance: ItemInstance | MagicItemInstance) -> None
         inventory.worn_armour = None
     elif inventory.shield is instance:
         inventory.shield = None
+
+
+def _held_item(member, item_id: str) -> ItemInstance | MagicItemInstance | ValuableInstance | None:
+    """Return what a member carries under the id an item event lists it by, or `None`.
+
+    A magic item's or a valuable's instance id identifies that item, and any other id is a mundane item's catalog id,
+    which names the member's first stack of it.
+    """
+    inventory = member.inventory
+    magic = inventory.magic_item(item_id)
+    if magic is not None:
+        return magic
+    valuable = next((piece for piece in inventory.valuables if piece.instance_id == item_id), None)
+    if valuable is not None:
+        return valuable
+    carried = inventory.carried_item(item_id)
+    return carried if isinstance(carried, ItemInstance) else None
 
 
 def _consumed_item_id(instance) -> str:

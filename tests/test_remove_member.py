@@ -476,7 +476,14 @@ class TestGiveTo:
         events = remove(session, THIEF, give_to=LEAD)
         assert isinstance(events[0], EffectReleasedEvent), "the wearer's curse ends as the ring leaves"
         assert [event for event in events if isinstance(event, ItemsGivenEvent)] == [
-            ItemsGivenEvent(character_id=THIEF, recipient_id=LEAD, item_ids=(ring_id,), coins_gp_value=0)
+            ItemsGivenEvent(
+                character_id=THIEF,
+                recipient_id=LEAD,
+                item_ids=(ring_id,),
+                coins_gp_value=0,
+                item_names={ring_id: "ring of weakness"},
+                item_names_plural={ring_id: "rings of weakness"},
+            )
         ]
         assert ring_id in pack_ids(session, LEAD)
         assert session.member(LEAD).inventory.rings == []

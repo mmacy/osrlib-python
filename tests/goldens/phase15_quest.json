@@ -208,6 +208,12 @@
       "item_ids": [
         "votive_idol"
       ],
+      "item_names": {
+        "votive_idol": "Votive idol of jade"
+      },
+      "item_names_plural": {
+        "votive_idol": "Votive idols of jade"
+      },
       "origin": "treasure",
       "visibility": "player"
     },
@@ -305,6 +311,8 @@
       "coins_gp_value": 100,
       "event_type": "item_acquired",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "origin": "grant",
       "visibility": "player"
     },
@@ -379,6 +387,12 @@
         "torch",
         "torch"
       ],
+      "item_names": {
+        "torch": "torch"
+      },
+      "item_names_plural": {
+        "torch": "torches"
+      },
       "origin": "grant",
       "visibility": "player"
     }

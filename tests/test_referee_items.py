@@ -230,7 +230,15 @@ class TestGrantItemMagic:
         assert all(not instance.identified for instance in granted)
         ids = tuple(instance.instance_id for instance in granted)
         assert len(set(ids)) == 2, "each granted copy has its own instance id"
-        assert list(result.events) == [ItemAcquiredEvent(character_id=SECOND, item_ids=ids, origin="grant")]
+        assert list(result.events) == [
+            ItemAcquiredEvent(
+                character_id=SECOND,
+                item_ids=ids,
+                origin="grant",
+                item_names=dict.fromkeys(ids, "potion"),
+                item_names_plural=dict.fromkeys(ids, "potions"),
+            )
+        ]
 
     def test_a_granted_device_is_made_the_way_treasure_makes_it(self):
         session = new_session()
@@ -298,7 +306,13 @@ class TestGrantItemMagic:
         session = new_session()
         result = session.execute(GrantItem(character_id=LEAD, item_id="torch", quantity=6))
         assert list(result.events) == [
-            ItemAcquiredEvent(character_id=LEAD, item_ids=("torch",) * 6, origin="grant"),
+            ItemAcquiredEvent(
+                character_id=LEAD,
+                item_ids=("torch",) * 6,
+                origin="grant",
+                item_names={"torch": "torch"},
+                item_names_plural={"torch": "torches"},
+            ),
         ]
         assert units(session, LEAD, "torch") == 6
 
@@ -326,7 +340,14 @@ class TestRemoveItem:
         result = session.execute(RemoveItem(character_id=LEAD, item_id="torch", quantity=2))
         assert result.accepted
         assert units(session, LEAD, "torch") == 4
-        assert list(result.events) == [ItemsRemovedEvent(character_id=LEAD, item_ids=("torch",) * 2)]
+        assert list(result.events) == [
+            ItemsRemovedEvent(
+                character_id=LEAD,
+                item_ids=("torch",) * 2,
+                item_names={"torch": "torch"},
+                item_names_plural={"torch": "torches"},
+            )
+        ]
         assert stream_states(session) == streams and session.clock.rounds == rounds, "a removal is bookkeeping"
         assert session.command_log[-1] == RemoveItem(character_id=LEAD, item_id="torch", quantity=2)
 
@@ -351,7 +372,14 @@ class TestRemoveItem:
         inventory = session.member(LEAD).inventory
         assert inventory.magic_item(sell) is None
         assert inventory.magic_item(keep) is not None, "only the named copy goes"
-        assert list(result.events) == [ItemsRemovedEvent(character_id=LEAD, item_ids=(sell,))]
+        assert list(result.events) == [
+            ItemsRemovedEvent(
+                character_id=LEAD,
+                item_ids=(sell,),
+                item_names={sell: "potion"},
+                item_names_plural={sell: "potions"},
+            )
+        ], "the unidentified potion is named by its mask"
 
     def test_an_instance_id_removes_a_whole_ammunition_stack(self):
         from osrlib.crawl.commands import RemoveItem
@@ -372,7 +400,14 @@ class TestRemoveItem:
         result = session.execute(RemoveItem(character_id=SECOND, item_id="valuable-9001"))
         assert result.accepted
         assert session.member(SECOND).inventory.valuables == []
-        assert list(result.events) == [ItemsRemovedEvent(character_id=SECOND, item_ids=("valuable-9001",))]
+        assert list(result.events) == [
+            ItemsRemovedEvent(
+                character_id=SECOND,
+                item_ids=("valuable-9001",),
+                item_names={"valuable-9001": "gem"},
+                item_names_plural={"valuable-9001": "gems"},
+            )
+        ]
 
     def test_an_equipped_weapon_is_unequipped_and_removed(self):
         from osrlib.crawl.commands import RemoveItem
@@ -415,7 +450,14 @@ class TestRemoveItem:
         assert inventory.rings == []
         assert inventory.magic_item(ring_id) is None
         removals = [event for event in result.events if isinstance(event, ItemsRemovedEvent)]
-        assert removals == [ItemsRemovedEvent(character_id=LEAD, item_ids=(ring_id,))]
+        assert removals == [
+            ItemsRemovedEvent(
+                character_id=LEAD,
+                item_ids=(ring_id,),
+                item_names={ring_id: "ring of weakness"},
+                item_names_plural={ring_id: "rings of weakness"},
+            )
+        ], "the ring is identified, so it has its true name"
 
     def test_an_unknown_member_is_refused(self):
         from osrlib.crawl.commands import RemoveItem
@@ -635,7 +677,14 @@ class TestCarrierSelector:
         assert removal.source == "quest:errand"
         assert units(session, SECOND, QUEST_ITEM.id) == 0
         assert units(session, THIRD, QUEST_ITEM.id) == 1, "only one is used up"
-        assert removed_events(session) == [ItemsRemovedEvent(character_id=SECOND, item_ids=(QUEST_ITEM.id,))]
+        assert removed_events(session) == [
+            ItemsRemovedEvent(
+                character_id=SECOND,
+                item_ids=(QUEST_ITEM.id,),
+                item_names={QUEST_ITEM.id: "Jade idol"},
+                item_names_plural={QUEST_ITEM.id: "Jade idols"},
+            )
+        ]
         assert len(logged(session, "award_xp")) == 4, "the next reward still lands"
         assert notes(session) == []
         assert_replays(session, document)

@@ -125,7 +125,7 @@ from osrlib.core.events import (
     Visibility,
 )
 from osrlib.core.frozen import _Model
-from osrlib.core.items import Coins, EquipmentCatalog, Inventory, ItemInstance, MagicItemInstance
+from osrlib.core.items import Coins, EquipmentCatalog, Inventory, ItemInstance, MagicItemInstance, _item_name_fields
 from osrlib.core.monsters import MONSTER_SPAWN_STREAM, IdAllocator, MonsterCatalog, MonsterInstance, spawn_monster
 from osrlib.core.rng import RngStreams, StreamName
 from osrlib.core.ruleset import Ruleset
@@ -2385,8 +2385,10 @@ def _handle_grant_item(session: GameSession, command: GrantItem) -> tuple[list[R
     except ValueError:
         template = None
     if template is not None:
-        member.inventory.items.append(ItemInstance(template=template, quantity=command.quantity))
+        granted_stack = ItemInstance(template=template, quantity=command.quantity)
+        member.inventory.items.append(granted_stack)
         item_ids = (command.item_id,) * command.quantity
+        granted_goods: list = [granted_stack]
     else:
         try:
             load_magic_items().get(command.item_id)
@@ -2403,7 +2405,12 @@ def _handle_grant_item(session: GameSession, command: GrantItem) -> tuple[list[R
         ]
         member.inventory.items.extend(granted)
         item_ids = tuple(instance.instance_id for instance in granted)
-    return [], [ItemAcquiredEvent(character_id=_member_id(member), item_ids=item_ids, origin="grant")]
+        granted_goods = list(granted)
+    return [], [
+        ItemAcquiredEvent(
+            character_id=_member_id(member), item_ids=item_ids, origin="grant", **_item_name_fields(granted_goods)
+        )
+    ]
 
 
 def _handle_grant_coins(session: GameSession, command: GrantCoins) -> tuple[list[Rejection], list[Event]]:
@@ -2464,6 +2471,7 @@ def _handle_remove_item(session: GameSession, command: RemoveItem) -> tuple[list
         return [rejection], []
     inventory = member.inventory
     events: list[Event] = []
+    removed = _party_members._held_item(member, command.item_id)
     magic = inventory.magic_item(command.item_id)
     valuable = next((piece for piece in inventory.valuables if piece.instance_id == command.item_id), None)
     if magic is not None:
@@ -2491,7 +2499,13 @@ def _handle_remove_item(session: GameSession, command: RemoveItem) -> tuple[list
                 instance.quantity -= taken
             remaining -= taken
         item_ids = (command.item_id,) * command.quantity
-    events.append(ItemsRemovedEvent(character_id=_member_id(member), item_ids=item_ids))
+    events.append(
+        ItemsRemovedEvent(
+            character_id=_member_id(member),
+            item_ids=item_ids,
+            **_item_name_fields([removed] if removed is not None else []),
+        )
+    )
     return [], events
 
 
@@ -2682,6 +2696,7 @@ def _hand_over_everything(session: GameSession, giver: Character, recipient: Cha
                 item_ids=tuple(item_ids),
                 coins_gp_value=moved.value_gp,
                 coins=moved,
+                **_item_name_fields([*inventory.all_instances(), *inventory.valuables]),
             )
         )
     return events

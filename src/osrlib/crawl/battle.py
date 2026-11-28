@@ -382,6 +382,8 @@ from osrlib.core.items import (
     WeaponQuality,
     WeaponTemplate,
     _enchanted_weapon,
+    _item_name_fields,
+    _ItemNameFields,
     magic_item_template,
 )
 from osrlib.core.monsters import AttackRoutine, MonsterAbility, MonsterAttack, MonsterInstance, RoutineUse
@@ -3863,7 +3865,20 @@ def _hand_over(session, declaration: BattleDeclaration, giver, placement: _Place
     return recipient, []
 
 
-def _member_fizzle(code: str, actor, declaration: BattleDeclaration, rejections: list[Rejection]) -> Event:
+def _fizzled_item_names(session, actor_id: str, item_id: str | None) -> _ItemNameFields:
+    """Return a fizzled declaration's `item_names` and `item_names_plural`, for the item in its `item_id`.
+
+    The item is named where it is now: with the member who declared, or with the member who has it now, since
+    something earlier in the round can move it. An item that has left the party has no name.
+    """
+    if item_id is None:
+        return _item_name_fields([])
+    members = sorted(session.party.members, key=lambda member: member.id != actor_id)
+    held = next((item for member in members if (item := _party_members._held_item(member, item_id)) is not None), None)
+    return _item_name_fields([held] if held is not None else [])
+
+
+def _member_fizzle(session, code: str, actor, declaration: BattleDeclaration, rejections: list[Rejection]) -> Event:
     """Report a potion for another member or a hand-over that the magic phase's re-check refused.
 
     The event is a `DeclarationFizzledEvent` at `code`, `magic.potion.fizzled` or `battle.give.fizzled`, with the
@@ -3876,6 +3891,7 @@ def _member_fizzle(code: str, actor, declaration: BattleDeclaration, rejections:
         item_id=declaration.item_id,
         target_id=declaration.targets[0],
         reason=rejections[0].code,
+        **_fizzled_item_names(session, actor.id, declaration.item_id),
     )
 
 
@@ -3893,7 +3909,7 @@ def _resolve_hand_over(session, giver, declaration: BattleDeclaration) -> list[E
 
     recipient, rejections = _hand_over(session, declaration, giver, _placement(session))
     if recipient is None:
-        return [_member_fizzle("battle.give.fizzled", giver, declaration, rejections)]
+        return [_member_fizzle(session, "battle.give.fizzled", giver, declaration, rejections)]
     # A declaration with no `item_id` has no recipient, because `_hand_over` finds no such item carried.
     return _items._apply_give(session, giver, recipient, (cast(str, declaration.item_id),), Coins())
 
@@ -3924,7 +3940,7 @@ def _resolve_magic_item_use(session, member, declaration: BattleDeclaration, sta
     if category is MagicItemCategory.POTION:
         drinker, rejections = _drinker(session, declaration, member, instance, _placement(session))
         if drinker is None:
-            return [_member_fizzle("magic.potion.fizzled", member, declaration, rejections)]
+            return [_member_fizzle(session, "magic.potion.fizzled", member, declaration, rejections)]
         return _magic_items._use_potion(session, member, drinker, instance, template)
     if category is MagicItemCategory.SCROLL:
         if template.cursed or template.effect is not None or "spell_count" not in template.params:
@@ -3945,6 +3961,7 @@ def _resolve_magic_item_use(session, member, declaration: BattleDeclaration, sta
                 code="items.device.activated",
                 character_id=member.id,
                 instance_id=instance.instance_id,
+                **_item_name_fields([instance]),
                 manual=template.manual if referee else (),
             )
         )
@@ -4003,7 +4020,14 @@ def _resolve_scroll_cast(session, member, instance, template, declaration: Battl
         _party_members._remove_instance(member, instance)
     events: list[Event] = []
     events.extend(_magic_items._identify_item_events(session, member, instance))
-    events.append(ItemUsedEvent(code="items.scroll.read", character_id=member.id, instance_id=instance.instance_id))
+    events.append(
+        ItemUsedEvent(
+            code="items.scroll.read",
+            character_id=member.id,
+            instance_id=instance.instance_id,
+            **_item_name_fields([instance]),
+        )
+    )
     if rejections:
         events.append(_fizzle_event(member.id, spell_id, reversed=declaration.reversed, reason=rejections[0].code))
         return events
@@ -4085,7 +4109,12 @@ def _resolve_strike(session, member, declaration: BattleDeclaration) -> list[Eve
     template = magic_item_template(instance)
     events = list(_magic_items._identify_item_events(session, member, instance))
     events.append(
-        ItemUsedEvent(code="items.device.activated", character_id=member.id, instance_id=instance.instance_id)
+        ItemUsedEvent(
+            code="items.device.activated",
+            character_id=member.id,
+            instance_id=instance.instance_id,
+            **_item_name_fields([instance]),
+        )
     )
     stream = session.streams.get(COMBAT_STREAM)
     context = AttackContext(
@@ -4853,7 +4882,11 @@ def _melee_fizzle(
         reason = stopped.code
     if device_id is not None:
         return DeclarationFizzledEvent(
-            code="magic.device.fizzled", actor_id=member_id, item_id=device_id, reason=reason
+            code="magic.device.fizzled",
+            actor_id=member_id,
+            item_id=device_id,
+            reason=reason,
+            **_fizzled_item_names(session, member_id, device_id),
         )
     return DeclarationFizzledEvent(code="battle.melee.fizzled", actor_id=member_id, reason=reason, group_id=group.id)
 
@@ -5304,6 +5337,7 @@ def _party_magic(session, by_member, pending_casters, disrupted, acted, state) -
                             actor_id=member.id,
                             item_id=declaration.item_id,
                             reason=recheck[0].code,
+                            **_fizzled_item_names(session, member.id, declaration.item_id),
                         )
                     )
                     acted.add(member.id)

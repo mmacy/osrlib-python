@@ -1441,6 +1441,8 @@
       "coins_gp_value": 150,
       "event_type": "item_acquired",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "origin": "grant",
       "visibility": "player"
     },
@@ -1468,6 +1470,24 @@
         "rations_standard",
         "waterskin"
       ],
+      "item_names": {
+        "chainmail": "suit of chainmail",
+        "iron_spikes": "iron spike",
+        "rations_standard": "standard ration",
+        "sword": "sword",
+        "tinder_box": "tinder box",
+        "torch": "torch",
+        "waterskin": "waterskin"
+      },
+      "item_names_plural": {
+        "chainmail": "suits of chainmail",
+        "iron_spikes": "iron spikes",
+        "rations_standard": "standard rations",
+        "sword": "swords",
+        "tinder_box": "tinder boxes",
+        "torch": "torches",
+        "waterskin": "waterskins"
+      },
       "origin": "purchase",
       "visibility": "player"
     },
@@ -1484,6 +1504,8 @@
       "coins_gp_value": 150,
       "event_type": "item_acquired",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "origin": "grant",
       "visibility": "player"
     },
@@ -1505,6 +1527,18 @@
         "rations_standard",
         "waterskin"
       ],
+      "item_names": {
+        "chainmail": "suit of chainmail",
+        "rations_standard": "standard ration",
+        "sword": "sword",
+        "waterskin": "waterskin"
+      },
+      "item_names_plural": {
+        "chainmail": "suits of chainmail",
+        "rations_standard": "standard rations",
+        "sword": "swords",
+        "waterskin": "waterskins"
+      },
       "origin": "purchase",
       "visibility": "player"
     },
@@ -1521,6 +1555,8 @@
       "coins_gp_value": 150,
       "event_type": "item_acquired",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "origin": "grant",
       "visibility": "player"
     },
@@ -1542,6 +1578,18 @@
         "rations_standard",
         "waterskin"
       ],
+      "item_names": {
+        "leather": "suit of leather armour",
+        "rations_standard": "standard ration",
+        "sword": "sword",
+        "waterskin": "waterskin"
+      },
+      "item_names_plural": {
+        "leather": "suits of leather armour",
+        "rations_standard": "standard rations",
+        "sword": "swords",
+        "waterskin": "waterskins"
+      },
       "origin": "purchase",
       "visibility": "player"
     },
@@ -1558,6 +1606,8 @@
       "coins_gp_value": 150,
       "event_type": "item_acquired",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "origin": "grant",
       "visibility": "player"
     },
@@ -1579,6 +1629,18 @@
         "rations_standard",
         "waterskin"
       ],
+      "item_names": {
+        "chainmail": "suit of chainmail",
+        "mace": "mace",
+        "rations_standard": "standard ration",
+        "waterskin": "waterskin"
+      },
+      "item_names_plural": {
+        "chainmail": "suits of chainmail",
+        "mace": "maces",
+        "rations_standard": "standard rations",
+        "waterskin": "waterskins"
+      },
       "origin": "purchase",
       "visibility": "player"
     },
@@ -1595,6 +1657,8 @@
       "coins_gp_value": 150,
       "event_type": "item_acquired",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "origin": "grant",
       "visibility": "player"
     },
@@ -1615,6 +1679,16 @@
         "rations_standard",
         "waterskin"
       ],
+      "item_names": {
+        "dagger": "dagger",
+        "rations_standard": "standard ration",
+        "waterskin": "waterskin"
+      },
+      "item_names_plural": {
+        "dagger": "daggers",
+        "rations_standard": "standard rations",
+        "waterskin": "waterskins"
+      },
       "origin": "purchase",
       "visibility": "player"
     },
@@ -1928,6 +2002,12 @@
       "code": "exploration.item.consumed",
       "event_type": "item_consumed",
       "item_id": "iron_spikes",
+      "item_names": {
+        "iron_spikes": "iron spike"
+      },
+      "item_names_plural": {
+        "iron_spikes": "iron spikes"
+      },
       "visibility": "player"
     },
     {
@@ -2441,6 +2521,8 @@
       "coins_gp_value": 3,
       "event_type": "loot_dropped",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "visibility": "player"
     },
     {
@@ -2471,6 +2553,8 @@
       "coins_gp_value": 80,
       "event_type": "item_acquired",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "origin": "treasure",
       "visibility": "player"
     },
@@ -2487,6 +2571,8 @@
       "coins_gp_value": 80,
       "event_type": "item_acquired",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "origin": "treasure",
       "visibility": "player"
     },
@@ -2503,6 +2589,8 @@
       "coins_gp_value": 80,
       "event_type": "item_acquired",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "origin": "treasure",
       "visibility": "player"
     },
@@ -2519,6 +2607,8 @@
       "coins_gp_value": 80,
       "event_type": "item_acquired",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "origin": "treasure",
       "visibility": "player"
     },
@@ -2535,6 +2625,8 @@
       "coins_gp_value": 80,
       "event_type": "item_acquired",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "origin": "treasure",
       "visibility": "player"
     },
@@ -3225,6 +3317,8 @@
       "event_type": "declaration_fizzled",
       "group_id": "group-0002",
       "item_id": null,
+      "item_names": {},
+      "item_names_plural": {},
       "reason": "battle.declaration.no_target",
       "target_id": null,
       "visibility": "player"
@@ -3235,6 +3329,8 @@
       "event_type": "declaration_fizzled",
       "group_id": "group-0002",
       "item_id": null,
+      "item_names": {},
+      "item_names_plural": {},
       "reason": "battle.declaration.no_target",
       "target_id": null,
       "visibility": "player"
@@ -3331,6 +3427,14 @@
         "valuable-0001",
         "valuable-0002"
       ],
+      "item_names": {
+        "valuable-0001": "piece of jewellery",
+        "valuable-0002": "piece of jewellery"
+      },
+      "item_names_plural": {
+        "valuable-0001": "pieces of jewellery",
+        "valuable-0002": "pieces of jewellery"
+      },
       "visibility": "player"
     },
     {
@@ -3366,6 +3470,12 @@
       "code": "exploration.item.consumed",
       "event_type": "item_consumed",
       "item_id": "iron_spikes",
+      "item_names": {
+        "iron_spikes": "iron spike"
+      },
+      "item_names_plural": {
+        "iron_spikes": "iron spikes"
+      },
       "visibility": "player"
     },
     {
@@ -4408,6 +4518,8 @@
       "coins_gp_value": 10,
       "event_type": "items_dropped",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "visibility": "player"
     },
     {
@@ -4430,6 +4542,8 @@
       "coins_gp_value": 10,
       "event_type": "items_dropped",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "visibility": "player"
     },
     {

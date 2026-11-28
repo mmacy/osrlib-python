@@ -4,7 +4,16 @@ A drop during an encounter and a battle's `give_item` declaration use the same c
 """
 
 from osrlib.core.events import Event
-from osrlib.core.items import Coins, ItemInstance, MagicItemInstance, equip, unequip, validate_equip, validate_unequip
+from osrlib.core.items import (
+    Coins,
+    ItemInstance,
+    MagicItemInstance,
+    _item_name_fields,
+    equip,
+    unequip,
+    validate_equip,
+    validate_unequip,
+)
 from osrlib.core.validation import Rejection
 from osrlib.crawl._hauling import _DENOMINATIONS, _add_to_pile
 from osrlib.crawl._magic_items import _attach_worn_item_effects, _release_instance_effects
@@ -96,12 +105,14 @@ def _apply_give(session, giver, recipient, item_ids: tuple[str, ...], coins: Coi
     stack, and coins move purse to purse.
     """
     events: list[Event] = []
+    given: list = []
     for item_id in item_ids:
         magic = giver.inventory.magic_item(item_id)
         if magic is not None:
             events.extend(_release_instance_effects(session, magic))
             _remove_instance(giver, magic)
             recipient.inventory.items.append(magic)
+            given.append(magic)
             continue
         valuable = next(
             (candidate for candidate in giver.inventory.valuables if candidate.instance_id == item_id), None
@@ -109,6 +120,7 @@ def _apply_give(session, giver, recipient, item_ids: tuple[str, ...], coins: Coi
         if valuable is not None:
             giver.inventory.valuables.remove(valuable)
             recipient.inventory.valuables.append(valuable)
+            given.append(valuable)
             continue
         # The giver's instance brings its template across: no catalog
         # resolution, so an adventure-bundled item hands over like any other. One
@@ -117,6 +129,7 @@ def _apply_give(session, giver, recipient, item_ids: tuple[str, ...], coins: Coi
         if not isinstance(carried, ItemInstance):  # unreachable: magic left through the branch above
             raise ValueError(f"{giver.name} does not carry {item_id!r}")
         _grant_mundane(recipient, carried.template)
+        given.append(carried)
     giver_purse = giver.inventory.purse
     recipient_purse = recipient.inventory.purse
     for denomination in ("pp", "gp", "ep", "sp", "cp"):
@@ -130,6 +143,7 @@ def _apply_give(session, giver, recipient, item_ids: tuple[str, ...], coins: Coi
             item_ids=tuple(item_ids),
             coins_gp_value=coins.value_gp,
             coins=coins,
+            **_item_name_fields(given),
         )
     )
     return events
@@ -138,11 +152,13 @@ def _apply_give(session, giver, recipient, item_ids: tuple[str, ...], coins: Coi
 def _apply_drop(session, member, command: DropItems, *, to_pile: bool) -> list[Event]:
     """Remove the dropped goods, onto the cell's pile or scattered (pursuit bait)."""
     goods = DropPile(coins=command.coins)
+    dropped: list = []
     for item_id in command.item_ids:
         magic = member.inventory.magic_item(item_id)
         if magic is not None:
             _remove_instance(member, magic)
             goods.magic_items.append(magic)
+            dropped.append(magic)
             continue
         valuable = next(
             (candidate for candidate in member.inventory.valuables if candidate.instance_id == item_id), None
@@ -150,8 +166,11 @@ def _apply_drop(session, member, command: DropItems, *, to_pile: bool) -> list[E
         if valuable is not None:
             member.inventory.valuables.remove(valuable)
             goods.valuables.append(valuable)
+            dropped.append(valuable)
             continue
-        _consume_item(member, item_id)
+        carried = _consume_item(member, item_id)
+        if isinstance(carried, ItemInstance):
+            dropped.append(carried)
         existing = next((entry for entry in goods.items if entry.item_id == item_id), None)
         if existing is None:
             goods.items.append(DroppedItem(item_id=item_id, quantity=1))
@@ -168,6 +187,7 @@ def _apply_drop(session, member, command: DropItems, *, to_pile: bool) -> list[E
             item_ids=tuple(command.item_ids),
             coins_gp_value=command.coins.value_gp,
             coins=command.coins,
+            **_item_name_fields(dropped),
         )
     ]
 
