@@ -1282,7 +1282,8 @@ def drain_levels(
     function rolls a new die for each lost level. THAC0, saving throws, and spell slots come from
     the level, so they need no update.
 
-    While a character has a level left, neither maximum nor current hit points drops below 1. Losing
+    While a character has a level left, neither maximum nor current hit points drops below 1. When
+    the character's `nonregen_damage` is more than the new maximum, it drops to that maximum. Losing
     the last level kills the character, as the SRD rules for a character drained of all levels.
     The result's `slain` is then True, its `new_level` is 0, and its events include the death. The
     character's `level` stays at 1, because the model doesn't allow a level below 1, and their
@@ -1397,6 +1398,8 @@ def drain_levels(
         character.level -= 1
         character.current_hp = max(1, character.current_hp - lost)
         character.max_hp = max(1, character.max_hp - lost)
+        # The damage a ring of regeneration can't heal is never more than the lower maximum.
+        character.nonregen_damage = min(character.nonregen_damage, character.max_hp)
         hp_lost += lost
     events: list[Event] = []
     if slain:

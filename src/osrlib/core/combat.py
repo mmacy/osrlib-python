@@ -3422,7 +3422,8 @@ def drain_monster_hd(monster: MonsterInstance, *, levels: int = 1, stream: RngSt
     Every other Hit Die drained takes a rolled d8 from both the monster's maximum and its
     current hit points. Its THAC0 and saving throws become those of its new Hit Dice.
     Neither hit point total falls below 1, so the lost hit points alone never kill a
-    monster.
+    monster. When the monster's `nonregen_damage` is more than its new maximum, it drops to
+    that maximum.
 
     The function reports the drain as a
     [`LevelDrainedEvent`][osrlib.core.events.LevelDrainedEvent]. Its `hp_lost` is how far
@@ -3484,6 +3485,8 @@ def drain_monster_hd(monster: MonsterInstance, *, levels: int = 1, stream: RngSt
         monster.drained_hd += 1
         monster.current_hp = max(1, monster.current_hp - lost)
         monster.max_hp = max(1, monster.max_hp - lost)
+        # The damage regeneration can't heal is never more than the lower maximum.
+        monster.nonregen_damage = min(monster.nonregen_damage, monster.max_hp)
     events: list[Event] = []
     if slain:
         # The killing Hit Die counts as lost, mirroring character drain.
