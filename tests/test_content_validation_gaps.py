@@ -14,6 +14,7 @@ from osrlib.core.clock import TimeUnit
 from osrlib.core.effects import Condition
 from osrlib.core.items import Coins
 from osrlib.crawl.adventure import Adventure, TownSpec, validate_adventure
+from osrlib.crawl.commands import EnterDungeon, MoveParty
 from osrlib.crawl.content_pack import ContentPack, ContentPackEntry, PackSection, validate_content_pack
 from osrlib.crawl.dungeon import (
     AreaSpec,
@@ -191,6 +192,22 @@ def test_canonical_edge_keys_pass():
         },
     )
     check(adventure(level))
+
+
+@pytest.mark.parametrize("key", ["0,0:west", "0,0:north", "3,0:west", "0,1:north"])
+def test_an_edge_on_the_level_boundary_passes_validation(key):
+    # osr-forge's geometry overrides can write such a key, so validation accepts it (#257).
+    edges = {"1,0:west": Edge(kind=EdgeKind.OPEN), "2,0:west": Edge(kind=EdgeKind.OPEN), key: Edge(kind=EdgeKind.OPEN)}
+    check(adventure(corridor(edges=edges)))
+
+
+@pytest.mark.parametrize(("key", "direction"), [("0,0:west", Direction.WEST), ("0,0:north", Direction.NORTH)])
+def test_an_open_edge_on_the_level_boundary_plays_as_a_wall(key, direction):
+    edges = {"1,0:west": Edge(kind=EdgeKind.OPEN), "2,0:west": Edge(kind=EdgeKind.OPEN), key: Edge(kind=EdgeKind.OPEN)}
+    game = GameSession.new(build_party(), adventure(corridor(edges=edges)), seed=7)
+    assert game.execute(EnterDungeon(dungeon_id="crypt")).accepted
+    result = game.execute(MoveParty(direction=direction))
+    assert [rejection.code for rejection in result.rejections] == ["exploration.move.blocked"]
 
 
 # ---------------------------------------------------------------------- a feature's cell (item 7)

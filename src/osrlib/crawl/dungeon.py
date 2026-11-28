@@ -1451,8 +1451,9 @@ class LevelSpec(_Model):
     each key with [`edge_key`][osrlib.crawl.dungeon.edge_key], like `"1,0:west"`, and only for an
     edge between two cells on the grid. [`validate_adventure`][osrlib.crawl.adventure.validate_adventure]
     reports a key that isn't the `edge_key` of a side of a cell on the grid, like `"0,0:east"` in place
-    of `"1,0:west"`. An edge with no entry is a wall, and so is the level's boundary, so an empty
-    map is a level of solid rock. Read an edge with
+    of `"1,0:west"`. It accepts a key on the level's boundary, like `"0,0:west"`, but the session
+    treats that edge as a wall and doesn't read its entry. An edge with no entry is a wall, and so is
+    the level's boundary, so an empty map is a level of solid rock. Read an edge with
     [`edge`][osrlib.crawl.dungeon.LevelSpec.edge] instead of indexing the map, because it works out
     the key and returns a wall for an edge with no entry.
 
