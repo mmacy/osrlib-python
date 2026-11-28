@@ -24,6 +24,7 @@ from osrlib.core.effects import (
     Condition,
     EffectDefinition,
     EffectsLedger,
+    grant_condition,
     has_condition,
     modifier_total,
 )
@@ -657,6 +658,55 @@ class TestCuresAndRestoration:
         cleric.memorized_spells = (MemorizedSpell(spell_id="cure_light_wounds"),)
         healed = harness.cast(cleric, "cure_light_wounds", "heal", targets=[victim])
         assert any(event.code == "combat.healing.applied" for event in healed.events)
+
+    @pytest.mark.parametrize(
+        ("spell_id", "mode", "condition"),
+        [("cure_disease", "cure", Condition.DISEASED), ("neutralize_poison", "neutralize", Condition.POISONED)],
+    )
+    def test_a_cure_lifts_its_condition_with_no_effect_behind_it(self, spell_id, mode, condition):
+        # The SRD's cure disease cures "any disease", and neutralize poison neutralizes "the effects of poison", so
+        # each lifts its condition however it was put on, as cure light wounds does for paralysis (#257).
+        harness = Harness()
+        cleric = build_caster("cleric", 8, memorized=(spell_id,))
+        victim = build_caster("fighter", 3, name="victim")
+        harness.add(cleric, victim)
+        grant_condition(victim, condition, None)
+        result = harness.cast(cleric, spell_id, mode, targets=[victim])
+        assert not result.no_effect
+        assert not has_condition(victim, condition)
+        assert any(
+            event.code == "effects.condition.removed" and event.condition == condition.value for event in result.events
+        )
+
+    def test_a_bare_disease_no_longer_blocks_magical_healing_after_cure_disease(self):
+        harness = Harness()
+        cleric = build_caster("cleric", 6, memorized=("cure_disease", "cure_light_wounds"))
+        victim = build_caster("fighter", 3, name="victim")
+        victim.current_hp = 5
+        harness.add(cleric, victim)
+        grant_condition(victim, Condition.DISEASED, None)
+        harness.cast(cleric, "cure_disease", "cure", targets=[victim])
+        cleric.memorized_spells = (MemorizedSpell(spell_id="cure_light_wounds"),)
+        healed = harness.cast(cleric, "cure_light_wounds", "heal", targets=[victim])
+        assert any(event.code == "combat.healing.applied" for event in healed.events)
+
+    @pytest.mark.parametrize(
+        ("class_id", "level", "spell_id", "mode", "condition"),
+        [
+            ("cleric", 2, "remove_fear", "remove", Condition.AFRAID),
+            ("magic_user", 11, "stone_to_flesh", "restore", Condition.PETRIFIED),
+        ],
+    )
+    def test_other_cures_lift_only_the_effect_behind_their_condition(self, class_id, level, spell_id, mode, condition):
+        harness = Harness()
+        book = (spell_id,) if class_id == "magic_user" else ()
+        caster = build_caster(class_id, level, spell_book=book, memorized=(spell_id,))
+        victim = build_caster("fighter", 3, name="victim")
+        harness.add(caster, victim)
+        grant_condition(victim, condition, None)
+        result = harness.cast(caster, spell_id, mode, targets=[victim])
+        assert result.no_effect
+        assert has_condition(victim, condition)
 
     def test_cause_disease_effect_shape(self):
         def probe(seed):

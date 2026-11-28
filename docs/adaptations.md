@@ -686,7 +686,7 @@ In a session, the session supplies the value from its death record (see [The ses
 
 *Cure light wounds* in its `cure_paralysis` mode ends paralysis whatever caused it, as the spell page says: "Curing paralysis: Paralysing effects are negated." The mode releases each effect in the ledger that paralyses the target. Then it removes any `paralysed` condition the target still has, like one a game granted with `grant_condition` with no effect behind it. It removes no other condition.
 
-The other cures, like *cure disease* and *neutralize poison*, lift a condition only by releasing the ledger effect that granted it ([#166](https://github.com/mmacy/osrlib-python/issues/166)). Locked by `test_rules_calls.py::TestCureLightWoundsLiftsParalysis`.
+*Cure disease* and *neutralize poison* work the same way for their own conditions, because their pages name no source either: "Cure a subject of any disease: Including those of magical origin" and "Neutralize the effects of poison on a character". Each releases the ledger effects that put its condition on the target, then removes any `diseased` or `poisoned` condition the target still has ([#257](https://github.com/mmacy/osrlib-python/issues/257)). The other cures, like *remove fear* and *stone to flesh*, lift a condition only by releasing the ledger effect that granted it ([#166](https://github.com/mmacy/osrlib-python/issues/166)). Locked by `test_rules_calls.py::TestCureLightWoundsLiftsParalysis`.
 
 ### Silence automates both forms: moving on a failed save, stationary on a passed one
 

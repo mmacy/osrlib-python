@@ -15,8 +15,8 @@ from osrlib.core.spells import (
     CastContext,
     SpellMode,
     SpellTemplate,
+    _cure_changes,
     _restores_life,
-    _revives_poison_dead,
     cast_spell,
     caster_profile,
     minimum_caster_level,
@@ -415,7 +415,7 @@ def _no_effect_reason(
     if effect is not None and effect.kind == "cure" and Condition.PARALYSED in effect.cures_conditions:
         if has_condition(member, Condition.DEAD):
             return "dead"
-        return None if has_condition(member, Condition.PARALYSED) else "not_paralysed"
+        return None if _cure_changes(effect, member, context, session.ledger) else "not_paralysed"
     if service in ("cure_light_wounds", "cure_serious_wounds"):
         if has_condition(member, Condition.DEAD):
             return "dead"
@@ -423,10 +423,10 @@ def _no_effect_reason(
             return "weakened" if has_condition(member, Condition.WEAKENED) else "diseased"
         return "full_hit_points" if member.current_hp >= member.max_hp else None
     if service == "cure_disease":
-        return None if has_condition(member, Condition.DISEASED) else "not_diseased"
+        return None if effect is not None and _cure_changes(effect, member, context, session.ledger) else "not_diseased"
     if service == "neutralize_poison":
-        revives = effect is not None and _revives_poison_dead(effect, member, context)
-        return None if has_condition(member, Condition.POISONED) or revives else "not_poisoned"
+        cures = effect is not None and _cure_changes(effect, member, context, session.ledger)
+        return None if cures else "not_poisoned"
     if service == "remove_curse":
         return None if _has_curse_to_lift(session, member) else "not_cursed"
     if service == "raise_dead":

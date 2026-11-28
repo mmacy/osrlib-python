@@ -652,10 +652,10 @@ class SpellEffect(_Model):
     """The conditions a `cure` effect lifts. *Cure light wounds*' `cure_paralysis` mode lifts `paralysed`.
 
     Casting releases each effect in the target's [`EffectsLedger`][osrlib.core.effects.EffectsLedger] that puts one
-    of these conditions on it. Paralysis comes off however it was put on. Casting also removes a `paralysed`
-    condition that has no ledger effect behind it, like one granted with
-    [`grant_condition`][osrlib.core.effects.grant_condition]. The other conditions come off only with the ledger
-    effect that granted them.
+    of these conditions on it. Paralysis, disease, and poison come off however they were put on. Casting also removes
+    a `paralysed`, `diseased`, or `poisoned` condition in this tuple that has no ledger effect behind it, like one
+    granted with [`grant_condition`][osrlib.core.effects.grant_condition]. The other conditions come off only with the
+    ledger effect that granted them.
     """
 
     cures_effect_kinds: tuple[str, ...] = ()
@@ -3601,8 +3601,7 @@ def _resolve_cure(
         ref = _target_ref(target)
         for active in list(ledger.active_on(ref)):
             definition = active.definition
-            matches = definition.condition in effect.cures_conditions or definition.kind in effect.cures_effect_kinds
-            if not matches:
+            if not _cure_releases(effect, definition):
                 continue
             if "magical_fear_save" in params and definition.condition is Condition.AFRAID:
                 # Against magical fear, *remove fear* lets the subject save with +1
@@ -3619,11 +3618,12 @@ def _resolve_cure(
                     continue
             state.events.extend(ledger.release(active.effect_id, registry))
             state.affect(target)
-        if Condition.PARALYSED in effect.cures_conditions and not isinstance(target, str):
-            # *Cure light wounds* negates paralysis however it was put on, so this also
-            # removes a `paralysed` record with no ledger effect behind it.
-            for record in [record for record in target.conditions if record.condition is Condition.PARALYSED]:
-                state.events.extend(remove_condition(target, Condition.PARALYSED, record.effect_id))
+        if not isinstance(target, str):
+            # *Cure light wounds* negates paralysis, *cure disease* cures "any disease", and *neutralize poison*
+            # neutralizes "the effects of poison", however each was put on. So this also removes a record of
+            # one of those conditions that has no ledger effect behind it.
+            for record in [record for record in target.conditions if _cure_lifts_record(effect, record.condition)]:
+                state.events.extend(remove_condition(target, record.condition, record.effect_id))
                 state.affect(target)
         if not isinstance(target, str) and _revives_poison_dead(effect, target, context):
             # Revival undoes the poison death and stands the subject up at 1 hp.
@@ -3634,6 +3634,36 @@ def _resolve_cure(
                 HitPointsReportedEvent(target_id=ref, current_hp=1, max_hp=getattr(target, "max_hp", 1))
             )
             state.affect(target)
+
+
+_CURED_HOWEVER_PUT_ON = frozenset({Condition.PARALYSED, Condition.DISEASED, Condition.POISONED})
+"""The conditions a cure lifts however they were put on, with or without a ledger effect behind them."""
+
+
+def _cure_lifts_record(effect: SpellEffect, condition: Condition) -> bool:
+    """Return whether a cure effect removes a condition record that may have no ledger effect behind it."""
+    return condition in _CURED_HOWEVER_PUT_ON and condition in effect.cures_conditions
+
+
+def _cure_releases(effect: SpellEffect, definition: EffectDefinition) -> bool:
+    """Return whether a cure effect releases a ledger effect with this definition, as `_resolve_cure` does."""
+    return definition.condition in effect.cures_conditions or definition.kind in effect.cures_effect_kinds
+
+
+def _cure_changes(effect: SpellEffect, target: Creature, context: CastContext, ledger: EffectsLedger) -> bool:
+    """Return whether a cure effect cast on a creature would release, remove, or revive anything.
+
+    It asks the same questions `_resolve_cure` acts on: an active ledger effect on the target that the cure releases,
+    a `paralysed`, `diseased`, or `poisoned` condition that the cure lifts however it was put on, and a poison death
+    the cure undoes. A cure that lets the
+    target save against magical fear counts the fear it might lift. The temple calls it, so the temple sells a cure
+    only when the cast would change the patient. The check only reads its arguments.
+    """
+    if any(_cure_releases(effect, active.definition) for active in ledger.active_on(_entity_id(target))):
+        return True
+    if any(_cure_lifts_record(effect, record.condition) for record in getattr(target, "conditions", ())):
+        return True
+    return _revives_poison_dead(effect, target, context)
 
 
 def _revives_poison_dead(effect: SpellEffect, target: Creature, context: CastContext) -> bool:
