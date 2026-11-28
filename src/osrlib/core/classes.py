@@ -475,6 +475,8 @@ class ClassDefinition(_Model):
     `model_validate`, which checks it with the same rules as the built-in classes. One of those rules
     is that a `divine_magic` or `arcane_magic` ability has a `spell_list` param, so
     [`caster_profile`][osrlib.core.spells.caster_profile] always finds the list a casting class uses.
+    Another is that a class has at most one of those two abilities, because a character casts from one
+    spell list.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -586,6 +588,9 @@ class ClassDefinition(_Model):
             skill_levels = [row.level for row in self.thief_skills]
             if skill_levels != list(range(1, self.max_level + 1)):
                 raise ValueError(f"thief skill rows must cover levels 1-{self.max_level} in order")
+        casting = [ability.tag for ability in self.abilities if ability.tag in _CASTING_TAGS]
+        if len(casting) > 1:
+            raise ValueError(f"a class can have at most one divine_magic or arcane_magic ability, got {casting}")
         for ability in self.abilities:
             if ability.tag in _CASTING_TAGS:
                 spell_list = ability.params.get("spell_list")

@@ -64,6 +64,16 @@ def test_a_casting_class_needs_a_spell_list(class_id, tag):
         ClassDefinition.model_validate({**document, "id": "hedge_caster"})
 
 
+@pytest.mark.parametrize(
+    "tags", [("arcane_magic", "divine_magic"), ("divine_magic", "arcane_magic"), ("arcane_magic", "arcane_magic")]
+)
+def test_a_class_casts_from_one_spell_list_at_most(tags):
+    document = load_classes().get("fighter").model_dump()
+    casting = [{"tag": tag, "name": tag, "prose": "Casts spells.", "params": {"spell_list": "cleric"}} for tag in tags]
+    with pytest.raises(ValidationError, match="at most one"):
+        ClassDefinition.model_validate({**document, "id": "mystic", "abilities": [*document["abilities"], *casting]})
+
+
 def test_the_built_in_classes_round_trip():
     for definition in load_classes().classes:
         assert ClassDefinition.model_validate(definition.model_dump()) == definition
