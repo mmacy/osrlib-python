@@ -9,7 +9,15 @@ from osrlib.core.clock import ROUNDS_PER_TURN, TimeUnit
 from osrlib.core.effects import ActiveCondition, Condition, EffectDefinition
 from osrlib.core.events import Visibility
 from osrlib.crawl._light import _light_definition
-from osrlib.crawl.commands import AdvanceTime, EnterDungeon, GrantItem, LightSource, SessionMode
+from osrlib.crawl.commands import (
+    AdvanceTime,
+    EngageBattle,
+    EnterDungeon,
+    GrantItem,
+    LightSource,
+    SessionMode,
+    SpawnMonsters,
+)
 from osrlib.crawl.exploration import consume_provisions
 from osrlib.crawl.session import GameSession
 from osrlib.crawl.views import PlayerView, SuppliesView
@@ -65,7 +73,13 @@ def any_light_source_accepted(session: GameSession) -> bool:
 
 
 def assert_usable_agrees(session: GameSession) -> None:
+    assert session.mode in (SessionMode.TOWN, SessionMode.EXPLORING)
     assert supplies(session).light_reserve_usable is any_light_source_accepted(session)
+
+
+def refused_for_the_mode(session: GameSession) -> bool:
+    result = session.execute(LightSource(character_id=FIGHTER, item_id="torch"))
+    return [rejection.code for rejection in result.rejections] == ["session.command.wrong_mode"]
 
 
 class TestLight:
@@ -179,15 +193,20 @@ class TestLight:
         assert not summary.light_reserve_usable
         assert_usable_agrees(session)
 
-    def test_usable_is_false_in_a_mode_that_refuses_light_source(self):
+    def test_usable_ignores_the_mode_while_the_session_refuses_light_source(self):
         session = new_session()
         grant(session, FIGHTER, "torch")
         grant(session, FIGHTER, "tinder_box")
         enter(session)
         assert supplies(session).light_reserve_usable
-        session.mode = SessionMode.ENCOUNTER
-        assert not supplies(session).light_reserve_usable
-        assert_usable_agrees(session)
+        assert session.execute(SpawnMonsters(template_id="goblin", count_fixed=2, distance_feet=60)).accepted
+        assert session.mode is SessionMode.ENCOUNTER
+        assert supplies(session).light_reserve_usable
+        assert refused_for_the_mode(session)
+        assert session.execute(EngageBattle()).accepted
+        assert session.mode is SessionMode.BATTLE
+        assert supplies(session).light_reserve_usable
+        assert refused_for_the_mode(session)
 
     def test_dead_members_items_do_not_count(self):
         session = new_session()

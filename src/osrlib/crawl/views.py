@@ -149,7 +149,7 @@ from osrlib.crawl._light import _burn_rounds, _light_carry_rejection, _light_rev
 from osrlib.crawl._party_location import _can_travel_to_town
 from osrlib.crawl.adventure import Adventure
 from osrlib.crawl.battle import BattleState
-from osrlib.crawl.commands import Command, LightSource, SessionMode
+from osrlib.crawl.commands import Command, SessionMode
 from osrlib.crawl.dungeon import (
     Direction,
     DropPile,
@@ -1174,7 +1174,7 @@ class SuppliesView(_Model):
     [`ROUNDS_PER_TURN`][osrlib.core.clock.ROUNDS_PER_TURN] rounds.
 
     Only the items that living members carry count, because a dead member's torch or ration is of use only after a
-    living member takes it. A dead member's pack adds nothing to these numbers until a living member takes the items.
+    living member takes it.
     Items in a dropped pile don't count either. In town the summary reports the same numbers as in a dungeon, and
     you decide from [`PlayerView.location`][osrlib.crawl.views.PlayerView.location] whether to show them. When
     every member is dead, every count is 0, every flag is false, and `food_short_first_ids` is empty.
@@ -1209,18 +1209,24 @@ class SuppliesView(_Model):
     and nothing is counted twice. Oil counts only when a living member carries a lantern, and then every living
     member's flasks count, because members can pass items to each other. So the reserve can include oil that stays
     unusable until a flask or the lantern changes hands. Read `light_reserve_usable` to learn whether the
-    party can light something now."""
+    party holds what it needs to light something."""
     light_reserve_usable: bool
-    """Whether the session accepts a [`LightSource`][osrlib.crawl.commands.LightSource] for a carried torch or
-    lantern from at least one member right now.
+    """Whether the party has what [`LightSource`][osrlib.crawl.commands.LightSource] needs to light a carried torch
+    or lantern now.
 
-    It's true exactly when the session is in a mode that accepts `LightSource`, `"town"` or `"exploring"`, and a
-    member who can act carries a torch, or carries a lantern and an oil flask, and either carries a tinder box or
-    stands in a party that already has a flame burning. The session decides `LightSource` with the same check, so
-    when this is true, some `LightSource` that names a torch or a lantern is accepted, and when it's false, every
-    one is refused. In an encounter or a battle it's false, because the session refuses `LightSource` then with
-    `session.command.wrong_mode`. An accepted command strikes the tinder box when the party has no flame, and the
-    strike can fail, so an accepted command doesn't always light the source. Setting fire to a flask dropped on the
+    It's true when a living member who can act carries a torch, or carries a lantern and an oil flask, and either
+    carries a tinder box or stands in a party where a living member already has a flame burning. `LightSource`
+    uses the same carrying check. So while the session is in a mode that accepts
+    `LightSource`, `"town"` or `"exploring"`, some `LightSource` that names a torch or a lantern is accepted when
+    this is true, and every one is refused when it's false. The flag doesn't depend on the mode. In an encounter or
+    a battle, the session refuses `LightSource` with `session.command.wrong_mode` whatever this flag says, so read
+    [`PlayerView.mode`][osrlib.crawl.views.PlayerView.mode] to learn whether the party can light anything this
+    moment. When the reserve isn't zero and this is false, the likely cause is that no member who carries a torch
+    or a lantern has a tinder box, that the oil and the lantern are in different packs, or that the carriers can't
+    act.
+
+    An accepted command strikes the tinder box when the party has no flame, and the strike can fail, so an
+    accepted command doesn't always light the source. Setting fire to a flask dropped on the
     floor doesn't count, because a pool of burning oil on the floor isn't a light that the party carries."""
     torches: int
     """The unlit torches the living members carry."""
@@ -1507,8 +1513,7 @@ class PlayerView(_Model):
     [`SuppliesView`][osrlib.crawl.views.SuppliesView]. The session always fills it in.
 
     A `PlayerView` that osrlib 2.10.0 built, such as a stored feed entry, has no `supplies`, and it validates with
-    `supplies` set to `None`. For such a view, count the supplies from the members'
-    [`inventory`][osrlib.crawl.views.MemberView.inventory] yourself."""
+    `supplies` set to `None`, so such a view has no supplies summary to show."""
 
 
 class ExplorationCounters(_Model):
@@ -1919,7 +1924,8 @@ _TRACKED_SUPPLIES = frozenset({"torch", "lantern", "oil_flask", "tinder_box", "r
 def _supplies_view(session) -> SuppliesView:
     """The view's `supplies`, from one pass over the living members' packs and one over the effects ledger.
 
-    `light_reserve_usable` asks `_light_carry_rejection`, the check `LightSource` applies, so the two can't disagree.
+    `light_reserve_usable` asks `_light_carry_rejection`, the carrying check `LightSource` applies, so the two can't
+    disagree. The flag leaves the mode out, and a client reads `PlayerView.mode` for that.
     """
     living = session.party.living_members()
     living_ids = {member.id for member in living}
@@ -1935,8 +1941,7 @@ def _supplies_view(session) -> SuppliesView:
             permanent = True
         else:
             burning = max(burning, effect.expires_round - now)
-    light_modes = session.mode in LightSource.allowed_modes
-    open_flame = light_modes and _party_open_flame(session)
+    open_flame = _party_open_flame(session)
     totals = dict.fromkeys(_TRACKED_SUPPLIES, 0)
     usable = False
     member_rations: list[tuple[str, int]] = []
@@ -1951,7 +1956,7 @@ def _supplies_view(session) -> SuppliesView:
         for item_id, count in counts.items():
             totals[item_id] += count
         member_rations.append((member.id, counts["rations_standard"] + counts["rations_iron"]))
-        if light_modes and not usable and not incapacitated(member):
+        if not usable and not incapacitated(member):
             carried = {item_id for item_id, count in counts.items() if count > 0}
             usable = any(
                 _light_carry_rejection(member.id, source, carried, open_flame=open_flame) is None
