@@ -1,5 +1,10 @@
 """Tests for the monster and combat-table data: counts, expansions, fidelity, spot checks."""
 
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
 import pytest
 
 from osrlib.core.monsters import DamageKey, Element, MonsterHitDice, spawn_monster
@@ -181,6 +186,28 @@ class TestMonsterCatalog:
         assert greater.saves.values.death == 2
         assert all(entry.defenses.harmed_only_by == (DamageKey.MAGIC,) for entry in (lesser, intermediate, greater))
         assert all("enchanted" in entry.categories for entry in (lesser, intermediate, greater))
+
+    @pytest.mark.parametrize(
+        ("monster_id", "size"),
+        [
+            # Elemental.md prints each element's Size bullet as "lesser / intermediate / greater".
+            ("air_elemental_lesser", "16’ tall, 4’ across."),
+            ("air_elemental_intermediate", "24’ tall, 6’ across."),
+            ("air_elemental_greater", "32’ tall, 8’ across."),
+            ("earth_elemental_lesser", "8’ tall."),
+            ("earth_elemental_intermediate", "12’ tall."),
+            ("earth_elemental_greater", "16’ tall."),
+            ("fire_elemental_lesser", "8’ tall, 8’ across."),
+            ("fire_elemental_intermediate", "12’ tall, 12’ across."),
+            ("fire_elemental_greater", "16’ tall, 16’ across."),
+            ("water_elemental_lesser", "4’ tall, 16’ across."),
+            ("water_elemental_intermediate", "6’ tall, 24’ across."),
+            ("water_elemental_greater", "8’ tall, 32’ across."),
+        ],
+    )
+    def test_elemental_size_per_power_level(self, monster_id, size):
+        # Issue #343: each power level gives its own size, split from the packed bullet.
+        assert load_monsters().get(monster_id).ability("size").prose == size
 
     def test_hydra_7_fixed_hit_points(self):
         hydra = load_monsters().get("hydra_7")
@@ -369,3 +396,50 @@ class TestCombatTables:
         assert xp_band_label(MonsterHitDice(count=7)) == "7–7+"
         assert xp_band_label(MonsterHitDice(count=10, modifier=1)) == "9–10+"
         assert xp_band_label(MonsterHitDice(count=22)) == "21–21+"
+
+
+REPO = Path(__file__).resolve().parents[1]
+
+
+def _compile_edited_srd(tmp_path: Path, filename: str, old: str, new: str) -> subprocess.CompletedProcess:
+    """Compile a copy of the SRD with one page edited, and return the finished process."""
+    srd = tmp_path / "srd"
+    shutil.copytree(REPO / "srd", srd)
+    page = srd / filename
+    text = page.read_text(encoding="utf-8")
+    assert text.count(old) == 1, f"precondition: {filename} has {old!r} once"
+    page.write_text(text.replace(old, new), encoding="utf-8")
+    out = tmp_path / "out"
+    out.mkdir()
+    return subprocess.run(
+        [sys.executable, "-m", "tools.srd_compile", "--srd-dir", str(srd), "--out-dir", str(out)],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+class TestTheCompilerPinsPackedBullets:
+    """Only the bullets pinned in `_PACKED_BULLETS` split per variant, and each pinned bullet must split (#343)."""
+
+    def test_an_unpinned_bullet_that_would_split_stops_the_build(self, tmp_path):
+        # The vampire page packs three variants, so a three-item slash list in a bullet would split.
+        process = _compile_edited_srd(
+            tmp_path,
+            "Vampire.md",
+            "A damaged vampire gains 3hp at the start of each round",
+            "A damaged vampire gains 1hp / 2hp / 3hp at the start of each round",
+        )
+        assert process.returncode != 0, "the compiler split a bullet that _PACKED_BULLETS doesn't pin"
+        assert "_PACKED_BULLETS" in process.stderr and "Regeneration" in process.stderr
+
+    def test_a_pinned_bullet_that_doesnt_split_stops_the_build(self, tmp_path):
+        process = _compile_edited_srd(
+            tmp_path,
+            "Elemental.md",
+            "16’ tall, 4’ across / 24’ tall, 6’ across / 32’ tall, 8’ across.",
+            "16’ tall, 4’ across / 24’ tall, 6’ across.",
+        )
+        assert process.returncode != 0, "the compiler copied a pinned bullet whole"
+        assert "Air Elemental" in process.stderr and "Size" in process.stderr

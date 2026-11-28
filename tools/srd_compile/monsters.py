@@ -14,6 +14,12 @@ entry per variant, because a frozen template must be spawnable: `2 [17] / 0 [19]
 slash-lists zip per variant, `3 to 7` HD ranges enumerate, `By HD` THAC0 resolves
 from the attack matrix HD rows, `By HD` and `See main entry (8 / 12 / 16)` saves
 resolve from the monster save bands, and `1d6 per HD` breath damage pins per variant.
+An ability bullet pinned in `_PACKED_BULLETS`, whose prose is a ` / ` list with one item
+per variant, such as the elemental's `16’ tall, 4’ across / 24’ tall, 6’ across / 32’ tall,
+8’ across.` size, gives each variant its own item. The build fails when a pinned bullet
+doesn't split into one item per variant, when a pinned bullet is missing, and when a bullet
+outside the table on a packed page would split, so a new or corrected page can't change
+the data without a table edit.
 
 Mechanized ability tags carry params pinned in the `_ABILITY_PARAMS` table below
 (the Phase 1 `_CLASS_ABILITIES` precedent); every other bullet compiles with
@@ -93,6 +99,17 @@ _ELEMENT_WORDS = {"fire": "fire", "cold": "cold", "lightning": "lightning", "ele
 # id suffix per expanded entry. Elemental power levels are labels; the rest suffix
 # the Hit Dice number.
 _POWER_LEVELS = ("lesser", "intermediate", "greater")
+
+# (page filename, variant heading, bullet label) of each ability bullet on a packed page whose
+# prose packs one ` / `-separated item per expanded variant. Each expanded entry gets its own item.
+_PACKED_BULLETS = frozenset(
+    {
+        ("Elemental.md", "Air Elemental", "Size"),
+        ("Elemental.md", "Earth Elemental", "Size"),
+        ("Elemental.md", "Fire Elemental", "Size"),
+        ("Elemental.md", "Water Elemental", "Size"),
+    }
+)
 
 # (page filename, variant heading or None, bullet label) → (tag, params, manual).
 # Params are pinned here rather than parsed from prose — the Phase 1 precedent; the
@@ -860,6 +877,51 @@ def _resolve_packed_cell(cell: str, index: int, n: int, hd: int) -> str:
     return re.sub(r"[^/()]+(?:/[^/()]+)+", pick, cell).strip()
 
 
+def _packed_prose_items(prose: str, n: int) -> list[str] | None:
+    """Split a bullet's prose into one item per variant, or return None when it doesn't split.
+
+    Prose splits when it has exactly `n` ` / `-separated items. Each item keeps the packed
+    prose's closing period.
+    """
+    items = [item.strip() for item in prose.split(" / ")]
+    if n < 2 or len(items) != n:
+        return None
+    if prose.endswith("."):
+        items = [item if item.endswith(".") else f"{item}." for item in items]
+    return items
+
+
+def _split_packed_bullets(
+    filename: str, heading: str | None, bullets: list[tuple[str, str]], n: int, used: set[tuple[str, str, str]]
+) -> list[list[tuple[str, str]]]:
+    """Give each of a packed page's `n` variants its own view of the page's bullets.
+
+    A bullet pinned in `_PACKED_BULLETS` gives each variant its own item, and every other
+    bullet is the same for every variant. Records each pinned bullet it splits in `used`.
+
+    Raises:
+        ValueError: If a pinned bullet doesn't split into `n` items, or an unpinned bullet would.
+    """
+    views: list[list[tuple[str, str]]] = [[] for _ in range(n)]
+    for label, prose in bullets:
+        key = (filename, heading or "", label)
+        items = _packed_prose_items(prose, n)
+        if key in _PACKED_BULLETS:
+            if items is None:
+                raise ValueError(
+                    f"{filename} {heading!r} bullet {label!r} doesn't pack one item per variant: {prose!r}"
+                )
+            used.add(key)
+        elif items is not None:
+            raise ValueError(
+                f"{filename} {heading!r} bullet {label!r} packs {n} items like its {n} variants; "
+                f"pin it in _PACKED_BULLETS or rule it out: {prose!r}"
+            )
+        for index, view in enumerate(views):
+            view.append((label, items[index] if items is not None else prose))
+    return views
+
+
 def _expand_variants(cells: dict[str, str]) -> list[tuple[str, dict[str, str], int]]:
     """Expand a packed stat block into per-creature cell dicts.
 
@@ -1145,6 +1207,7 @@ def compile_monsters(srd_dir: Path) -> dict[str, object]:
     """
     persons = _persons(srd_dir)
     monsters: list[dict[str, object]] = []
+    packed_used: set[tuple[str, str, str]] = set()
     for _, filename in manifest(srd_dir):
         text = (srd_dir / filename).read_text(encoding="utf-8")
         page_title = strip_links(text.splitlines()[0].lstrip("# ").strip())
@@ -1152,11 +1215,17 @@ def compile_monsters(srd_dir: Path) -> dict[str, object]:
         for heading, intro, table, bullets in variants:
             cells = _block_cells(table)
             base_name = heading or page_title
-            for suffix, resolved, hd in _expand_variants(cells):
+            expansions = _expand_variants(cells)
+            n = len(expansions)
+            shared_views = _split_packed_bullets(filename, heading, shared, n, packed_used) if n > 1 else [shared]
+            bullet_views = _split_packed_bullets(filename, heading, bullets, n, packed_used) if n > 1 else [bullets]
+            for index, (suffix, resolved, hd) in enumerate(expansions):
                 hd_data = _parse_hd_expanded(_normalize(resolved["Hit Dice"]))
                 effective_hd = hd or hd_data["count"]
                 assert isinstance(effective_hd, int)
-                abilities, defenses, undead = _abilities_and_defenses(filename, heading, shared, bullets, effective_hd)
+                abilities, defenses, undead = _abilities_and_defenses(
+                    filename, heading, shared_views[index], bullet_views[index], effective_hd
+                )
                 categories = []
                 if undead:
                     categories.append("undead")
@@ -1192,6 +1261,9 @@ def compile_monsters(srd_dir: Path) -> dict[str, object]:
                 }
                 monsters.append(entry)
     monsters.sort(key=lambda entry: entry["id"])
+    missing = sorted(_PACKED_BULLETS - packed_used)
+    if missing:
+        raise ValueError(f"these _PACKED_BULLETS bullets are on no packed page: {missing}")
     unused = sorted(set(_IRREGULAR_PLURALS) - {entry["display_name"] for entry in monsters})
     if unused:
         raise ValueError(f"no monster has these display names from _IRREGULAR_PLURALS: {unused}")

@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - The temple's *cure light wounds* can cure paralysis (#368). Before, [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] always cast the spell's healing usage, so a paralysed member stayed paralysed, and a paralysed member at full hit points was refused with `town.healing.no_effect`. Send `spell_mode="cure_paralysis"` to end the paralysis.
+- Each power level of the air, earth, fire, and water elementals has its own size in its `size` ability's [`prose`][osrlib.core.monsters.MonsterAbility.prose], such as "16’ tall, 4’ across." for `air_elemental_lesser` and "32’ tall, 8’ across." for `air_elemental_greater` (#343). The SRD compiler splits the elemental page's packed `Lesser / Intermediate / Greater` size bullet the way it splits the packed stat cells. Before, all three entries of an element had the whole packed bullet, so no entry said how big it was. The entries' `display_name` doesn't change.
 
 ## [2.11.0] - 2026-11-27
 

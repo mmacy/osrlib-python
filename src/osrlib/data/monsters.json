@@ -262,7 +262,7 @@
           "manual": true,
           "name": "Size",
           "params": {},
-          "prose": "16’ tall, 4’ across / 24’ tall, 6’ across / 32’ tall, 8’ across.",
+          "prose": "32’ tall, 8’ across.",
           "tag": "size"
         },
         {
@@ -393,7 +393,7 @@
           "manual": true,
           "name": "Size",
           "params": {},
-          "prose": "16’ tall, 4’ across / 24’ tall, 6’ across / 32’ tall, 8’ across.",
+          "prose": "24’ tall, 6’ across.",
           "tag": "size"
         },
         {
@@ -524,7 +524,7 @@
           "manual": true,
           "name": "Size",
           "params": {},
-          "prose": "16’ tall, 4’ across / 24’ tall, 6’ across / 32’ tall, 8’ across.",
+          "prose": "16’ tall, 4’ across.",
           "tag": "size"
         },
         {
@@ -6626,7 +6626,7 @@
           "manual": true,
           "name": "Size",
           "params": {},
-          "prose": "8’ tall / 12’ tall / 16’ tall.",
+          "prose": "16’ tall.",
           "tag": "size"
         },
         {
@@ -6757,7 +6757,7 @@
           "manual": true,
           "name": "Size",
           "params": {},
-          "prose": "8’ tall / 12’ tall / 16’ tall.",
+          "prose": "12’ tall.",
           "tag": "size"
         },
         {
@@ -6888,7 +6888,7 @@
           "manual": true,
           "name": "Size",
           "params": {},
-          "prose": "8’ tall / 12’ tall / 16’ tall.",
+          "prose": "8’ tall.",
           "tag": "size"
         },
         {
@@ -7642,7 +7642,7 @@
           "manual": true,
           "name": "Size",
           "params": {},
-          "prose": "8’ tall, 8’ across / 12’ tall, 12’ across / 16’ tall, 16’ across.",
+          "prose": "16’ tall, 16’ across.",
           "tag": "size"
         },
         {
@@ -7780,7 +7780,7 @@
           "manual": true,
           "name": "Size",
           "params": {},
-          "prose": "8’ tall, 8’ across / 12’ tall, 12’ across / 16’ tall, 16’ across.",
+          "prose": "12’ tall, 12’ across.",
           "tag": "size"
         },
         {
@@ -7918,7 +7918,7 @@
           "manual": true,
           "name": "Size",
           "params": {},
-          "prose": "8’ tall, 8’ across / 12’ tall, 12’ across / 16’ tall, 16’ across.",
+          "prose": "8’ tall, 8’ across.",
           "tag": "size"
         },
         {
@@ -28972,7 +28972,7 @@
           "manual": true,
           "name": "Size",
           "params": {},
-          "prose": "4’ tall, 16’ across / 6’ tall, 24’ across / 8’ tall, 32’ across.",
+          "prose": "8’ tall, 32’ across.",
           "tag": "size"
         },
         {
@@ -29108,7 +29108,7 @@
           "manual": true,
           "name": "Size",
           "params": {},
-          "prose": "4’ tall, 16’ across / 6’ tall, 24’ across / 8’ tall, 32’ across.",
+          "prose": "6’ tall, 24’ across.",
           "tag": "size"
         },
         {
@@ -29244,7 +29244,7 @@
           "manual": true,
           "name": "Size",
           "params": {},
-          "prose": "4’ tall, 16’ across / 6’ tall, 24’ across / 8’ tall, 32’ across.",
+          "prose": "4’ tall, 16’ across.",
           "tag": "size"
         },
         {
