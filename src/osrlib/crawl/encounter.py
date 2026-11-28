@@ -145,6 +145,8 @@ assert session.encounter.round == 1
 ```
 """
 
+from typing import get_args
+
 from pydantic import ConfigDict, Field, ValidationInfo, field_validator
 
 from osrlib.core.combat import cannot_move, roll_reaction
@@ -912,28 +914,49 @@ def _handle_parley(session, command: Parley) -> tuple[list[Rejection], list[Even
     return [], events
 
 
-def _handle_evade(session, command: Evade) -> tuple[list[Rejection], list[Event]]:
+_EVADE_DROPS: tuple[str, ...] = get_args(Evade.model_fields["drop"].annotation)
+"""Every value [`Evade.drop`][osrlib.crawl.commands.Evade.drop] can take, in the order the command declares them."""
+
+
+def _evade_rejections(session, drop: str) -> list[Rejection]:
+    """Return the rejections that an `Evade` with `drop` gets from its handler now.
+
+    `_handle_evade` and the player view's `EncounterView.evade_rejections` both call this, so the view and the
+    command can't disagree. The check reads whether an encounter is open, whether a pursuit is running, and the living
+    members' purses and packs. The player view shows each of these, so the answer reveals nothing hidden from the
+    players. The check leaves out the mode gate, because the session refuses an `Evade` outside the `encounter` mode
+    with `session.command.wrong_mode` before the handler runs. The call draws nothing and changes nothing.
+
+    Args:
+        session (osrlib.crawl.session.GameSession): The running session.
+        drop: An [`Evade.drop`][osrlib.crawl.commands.Evade.drop] value.
+
+    Returns:
+        The rejections, or an empty list when the handler would accept the command.
+    """
     state = session.encounter
     if state is None:
-        return [Rejection(code="encounter.none_active")], []
+        return [Rejection(code="encounter.none_active")]
     if state.pursuit is not None:
-        return [Rejection(code="encounter.evade.already_evading")], []
-    dropped_kind: str | None = None
-    if command.drop == "treasure":
-        if not any(member.inventory.purse.total_coins for member in session.party.living_members()):
-            return [Rejection(code="encounter.evade.nothing_to_drop", params={"drop": "treasure"})], []
-        dropped_kind = "treasure"
-    elif command.drop == "food":
-        carriers = [
-            member
-            for member in session.party.living_members()
-            if _party_members._find_item(member, "rations_standard")
-            or _party_members._find_item(member, "rations_iron")
-        ]
-        if not carriers:
-            return [Rejection(code="encounter.evade.nothing_to_drop", params={"drop": "food"})], []
-        dropped_kind = "food"
+        return [Rejection(code="encounter.evade.already_evading")]
+    living = session.party.living_members()
+    if drop == "treasure" and not any(member.inventory.purse.total_coins for member in living):
+        return [Rejection(code="encounter.evade.nothing_to_drop", params={"drop": "treasure"})]
+    if drop == "food" and not any(
+        _party_members._find_item(member, "rations_standard") or _party_members._find_item(member, "rations_iron")
+        for member in living
+    ):
+        return [Rejection(code="encounter.evade.nothing_to_drop", params={"drop": "food"})]
+    return []
 
+
+def _handle_evade(session, command: Evade) -> tuple[list[Rejection], list[Event]]:
+    rejections = _evade_rejections(session, command.drop)
+    if rejections:
+        return rejections, []
+    state = session.encounter
+    assert state is not None, "_evade_rejections refuses an Evade without an open encounter"
+    dropped_kind = None if command.drop == "none" else command.drop
     state.evading = True
     events: list[Event] = []
     if dropped_kind == "treasure":
