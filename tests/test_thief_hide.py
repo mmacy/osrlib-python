@@ -699,7 +699,12 @@ class TestTheRolls:
 
 def _digest(game: GameSession) -> str:
     """The SHA-256 of a session's event log and every stream's state, as the no-hide guards pin it."""
-    record = {"events": [event.model_dump(mode="json") for event in game.event_log], "streams": _streams(game)}
+    events = [event.model_dump(mode="json") for event in game.event_log]
+    for event in events:
+        # `DeathEvent.poison` arrived after the digests were taken, and it changes no draw.
+        if event["event_type"] == "death":
+            del event["poison"]
+    record = {"events": events, "streams": _streams(game)}
     return hashlib.sha256(json.dumps(record, sort_keys=True).encode()).hexdigest()
 
 

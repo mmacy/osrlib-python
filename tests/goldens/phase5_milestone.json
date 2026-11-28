@@ -1175,6 +1175,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
+      "poison": false,
       "target_id": "monster-0001",
       "visibility": "player"
     },
@@ -1809,6 +1810,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
+      "poison": false,
       "target_id": "npc-0001",
       "visibility": "player"
     },
@@ -2108,6 +2110,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
+      "poison": false,
       "target_id": "npc-0002",
       "visibility": "player"
     },
@@ -2754,6 +2757,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
+      "poison": false,
       "target_id": "npc-0003",
       "visibility": "player"
     },
@@ -2920,6 +2924,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
+      "poison": false,
       "target_id": "npc-0004",
       "visibility": "player"
     },

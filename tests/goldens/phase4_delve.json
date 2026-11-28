@@ -2183,6 +2183,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
+      "poison": false,
       "target_id": "monster-0001",
       "visibility": "player"
     },
@@ -2772,6 +2773,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
+      "poison": false,
       "target_id": "monster-0007",
       "visibility": "player"
     },
@@ -2832,6 +2834,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
+      "poison": false,
       "target_id": "monster-0008",
       "visibility": "player"
     },
@@ -2892,6 +2895,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
+      "poison": false,
       "target_id": "monster-0009",
       "visibility": "player"
     },
@@ -2952,6 +2956,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
+      "poison": false,
       "target_id": "monster-0010",
       "visibility": "player"
     },
@@ -3012,6 +3017,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
+      "poison": false,
       "target_id": "monster-0011",
       "visibility": "player"
     },
@@ -3072,6 +3078,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
+      "poison": false,
       "target_id": "monster-0012",
       "visibility": "player"
     },
@@ -3132,6 +3139,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
+      "poison": false,
       "target_id": "monster-0013",
       "visibility": "player"
     },
@@ -3192,6 +3200,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
+      "poison": false,
       "target_id": "monster-0014",
       "visibility": "player"
     },

@@ -311,7 +311,7 @@ def _use_potion(session, carrier, drinker, instance: MagicItemInstance, template
         if not save.passed:
             from osrlib.core.effects import kill
 
-            events.extend(kill(drinker))
+            events.extend(kill(drinker, poison=bool(effect_spec.params.get("poison", False))))
         return events
     definition = _potion_effect_definition(template, instance)
     if effect_spec.params.get("weekly_inversion"):

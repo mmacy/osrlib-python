@@ -642,12 +642,28 @@ class TestDeathRecords:
             SavingThrowRolledEvent(
                 code="combat.save.failed", target_id=member.id, category="death", roll=2, required=12
             ),
-            DeathEvent(code="combat.death.died", target_id=member.id),
+            DeathEvent(code="combat.death.died", target_id=member.id, poison=True),
         ]
         session._record_deaths(events)
         record = session.death_records[member.id]
         assert record.cause == "poison"
         assert record.round == session.clock.rounds
+
+    def test_a_failed_death_save_alone_is_not_poison(self):
+        # The save versus death covers death ray as well, so the death event decides (issue #375).
+        from osrlib.core.events import DamageDealtEvent, DeathEvent, SavingThrowRolledEvent
+
+        session = make_session()
+        member = session.member("character-0001")
+        events = [
+            DamageDealtEvent(target_id=member.id, amount=2),
+            SavingThrowRolledEvent(
+                code="combat.save.failed", target_id=member.id, category="death", roll=2, required=12
+            ),
+            DeathEvent(code="combat.death.died", target_id=member.id),
+        ]
+        session._record_deaths(events)
+        assert session.death_records[member.id].cause == "unknown"
 
     def test_damage_death_records_a_non_poison_cause(self):
         from osrlib.core.events import DamageDealtEvent, DeathEvent

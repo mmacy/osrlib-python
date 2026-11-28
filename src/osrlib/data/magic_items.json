@@ -3135,7 +3135,8 @@
         "kind": "save_or_die",
         "modifiers": [],
         "params": {
-          "instantaneous": true
+          "instantaneous": true,
+          "poison": true
         },
         "range_feet": null,
         "save_category": "death",

@@ -6285,7 +6285,8 @@ def _apply_hit_effect(session, monster, target, kind: str, params: Mapping[str, 
     if save.passed:
         return events
     if definition is None:
-        events.extend(kill(target))
+        # Only a poison with no onset gets here, so the death is a poison death.
+        events.extend(kill(target, poison=kind == "poison"))
     else:
         events.extend(_attach_hit_effect(session, target, definition))
     return events
@@ -6294,7 +6295,8 @@ def _apply_hit_effect(session, monster, target, kind: str, params: Mapping[str, 
 def _poison_onset(params: Mapping[str, Any]) -> EffectDefinition | None:
     """Return the effect that kills when a poison's onset runs out, or None for a poison that kills at once.
 
-    The effect's kind is `poison`, so the session records the death it causes as a poison death.
+    The effect's kind is `poison`, so the ledger reports the death it causes with
+    [`DeathEvent.poison`][osrlib.core.events.DeathEvent.poison] set, and the session records a poison death.
     """
     unit = params.get("onset_unit")
     if unit is None:

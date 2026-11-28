@@ -85,6 +85,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
+      "poison": false,
       "target_id": "character-0001",
       "visibility": "player"
     },
@@ -107,6 +108,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
+      "poison": false,
       "target_id": "character-0002",
       "visibility": "player"
     },
@@ -129,6 +131,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
+      "poison": false,
       "target_id": "character-0003",
       "visibility": "player"
     },
@@ -151,6 +154,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
+      "poison": false,
       "target_id": "character-0004",
       "visibility": "player"
     },

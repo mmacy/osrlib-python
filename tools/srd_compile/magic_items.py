@@ -254,7 +254,11 @@ _MAGIC_ITEM_MECHANICS: dict[str, dict[str, object]] = {
         },
     },
     "potion_of_poison": {
-        "effect": {"kind": "save_or_die", "save_category": "death", "params": {"instantaneous": True}},
+        "effect": {
+            "kind": "save_or_die",
+            "save_category": "death",
+            "params": {"instantaneous": True, "poison": True},
+        },
     },
     "potion_of_speed": {
         "effect": {

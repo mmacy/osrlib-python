@@ -1073,7 +1073,8 @@ class MagicItemEffect(_Model):
     duration_dice: str | None = None
     """A rolled duration, as a dice expression, in `duration_unit`s."""
     params: Annotated[Mapping[str, int | str | bool | tuple[int | str, ...]], FrozenMap] = FrozenMap()
-    """Per-item scalars the behavior reads, keyed by name."""
+    """Per-item scalars the behavior reads, keyed by name. A `save_or_die` item kills by poison when `poison` is
+    true, as the potion of poison does, so *neutralize poison* can revive the character it kills."""
 
     @field_validator("damage_dice", "heal_dice", "duration_dice")
     @classmethod

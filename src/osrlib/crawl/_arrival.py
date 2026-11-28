@@ -221,7 +221,7 @@ def _resolve_trap(session, trap: TrapSpec, *, triggerer) -> list[Event]:
                 continue
             from osrlib.core.effects import kill
 
-            events.extend(kill(victim))
+            events.extend(kill(victim, poison=effect.poison))
             continue
         if effect.damage_dice is not None:
             if effect.volley_dice is not None:

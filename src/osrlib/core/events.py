@@ -817,6 +817,15 @@ class DeathEvent(Event):
     target_id: str
     """The entity id of the creature that died."""
 
+    poison: bool = False
+    """Whether poison killed the creature, such as a viper's bite, a poison needle, or a potion of poison.
+
+    The save versus death covers death ray and poison alike, so a failed save of that category doesn't say which
+    killed. Read this field instead. The session records a member's death as a poison death when it's True, and
+    *neutralize poison* revives only a character who died of poison. The event has player visibility, so the players
+    learn that poison killed the creature, as a referee at the table would tell them that the needle was poisoned.
+    It's False on an event loaded from a save written before the field existed."""
+
 
 class EquipmentDestroyedEvent(Event):
     """What a victim carried was destroyed with it, except any magic items that saved.
