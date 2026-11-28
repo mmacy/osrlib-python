@@ -25,6 +25,7 @@ from osrlib.core.combat import (
     deal_damage,
     drain_monster_hd,
     resolve_attack,
+    resolve_breath,
     resolve_splash_attack,
     roll_initiative,
     select_targets,
@@ -290,6 +291,36 @@ def test_generate_npc_party_refuses_an_unknown_kind():
     with refused(npc, match="wizards"):
         generate_npc_party("wizards", count=3, npc_stream=npc, treasure_stream=treasure, allocator=allocator)
     assert allocator.allocate("monster") == IdAllocator().allocate("monster"), "the refused call used up an id"
+
+
+def chimera_breathing(damage: str):
+    """A chimera whose breath deals `damage`, spawned from a copy of the built-in template."""
+    template = load_monsters().get("chimera")
+    abilities = tuple(
+        ability.model_copy(update={"params": {**ability.params, "damage": damage}})
+        if ability.tag == "breath_weapon"
+        else ability
+        for ability in template.abilities
+    )
+    copy = template.model_copy(update={"id": "odd_chimera", "abilities": abilities})
+    return spawn_monster(copy, id="monster-0009", stream=stream_for(MONSTER_SPAWN_STREAM, 3))
+
+
+def test_resolve_breath_refuses_a_damage_expression_that_doesnt_parse():
+    chimera = chimera_breathing("lots")
+    goblins = [monster("goblin", "monster-0001"), monster("goblin", "monster-0002")]
+    before = [goblin.current_hp for goblin in goblins]
+    stream = stream_for(COMBAT_STREAM)
+    with refused(stream, match="lots"):
+        resolve_breath(chimera, goblins, ruleset=Ruleset(), stream=stream)
+    assert chimera.breath_uses_today == 0
+    assert [goblin.current_hp for goblin in goblins] == before
+
+
+def test_resolve_breath_still_rolls_good_dice():
+    chimera = chimera_breathing("3d6")
+    resolve_breath(chimera, [monster("goblin")], ruleset=Ruleset(), stream=stream_for(COMBAT_STREAM))
+    assert chimera.breath_uses_today == 1
 
 
 # ---------------------------------------------------------------------- amounts and levels (#166, items 11 to 13)
