@@ -863,6 +863,9 @@ class ReversedForm(_Model):
     memorizes the normal form and chooses when casting, by speaking the words backwards, so any of
     their memorized copies can be cast either way.
 
+    Constructing one raises `pydantic.ValidationError` when only one of `range` and `range_spec` is
+    set, so the range a client shows is always the range casting checks.
+
     Examples:
         ```python
         from osrlib.data import load_spells
@@ -911,6 +914,31 @@ class ReversedForm(_Model):
     prints two durations in one line, like *remove curse*'s `Instant / Permanent (curse)`, gives
     the second one to the reverse.
     """
+
+    range: str | None = None
+    """The reverse's range, when the reverse's text states one of its own, such as `"120’"`. Show this to a player.
+
+    `None` means the normal form's printed `range` applies to the reverse too, which is the usual case. The
+    page's range line belongs to the normal form, so a reverse states a different range in its text. In the
+    built-in catalog, only *cause fear*, the reverse of *remove fear*, does: it "Causes a target within
+    120’ to flee", while *remove fear* reaches "The caster or a creature touched".
+    """
+
+    range_spec: RangeSpec | None = None
+    """The structured form of `range`, as a [`RangeSpec`][osrlib.core.spells.RangeSpec].
+
+    `None` means the reverse reaches as far as the normal form. Casting reads it for a reversed cast, and
+    [`SpellTemplate.range_spec_for`][osrlib.core.spells.SpellTemplate.range_spec_for] returns the range
+    that applies to either form.
+
+    Set both `range` and `range_spec`, or neither of them.
+    """
+
+    @model_validator(mode="after")
+    def _range_and_spec_together(self) -> ReversedForm:
+        if (self.range is None) != (self.range_spec is None):
+            raise ValueError("a reversed form's range and range_spec must be set together, or both left out")
+        return self
 
 
 class SpellTemplate(_Model):
@@ -985,7 +1013,12 @@ class SpellTemplate(_Model):
     """The range line as printed. Show this to a player."""
 
     range_spec: RangeSpec
-    """The structured form of `range`, as a [`RangeSpec`][osrlib.core.spells.RangeSpec]."""
+    """The structured form of `range`, as a [`RangeSpec`][osrlib.core.spells.RangeSpec].
+
+    It's the normal form's range. A reverse can state a range of its own, in
+    [`ReversedForm.range_spec`][osrlib.core.spells.ReversedForm.range_spec], so read the range of a
+    cast from [`range_spec_for`][osrlib.core.spells.SpellTemplate.range_spec_for].
+    """
 
     reversed_form: ReversedForm | None = None
     """The spell's reverse, as a [`ReversedForm`][osrlib.core.spells.ReversedForm].
@@ -1041,6 +1074,37 @@ class SpellTemplate(_Model):
             if len(set(keys)) != len(keys):
                 raise ValueError(f"{self.id} mode keys must be unique within a form")
         return self
+
+    def range_spec_for(self, *, reversed: bool = False) -> RangeSpec:
+        """Return how far a cast of the spell reaches, in its normal form or its reverse.
+
+        Use this when you draw a range indicator or decide which targets to offer for a cast, because a
+        reverse can reach a different distance from the normal form. It's the range that
+        [`validate_cast`][osrlib.core.spells.validate_cast] checks a cast against. To show the range, show
+        the reverse's [`range`][osrlib.core.spells.ReversedForm.range] when it's set, and the template's
+        `range` otherwise.
+
+        Args:
+            reversed: True for a reversed cast.
+
+        Returns:
+            The reverse's [`range_spec`][osrlib.core.spells.ReversedForm.range_spec] when `reversed` is True
+            and the reverse has one, and the template's `range_spec` otherwise, also for a spell that has no
+            reverse.
+
+        Examples:
+            ```python
+            from osrlib.data import load_spells
+
+            remove_fear = load_spells().get("remove_fear")
+            assert remove_fear.range_spec_for().kind == "touch"
+            cause_fear = remove_fear.range_spec_for(reversed=True)  # "a target within 120’"
+            assert (cause_fear.kind, cause_fear.feet) == ("feet", 120)
+            ```
+        """
+        if reversed and self.reversed_form is not None and self.reversed_form.range_spec is not None:
+            return self.reversed_form.range_spec
+        return self.range_spec
 
     def mode(self, key: str, *, reversed: bool = False) -> SpellMode:
         """Return one castable usage of the spell by its key.
@@ -1977,7 +2041,9 @@ class CastContext(_Model):
 
     Setting it turns on the range check in validation. Validation rejects the cast when the distance is
     more than the spell's [`RangeSpec`][osrlib.core.spells.RangeSpec] reaches at the caster level
-    in use. A touch spell reaches 5', so a touch spell at more than 5' is rejected too. Leave it unset,
+    in use. For a reversed cast, that's the reverse's own range when it states one, as
+    [`SpellTemplate.range_spec_for`][osrlib.core.spells.SpellTemplate.range_spec_for] returns it. A touch
+    spell reaches 5', so a touch spell at more than 5' is rejected too. Leave it unset,
     and no range check happens.
     """
 
@@ -2042,12 +2108,13 @@ def _missile_count(effect: SpellEffect, caster_level: int) -> int:
     return base + step * ((caster_level - 1) // per)
 
 
-def _max_range_feet(spell: SpellTemplate, caster_level: int) -> int | None:
-    """How far the spell reaches at the caster level, in feet, or None when its range has no distance to check.
+def _max_range_feet(spell: SpellTemplate, caster_level: int, *, reversed: bool) -> int | None:
+    """How far the cast reaches at the caster level, in feet, or None when its range has no distance to check.
 
-    A touch spell reaches as far as a melee attack, `MELEE_REACH_FEET`, because the caster has to touch the target.
+    A reversed cast reaches as far as `spell.range_spec_for(reversed=True)` says. A touch spell reaches as far as a
+    melee attack, `MELEE_REACH_FEET`, because the caster has to touch the target.
     """
-    spec = spell.range_spec
+    spec = spell.range_spec_for(reversed=reversed)
     if spec.kind == "touch":
         return MELEE_REACH_FEET
     if spec.kind in ("feet", "yards"):
@@ -2126,7 +2193,8 @@ def validate_cast(
       pool of Hit Dice, and an effect on a location grants no condition or modifiers. *Web*,
       *dispel magic*, the modes that cure, and the modes that attach an effect with no condition
       or modifiers, like *light*'s, still take a location.
-    - The target is in range, but only when the context gives a distance.
+    - The target is in range, but only when the context gives a distance. A reversed cast is checked
+      against the reverse's own range when it has one, such as *cause fear*'s 120'.
 
     It doesn't check for a cleric's holy symbol. In the SRD, a cleric carries one as part of their
     class, not as a condition of casting, so if you require one, check the inventory yourself.
@@ -2278,7 +2346,7 @@ def validate_cast(
             if isinstance(target, str)
         )
     if context.distance_feet is not None:
-        maximum = _max_range_feet(spell, caster.level)
+        maximum = _max_range_feet(spell, caster.level, reversed=reversed)
         if maximum is not None and context.distance_feet > maximum:
             rejections.append(
                 Rejection(

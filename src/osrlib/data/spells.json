@@ -371,7 +371,9 @@
           }
         ],
         "name": "Blight",
-        "prose": "Incurs a -1 penalty to morale checks, attack rolls, and damage rolls of enemies within a 20’ square area. A save versus spells is allowed to resist the blight."
+        "prose": "Incurs a -1 penalty to morale checks, attack rolls, and damage rolls of enemies within a 20’ square area. A save versus spells is allowed to resist the blight.",
+        "range": null,
+        "range_spec": null
       },
       "spell_list": "cleric"
     },
@@ -997,7 +999,9 @@
           }
         ],
         "name": "Continual Darkness",
-        "prose": "Creates a 30’ radius area of magical blackness, preventing both normal sight and infravision. Light sources brought within the area of darkness do not illuminate it. Like continual light, it may alternatively be used to blind creatures or to dispel a continual light spell."
+        "prose": "Creates a 30’ radius area of magical blackness, preventing both normal sight and infravision. Light sources brought within the area of darkness do not illuminate it. Like continual light, it may alternatively be used to blind creatures or to dispel a continual light spell.",
+        "range": null,
+        "range_spec": null
       },
       "spell_list": "cleric"
     },
@@ -1203,7 +1207,9 @@
           }
         ],
         "name": "Continual Darkness",
-        "prose": "Creates a 30’ radius area of magical blackness, preventing both normal sight and infravision. Light sources brought within the area of darkness do not illuminate it. Like continual light, it may alternatively be used to blind creatures or to dispel a continual light spell."
+        "prose": "Creates a 30’ radius area of magical blackness, preventing both normal sight and infravision. Light sources brought within the area of darkness do not illuminate it. Like continual light, it may alternatively be used to blind creatures or to dispel a continual light spell.",
+        "range": null,
+        "range_spec": null
       },
       "spell_list": "magic_user"
     },
@@ -1435,7 +1441,9 @@
           }
         ],
         "name": "Cause Disease",
-        "prose": "The victim must save versus spells or be afflicted with a horrid disease of withering:\nDeath: Within 2d12 days.\nAttack penalty: -2 to attack rolls.\nNatural healing: Takes twice the usual amount of time.\nMagical healing: Is utterly ineffective.\nCuring: This disease can be cured with a casting of cure disease."
+        "prose": "The victim must save versus spells or be afflicted with a horrid disease of withering:\nDeath: Within 2d12 days.\nAttack penalty: -2 to attack rolls.\nNatural healing: Takes twice the usual amount of time.\nMagical healing: Is utterly ineffective.\nCuring: This disease can be cured with a casting of cure disease.",
+        "range": null,
+        "range_spec": null
       },
       "spell_list": "cleric"
     },
@@ -1553,7 +1561,9 @@
           }
         ],
         "name": "Cause Light Wounds",
-        "prose": "Inflicts 1d6+1 hit points of damage to a touched creature. In combat, a melee attack roll is required."
+        "prose": "Inflicts 1d6+1 hit points of damage to a touched creature. In combat, a melee attack roll is required.",
+        "range": null,
+        "range_spec": null
       },
       "spell_list": "cleric"
     },
@@ -1644,7 +1654,9 @@
           }
         ],
         "name": "Cause Serious Wounds",
-        "prose": "Inflicts 2d6+2 hit points of damage to a touched creature. In combat, a melee attack roll is required."
+        "prose": "Inflicts 2d6+2 hit points of damage to a touched creature. In combat, a melee attack roll is required.",
+        "range": null,
+        "range_spec": null
       },
       "spell_list": "cleric"
     },
@@ -2448,7 +2460,9 @@
           }
         ],
         "name": "Remove Geas",
-        "prose": "Can dispel an active geas spell and any incurred penalties. A geas placed by a lower level caster is automatically dispelled. A geas created by a higher level caster has a 5% chance per level difference of not being dispelled."
+        "prose": "Can dispel an active geas spell and any incurred penalties. A geas placed by a lower level caster is automatically dispelled. A geas created by a higher level caster has a 5% chance per level difference of not being dispelled.",
+        "range": null,
+        "range_spec": null
       },
       "spell_list": "magic_user"
     },
@@ -3525,7 +3539,9 @@
           }
         ],
         "name": "Darkness",
-        "prose": "Creates a 15’ radius area of magical blackness, preventing normal sight (but not infravision). Like light, it may alternatively be used to blind creatures or to dispel a light spell."
+        "prose": "Creates a 15’ radius area of magical blackness, preventing normal sight (but not infravision). Like light, it may alternatively be used to blind creatures or to dispel a light spell.",
+        "range": null,
+        "range_spec": null
       },
       "spell_list": "cleric"
     },
@@ -3731,7 +3747,9 @@
           }
         ],
         "name": "Darkness",
-        "prose": "Creates a 15’ radius area of magical blackness, preventing normal sight (but not infravision). Like light, it may alternatively be used to blind creatures or to dispel a light spell."
+        "prose": "Creates a 15’ radius area of magical blackness, preventing normal sight (but not infravision). Like light, it may alternatively be used to blind creatures or to dispel a light spell.",
+        "range": null,
+        "range_spec": null
       },
       "spell_list": "magic_user"
     },
@@ -4932,7 +4950,9 @@
           }
         ],
         "name": "Remove Quest",
-        "prose": "Can dispel an active quest spell. If the character who cast the quest spell to be nullified is higher level than the character casting remove quest, there is a chance of the spell having no effect. The probability of failure is 5% per level the caster is below the caster of quest."
+        "prose": "Can dispel an active quest spell. If the character who cast the quest spell to be nullified is higher level than the character casting remove quest, there is a chance of the spell having no effect. The probability of failure is 5% per level the caster is below the caster of quest.",
+        "range": null,
+        "range_spec": null
       },
       "spell_list": "cleric"
     },
@@ -5057,7 +5077,9 @@
           }
         ],
         "name": "Finger of Death",
-        "prose": "Directs a ray of deadly magic at a single target. If the target fails a saving throw versus death, it dies instantly. Casting finger of death is a chaotic act; it will only be used by lawful casters in desperate situations."
+        "prose": "Directs a ray of deadly magic at a single target. If the target fails a saving throw versus death, it dies instantly. Casting finger of death is a chaotic act; it will only be used by lawful casters in desperate situations.",
+        "range": null,
+        "range_spec": null
       },
       "spell_list": "cleric"
     },
@@ -5233,7 +5255,9 @@
           }
         ],
         "name": "Curse",
-        "prose": "Places a deleterious effect upon a creature, if it fails a save versus spells.\nEffects: The exact form and effects of the curse are determined by the caster.\nMaximum possible effects include: A –2 penalty to saving throws, a –4 penalty to attack rolls, reducing an ability score by 50%.\nMultiple curses: May afflict a creature, as long as each has a different effect.\nReferee judgement: The referee should judge the effects of this spell and may turn overly powerful curses back onto the caster!"
+        "prose": "Places a deleterious effect upon a creature, if it fails a save versus spells.\nEffects: The exact form and effects of the curse are determined by the caster.\nMaximum possible effects include: A –2 penalty to saving throws, a –4 penalty to attack rolls, reducing an ability score by 50%.\nMultiple curses: May afflict a creature, as long as each has a different effect.\nReferee judgement: The referee should judge the effects of this spell and may turn overly powerful curses back onto the caster!",
+        "range": null,
+        "range_spec": null
       },
       "spell_list": "cleric"
     },
@@ -5295,7 +5319,9 @@
           }
         ],
         "name": "Curse",
-        "prose": "Places a deleterious effect upon a creature, if it fails a save versus spells.\nEffects: The exact form and effects of the curse are determined by the caster.\nMaximum possible effects include: A –2 saving throw penalty, a –4 attack roll penalty, reducing an ability score by 50%.\nMultiple curses: May afflict a creature, as long as each has a different effect.\nReferee judgement: The referee should judge the effects of this spell and may turn overly powerful curses back onto the caster!"
+        "prose": "Places a deleterious effect upon a creature, if it fails a save versus spells.\nEffects: The exact form and effects of the curse are determined by the caster.\nMaximum possible effects include: A –2 saving throw penalty, a –4 attack roll penalty, reducing an ability score by 50%.\nMultiple curses: May afflict a creature, as long as each has a different effect.\nReferee judgement: The referee should judge the effects of this spell and may turn overly powerful curses back onto the caster!",
+        "range": null,
+        "range_spec": null
       },
       "spell_list": "magic_user"
     },
@@ -5390,7 +5416,13 @@
           }
         ],
         "name": "Cause Fear",
-        "prose": "Causes a target within 120’ to flee for the duration unless they save versus spells."
+        "prose": "Causes a target within 120’ to flee for the duration unless they save versus spells.",
+        "range": "120’",
+        "range_spec": {
+          "feet": 120,
+          "kind": "feet",
+          "per_level_feet": null
+        }
       },
       "spell_list": "cleric"
     },
@@ -6121,7 +6153,9 @@
           }
         ],
         "name": "Flesh to Stone",
-        "prose": "Transforms a living creature (including equipment) into stone. The victim may save versus paralysis to resist."
+        "prose": "Transforms a living creature (including equipment) into stone. The victim may save versus paralysis to resist.",
+        "range": null,
+        "range_spec": null
       },
       "spell_list": "magic_user"
     },
@@ -6334,7 +6368,9 @@
           }
         ],
         "name": "Transmute Mud to Rock",
-        "prose": "Permanently changes an area of mud—up to 3,000 square feet and up to 10’ deep—into rock."
+        "prose": "Permanently changes an area of mud—up to 3,000 square feet and up to 10’ deep—into rock.",
+        "range": null,
+        "range_spec": null
       },
       "spell_list": "magic_user"
     },

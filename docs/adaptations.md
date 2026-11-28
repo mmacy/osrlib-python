@@ -491,9 +491,10 @@ A spell's id is its primary name as a slug, without the reversed form in parenth
 
 - Some spells are printed as separate `(C)` and `(MU)` pages. Each pair compiles as two entries, with `_c`/`_mu` suffixes, because the two differ mechanically: *hold person* is a 2nd-level cleric spell at 9 turns and 180', but a 3rd-level magic-user spell at 1 turn per level and 120'.
 - A reversible spell's reverse is a `ReversedForm` on its entry, never a separate catalog entry.
+- The range line belongs to the normal form. A reverse whose text states a distance of its own has it as its `ReversedForm.range_spec`: *cause fear* "Causes a target within 120’ to flee", so it reaches 120' while *remove fear* reaches "The caster or a creature touched". Every other reverse reaches as far as its normal form.
 - The *invisible stalker* page's `(MU)` marker distinguishes the monster page, not a pair of spells, so its id stays plain.
 
-Locked by `test_spell_data.py::TestCensus`.
+Locked by `test_spell_data.py::TestCensus` and `test_reversed_range.py`.
 
 ### `Spells.md` is the single magic-rules source, and spell pages are identified by the level line
 

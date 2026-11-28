@@ -826,6 +826,27 @@ _SPELL_MECHANICS: dict[str, dict[str, list[dict[str, object]]]] = {
     },
 }
 
+# Spell id → the range the reverse's text states, as the page would print it on a range line. The range line
+# belongs to the normal form, so a reverse that reaches a different distance says so in its text: *cause fear*
+# "Causes a target within 120’ to flee". The compiler fails if the reverse's text no longer says "within" the
+# range, or if another reverse's text names a distance "within" that this table lacks.
+_REVERSED_RANGES = {"remove_fear": "120’"}
+_WITHIN_DISTANCE = re.compile(r"\bwithin (\d+’)")
+
+
+def _reversed_range(spell_id: str, reversed_body: str) -> tuple[str | None, dict[str, object] | None]:
+    """Return the reverse's own `(range, range spec)`, or `(None, None)` when the normal form's range covers it."""
+    printed = _REVERSED_RANGES.get(spell_id)
+    stated = _WITHIN_DISTANCE.findall(reversed_body)
+    if printed is None:
+        if stated:
+            raise ValueError(f"{spell_id}'s reverse states a range within {stated}, but _REVERSED_RANGES lacks it")
+        return None, None
+    if stated != [printed]:
+        raise ValueError(f"{spell_id}'s reverse no longer states its range as within {printed}: {reversed_body!r}")
+    return printed, _parse_range(printed)
+
+
 _CONJURED_MONSTER_PAGES = {"sticks_to_snakes": "Sticks_to_Snakes.md", "conjure_elemental": "Conjure_Elemental.md"}
 
 _ELEMENTAL_IDS = {
@@ -1369,6 +1390,11 @@ def compile_spells(srd_dir: Path, monster_entries: list[dict[str, object]]) -> d
     unknown_mechanics = set(_SPELL_MECHANICS) - known_ids
     if unknown_mechanics:
         raise ValueError(f"_SPELL_MECHANICS ids do not resolve to parsed pages: {sorted(unknown_mechanics)}")
+    reversible_ids = {ids[page.filename] for page in pages if page.reversed_name is not None}
+    if set(_REVERSED_RANGES) - reversible_ids:
+        raise ValueError(
+            f"_REVERSED_RANGES ids are not reversible spells: {sorted(set(_REVERSED_RANGES) - reversible_ids)}"
+        )
 
     monster_ids = {entry["id"]: entry for entry in monster_entries}
     spells = []
@@ -1407,12 +1433,15 @@ def compile_spells(srd_dir: Path, monster_entries: list[dict[str, object]]) -> d
                 else [_default_mode(page.reversed_body)]
             )
             _divide_prose(spell_id, True, reversed_modes, page.reversed_body)
+            reversed_range, reversed_range_spec = _reversed_range(spell_id, page.reversed_body)
             entry["reversed_form"] = {
                 "name": page.reversed_name,
                 "prose": page.reversed_body,
                 "modes": reversed_modes,
                 "duration": reversed_duration_raw,
                 "duration_spec": reversed_duration_spec,
+                "range": reversed_range,
+                "range_spec": reversed_range_spec,
             }
         else:
             entry["reversed_form"] = None
