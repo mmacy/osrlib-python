@@ -37,6 +37,7 @@ The player view has a fixed list of fields, each one safe to show a player. It i
 - the journal, and the active quests with their revealed objectives
 - the public state of the current encounter or battle
 - fatigue, exhaustion, and deprivation status
+- how long the party's light and food will last
 - the adventure's and the town's public prose
 
 It never includes:
@@ -118,6 +119,7 @@ from pydantic import ConfigDict, Field, SerializeAsAny, ValidationInfo, field_va
 from osrlib.core.abilities import AbilityScore
 from osrlib.core.character import Character, _armour_as_tested
 from osrlib.core.classes import level_title
+from osrlib.core.combat import incapacitated
 from osrlib.core.effects import Condition, EffectsLedger, has_condition
 from osrlib.core.events import Event
 from osrlib.core.frozen import _Model
@@ -143,11 +145,11 @@ from osrlib.crawl._feature_handles import (
     _parse_cell_location,
     _session_feature_handles,
 )
-from osrlib.crawl._light import _light_reveal
+from osrlib.crawl._light import _burn_rounds, _light_carry_rejection, _light_reveal, _party_open_flame
 from osrlib.crawl._party_location import _can_travel_to_town
 from osrlib.crawl.adventure import Adventure
 from osrlib.crawl.battle import BattleState
-from osrlib.crawl.commands import Command, SessionMode
+from osrlib.crawl.commands import Command, LightSource, SessionMode
 from osrlib.crawl.dungeon import (
     Direction,
     DropPile,
@@ -162,6 +164,7 @@ from osrlib.crawl.encounter import EncounterState, _member_kind
 from osrlib.crawl.exploration import EXHAUSTED_KIND, FATIGUE_KIND, HEALING_SERVICES
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import (
+    LIGHT_EFFECT_KINDS,
     DeathRecord,
     DefeatedMonsterRecord,
     DeprivationState,
@@ -187,6 +190,7 @@ __all__ = [
     "PlayerView",
     "QuestView",
     "RefereeView",
+    "SuppliesView",
     "TransitionView",
     "build_player_view",
     "build_referee_view",
@@ -1160,6 +1164,94 @@ class QuestView(_Model):
     """The revealed objectives, in the order the quest lists them."""
 
 
+class SuppliesView(_Model):
+    """How long the party's light and food will last, counted from what the living members carry.
+
+    You get this from [`PlayerView.supplies`][osrlib.crawl.views.PlayerView.supplies]. osrlib computes each number
+    by the rules the session applies, so you can show "light left" and "food left" without knowing the burn time of
+    a torch or how the party eats. Every time is in rounds, as
+    [`MemberEffectView.remaining_rounds`][osrlib.crawl.views.MemberEffectView.remaining_rounds] is, and a turn is
+    [`ROUNDS_PER_TURN`][osrlib.core.clock.ROUNDS_PER_TURN] rounds.
+
+    Only the items that living members carry count, because a dead member's torch or ration is of use only after a
+    living member takes it. A dead member's pack adds nothing to these numbers until a living member takes the items.
+    Items in a dropped pile don't count either. In town the summary reports the same numbers as in a dungeon, and
+    you decide from [`PlayerView.location`][osrlib.crawl.views.PlayerView.location] whether to show them. When
+    every member is dead, every count is 0, every flag is false, and `food_short_first_ids` is empty.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    light_burning_rounds: int
+    """The rounds left on the timed light that will burn longest, among the lights burning now, and 0 when no
+    timed light burns.
+
+    Lights burn at the same time, so this is the longest time left, not a sum: two torches burning at once, with 40
+    and 300 rounds left, give 300. It counts every light effect on a living member, which is a lit torch or lantern,
+    the *light* spell, and any effect whose kind is in
+    [`LIGHT_EFFECT_KINDS`][osrlib.crawl.session.LIGHT_EFFECT_KINDS]. Each light's own time left is its entry's
+    `remaining_rounds` in [`PlayerView.effects`][osrlib.crawl.views.PlayerView.effects]. A light from a potion has
+    no `remaining_rounds` there, because the referee keeps a potion's duration secret, so it doesn't count here or
+    in `light_permanent`.
+
+    A *darkness* effect puts the party's light out while it lasts without ending the lights, so it doesn't change
+    this number. To learn whether the party has light right now, look for a `darkness` or `continual_darkness`
+    effect in `effects`."""
+    light_permanent: bool
+    """Whether a light with no duration is burning on a living member, such as *continual light* or a sword that
+    sheds light. Such a light adds nothing to `light_burning_rounds`, and while it burns the party doesn't run out
+    of light."""
+    light_reserve_rounds: int
+    """How many rounds of light the party carries and hasn't lit yet.
+
+    It's the living members' unlit torches times the rounds one torch burns, plus their oil flasks times the
+    rounds one flask burns in a lantern. A lit torch is used up when it's lit, so `torches` counts only unlit ones
+    and nothing is counted twice. Oil counts only when a living member carries a lantern, and then every living
+    member's flasks count, because members can pass items to each other. So the reserve can include oil that stays
+    unusable until a flask or the lantern changes hands. Read `light_reserve_usable` to learn whether the
+    party can light something now."""
+    light_reserve_usable: bool
+    """Whether the session accepts a [`LightSource`][osrlib.crawl.commands.LightSource] for a carried torch or
+    lantern from at least one member right now.
+
+    It's true exactly when the session is in a mode that accepts `LightSource`, `"town"` or `"exploring"`, and a
+    member who can act carries a torch, or carries a lantern and an oil flask, and either carries a tinder box or
+    stands in a party that already has a flame burning. The session decides `LightSource` with the same check, so
+    when this is true, some `LightSource` that names a torch or a lantern is accepted, and when it's false, every
+    one is refused. In an encounter or a battle it's false, because the session refuses `LightSource` then with
+    `session.command.wrong_mode`. An accepted command strikes the tinder box when the party has no flame, and the
+    strike can fail, so an accepted command doesn't always light the source. Setting fire to a flask dropped on the
+    floor doesn't count, because a pool of burning oil on the floor isn't a light that the party carries."""
+    torches: int
+    """The unlit torches the living members carry."""
+    oil_flasks: int
+    """The oil flasks the living members carry."""
+    lanterns: int
+    """The lanterns the living members carry, lit or not."""
+    rations: int
+    """The rations the living members carry, standard and iron together."""
+    rations_standard: int
+    """The standard rations the living members carry."""
+    rations_iron: int
+    """The iron rations the living members carry."""
+    food_days: int
+    """How many days the party eats before the first living member goes short, as the packs are now.
+
+    Each member eats from their own pack, one ration a day, so it's the fewest rations any living member carries.
+    The session feeds every living member at the start of each new day. The party eats for `food_days` days, and
+    at the feeding after those, the members in `food_short_first_ids` go short. In town nobody goes short,
+    because a member with no rations is fed anyway, but this is still the number of days a member's own pack
+    lasts. It's 0 when every member is dead."""
+    food_days_shared: int
+    """How many days the party could eat if its rations were shared out evenly: the living members' rations
+    divided by the number of living members, rounded down. When it's larger than `food_days`, passing rations
+    between members with [`GiveItems`][osrlib.crawl.commands.GiveItems] feeds the party longer. It's 0 when every
+    member is dead."""
+    food_short_first_ids: tuple[str, ...]
+    """The ids of the living members who carry the fewest rations, the count that sets `food_days`, in marching
+    order. They go short first. It's empty when every member is dead."""
+
+
 class PlayerView(_Model):
     """What a player may see of a session: a fixed list of fields, every one safe to show.
 
@@ -1410,6 +1502,13 @@ class PlayerView(_Model):
     encounter: EncounterView | None = None
     """The current encounter or battle's public state, or `None` when the party is not in
     one."""
+    supplies: SuppliesView | None = None
+    """How long the party's light and food will last, as a
+    [`SuppliesView`][osrlib.crawl.views.SuppliesView]. The session always fills it in.
+
+    A `PlayerView` that osrlib 2.10.0 built, such as a stored feed entry, has no `supplies`, and it validates with
+    `supplies` set to `None`. For such a view, count the supplies from the members'
+    [`inventory`][osrlib.crawl.views.MemberView.inventory] yourself."""
 
 
 class ExplorationCounters(_Model):
@@ -1810,6 +1909,73 @@ def build_player_view(session) -> PlayerView:
         journal=tuple(session.journal),
         quests=tuple(_quest_views(session)),
         encounter=_encounter_view(session),
+        supplies=_supplies_view(session),
+    )
+
+
+_TRACKED_SUPPLIES = frozenset({"torch", "lantern", "oil_flask", "tinder_box", "rations_standard", "rations_iron"})
+
+
+def _supplies_view(session) -> SuppliesView:
+    """The view's `supplies`, from one pass over the living members' packs and one over the effects ledger.
+
+    `light_reserve_usable` asks `_light_carry_rejection`, the check `LightSource` applies, so the two can't disagree.
+    """
+    living = session.party.living_members()
+    living_ids = {member.id for member in living}
+    now = session.clock.rounds
+    burning = 0
+    permanent = False
+    for effect in session.ledger.effects:
+        if effect.target_ref not in living_ids or effect.definition.kind not in LIGHT_EFFECT_KINDS:
+            continue
+        if effect.definition.params.get("item_source") == "potion":
+            continue
+        if effect.expires_round is None:
+            permanent = True
+        else:
+            burning = max(burning, effect.expires_round - now)
+    light_modes = session.mode in LightSource.allowed_modes
+    open_flame = light_modes and _party_open_flame(session)
+    totals = dict.fromkeys(_TRACKED_SUPPLIES, 0)
+    usable = False
+    member_rations: list[tuple[str, int]] = []
+    for member in living:
+        counts = dict.fromkeys(_TRACKED_SUPPLIES, 0)
+        for instance in member.inventory.all_instances():
+            if isinstance(instance, MagicItemInstance):
+                continue
+            item_id = instance.template.id
+            if item_id in counts:
+                counts[item_id] += instance.quantity
+        for item_id, count in counts.items():
+            totals[item_id] += count
+        member_rations.append((member.id, counts["rations_standard"] + counts["rations_iron"]))
+        if light_modes and not usable and not incapacitated(member):
+            carried = {item_id for item_id, count in counts.items() if count > 0}
+            usable = any(
+                _light_carry_rejection(member.id, source, carried, open_flame=open_flame) is None
+                for source in ("torch", "lantern")
+            )
+    reserve = totals["torch"] * _burn_rounds("torch")
+    if totals["lantern"] > 0:
+        reserve += totals["oil_flask"] * _burn_rounds("lantern")
+    rations = totals["rations_standard"] + totals["rations_iron"]
+    food_days = min((count for _, count in member_rations), default=0)
+    return SuppliesView(
+        light_burning_rounds=burning,
+        light_permanent=permanent,
+        light_reserve_rounds=reserve,
+        light_reserve_usable=usable,
+        torches=totals["torch"],
+        oil_flasks=totals["oil_flask"],
+        lanterns=totals["lantern"],
+        rations=rations,
+        rations_standard=totals["rations_standard"],
+        rations_iron=totals["rations_iron"],
+        food_days=food_days,
+        food_days_shared=rations // len(living) if living else 0,
+        food_short_first_ids=tuple(member_id for member_id, count in member_rations if count == food_days),
     )
 
 
