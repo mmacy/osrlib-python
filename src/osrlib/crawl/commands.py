@@ -2470,7 +2470,11 @@ class Evade(Command):
     [`DropItems`][osrlib.crawl.commands.DropItems] runs one round of it. `drop` scatters
     bait as the party runs: coins tempt intelligent monsters, and food tempts unintelligent
     ones. Once battle has started, the party can't evade. The OSE SRD allows evasion only
-    before combat.
+    before combat. The members who can act carry a member who is asleep, paralysed, or turned
+    to stone at the party's usual rate. They can't carry a member out of a *web*, and a member
+    who carries more than the maximum load can't run. If nobody in the party can act during a
+    pursuit, or a member is caught in a *web*, the party stops running, and the pursuers close
+    the gap at their own rate.
 
     Modes:
         `encounter`
@@ -2480,6 +2484,12 @@ class Evade(Command):
         - `encounter.none_active` - a second check behind the mode gate, which normal
           play never reaches.
         - `encounter.evade.already_evading` - a pursuit is already running.
+        - `encounter.evade.nobody_able_to_act` - no living member can act, because each one
+          is paralysed, petrified, or asleep. A party with nobody able to act can't run.
+        - `encounter.evade.cannot_move` - the party can't run. The `character` param names a
+          living member caught in a *web*. The `reason` param `overloaded` means that a living
+          member would still carry more than the maximum load once the drop is made. In
+          practice only `treasure` can clear an overload, because it scatters every coin first.
         - `encounter.evade.nothing_to_drop` - no living member has coins (for
           `treasure`) or rations (for `food`) to scatter.
 
