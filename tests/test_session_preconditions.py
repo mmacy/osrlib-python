@@ -20,6 +20,7 @@ from osrlib.crawl.battle import start_battle
 from osrlib.crawl.commands import (
     AnyCommand,
     DropItems,
+    EndEncounter,
     EngageBattle,
     EnterDungeon,
     GiveItems,
@@ -267,6 +268,19 @@ def test_start_encounter_refuses_a_session_that_has_ended():
         start_encounter(game, groups=[("goblin", goblins)], kind="spawned")
     assert game.mode is SessionMode.GAME_OVER
     assert game.encounter is None
+
+
+@pytest.mark.parametrize("mode", [SessionMode.ENCOUNTER, SessionMode.BATTLE])
+def test_end_encounter_with_no_open_encounter_is_refused(mode):
+    # Before #257 the handler raised ValueError for a session whose mode says an encounter is open and that has none.
+    game = session()
+    game.mode = mode
+    stream = game.streams.get(ENCOUNTER_STREAM)
+    before = stream.export_state()
+    result = game.execute(EndEncounter(outcome="departed"))
+    assert [rejection.code for rejection in result.rejections] == ["encounter.none_active"]
+    assert game.mode is mode
+    assert stream.export_state() == before
 
 
 # ---------------------------------------------------------- negative spans and counts (#162, items 3 and 15)
