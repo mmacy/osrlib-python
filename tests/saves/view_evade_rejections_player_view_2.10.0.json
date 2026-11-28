@@ -1,0 +1,298 @@
+{
+  "adventure_name": "A",
+  "adventure_description": "",
+  "town_name": "Threshold",
+  "town_description": "",
+  "town_services": [],
+  "town_healing_prices": {
+    "cure_light_wounds": 25,
+    "cure_serious_wounds": 100,
+    "cure_disease": 150,
+    "neutralize_poison": 150,
+    "remove_curse": 200,
+    "raise_dead": 1500
+  },
+  "party": [
+    {
+      "id": "character-0001",
+      "name": "Hild",
+      "class_id": "fighter",
+      "class_name": "Fighter",
+      "level": 1,
+      "current_hp": 3,
+      "max_hp": 3,
+      "conditions": [],
+      "inventory": {
+        "items": [],
+        "purse": {
+          "pp": 0,
+          "gp": 120,
+          "ep": 0,
+          "sp": 0,
+          "cp": 0
+        },
+        "valuables": [],
+        "worn_armour": null,
+        "shield": null,
+        "wielded": [],
+        "rings": []
+      },
+      "memorized_spells": [],
+      "encounter_rate_feet": 40,
+      "race": "human",
+      "alignment": "lawful",
+      "title": "Veteran",
+      "xp": 0,
+      "xp_next_level": 2000,
+      "scores": {
+        "str": 14,
+        "int": 6,
+        "wis": 9,
+        "dex": 10,
+        "con": 11,
+        "cha": 11
+      },
+      "effective_strength": 14,
+      "melee_modifier": 1,
+      "missile_modifier": 0,
+      "initiative_modifier": 0,
+      "hit_point_modifier": 0,
+      "magic_save_modifier": 0,
+      "npc_reaction_modifier": 0,
+      "open_doors_chance": 3,
+      "thac0": 19,
+      "attack_bonus": 0,
+      "armour_class": 9,
+      "armour_class_ascending": 10,
+      "saves": {
+        "death": 12,
+        "wands": 13,
+        "paralysis": 14,
+        "breath": 15,
+        "spells": 16
+      },
+      "movement_rate_feet": 120,
+      "languages": [
+        "alignment_lawful",
+        "common"
+      ],
+      "spell_book": [],
+      "spell_slots": [],
+      "preparable_spells": [],
+      "learnable_spells": [],
+      "reverses_at": null,
+      "can_prepare_now": false,
+      "needs_sleep_to_prepare": false,
+      "thief_skills": {}
+    },
+    {
+      "id": "character-0002",
+      "name": "Odo",
+      "class_id": "thief",
+      "class_name": "Thief",
+      "level": 1,
+      "current_hp": 2,
+      "max_hp": 2,
+      "conditions": [],
+      "inventory": {
+        "items": [],
+        "purse": {
+          "pp": 0,
+          "gp": 140,
+          "ep": 0,
+          "sp": 0,
+          "cp": 0
+        },
+        "valuables": [],
+        "worn_armour": null,
+        "shield": null,
+        "wielded": [],
+        "rings": []
+      },
+      "memorized_spells": [],
+      "encounter_rate_feet": 40,
+      "race": "human",
+      "alignment": "lawful",
+      "title": "Apprentice",
+      "xp": 0,
+      "xp_next_level": 1200,
+      "scores": {
+        "str": 7,
+        "int": 7,
+        "wis": 13,
+        "dex": 9,
+        "con": 12,
+        "cha": 10
+      },
+      "effective_strength": 7,
+      "melee_modifier": -1,
+      "missile_modifier": 0,
+      "initiative_modifier": 0,
+      "hit_point_modifier": 0,
+      "magic_save_modifier": 1,
+      "npc_reaction_modifier": 0,
+      "open_doors_chance": 1,
+      "thac0": 19,
+      "attack_bonus": 0,
+      "armour_class": 9,
+      "armour_class_ascending": 10,
+      "saves": {
+        "death": 13,
+        "wands": 14,
+        "paralysis": 13,
+        "breath": 16,
+        "spells": 15
+      },
+      "movement_rate_feet": 120,
+      "languages": [
+        "alignment_lawful",
+        "common"
+      ],
+      "spell_book": [],
+      "spell_slots": [],
+      "preparable_spells": [],
+      "learnable_spells": [],
+      "reverses_at": null,
+      "can_prepare_now": false,
+      "needs_sleep_to_prepare": false,
+      "thief_skills": {
+        "climb_sheer_surfaces": 87,
+        "find_remove_treasure_traps": 10,
+        "hear_noise": 2,
+        "hide_in_shadows": 10,
+        "move_silently": 20,
+        "open_locks": 15,
+        "pick_pockets": 20
+      }
+    }
+  ],
+  "location": {
+    "kind": "dungeon",
+    "dungeon_id": "crypt",
+    "level_number": 1,
+    "position": [
+      0,
+      0
+    ],
+    "facing": "north"
+  },
+  "clock_rounds": 0,
+  "mode": "encounter",
+  "explored": [
+    {
+      "dungeon_id": "crypt",
+      "level_number": 1,
+      "cells": [
+        [
+          0,
+          0
+        ]
+      ],
+      "edges": {
+        "0,0:north": {
+          "kind": "wall",
+          "door_open": null,
+          "door_wedged": null
+        },
+        "1,0:west": {
+          "kind": "wall",
+          "door_open": null,
+          "door_wedged": null
+        },
+        "0,1:north": {
+          "kind": "wall",
+          "door_open": null,
+          "door_wedged": null
+        },
+        "0,0:west": {
+          "kind": "wall",
+          "door_open": null,
+          "door_wedged": null
+        }
+      },
+      "areas": [],
+      "features": [],
+      "transitions": [],
+      "entrance": [
+        0,
+        0
+      ]
+    }
+  ],
+  "dungeons": [
+    {
+      "id": "crypt",
+      "name": "Crypt"
+    }
+  ],
+  "can_travel_to_town": false,
+  "features_here": [],
+  "piles": {},
+  "emptied_caches": [],
+  "effects": [],
+  "spell_names": {},
+  "reversed_spell_names": {},
+  "spell_levels": {},
+  "item_names": {},
+  "item_names_plural": {},
+  "valuable_names": {},
+  "valuable_phrases": {},
+  "fatigued": false,
+  "exhausted": false,
+  "deprivation": {},
+  "journal": [],
+  "quests": [],
+  "encounter": {
+    "groups": [
+      {
+        "id": "group-0001",
+        "label": "goblin",
+        "label_plural": "goblins",
+        "family_id": "goblin",
+        "categories": [
+          "person"
+        ],
+        "count": 2,
+        "distance_feet": 40,
+        "visible_conditions": [],
+        "condition_counts": {},
+        "fled": false,
+        "fleeing": false,
+        "member_distance_feet": {},
+        "front_rank": [],
+        "lit": null,
+        "seen_by": [],
+        "members": [
+          {
+            "id": "monster-0001",
+            "status": "alive"
+          },
+          {
+            "id": "monster-0002",
+            "status": "alive"
+          }
+        ]
+      }
+    ],
+    "stance": "hostile",
+    "in_battle": false,
+    "battle_round": null,
+    "pursuit_gap_feet": null,
+    "declarers": [
+      "character-0001",
+      "character-0002"
+    ],
+    "front_rank": [
+      "character-0001",
+      "character-0002"
+    ],
+    "immobile": [],
+    "reloading": [],
+    "can_hide": [],
+    "hiding": [],
+    "can_back_stab": [],
+    "advance_feet": {},
+    "formation_width": 2,
+    "party_free_round": false
+  }
+}

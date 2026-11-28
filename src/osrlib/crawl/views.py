@@ -152,7 +152,7 @@ from osrlib.crawl._spells import _cast_context
 from osrlib.crawl._town import _temple_funds_gp, _temple_offer, _temple_spell
 from osrlib.crawl.adventure import Adventure
 from osrlib.crawl.battle import BattleState
-from osrlib.crawl.commands import Command, PurchaseHealing, SessionMode
+from osrlib.crawl.commands import Command, Evade, PurchaseHealing, SessionMode
 from osrlib.crawl.dungeon import (
     Direction,
     DropPile,
@@ -163,7 +163,7 @@ from osrlib.crawl.dungeon import (
     cell_ref,
     edge_ref,
 )
-from osrlib.crawl.encounter import EncounterState, _member_kind
+from osrlib.crawl.encounter import _EVADE_DROPS, EncounterState, _evade_rejections, _member_kind
 from osrlib.crawl.exploration import EXHAUSTED_KIND, FATIGUE_KIND, HEALING_SERVICES
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import (
@@ -1116,6 +1116,33 @@ class EncounterView(_Model):
     back-stab in this round, in either case. It's true while
     [`BattleState.monsters_hold_rounds`][osrlib.crawl.battle.BattleState.monsters_hold_rounds] is above
     zero."""
+    evade_rejections: dict[str, tuple[Rejection, ...]] = {}
+    """Why the session would refuse an [`Evade`][osrlib.crawl.commands.Evade] now, for each value of
+    [`Evade.drop`][osrlib.crawl.commands.Evade.drop], keyed by that value: `"none"`, `"treasure"`, and `"food"`.
+
+    Read it to disable a choice on your flee menu that the session would refuse, and to show the reason. Each value is a
+    tuple of [`Rejection`][osrlib.core.validation.Rejection] models with the `code` and `params` that an `Evade` with
+    that `drop` gets. An empty tuple means that the session accepts it. An accepted `Evade` can still end in a pursuit
+    or a battle, because the outcome depends on the monsters, and the view makes no prediction of it.
+
+    The codes you'll meet are these:
+
+    - `encounter.evade.already_evading`, for every value, while a pursuit is running, as `pursuit_gap_feet` shows.
+      Each round of a pursuit comes from a [`Wait`][osrlib.crawl.commands.Wait] or a
+      [`DropItems`][osrlib.crawl.commands.DropItems] instead.
+    - `encounter.evade.nothing_to_drop`, with the `drop` param `"treasure"`, when no living member has a coin in
+      their purse.
+    - `encounter.evade.nothing_to_drop`, with the `drop` param `"food"`, when no living member carries a
+      `rations_standard` or a `rations_iron`.
+
+    A dead member's coins and rations don't count. A member who is alive but can't act, such as one who is asleep or
+    paralysed, counts.
+
+    While the session is in the `encounter` mode and no pursuit is running, the `"none"` entry is empty. So when the
+    `"none"` entry holds a rejection, the party can't evade with any drop. The map has an entry for every value while
+    the session is in the `encounter` mode. In a battle, the map is empty, because the session refuses every `Evade`
+    there with `session.command.wrong_mode`. An `EncounterView` that osrlib 2.10.0 built, such as one in a stored
+    feed entry, has no `evade_rejections`, and it validates with this map empty."""
 
 
 class ObjectiveView(_Model):
@@ -2632,6 +2659,12 @@ def _encounter_view(session) -> EncounterView | None:
         ),
         formation_width=_formation_width(session),
         party_free_round=battle is not None and battle.monsters_hold_rounds > 0,
+        # The answers come from the check the handler runs, so the view never offers a drop the session refuses.
+        evade_rejections=(
+            {drop: tuple(_evade_rejections(session, drop)) for drop in _EVADE_DROPS}
+            if session.mode in Evade.allowed_modes
+            else {}
+        ),
     )
 
 

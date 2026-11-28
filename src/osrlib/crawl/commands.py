@@ -2446,6 +2446,10 @@ class Evade(Command):
         - `encounter.evade.nothing_to_drop` - no living member has coins (for
           `treasure`) or rations (for `food`) to scatter.
 
+        [`EncounterView.evade_rejections`][osrlib.crawl.views.EncounterView.evade_rejections] in the
+        player view gives the rejections an `Evade` with each `drop` would get now, from the same
+        check the session makes. Read it to disable a drop the session would refuse.
+
     Events:
         An [`ItemsDroppedEvent`][osrlib.crawl.events.ItemsDroppedEvent] for each member who
         scatters bait. For `food`, its `item_ids` has the catalog id of the ration the member
