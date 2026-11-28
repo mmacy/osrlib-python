@@ -1,10 +1,13 @@
 """Encounter procedure tests: surprise, stances, parley, evasion, pursuit, conclusion."""
 
+import json
+
 from crawl_fixtures import build_adventure, build_party, build_sightline_adventure
 from osrlib.core.clock import ROUNDS_PER_TURN
 from osrlib.core.effects import Condition, has_condition
 from osrlib.core.items import Coins
 from osrlib.core.tables import ReactionResult
+from osrlib.core.validation import Rejection
 from osrlib.crawl import _light, exploration
 from osrlib.crawl import encounter as encounter_module
 from osrlib.crawl.commands import (
@@ -25,6 +28,7 @@ from osrlib.crawl.commands import (
 )
 from osrlib.crawl.dungeon import Direction, PartyLocation
 from osrlib.crawl.session import ENCOUNTER_STREAM, GameSession
+from osrlib.persistence import session_state
 
 
 def quiet_session(seed: int = 5) -> GameSession:
@@ -254,6 +258,55 @@ class TestEvasionAndPursuit:
         codes = [event.code for event in result.events]
         assert "encounter.exhaustion.recovered" in codes
         assert not has_condition(session.member("character-0001"), Condition.EXHAUSTED)
+
+
+class TestNoParleyOrTurningDuringAChase:
+    """A parley or a turning during a pursuit is refused for free, and each is accepted before a chase begins."""
+
+    CLERIC = "character-0003"
+
+    def in_pursuit(self, template_id: str) -> GameSession:
+        """A hostile pair chases the party. Wolves and spectres both outrun the party's 120' rate."""
+        session = quiet_session(seed=1)
+        start(session, template_id=template_id, count=2, distance=200, pinned_stance=ReactionResult.HOSTILE)
+        assert session.execute(Evade(drop="none")).accepted
+        assert session.encounter is not None and session.encounter.pursuit is not None, "precondition: a chase is on"
+        return session
+
+    def state_of(self, session: GameSession) -> dict:
+        return {
+            "state": json.loads(json.dumps(session_state(session))),
+            "streams": {key: state.model_dump(mode="json") for key, state in session.streams.export_states().items()},
+            "clock_rounds": session.clock.rounds,
+        }
+
+    def test_parley_during_a_pursuit_is_refused_and_changes_nothing(self):
+        session = self.in_pursuit("normal_wolf")
+        before = self.state_of(session)
+        result = session.execute(Parley(character_id=self.CLERIC))
+        assert not result.accepted
+        assert result.rejections == (Rejection(code="encounter.parley.mid_pursuit", params={}),)
+        assert result.events == ()
+        assert self.state_of(session) == before, "no draw, no clock time, and no state change"
+
+    def test_parley_before_a_pursuit_is_accepted(self):
+        session = quiet_session(seed=1)
+        start(session, template_id="normal_wolf", count=2, distance=200, pinned_stance=ReactionResult.UNCERTAIN)
+        assert session.execute(Parley(character_id=self.CLERIC)).accepted
+
+    def test_turning_during_a_pursuit_is_refused_and_changes_nothing(self):
+        session = self.in_pursuit("spectre")
+        before = self.state_of(session)
+        result = session.execute(TurnUndead(character_id=self.CLERIC))
+        assert not result.accepted
+        assert result.rejections == (Rejection(code="encounter.turning.mid_pursuit", params={}),)
+        assert result.events == ()
+        assert self.state_of(session) == before, "no draw, no clock time, and no state change"
+
+    def test_turning_before_a_pursuit_is_accepted(self):
+        session = quiet_session(seed=1)
+        start(session, template_id="spectre", count=2, distance=200, pinned_stance=ReactionResult.HOSTILE)
+        assert session.execute(TurnUndead(character_id=self.CLERIC)).accepted
 
 
 class TestTurnUndead:
