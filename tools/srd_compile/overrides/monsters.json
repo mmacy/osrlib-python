@@ -138,5 +138,110 @@
     "id": "invisible_stalker_monster",
     "reason": "Enchanted category hand-curated: invisible stalkers are beings summoned by the invisible stalker spell.",
     "set": { "categories": ["enchanted"] }
+  },
+  {
+    "id": "basilisk",
+    "reason": "Intelligence hand-curated: the stat block has no intelligence row, and the basilisk's SRD entry says 'Unintelligent, but highly magical.', so it is unintelligent.",
+    "set": { "intelligent": false }
+  },
+  {
+    "id": "black_pudding",
+    "reason": "Intelligence hand-curated: the stat block has no intelligence row, and the black pudding's SRD entry says 'mindless blobs of amorphous black jelly', so it is unintelligent.",
+    "set": { "intelligent": false }
+  },
+  {
+    "id": "blink_dog",
+    "reason": "Intelligence hand-curated: the stat block has no intelligence row, and the blink dog's SRD entry says 'Highly intelligent, dingo-like dogs', so it is intelligent.",
+    "set": { "intelligent": true }
+  },
+  {
+    "id": "crab_giant",
+    "reason": "Intelligence hand-curated: the stat block has no intelligence row, and the giant crab's SRD entry says 'Unintelligent crustaceans', so it is unintelligent.",
+    "set": { "intelligent": false }
+  },
+  {
+    "id": "djinni_lesser",
+    "reason": "Intelligence hand-curated: the stat block has no intelligence row, and the lesser djinni's SRD entry says 'Highly magical, free-willed, intelligent beings from the elemental plane of air.', so it is intelligent.",
+    "set": { "intelligent": true }
+  },
+  {
+    "id": "doppelganger",
+    "reason": "Intelligence hand-curated: the stat block has no intelligence row, and the doppelgänger's SRD entry says 'Intelligent, human-sized shape-shifters', so it is intelligent.",
+    "set": { "intelligent": true }
+  },
+  {
+    "id": "efreeti_lesser",
+    "reason": "Intelligence hand-curated: the stat block has no intelligence row, and the lesser efreeti's SRD entry says 'Highly magical, free-willed, intelligent beings from the elemental plane of fire.', so it is intelligent.",
+    "set": { "intelligent": true }
+  },
+  {
+    "id": "flame_salamander",
+    "reason": "Intelligence hand-curated: the stat block has no intelligence row, and the flame salamander's SRD entry says 'intelligent serpents with lizard-like heads and legs', so it is intelligent.",
+    "set": { "intelligent": true }
+  },
+  {
+    "id": "hellhound_3",
+    "reason": "Intelligence hand-curated: the stat block has no intelligence row, and the hellhound's SRD entry says 'Monstrous, cunning, and very intelligent hounds', so it is intelligent.",
+    "set": { "intelligent": true }
+  },
+  {
+    "id": "hellhound_4",
+    "reason": "Intelligence hand-curated: the stat block has no intelligence row, and the hellhound's SRD entry says 'Monstrous, cunning, and very intelligent hounds', so it is intelligent.",
+    "set": { "intelligent": true }
+  },
+  {
+    "id": "hellhound_5",
+    "reason": "Intelligence hand-curated: the stat block has no intelligence row, and the hellhound's SRD entry says 'Monstrous, cunning, and very intelligent hounds', so it is intelligent.",
+    "set": { "intelligent": true }
+  },
+  {
+    "id": "hellhound_6",
+    "reason": "Intelligence hand-curated: the stat block has no intelligence row, and the hellhound's SRD entry says 'Monstrous, cunning, and very intelligent hounds', so it is intelligent.",
+    "set": { "intelligent": true }
+  },
+  {
+    "id": "hellhound_7",
+    "reason": "Intelligence hand-curated: the stat block has no intelligence row, and the hellhound's SRD entry says 'Monstrous, cunning, and very intelligent hounds', so it is intelligent.",
+    "set": { "intelligent": true }
+  },
+  {
+    "id": "invisible_stalker_monster",
+    "reason": "Intelligence hand-curated: the stat block has no intelligence row, and the invisible stalker's SRD entry says 'Highly intelligent, magical creatures', so it is intelligent.",
+    "set": { "intelligent": true }
+  },
+  {
+    "id": "narwhal",
+    "reason": "Intelligence hand-curated: the stat block has no intelligence row, and the narwhal's SRD entry says 'intelligent, magical whales', so it is intelligent.",
+    "set": { "intelligent": true }
+  },
+  {
+    "id": "sea_dragon",
+    "reason": "Intelligence hand-curated: the stat block has no intelligence row, and the sea dragon's SRD entry says 'Intelligent, aquatic dragons', so it is intelligent.",
+    "set": { "intelligent": true }
+  },
+  {
+    "id": "shadow",
+    "reason": "Intelligence hand-curated: the stat block has no intelligence row, and the shadow's SRD entry says 'Intelligent, incorporeal (but not undead) monsters', so it is intelligent.",
+    "set": { "intelligent": true }
+  },
+  {
+    "id": "troglodyte",
+    "reason": "Intelligence hand-curated: the stat block has no intelligence row, and the troglodyte's SRD entry says 'Intelligent, reptilian humanoids', so it is intelligent.",
+    "set": { "intelligent": true }
+  },
+  {
+    "id": "troll",
+    "reason": "Intelligence hand-curated: the stat block has no intelligence row, and the troll's SRD entry says 'Intelligent, wicked, 8’ tall humanoids', so it is intelligent.",
+    "set": { "intelligent": true }
+  },
+  {
+    "id": "werebear",
+    "reason": "Intelligence hand-curated: the stat block has no intelligence row, and the werebear's SRD entry says 'Highly intelligent, also in bear form.', so it is intelligent.",
+    "set": { "intelligent": true }
+  },
+  {
+    "id": "wererat",
+    "reason": "Intelligence hand-curated: the stat block has no intelligence row, and the wererat's SRD entry says 'Intelligent, humanoid rats', so it is intelligent.",
+    "set": { "intelligent": true }
   }
 ]

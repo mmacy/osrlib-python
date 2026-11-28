@@ -949,6 +949,20 @@ class MonsterTemplate(_Model):
     [`EncounterGroupView.categories`][osrlib.crawl.views.EncounterGroupView.categories].
     """
 
+    intelligent: bool | None = None
+    """Whether the creature is intelligent, as its SRD page states, or `None` when the page doesn't say.
+
+    The session reads it when monsters pursue a fleeing party. Intelligent pursuers may stop for dropped
+    treasure, and unintelligent ones for dropped food. For a template that leaves it `None`, the session
+    judges the monster by its treasure type instead: a monster whose `treasure` lists letters counts as
+    intelligent, and any other monster counts as unintelligent.
+
+    The built-in templates set it only where the SRD page says so in its prose, such as the invisible stalker's
+    "Highly intelligent" (`True`) or the basilisk's "Unintelligent" (`False`). A page that calls its creature
+    semi-intelligent or of low intelligence leaves it `None`. Set it on a template you write to say which
+    bait tempts the creature.
+    """
+
     overrides_applied: tuple[str, ...] = ()
     """The field paths, like `"categories"`, that a correction changed when this template was compiled from the SRD.
 
