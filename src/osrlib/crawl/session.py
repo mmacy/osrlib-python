@@ -310,7 +310,9 @@ class DeathRecord(_Model):
     It's `"poison"` when the character's [`DeathEvent`][osrlib.core.events.DeathEvent] has `poison`
     set. Every death by poison sets it: a monster's poison, at once or when its onset runs out, a
     sea dragon's spittle, a potion of poison, and a trap whose
-    [`TrapEffect.poison`][osrlib.crawl.dungeon.TrapEffect.poison] is set. A failed save versus death
+    [`TrapEffect.poison`][osrlib.crawl.dungeon.TrapEffect.poison] is set. An effect whose `expiry` is
+    `"death"` kills by poison only when its [`kind`][osrlib.core.effects.EffectDefinition.kind]
+    contains `poison`. A failed save versus death
     alone never makes it `"poison"`, because that save covers death ray as well. For any other
     death, the session reads the events of the command that killed the character, up to the death.
     It's `"damage"` when the character took damage after their last failed saving throw among them, and

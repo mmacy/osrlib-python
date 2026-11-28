@@ -209,3 +209,28 @@ class TestOtherDeaths:
         assert result.accepted
         assert [death.poison for death in _deaths(result.events, member.id)] == [True]
         assert session.death_records[member.id].cause == "poison"
+
+    @pytest.mark.parametrize("flag", ["true", "false", 1])
+    def test_only_a_boolean_poison_param_makes_a_potion_kill_by_poison(self, monkeypatch, flag):
+        # `params` allows strings, so a content author's `"poison": "false"` must not read as poison.
+        from osrlib.core import items as items_module
+        from osrlib.crawl import _magic_items
+
+        real = items_module.magic_item_template(MagicItemInstance(instance_id="x", template_id="potion_of_poison"))
+        effect = real.effect.model_copy(update={"params": {**real.effect.params, "poison": flag}})
+        altered = real.model_copy(update={"effect": effect})
+        monkeypatch.setattr(
+            _magic_items,
+            "magic_item_template",
+            lambda instance: altered if instance.template_id == "potion_of_poison" else real,
+        )
+        session = GameSession.new(build_party(), build_adventure(wandering_chance=0), seed=5)
+        member = session.party.members[0]
+        instance = MagicItemInstance(instance_id="magic-item-9001", template_id="potion_of_poison")
+        member.inventory.items.append(instance)
+        assert session.execute(EnterDungeon(dungeon_id="delve")).accepted
+        _force_fail(session, member.id)
+        result = session.execute(UseItem(character_id=member.id, item_id=instance.instance_id))
+        assert result.accepted
+        assert [death.poison for death in _deaths(result.events, member.id)] == [False]
+        assert session.death_records[member.id].cause != "poison"

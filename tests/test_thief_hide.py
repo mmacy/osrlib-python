@@ -702,7 +702,7 @@ def _digest(game: GameSession) -> str:
     events = [event.model_dump(mode="json") for event in game.event_log]
     for event in events:
         # `DeathEvent.poison` arrived after the digests were taken, and it changes no draw.
-        if event["event_type"] == "death":
+        if event["event_type"] == "death" and event["poison"] is False:
             del event["poison"]
     record = {"events": events, "streams": _streams(game)}
     return hashlib.sha256(json.dumps(record, sort_keys=True).encode()).hexdigest()

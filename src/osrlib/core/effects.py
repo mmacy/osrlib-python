@@ -1046,7 +1046,8 @@ class EffectDefinition(_Model):
     """The effect's name, like `"sleep"` or `"regeneration"`. The model accepts any non-empty string. The ledger
     compares kinds on the same target for `stacking`, and
     [`EffectsLedger.active_on`][osrlib.core.effects.EffectsLedger.active_on] filters on the kind, so give each kind of
-    effect one name and use it everywhere."""
+    effect one name and use it everywhere. A kind that contains `poison`, such as `"poison"` or `"spider_poison"`,
+    makes a `"death"` expiry a death by poison."""
 
     duration_unit: TimeUnit | None = None
     """The unit the duration is counted in: rounds, turns, or days. `None` means the effect has no duration and
@@ -1089,7 +1090,10 @@ class EffectDefinition(_Model):
     [`EffectExpiredEvent`][osrlib.core.events.EffectExpiredEvent], and takes off the condition and modifiers.
     Then it runs the outcome on the bearer:
 
-    - `"death"` kills the bearer, which is how a delayed poison works.
+    - `"death"` kills the bearer, which is how a delayed poison works. The death is a death by poison, with
+      [`DeathEvent.poison`][osrlib.core.events.DeathEvent.poison] set, only when the effect's `kind` contains
+      `poison`. Name a delayed poison's kind that way, because a session revives a character with
+      *neutralize poison* only after a death by poison. A kind such as `"venom"` kills, but not by poison.
     - `"splash_damage"` deals the second round of damage from burning oil or holy water. It rolls the `dice`
       param, which the definition needs.
     - `"weakness_strength_set"` attaches the Ring of Weakness curse when its onset ends. Pass an `allocator` to
