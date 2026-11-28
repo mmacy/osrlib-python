@@ -1139,15 +1139,21 @@ def _pursuer_rate(session, groups) -> int:
 
 
 def _group_intelligent(session, group: EncounterGroup) -> bool:
-    """Whether a group counts as intelligent, which a monster does when its treasure entry lists letters.
+    """Whether a group counts as intelligent for the distraction roll.
 
-    NPC adventuring parties count as intelligent for the distraction roll
-    whatever their treasure letters, because they are people.
+    A monster group reads its template's `intelligent` marker. When the
+    template leaves it `None`, the treasure type stands in: the group counts
+    as intelligent when its treasure entry lists letters. NPC adventuring
+    parties count as intelligent whatever their treasure letters, because
+    they are people.
     """
     combatant = session.combatant(group.monster_ids[0])
     if getattr(combatant, "definition", None) is not None:
         return True
-    return bool(combatant.template.treasure.letters)
+    template = combatant.template
+    if template.intelligent is not None:
+        return template.intelligent
+    return bool(template.treasure.letters)
 
 
 def _pursuit_round(session, *, dropped_kind: str | None = None) -> list[Event]:

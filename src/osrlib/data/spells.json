@@ -5947,6 +5947,7 @@
             "modifier": 0
           },
           "id": "conjured_snake",
+          "intelligent": null,
           "intro": "Sticks miraculously transformed into snakes.",
           "morale": 7,
           "morale_alternates": [],

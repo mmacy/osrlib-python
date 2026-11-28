@@ -207,6 +207,7 @@
         "modifier": 0
       },
       "id": "acolyte",
+      "intelligent": null,
       "intro": "1st level clerics on a quest for their deity.",
       "morale": 7,
       "morale_alternates": [],
@@ -338,6 +339,7 @@
         "modifier": 0
       },
       "id": "air_elemental_greater",
+      "intelligent": null,
       "intro": "Huge vortexes of whirling air.",
       "morale": 10,
       "morale_alternates": [],
@@ -469,6 +471,7 @@
         "modifier": 0
       },
       "id": "air_elemental_intermediate",
+      "intelligent": null,
       "intro": "Huge vortexes of whirling air.",
       "morale": 10,
       "morale_alternates": [],
@@ -600,6 +603,7 @@
         "modifier": 0
       },
       "id": "air_elemental_lesser",
+      "intelligent": null,
       "intro": "Huge vortexes of whirling air.",
       "morale": 10,
       "morale_alternates": [],
@@ -764,6 +768,7 @@
         "modifier": 0
       },
       "id": "amber_golem",
+      "intelligent": null,
       "intro": "Constructed in the form of giant cats (e.g. lions or tigers).",
       "morale": 12,
       "morale_alternates": [],
@@ -885,6 +890,7 @@
         "modifier": 0
       },
       "id": "ape_white",
+      "intelligent": null,
       "intro": "Albino, herbivorous, gorilla-like apes that live in caves and emerge at night to forage.",
       "morale": 7,
       "morale_alternates": [],
@@ -1006,6 +1012,7 @@
         "modifier": 0
       },
       "id": "bandit",
+      "intelligent": null,
       "intro": "NPC thieves who live by robbery.",
       "morale": 8,
       "morale_alternates": [],
@@ -1162,6 +1169,7 @@
         "modifier": 1
       },
       "id": "basilisk",
+      "intelligent": false,
       "intro": "10’ long, serpentine lizards. Unintelligent, but highly magical. Dwell in caverns and twisted brambles.",
       "morale": 9,
       "morale_alternates": [],
@@ -1185,7 +1193,9 @@
           "see_below": false
         }
       },
-      "overrides_applied": [],
+      "overrides_applied": [
+        "intelligent"
+      ],
       "page": "Basilisk.md",
       "saves": {
         "save_as": "6",
@@ -1277,6 +1287,7 @@
         "modifier": 1
       },
       "id": "berserker",
+      "intelligent": null,
       "intro": "Fighters who enter a rage in battle. They never take prisoners.",
       "morale": 12,
       "morale_alternates": [],
@@ -1409,6 +1420,7 @@
         "modifier": 0
       },
       "id": "black_bear",
+      "intelligent": null,
       "intro": "‎6’ tall; favour eating berries and roots.",
       "morale": 7,
       "morale_alternates": [],
@@ -1618,6 +1630,7 @@
         "modifier": 0
       },
       "id": "black_dragon",
+      "intelligent": null,
       "intro": "Dwell in swamps and marshes.",
       "morale": 8,
       "morale_alternates": [],
@@ -1759,6 +1772,7 @@
         "modifier": 0
       },
       "id": "black_pudding",
+      "intelligent": false,
       "intro": "Huge (5’–30’ across), mindless blobs of amorphous black jelly. Driven by ravenous hunger.",
       "morale": 12,
       "morale_alternates": [],
@@ -1782,7 +1796,9 @@
           "see_below": false
         }
       },
-      "overrides_applied": [],
+      "overrides_applied": [
+        "intelligent"
+      ],
       "page": "Black_Pudding.md",
       "saves": {
         "save_as": "5",
@@ -1876,6 +1892,7 @@
         "modifier": 0
       },
       "id": "black_widow",
+      "intelligent": null,
       "intro": "6’ long, black spiders with a red hourglass pattern on their abdomens. Dwell in web-filled lairs and sometimes prey on humans.",
       "morale": 8,
       "morale_alternates": [],
@@ -2001,6 +2018,7 @@
         "modifier": 0
       },
       "id": "blink_dog",
+      "intelligent": true,
       "intro": "Highly intelligent, dingo-like dogs that live in packs. Have the innate ability to blink in and out of existence.",
       "morale": 6,
       "morale_alternates": [],
@@ -2024,7 +2042,9 @@
           "see_below": false
         }
       },
-      "overrides_applied": [],
+      "overrides_applied": [
+        "intelligent"
+      ],
       "page": "Blink_Dog.md",
       "saves": {
         "save_as": "4",
@@ -2210,6 +2230,7 @@
         "modifier": 0
       },
       "id": "blue_dragon",
+      "intelligent": null,
       "intro": "Favour open plains and deserts.",
       "morale": 9,
       "morale_alternates": [],
@@ -2313,6 +2334,7 @@
         "modifier": 0
       },
       "id": "boar",
+      "intelligent": null,
       "intro": "Omnivorous wild boars that dwell primarily in forests. Can be irascible and dangerous, if disturbed.",
       "morale": 9,
       "morale_alternates": [],
@@ -2499,6 +2521,7 @@
         "modifier": 0
       },
       "id": "bone_golem",
+      "intelligent": null,
       "intro": "6’ tall constructs of human bone, crafted into a humanoid shape. Have four arms, attached at different places on the torso.",
       "morale": 12,
       "morale_alternates": [],
@@ -2647,6 +2670,7 @@
         "modifier": 0
       },
       "id": "brigand",
+      "intelligent": null,
       "intro": "Outlaws and mercenaries who make a living by raiding settlements and attacking travellers.",
       "morale": 8,
       "morale_alternates": [],
@@ -2807,6 +2831,7 @@
         "modifier": 0
       },
       "id": "bronze_golem",
+      "intelligent": null,
       "intro": "Bronze constructs that resemble fire giants, possessing a great internal heat.",
       "morale": 12,
       "morale_alternates": [],
@@ -2956,6 +2981,7 @@
         "modifier": 0
       },
       "id": "buccaneer",
+      "intelligent": null,
       "intro": "Sailors who make a living by raiding coastal settlements and robbing other ships. Typically ply rivers, lakes, and coastal waters; occasionally oceans.",
       "morale": 6,
       "morale_alternates": [],
@@ -3064,6 +3090,7 @@
         "modifier": 1
       },
       "id": "bugbear",
+      "intelligent": null,
       "intro": "Large, hairy goblins with an ungainly gait. Favour attacking by surprise.",
       "morale": 9,
       "morale_alternates": [],
@@ -3201,6 +3228,7 @@
         "modifier": 0
       },
       "id": "bull_shark",
+      "intelligent": null,
       "intro": "8’ long; brown colouration. Attack by ramming, then biting the stunned prey.",
       "morale": 7,
       "morale_alternates": [],
@@ -3305,6 +3333,7 @@
         "modifier": 0
       },
       "id": "caecilia",
+      "intelligent": null,
       "intro": "Gigantic (30’ long), grey, worm-like amphibians, with huge, toothed maws.",
       "morale": 9,
       "morale_alternates": [],
@@ -3449,6 +3478,7 @@
         "modifier": 0
       },
       "id": "camel",
+      "intelligent": null,
       "intro": "Irascible animals that are adapted to life in dry climates. Often used for transportation in deserts.",
       "morale": 7,
       "morale_alternates": [],
@@ -3565,6 +3595,7 @@
         "modifier": 1
       },
       "id": "carcass_crawler",
+      "intelligent": null,
       "intro": "9’ long, 3’ high, many-legged, segmented worms with a ring of 2’ long tentacles around their mouths.",
       "morale": 9,
       "morale_alternates": [],
@@ -3688,6 +3719,7 @@
         "modifier": 0
       },
       "id": "cave_bear",
+      "intelligent": null,
       "intro": "Ferocious, 15’ tall grizzly bears found in caves and Lost World settings. Omnivorous, but prefer meat, including humans.",
       "morale": 9,
       "morale_alternates": [],
@@ -3856,6 +3888,7 @@
         "modifier": 0
       },
       "id": "cave_locust",
+      "intelligent": null,
       "intro": "2–3’ long, herbivorous, giant crickets that dwell in caverns.",
       "morale": 5,
       "morale_alternates": [],
@@ -3989,6 +4022,7 @@
         "modifier": 0
       },
       "id": "centaur",
+      "intelligent": null,
       "intro": "Fantastic creatures with the legs and body of a horse, and the upper body and head of a human. Live in small family or tribal groups, in wild meadows and isolated forests.",
       "morale": 8,
       "morale_alternates": [],
@@ -4097,6 +4131,7 @@
         "modifier": 0
       },
       "id": "centipede_giant",
+      "intelligent": null,
       "intro": "1’ long centipedes that dwell in dark, damp locations.",
       "morale": 7,
       "morale_alternates": [],
@@ -4270,6 +4305,7 @@
         "modifier": 0
       },
       "id": "chimera",
+      "intelligent": null,
       "intro": "Horrific, hybrid monstrosities with the forequarters of a lion, the hindquarters of a goat, the wings of a dragon, and three heads: goat, lion, and dragon. Dwell in wild, hilly areas, or sometimes in dungeons.",
       "morale": 9,
       "morale_alternates": [],
@@ -4424,6 +4460,7 @@
         "modifier": 3
       },
       "id": "cloud_giant",
+      "intelligent": null,
       "intro": "Aggressive, 20’ tall humanoids with skin and hair ranging from grey to white. Dress in pale robes.",
       "morale": 10,
       "morale_alternates": [],
@@ -4534,6 +4571,7 @@
         "modifier": 0
       },
       "id": "cockatrice",
+      "intelligent": null,
       "intro": "Small, magical, bird / reptile hybrids with long serpent tails and the head, legs, and wings of a cockerel. Live in all environments.",
       "morale": 7,
       "morale_alternates": [],
@@ -4645,6 +4683,7 @@
         "modifier": 0
       },
       "id": "crab_giant",
+      "intelligent": false,
       "intro": "Unintelligent crustaceans that lurk in coastal waters and creep along beaches. Cannot swim.",
       "morale": 7,
       "morale_alternates": [],
@@ -4668,7 +4707,9 @@
           "see_below": false
         }
       },
-      "overrides_applied": [],
+      "overrides_applied": [
+        "intelligent"
+      ],
       "page": "Crab%2C_Giant.md",
       "saves": {
         "save_as": "2",
@@ -4777,6 +4818,7 @@
         "modifier": 0
       },
       "id": "crab_spider",
+      "intelligent": null,
       "intro": "5’ long hunting spiders that can change their colour to match their surroundings.",
       "morale": 7,
       "morale_alternates": [],
@@ -4901,6 +4943,7 @@
         "modifier": 0
       },
       "id": "crystal_living_statue",
+      "intelligent": null,
       "intro": "Formed of crystals. Often human in form.",
       "morale": 11,
       "morale_alternates": [],
@@ -5043,6 +5086,7 @@
         "modifier": 0
       },
       "id": "cyclops",
+      "intelligent": null,
       "intro": "20’ tall humanoids with a single, central eye. Dwell in caves, alone or in small groups. Cultivate grapes and raise sheep.",
       "morale": 9,
       "morale_alternates": [],
@@ -5192,6 +5236,7 @@
         "modifier": 0
       },
       "id": "dervish",
+      "intelligent": null,
       "intro": "Fanatically religious, nomadic people who wander steppes and desert regions, living in tents.",
       "morale": 10,
       "morale_alternates": [],
@@ -5423,6 +5468,7 @@
         "modifier": 0
       },
       "id": "devil_swine",
+      "intelligent": null,
       "intro": "Corpulent humans who can change into huge swine. Love to eat human flesh. Lurk in isolated human settlements close to forests or marshes.",
       "morale": 10,
       "morale_alternates": [],
@@ -5541,6 +5587,7 @@
         "modifier": 1
       },
       "id": "dire_wolf",
+      "intelligent": null,
       "intro": "Large, savage, semi-intelligent wolves. Dwell in caves, mountains, and forests.",
       "morale": 8,
       "morale_alternates": [],
@@ -5680,6 +5727,7 @@
         "modifier": 1
       },
       "id": "djinni_lesser",
+      "intelligent": true,
       "intro": "Highly magical, free-willed, intelligent beings from the elemental plane of air. Tall humanoids wreathed in clouds.",
       "morale": 12,
       "morale_alternates": [],
@@ -5709,7 +5757,8 @@
         }
       },
       "overrides_applied": [
-        "categories"
+        "categories",
+        "intelligent"
       ],
       "page": "Djinni_%28Lesser%29.md",
       "saves": {
@@ -5815,6 +5864,7 @@
         "modifier": 0
       },
       "id": "doppelganger",
+      "intelligent": true,
       "intro": "Intelligent, human-sized shape-shifters of wicked character and highly magical nature.",
       "morale": 10,
       "morale_alternates": [],
@@ -5838,7 +5888,9 @@
           "see_below": false
         }
       },
-      "overrides_applied": [],
+      "overrides_applied": [
+        "intelligent"
+      ],
       "page": "Doppelg%25C3%25A4nger.md",
       "saves": {
         "save_as": "10",
@@ -5913,6 +5965,7 @@
         "modifier": 2
       },
       "id": "draco",
+      "intelligent": null,
       "intro": "6’ long, carnivorous lizards with skin flaps between legs that enable gliding. Usually dwell above ground, but sometimes shelter in caves. Sometimes attack humans.",
       "morale": 7,
       "morale_alternates": [],
@@ -6022,6 +6075,7 @@
         "modifier": 0
       },
       "id": "draft_horse",
+      "intelligent": null,
       "intro": "Bred for great strength and endurance. Used to pull vehicles and ploughs or as beasts of burden.",
       "morale": 6,
       "morale_alternates": [],
@@ -6182,6 +6236,7 @@
         "modifier": 0
       },
       "id": "dragon_turtle",
+      "intelligent": null,
       "intro": "Gargantuan sea monsters with the body and hard shell of a turtle and the head, tail, and legs of a dragon. Lurk in huge caves in the depths of the ocean, only rarely coming to the surface.",
       "morale": 10,
       "morale_alternates": [],
@@ -6307,6 +6362,7 @@
         "modifier": 0
       },
       "id": "driver_ant",
+      "intelligent": null,
       "intro": "Giant (6’ long), omnivorous, black ants.",
       "morale": 7,
       "morale_alternates": [
@@ -6450,6 +6506,7 @@
         "modifier": 0
       },
       "id": "dryad",
+      "intelligent": null,
       "intro": "Shy, peaceful, yet wary tree spirits that can manifest as beautiful female humanoids. Live in deep forests.",
       "morale": 6,
       "morale_alternates": [],
@@ -6566,6 +6623,7 @@
         "modifier": 0
       },
       "id": "dwarf_monster",
+      "intelligent": null,
       "intro": "Short, stocky, bearded demihumans who dwell in mountains and subterranean realms.",
       "morale": 8,
       "morale_alternates": [
@@ -6702,6 +6760,7 @@
         "modifier": 0
       },
       "id": "earth_elemental_greater",
+      "intelligent": null,
       "intro": "Huge, humanoid figures of earth or stone.",
       "morale": 10,
       "morale_alternates": [],
@@ -6833,6 +6892,7 @@
         "modifier": 0
       },
       "id": "earth_elemental_intermediate",
+      "intelligent": null,
       "intro": "Huge, humanoid figures of earth or stone.",
       "morale": 10,
       "morale_alternates": [],
@@ -6964,6 +7024,7 @@
         "modifier": 0
       },
       "id": "earth_elemental_lesser",
+      "intelligent": null,
       "intro": "Huge, humanoid figures of earth or stone.",
       "morale": 10,
       "morale_alternates": [],
@@ -7119,6 +7180,7 @@
         "modifier": 0
       },
       "id": "efreeti_lesser",
+      "intelligent": true,
       "intro": "Highly magical, free-willed, intelligent beings from the elemental plane of fire. Manifest as giant men with demonic faces and an aura of heat and smoke. Solidify out of billowing smoke clouds.",
       "morale": 12,
       "morale_alternates": [],
@@ -7148,7 +7210,8 @@
         }
       },
       "overrides_applied": [
-        "categories"
+        "categories",
+        "intelligent"
       ],
       "page": "Efreeti_%28Lesser%29.md",
       "saves": {
@@ -7259,6 +7322,7 @@
         "modifier": 0
       },
       "id": "elephant",
+      "intelligent": null,
       "intro": "Massive, tusked animals that dwell near subtropical forests. Wandering individuals or whole herds may be encountered.",
       "morale": 8,
       "morale_alternates": [],
@@ -7374,6 +7438,7 @@
         "modifier": 1
       },
       "id": "elf_monster",
+      "intelligent": null,
       "intro": "Slender, fey demihumans with pointed ears. Live in harmony with nature, in beautiful natural settings.",
       "morale": 8,
       "morale_alternates": [
@@ -7485,6 +7550,7 @@
         "modifier": 1
       },
       "id": "ferret_giant",
+      "intelligent": null,
       "intro": "3’ long ferrets that hunt giant rats in their burrows. Sometimes kept by humans for this aptitude.",
       "morale": 8,
       "morale_alternates": [],
@@ -7589,6 +7655,7 @@
         "modifier": 2
       },
       "id": "fire_beetle",
+      "intelligent": null,
       "intro": "2½’ long. Commonly found underground.",
       "morale": 7,
       "morale_alternates": [],
@@ -7725,6 +7792,7 @@
         "modifier": 0
       },
       "id": "fire_elemental_greater",
+      "intelligent": null,
       "intro": "Whirling columns of fire",
       "morale": 10,
       "morale_alternates": [],
@@ -7863,6 +7931,7 @@
         "modifier": 0
       },
       "id": "fire_elemental_intermediate",
+      "intelligent": null,
       "intro": "Whirling columns of fire",
       "morale": 10,
       "morale_alternates": [],
@@ -8001,6 +8070,7 @@
         "modifier": 0
       },
       "id": "fire_elemental_lesser",
+      "intelligent": null,
       "intro": "Whirling columns of fire",
       "morale": 10,
       "morale_alternates": [],
@@ -8155,6 +8225,7 @@
         "modifier": 2
       },
       "id": "fire_giant",
+      "intelligent": null,
       "intro": "16’ tall humanoids with black hair and red skin. Dress in armour fashioned from golden metals (brass, bronze, copper). Dwell in places of extreme heat (e.g. near volcanoes).",
       "morale": 9,
       "morale_alternates": [],
@@ -8316,6 +8387,7 @@
         "modifier": 0
       },
       "id": "flame_salamander",
+      "intelligent": true,
       "intro": "12’–16’ long, intelligent serpents with lizard-like heads and legs. Bright orange/yellow/red scales. Natives of the plane of elemental fire, but also live in volcanoes and scorching deserts.",
       "morale": 8,
       "morale_alternates": [],
@@ -8339,7 +8411,9 @@
           "see_below": false
         }
       },
-      "overrides_applied": [],
+      "overrides_applied": [
+        "intelligent"
+      ],
       "page": "Salamander.md",
       "saves": {
         "save_as": "8",
@@ -8460,6 +8534,7 @@
         "modifier": 1
       },
       "id": "freshwater_termite",
+      "intelligent": null,
       "intro": "Giant (1’–5’ long), wood-eating, aquatic insects with a sack to take in and jet out water. Prone to feeding on passing ships. Only attack creatures if cornered.",
       "morale": 8,
       "morale_alternates": [],
@@ -8605,6 +8680,7 @@
         "modifier": 1
       },
       "id": "frost_giant",
+      "intelligent": null,
       "intro": "18’ tall humanoids with pale skin and pale, yellow or blue hair. Dress in furs or iron armour. Males have long beards.",
       "morale": 9,
       "morale_alternates": [],
@@ -8759,6 +8835,7 @@
         "modifier": 0
       },
       "id": "frost_salamander",
+      "intelligent": null,
       "intro": "Giant, 6-legged lizards with blue/white scales. Dwell in icy, wilderness regions.",
       "morale": 9,
       "morale_alternates": [],
@@ -8913,6 +8990,7 @@
         "modifier": 0
       },
       "id": "gargoyle",
+      "intelligent": null,
       "intro": "Magical monsters that look like hideous, horned, winged statues. Semi-intelligent and possessed of a great cunning.",
       "morale": 11,
       "morale_alternates": [],
@@ -9026,6 +9104,7 @@
         "modifier": 1
       },
       "id": "gecko",
+      "intelligent": null,
       "intro": "5’ long, carnivorous, nocturnal lizards. Light blue scales with orange spots.",
       "morale": 7,
       "morale_alternates": [],
@@ -9167,6 +9246,7 @@
         "modifier": 0
       },
       "id": "gelatinous_cube",
+      "intelligent": null,
       "intro": "10’ cubes of transparent jelly. Move through dungeons, absorbing debris and living creatures they come across.",
       "morale": 12,
       "morale_alternates": [],
@@ -9308,6 +9388,7 @@
         "modifier": 0
       },
       "id": "ghoul",
+      "intelligent": null,
       "intro": "Grotesque, animalistic, undead humans that crave the flesh of the living.",
       "morale": 9,
       "morale_alternates": [],
@@ -9406,6 +9487,7 @@
         "modifier": 0
       },
       "id": "giant_bass",
+      "intelligent": null,
       "intro": "Shy; only attack when seeing a bite-size (halfling-size or smaller) morsel close by.",
       "morale": 8,
       "morale_alternates": [],
@@ -9510,6 +9592,7 @@
         "modifier": 0
       },
       "id": "giant_bat",
+      "intelligent": null,
       "intro": "Carnivorous bats that may attack adventurers, if hungry. 1-in-20 groups of giant bats are vampiric (see Giant Vampire Bat).",
       "morale": 8,
       "morale_alternates": [],
@@ -9621,6 +9704,7 @@
         "modifier": 3
       },
       "id": "giant_catfish",
+      "intelligent": null,
       "intro": "15’ long, pale white. Four feelers beside the mouth. Lurk in the mud at the bottom of rivers and lakes. Will attack creatures on the bottom or swimming above.",
       "morale": 8,
       "morale_alternates": [],
@@ -9725,6 +9809,7 @@
         "modifier": 0
       },
       "id": "giant_crocodile",
+      "intelligent": null,
       "intro": "More than 50’ long. Usually encountered in Lost World regions. Will attack small ships.",
       "morale": 9,
       "morale_alternates": [],
@@ -9848,6 +9933,7 @@
         "modifier": 3
       },
       "id": "giant_hawk",
+      "intelligent": null,
       "intro": "As big as a great dog. If hungry, may attack humans or similar-sized creatures.",
       "morale": 8,
       "morale_alternates": [],
@@ -9959,6 +10045,7 @@
         "modifier": 3
       },
       "id": "giant_piranha",
+      "intelligent": null,
       "intro": "5’ long piranhas with black and green scales. Live in rivers (occasionally lakes) and attack anything in the water.",
       "morale": 7,
       "morale_alternates": [],
@@ -10079,6 +10166,7 @@
         "modifier": 0
       },
       "id": "giant_rat",
+      "intelligent": null,
       "intro": "3’ long (or larger), with black or grey fur. Often live in dark, dungeon areas and close to undead monsters.",
       "morale": 8,
       "morale_alternates": [],
@@ -10210,6 +10298,7 @@
         "modifier": 0
       },
       "id": "giant_rattler",
+      "intelligent": null,
       "intro": "10’ long snakes with brown and white diamond patterns on their scales, and a rattle of rasping scales on their tails.",
       "morale": 8,
       "morale_alternates": [],
@@ -10347,6 +10436,7 @@
         "modifier": 0
       },
       "id": "giant_roc",
+      "intelligent": null,
       "intro": "Gigantic birds of prey that nest in the highest peaks of isolated mountain ranges. Will attack intruders, if approached carelessly.",
       "morale": 10,
       "morale_alternates": [
@@ -10481,6 +10571,7 @@
         "modifier": 5
       },
       "id": "giant_rockfish",
+      "intelligent": null,
       "intro": "Spiny fish with lumpy, rock-like skin. Live in saltwater shallows. Normally passive, but highly aggressive if disturbed.",
       "morale": 8,
       "morale_alternates": [],
@@ -10585,6 +10676,7 @@
         "modifier": 2
       },
       "id": "giant_sturgeon",
+      "intelligent": null,
       "intro": "Huge (nearly 30’ long), aggressive fish with armour plating.",
       "morale": 9,
       "morale_alternates": [],
@@ -10705,6 +10797,7 @@
         "modifier": 0
       },
       "id": "giant_vampire_bat",
+      "intelligent": null,
       "intro": "Nocturnal, flying mammals that roost in caves or ruins.",
       "morale": 8,
       "morale_alternates": [],
@@ -10816,6 +10909,7 @@
         "modifier": 0
       },
       "id": "gnoll",
+      "intelligent": null,
       "intro": "Lazy, humanoid hyenas of low intelligence that live by intimidation and theft. Legends say that gnolls were magically created by a wizard who crossbred gnomes and trolls.",
       "morale": 8,
       "morale_alternates": [],
@@ -10965,6 +11059,7 @@
         "modifier": 0
       },
       "id": "gnome",
+      "intelligent": null,
       "intro": "Short demihumans with long noses and beards. Smaller cousins of dwarves, whom they get along with. Prefer to live in burrows in non-mountainous country.",
       "morale": 8,
       "morale_alternates": [
@@ -11126,6 +11221,7 @@
         "modifier": -1
       },
       "id": "goblin",
+      "intelligent": null,
       "intro": "Small, grotesque humanoids with pallid, earth-coloured skin and glowing, red eyes. Dwell underground.",
       "morale": 7,
       "morale_alternates": [
@@ -11371,6 +11467,7 @@
         "modifier": 0
       },
       "id": "gold_dragon",
+      "intelligent": null,
       "intro": "May be encountered in any terrain, often in the guise of a person or animal.",
       "morale": 10,
       "morale_alternates": [],
@@ -11508,6 +11605,7 @@
         "modifier": 0
       },
       "id": "gorgon",
+      "intelligent": null,
       "intro": "Magical monsters that resemble iron-scaled bulls. Dwell in plains or foothills.",
       "morale": 8,
       "morale_alternates": [],
@@ -11621,6 +11719,7 @@
         "modifier": 0
       },
       "id": "great_white_shark",
+      "intelligent": null,
       "intro": "30’ long (or bigger!); grey colouration with white belly. Sometimes attack small boats.",
       "morale": 7,
       "morale_alternates": [],
@@ -11829,6 +11928,7 @@
         "modifier": 0
       },
       "id": "green_dragon",
+      "intelligent": null,
       "intro": "Lair in jungles and forests.",
       "morale": 9,
       "morale_alternates": [],
@@ -11973,6 +12073,7 @@
         "modifier": 0
       },
       "id": "green_slime",
+      "intelligent": null,
       "intro": "Dripping, green slime that clings to walls and ceilings.",
       "morale": 12,
       "morale_alternates": [],
@@ -12100,6 +12201,7 @@
         "modifier": 0
       },
       "id": "grey_ooze",
+      "intelligent": null,
       "intro": "Slimy horrors that lurk on stone surfaces or among boulders.",
       "morale": 12,
       "morale_alternates": [],
@@ -12228,6 +12330,7 @@
         "modifier": 0
       },
       "id": "griffon",
+      "intelligent": null,
       "intro": "Large, rapacious predators combining the features of an eagle (head, wings, front claws) and a lion. Prey on horses.",
       "morale": 8,
       "morale_alternates": [],
@@ -12349,6 +12452,7 @@
         "modifier": 0
       },
       "id": "grizzly_bear",
+      "intelligent": null,
       "intro": "Aggressive, 9’ tall. Silver-tipped fur, brown or reddish brown in colour. Live in forests and mountains. Favour eating meat.",
       "morale": 8,
       "morale_alternates": [],
@@ -12464,6 +12568,7 @@
         "modifier": -1
       },
       "id": "halfling_monster",
+      "intelligent": null,
       "intro": "Diminutive, furry-footed demihumans who dwell in small villages (30–300 inhabitants).",
       "morale": 7,
       "morale_alternates": [],
@@ -12606,6 +12711,7 @@
         "modifier": 0
       },
       "id": "harpy",
+      "intelligent": null,
       "intro": "Hideous hags with the wings and lower bodies of giant eagles. Use their song to lure victims to their doom.",
       "morale": 7,
       "morale_alternates": [],
@@ -12772,6 +12878,7 @@
         "modifier": 0
       },
       "id": "hellhound_3",
+      "intelligent": true,
       "intro": "Monstrous, cunning, and very intelligent hounds, the size of a small pony. Breathe fire and love heat. Dwell in dungeons or near volcanoes.",
       "morale": 9,
       "morale_alternates": [],
@@ -12795,7 +12902,9 @@
           "see_below": false
         }
       },
-      "overrides_applied": [],
+      "overrides_applied": [
+        "intelligent"
+      ],
       "page": "Hellhound.md",
       "saves": {
         "save_as": "3",
@@ -12933,6 +13042,7 @@
         "modifier": 0
       },
       "id": "hellhound_4",
+      "intelligent": true,
       "intro": "Monstrous, cunning, and very intelligent hounds, the size of a small pony. Breathe fire and love heat. Dwell in dungeons or near volcanoes.",
       "morale": 9,
       "morale_alternates": [],
@@ -12956,7 +13066,9 @@
           "see_below": false
         }
       },
-      "overrides_applied": [],
+      "overrides_applied": [
+        "intelligent"
+      ],
       "page": "Hellhound.md",
       "saves": {
         "save_as": "4",
@@ -13094,6 +13206,7 @@
         "modifier": 0
       },
       "id": "hellhound_5",
+      "intelligent": true,
       "intro": "Monstrous, cunning, and very intelligent hounds, the size of a small pony. Breathe fire and love heat. Dwell in dungeons or near volcanoes.",
       "morale": 9,
       "morale_alternates": [],
@@ -13117,7 +13230,9 @@
           "see_below": false
         }
       },
-      "overrides_applied": [],
+      "overrides_applied": [
+        "intelligent"
+      ],
       "page": "Hellhound.md",
       "saves": {
         "save_as": "5",
@@ -13255,6 +13370,7 @@
         "modifier": 0
       },
       "id": "hellhound_6",
+      "intelligent": true,
       "intro": "Monstrous, cunning, and very intelligent hounds, the size of a small pony. Breathe fire and love heat. Dwell in dungeons or near volcanoes.",
       "morale": 9,
       "morale_alternates": [],
@@ -13278,7 +13394,9 @@
           "see_below": false
         }
       },
-      "overrides_applied": [],
+      "overrides_applied": [
+        "intelligent"
+      ],
       "page": "Hellhound.md",
       "saves": {
         "save_as": "6",
@@ -13416,6 +13534,7 @@
         "modifier": 0
       },
       "id": "hellhound_7",
+      "intelligent": true,
       "intro": "Monstrous, cunning, and very intelligent hounds, the size of a small pony. Breathe fire and love heat. Dwell in dungeons or near volcanoes.",
       "morale": 9,
       "morale_alternates": [],
@@ -13439,7 +13558,9 @@
           "see_below": false
         }
       },
-      "overrides_applied": [],
+      "overrides_applied": [
+        "intelligent"
+      ],
       "page": "Hellhound.md",
       "saves": {
         "save_as": "7",
@@ -13522,6 +13643,7 @@
         "modifier": 0
       },
       "id": "hill_giant",
+      "intelligent": null,
       "intro": "Hairy, brutish, 12’ tall humanoids of low intelligence. Dwell in foothills. Known to attack human settlements to steal food.",
       "morale": 8,
       "morale_alternates": [],
@@ -13652,6 +13774,7 @@
         "modifier": 1
       },
       "id": "hippogriff",
+      "intelligent": null,
       "intro": "Fantastic creatures combining the features of a giant eagle (head and forequarters) and a horse. Nest among craggy rocks.",
       "morale": 8,
       "morale_alternates": [],
@@ -13763,6 +13886,7 @@
         "modifier": 1
       },
       "id": "hobgoblin",
+      "intelligent": null,
       "intro": "Larger and nastier relatives of goblins. Dwell underground, but commonly seek prey above ground.",
       "morale": 8,
       "morale_alternates": [
@@ -13919,6 +14043,7 @@
         "modifier": 0
       },
       "id": "horned_chameleon",
+      "intelligent": null,
       "intro": "7’ long lizards whose scales change colour as camouflage.",
       "morale": 7,
       "morale_alternates": [],
@@ -14039,6 +14164,7 @@
         "modifier": 0
       },
       "id": "hydra_10",
+      "intelligent": null,
       "intro": "Large, dragon-like creatures with multiple, serpentine heads. Sea hydras (adapted to water, with fins) also exist.",
       "morale": 9,
       "morale_alternates": [],
@@ -14159,6 +14285,7 @@
         "modifier": 0
       },
       "id": "hydra_11",
+      "intelligent": null,
       "intro": "Large, dragon-like creatures with multiple, serpentine heads. Sea hydras (adapted to water, with fins) also exist.",
       "morale": 9,
       "morale_alternates": [],
@@ -14279,6 +14406,7 @@
         "modifier": 0
       },
       "id": "hydra_12",
+      "intelligent": null,
       "intro": "Large, dragon-like creatures with multiple, serpentine heads. Sea hydras (adapted to water, with fins) also exist.",
       "morale": 9,
       "morale_alternates": [],
@@ -14399,6 +14527,7 @@
         "modifier": 0
       },
       "id": "hydra_5",
+      "intelligent": null,
       "intro": "Large, dragon-like creatures with multiple, serpentine heads. Sea hydras (adapted to water, with fins) also exist.",
       "morale": 9,
       "morale_alternates": [],
@@ -14519,6 +14648,7 @@
         "modifier": 0
       },
       "id": "hydra_6",
+      "intelligent": null,
       "intro": "Large, dragon-like creatures with multiple, serpentine heads. Sea hydras (adapted to water, with fins) also exist.",
       "morale": 9,
       "morale_alternates": [],
@@ -14639,6 +14769,7 @@
         "modifier": 0
       },
       "id": "hydra_7",
+      "intelligent": null,
       "intro": "Large, dragon-like creatures with multiple, serpentine heads. Sea hydras (adapted to water, with fins) also exist.",
       "morale": 9,
       "morale_alternates": [],
@@ -14759,6 +14890,7 @@
         "modifier": 0
       },
       "id": "hydra_8",
+      "intelligent": null,
       "intro": "Large, dragon-like creatures with multiple, serpentine heads. Sea hydras (adapted to water, with fins) also exist.",
       "morale": 9,
       "morale_alternates": [],
@@ -14879,6 +15011,7 @@
         "modifier": 0
       },
       "id": "hydra_9",
+      "intelligent": null,
       "intro": "Large, dragon-like creatures with multiple, serpentine heads. Sea hydras (adapted to water, with fins) also exist.",
       "morale": 9,
       "morale_alternates": [],
@@ -15040,6 +15173,7 @@
         "modifier": 0
       },
       "id": "insect_swarm_2",
+      "intelligent": null,
       "intro": "Swarms of many tiny insects that may be encountered protecting their nest. May also be drawn to light or unusual smells.",
       "morale": 11,
       "morale_alternates": [],
@@ -15204,6 +15338,7 @@
         "modifier": 0
       },
       "id": "insect_swarm_3",
+      "intelligent": null,
       "intro": "Swarms of many tiny insects that may be encountered protecting their nest. May also be drawn to light or unusual smells.",
       "morale": 11,
       "morale_alternates": [],
@@ -15368,6 +15503,7 @@
         "modifier": 0
       },
       "id": "insect_swarm_4",
+      "intelligent": null,
       "intro": "Swarms of many tiny insects that may be encountered protecting their nest. May also be drawn to light or unusual smells.",
       "morale": 11,
       "morale_alternates": [],
@@ -15493,6 +15629,7 @@
         "modifier": 0
       },
       "id": "invisible_stalker_monster",
+      "intelligent": true,
       "intro": "Highly intelligent, magical creatures summoned from another plane of existence to perform tasks for powerful magic-users.",
       "morale": 12,
       "morale_alternates": [],
@@ -15517,7 +15654,8 @@
         }
       },
       "overrides_applied": [
-        "categories"
+        "categories",
+        "intelligent"
       ],
       "page": "Invisible_Stalker_%28Monster%29.md",
       "saves": {
@@ -15624,6 +15762,7 @@
         "modifier": 0
       },
       "id": "iron_living_statue",
+      "intelligent": null,
       "intro": "Animated statues of any size and material (three types described below; others may be invented by the referee).",
       "morale": 11,
       "morale_alternates": [],
@@ -15777,6 +15916,7 @@
         "modifier": 0
       },
       "id": "killer_bee",
+      "intelligent": null,
       "intro": "Giant (1’ long) bees of aggressive temperament. Build hives underground.",
       "morale": 9,
       "morale_alternates": [],
@@ -15892,6 +16032,7 @@
         "modifier": 0
       },
       "id": "killer_whale",
+      "intelligent": null,
       "intro": "25’ long, carnivorous whales. Dwell in cold waters and hunt sea creatures (including other whales).",
       "morale": 10,
       "morale_alternates": [],
@@ -16028,6 +16169,7 @@
         "modifier": 0
       },
       "id": "kobold",
+      "intelligent": null,
       "intro": "Small, wicked, hairless, canine humanoids with scaly, rust-coloured skin. Dwell underground.",
       "morale": 6,
       "morale_alternates": [
@@ -16150,6 +16292,7 @@
         "modifier": 0
       },
       "id": "large_crocodile",
+      "intelligent": null,
       "intro": "20’ or more long. May attack small watercraft (canoes, rafts).",
       "morale": 7,
       "morale_alternates": [],
@@ -16273,6 +16416,7 @@
         "modifier": 0
       },
       "id": "large_herd_animal",
+      "intelligent": null,
       "intro": "For example: elk or moose.",
       "morale": 5,
       "morale_alternates": [],
@@ -16408,6 +16552,7 @@
         "modifier": 0
       },
       "id": "large_roc",
+      "intelligent": null,
       "intro": "Gigantic birds of prey that nest in the highest peaks of isolated mountain ranges. Will attack intruders, if approached carelessly.",
       "morale": 9,
       "morale_alternates": [
@@ -16540,6 +16685,7 @@
         "modifier": 0
       },
       "id": "leech_giant",
+      "intelligent": null,
       "intro": "Horrid, 3–4’ long, slug-like creatures with sucker mouths. Lurk in swamps.",
       "morale": 10,
       "morale_alternates": [],
@@ -16668,6 +16814,7 @@
         "modifier": 0
       },
       "id": "lion",
+      "intelligent": null,
       "intro": "Hunt in groups called “prides”. Live in hot regions, typically in savannah or scrublands close to deserts.",
       "morale": 9,
       "morale_alternates": [],
@@ -16783,6 +16930,7 @@
         "modifier": 1
       },
       "id": "lizard_man",
+      "intelligent": null,
       "intro": "Semi-intelligent, tribal, aquatic humanoids with reptilian heads and tails. Often encountered in swamps and dungeons, or along rivers and coastlines.",
       "morale": 12,
       "morale_alternates": [],
@@ -16908,6 +17056,7 @@
         "modifier": 0
       },
       "id": "mako_shark",
+      "intelligent": null,
       "intro": "15’ long; bluish-grey or tan colouration.",
       "morale": 7,
       "morale_alternates": [],
@@ -17044,6 +17193,7 @@
         "modifier": 1
       },
       "id": "manticore",
+      "intelligent": null,
       "intro": "Monstrosities with the face of a man, the body of a lion, bat-like wings, and a tail bristling with spikes. Love eating humans. Dwell in wild, mountainous regions.",
       "morale": 9,
       "morale_alternates": [],
@@ -17184,6 +17334,7 @@
         "modifier": 0
       },
       "id": "mastodon",
+      "intelligent": null,
       "intro": "Shaggy elephants with large tusks. Live in icy or Lost World regions.",
       "morale": 8,
       "morale_alternates": [],
@@ -17316,6 +17467,7 @@
         "modifier": 0
       },
       "id": "medium",
+      "intelligent": null,
       "intro": "1st level NPC magic-users.",
       "morale": 7,
       "morale_alternates": [],
@@ -17436,6 +17588,7 @@
         "modifier": 0
       },
       "id": "medium_herd_animal",
+      "intelligent": null,
       "intro": "For example: caribou or oxen.",
       "morale": 5,
       "morale_alternates": [],
@@ -17583,6 +17736,7 @@
         "modifier": 0
       },
       "id": "medusa",
+      "intelligent": null,
       "intro": "Deadly creatures of a magical nature that look like women with writhing snakes in place of hair.",
       "morale": 8,
       "morale_alternates": [],
@@ -17740,6 +17894,7 @@
         "modifier": 0
       },
       "id": "merchant",
+      "intelligent": null,
       "intro": "Organized traders who travel between settlements in well-armed caravans, buying and selling trade goods (e.g. gold, jewels, silk, spices, wine, etc.).",
       "morale": null,
       "morale_alternates": [],
@@ -17869,6 +18024,7 @@
         "modifier": 0
       },
       "id": "merman",
+      "intelligent": null,
       "intro": "Aquatic humanoids with fish tails in place of legs. Live in coastal waters, farming seaweed and hunting fish.",
       "morale": 8,
       "morale_alternates": [],
@@ -18016,6 +18172,7 @@
         "modifier": 0
       },
       "id": "minotaur",
+      "intelligent": null,
       "intro": "Large, brutish, bull-headed men with a craving for human flesh. Dwell in mazes and labyrinths.",
       "morale": 12,
       "morale_alternates": [],
@@ -18148,6 +18305,7 @@
         "modifier": 2
       },
       "id": "mountain_lion",
+      "intelligent": null,
       "intro": "Have yellow-brown fur and favour mountains, deserts, and forests. Will occasionally venture into dungeons.",
       "morale": 8,
       "morale_alternates": [],
@@ -18283,6 +18441,7 @@
         "modifier": 0
       },
       "id": "mule",
+      "intelligent": null,
       "intro": "Stubborn horse/donkey cross-breeds used as beasts of burden.",
       "morale": 8,
       "morale_alternates": [],
@@ -18426,6 +18585,7 @@
         "modifier": 1
       },
       "id": "mummy",
+      "intelligent": null,
       "intro": "Undead humanoids wrapped in funerary bandages. Haunt ruins and tombs.",
       "morale": 12,
       "morale_alternates": [],
@@ -18542,6 +18702,7 @@
         "modifier": 0
       },
       "id": "narwhal",
+      "intelligent": true,
       "intro": "15’ long, intelligent, magical whales with grey to white skin and an 8’ long, spiralling horn on their nose. Live independent and secretive lives in arctic waters.",
       "morale": 8,
       "morale_alternates": [],
@@ -18565,7 +18726,9 @@
           "see_below": false
         }
       },
-      "overrides_applied": [],
+      "overrides_applied": [
+        "intelligent"
+      ],
       "page": "Whale.md",
       "saves": {
         "save_as": "12",
@@ -18671,6 +18834,7 @@
         "modifier": 0
       },
       "id": "neanderthal_caveman",
+      "intelligent": null,
       "intro": "Squat, powerful, primitive demihumans with ape-like faces. Dwell in caverns and hunt cave bears. Shy of contact with humans (with whom they are related), but friendly with dwarves and gnomes.",
       "morale": 7,
       "morale_alternates": [],
@@ -18824,6 +18988,7 @@
         "modifier": 0
       },
       "id": "nixie",
+      "intelligent": null,
       "intro": "3’ tall sprites that appear as attractive women with blueish, greenish, or greyish skin. Lair in the deepest parts of rivers and lakes.",
       "morale": 6,
       "morale_alternates": [],
@@ -18941,6 +19106,7 @@
         "modifier": 0
       },
       "id": "noble",
+      "intelligent": null,
       "intro": "Powerful humans with noble titles (e.g. Count, Duke, Knight, etc.). Dwell in castles.",
       "morale": 8,
       "morale_alternates": [],
@@ -19106,6 +19272,7 @@
         "modifier": 0
       },
       "id": "nomad",
+      "intelligent": null,
       "intro": "Superstitious tribes who wander steppes and desert regions, living in tents or temporary huts. Demeanour depends on the tribe: some are warlike, others peaceful.",
       "morale": 8,
       "morale_alternates": [],
@@ -19235,6 +19402,7 @@
         "modifier": 0
       },
       "id": "normal_bat",
+      "intelligent": null,
       "intro": "Nocturnal, flying mammals that roost in caves or ruins.",
       "morale": 6,
       "morale_alternates": [],
@@ -19344,6 +19512,7 @@
         "modifier": 0
       },
       "id": "normal_crocodile",
+      "intelligent": null,
       "intro": "Large reptiles that are ungainly on land and live primarily in water, lurking just beneath the surface of subtropical swamps and lazy rivers. If hungry, attack any creatures that venture into the water.",
       "morale": 7,
       "morale_alternates": [],
@@ -19460,6 +19629,7 @@
         "modifier": 0
       },
       "id": "normal_hawk",
+      "intelligent": null,
       "intro": "Small birds of prey. Will only attack humans if they appear defenceless.",
       "morale": 7,
       "morale_alternates": [],
@@ -19568,6 +19738,7 @@
         "modifier": 0
       },
       "id": "normal_human",
+      "intelligent": null,
       "intro": "Non-adventuring humans without a character class. Artists, beggars, children, craftspeople, farmers, fishermen, housewives, scholars, slaves.",
       "morale": 6,
       "morale_alternates": [],
@@ -19704,6 +19875,7 @@
         "modifier": 0
       },
       "id": "normal_rat",
+      "intelligent": null,
       "intro": "Swarming packs of 6” to 2’ long individuals, with brown or grey fur.",
       "morale": 5,
       "morale_alternates": [],
@@ -19837,6 +20009,7 @@
         "modifier": 0
       },
       "id": "normal_rhinoceros",
+      "intelligent": null,
       "intro": "Dim, armoured, herbivorous mammals.",
       "morale": 6,
       "morale_alternates": [],
@@ -19948,6 +20121,7 @@
         "modifier": 2
       },
       "id": "normal_wolf",
+      "intelligent": null,
       "intro": "Dwell primarily in wild lands, but occasionally lair in caves.",
       "morale": 6,
       "morale_alternates": [
@@ -20081,6 +20255,7 @@
         "modifier": 0
       },
       "id": "ochre_jelly",
+      "intelligent": null,
       "intro": "Giant, ochre amoeboids.",
       "morale": 12,
       "morale_alternates": [],
@@ -20211,6 +20386,7 @@
         "modifier": 0
       },
       "id": "octopus_giant",
+      "intelligent": null,
       "intro": "Giant, eight-armed cephalopods. Lurk in coastal waters, close to settlements.",
       "morale": 7,
       "morale_alternates": [],
@@ -20324,6 +20500,7 @@
         "modifier": 1
       },
       "id": "ogre",
+      "intelligent": null,
       "intro": "Frightful humanoids, 8–10’ tall, dressed in animal hides. Often dwell in caves.",
       "morale": 10,
       "morale_alternates": [],
@@ -20442,6 +20619,7 @@
         "modifier": 0
       },
       "id": "oil_beetle",
+      "intelligent": null,
       "intro": "3’ long, burrowing beetles sometimes encountered below ground.",
       "morale": 8,
       "morale_alternates": [],
@@ -20597,6 +20775,7 @@
         "modifier": 0
       },
       "id": "orc",
+      "intelligent": null,
       "intro": "Ugly, bad-tempered, animalistic humanoids who live underground and are active at night. Sadistic bullies who hate other living creatures and delight in killing.",
       "morale": 6,
       "morale_alternates": [
@@ -20727,6 +20906,7 @@
         "modifier": 0
       },
       "id": "owl_bear",
+      "intelligent": null,
       "intro": "Huge (8’ tall, 1,500 pounds), ill-tempered, carnivorous bear-like creature with the face of an owl. Owl bears are found in dense forests and underground.",
       "morale": 9,
       "morale_alternates": [],
@@ -20857,6 +21037,7 @@
         "modifier": 0
       },
       "id": "panther",
+      "intelligent": null,
       "intro": "High-speed hunters that live in plains and forests.",
       "morale": 8,
       "morale_alternates": [],
@@ -20977,6 +21158,7 @@
         "modifier": 2
       },
       "id": "pegasus",
+      "intelligent": null,
       "intro": "Semi-intelligent winged horses that are wilful and timid.",
       "morale": 8,
       "morale_alternates": [],
@@ -21143,6 +21325,7 @@
         "modifier": 0
       },
       "id": "pirate",
+      "intelligent": null,
       "intro": "Sailors who make a living by raiding coastal settlements, robbing other ships, and illegal slaving. Typically ply the open seas. Renowned for their ruthless and evil ways.",
       "morale": 7,
       "morale_alternates": [],
@@ -21267,6 +21450,7 @@
         "modifier": 0
       },
       "id": "pit_viper",
+      "intelligent": null,
       "intro": "5’ long snakes with grey/green scales.",
       "morale": 7,
       "morale_alternates": [],
@@ -21387,6 +21571,7 @@
         "modifier": 0
       },
       "id": "pixie",
+      "intelligent": null,
       "intro": "1–2’ tall humanoids with insectoid wings. Distant relatives of elves.",
       "morale": 7,
       "morale_alternates": [],
@@ -21523,6 +21708,7 @@
         "modifier": 0
       },
       "id": "polar_bear",
+      "intelligent": null,
       "intro": "Aggressive, white-furred bears that stand 11’ tall and live in cold regions. Favours eating fish.",
       "morale": 8,
       "morale_alternates": [],
@@ -21621,6 +21807,7 @@
         "modifier": 0
       },
       "id": "pteranodon",
+      "intelligent": null,
       "intro": "Wingspan of up to 50’. Highly aggressive; often prey on humanoids.",
       "morale": 8,
       "morale_alternates": [],
@@ -21719,6 +21906,7 @@
         "modifier": 0
       },
       "id": "pterodactyl",
+      "intelligent": null,
       "intro": "8–10’ wingspan. Prey on small to medium animals, but will attack humanoids, if very hungry.",
       "morale": 7,
       "morale_alternates": [],
@@ -21851,6 +22039,7 @@
         "modifier": 0
       },
       "id": "purple_worm",
+      "intelligent": null,
       "intro": "Gigantic, slimy worms with bodies 100’ long and 8–10’ thick. Bore tunnels through the earth and come to the surface to eat other creatures.",
       "morale": 10,
       "morale_alternates": [],
@@ -22068,6 +22257,7 @@
         "modifier": 0
       },
       "id": "red_dragon",
+      "intelligent": null,
       "intro": "Dwell in hills and mountains.",
       "morale": 10,
       "morale_alternates": [],
@@ -22205,6 +22395,7 @@
         "modifier": 2
       },
       "id": "rhagodessa",
+      "intelligent": null,
       "intro": "Huge, hairy, nocturnal arachnid carnivores with large heads and mandibles and 10 legs. Yellow head and abdomen, dark brown thorax. Dwell in caves, hunt voraciously.",
       "morale": 9,
       "morale_alternates": [],
@@ -22318,6 +22509,7 @@
         "modifier": 0
       },
       "id": "riding_horse",
+      "intelligent": null,
       "intro": "Lightly built horses adapted to run at high speed. Can survive purely on grass, wherever available.",
       "morale": 7,
       "morale_alternates": [],
@@ -22436,6 +22628,7 @@
         "modifier": 0
       },
       "id": "robber_fly",
+      "intelligent": null,
       "intro": "3’ long, carnivorous flies with yellow and black stripes. Look similar to killer bees, which they hunt. May attack humans.",
       "morale": 8,
       "morale_alternates": [],
@@ -22557,6 +22750,7 @@
         "modifier": 0
       },
       "id": "rock_baboon",
+      "intelligent": null,
       "intro": "Large, ferocious, semi-intelligent baboons that live in packs led by a powerful male. Communicate with screams. Omnivorous, but prefer flesh.",
       "morale": 8,
       "morale_alternates": [],
@@ -22674,6 +22868,7 @@
         "modifier": 0
       },
       "id": "rock_living_statue",
+      "intelligent": null,
       "intro": "Stony crust filled with magma which they shoot from their fingertips.",
       "morale": 11,
       "morale_alternates": [],
@@ -22782,6 +22977,7 @@
         "modifier": 0
       },
       "id": "rock_python",
+      "intelligent": null,
       "intro": "20’ long snakes with spiralling brown and yellow patterns on their scales.",
       "morale": 8,
       "morale_alternates": [],
@@ -22897,6 +23093,7 @@
         "modifier": 0
       },
       "id": "rust_monster",
+      "intelligent": null,
       "intro": "Magical, armadillo-like creatures with long tails and two long, antennae-like feelers. Feed on rusted metal.",
       "morale": 7,
       "morale_alternates": [],
@@ -23025,6 +23222,7 @@
         "modifier": 0
       },
       "id": "sabre_toothed_tiger",
+      "intelligent": null,
       "intro": "Huge, aggressive cats with foot-long fangs. Normally only found in Lost World regions.",
       "morale": 10,
       "morale_alternates": [],
@@ -23169,6 +23367,7 @@
         "modifier": 0
       },
       "id": "saltwater_termite",
+      "intelligent": null,
       "intro": "Giant (1’–5’ long), wood-eating, aquatic insects with a sack to take in and jet out water. Prone to feeding on passing ships. Only attack creatures if cornered.",
       "morale": 11,
       "morale_alternates": [],
@@ -23301,6 +23500,7 @@
         "modifier": 0
       },
       "id": "scorpion_giant",
+      "intelligent": null,
       "intro": "Huge arachnids, as big as a small horse, with pincers and deadly stingers. Dwell in caverns, ruins, and deserts.",
       "morale": 11,
       "morale_alternates": [],
@@ -23507,6 +23707,7 @@
         "modifier": 0
       },
       "id": "sea_dragon",
+      "intelligent": true,
       "intro": "Intelligent, aquatic dragons with green scales, fin-like wings, and a yellowish crest. Dwell in the depths of the ocean, inhabiting caverns or shipwrecks. Sometimes attack vessels to steal their treasure and eat the crew.",
       "morale": 9,
       "morale_alternates": [],
@@ -23535,7 +23736,9 @@
           "see_below": false
         }
       },
-      "overrides_applied": [],
+      "overrides_applied": [
+        "intelligent"
+      ],
       "page": "Dragon.md",
       "saves": {
         "save_as": "8",
@@ -23642,6 +23845,7 @@
         "modifier": 0
       },
       "id": "sea_serpent_lesser",
+      "intelligent": null,
       "intro": "20’–30’ long, serpent-like sea monsters with rows of many fins.",
       "morale": 8,
       "morale_alternates": [],
@@ -23764,6 +23968,7 @@
         "modifier": 0
       },
       "id": "sea_snake",
+      "intelligent": null,
       "intro": "6’ long snakes that live underwater, coming up for breath only once per hour. Will prey on humans.",
       "morale": 7,
       "morale_alternates": [],
@@ -23896,6 +24101,7 @@
         "modifier": 2
       },
       "id": "shadow",
+      "intelligent": true,
       "intro": "Intelligent, incorporeal (but not undead) monsters that look like shadows. Able to slightly change their shape.",
       "morale": 12,
       "morale_alternates": [],
@@ -23919,7 +24125,9 @@
           "see_below": false
         }
       },
-      "overrides_applied": [],
+      "overrides_applied": [
+        "intelligent"
+      ],
       "page": "Shadow.md",
       "saves": {
         "save_as": "2",
@@ -24030,6 +24238,7 @@
         "modifier": 0
       },
       "id": "shrew_giant",
+      "intelligent": null,
       "intro": "Brown-furred, mole-like, insectivores with long snouts. Dwell underground; skilled burrowers.",
       "morale": 10,
       "morale_alternates": [],
@@ -24118,6 +24327,7 @@
         "modifier": 0
       },
       "id": "shrieker",
+      "intelligent": null,
       "intro": "Giant, subterranean mushrooms that can creep around slowly.",
       "morale": 12,
       "morale_alternates": [],
@@ -24228,6 +24438,7 @@
         "modifier": 0
       },
       "id": "skeleton",
+      "intelligent": null,
       "intro": "Skeletal remains of humanoids, reanimated as guardians by powerful magic-users or clerics. Often encountered in cemeteries, crypts, or other forlorn places.",
       "morale": 12,
       "morale_alternates": [],
@@ -24346,6 +24557,7 @@
         "modifier": 0
       },
       "id": "small_herd_animal_1",
+      "intelligent": null,
       "intro": "For example: antelope, deer, goats.",
       "morale": 5,
       "morale_alternates": [],
@@ -24464,6 +24676,7 @@
         "modifier": 0
       },
       "id": "small_herd_animal_2",
+      "intelligent": null,
       "intro": "For example: antelope, deer, goats.",
       "morale": 5,
       "morale_alternates": [],
@@ -24599,6 +24812,7 @@
         "modifier": 0
       },
       "id": "small_roc",
+      "intelligent": null,
       "intro": "Gigantic birds of prey that nest in the highest peaks of isolated mountain ranges. Will attack intruders, if approached carelessly.",
       "morale": 8,
       "morale_alternates": [
@@ -24742,6 +24956,7 @@
         "modifier": 0
       },
       "id": "spectre",
+      "intelligent": null,
       "intro": "Incorporeal phantoms; one of the most powerful undead monsters.",
       "morale": 11,
       "morale_alternates": [],
@@ -24877,6 +25092,7 @@
         "modifier": 0
       },
       "id": "sperm_whale",
+      "intelligent": null,
       "intro": "Gargantuan whales up to 60’ long. Dwell in open oceans and hunt deep sea monsters (e.g. giant squids).",
       "morale": 7,
       "morale_alternates": [],
@@ -25013,6 +25229,7 @@
         "modifier": 0
       },
       "id": "spitting_cobra",
+      "intelligent": null,
       "intro": "3’ long snakes with grey/white scales. Prefer to attack from a distance with spit.",
       "morale": 7,
       "morale_alternates": [],
@@ -25128,6 +25345,7 @@
         "modifier": 0
       },
       "id": "sprite",
+      "intelligent": null,
       "intro": "1’ tall, winged humanoids, related to pixies and elves. They are shy, but driven by curiosity and their odd sense of humour.",
       "morale": 7,
       "morale_alternates": [],
@@ -25301,6 +25519,7 @@
         "modifier": 0
       },
       "id": "squid_giant",
+      "intelligent": null,
       "intro": "Giant, ten-armed cephalopods. Two of the ten arms are larger, and may be used to attack ships. Dwell in the depths of the sea, only surface to find prey.",
       "morale": 7,
       "morale_alternates": [],
@@ -25422,6 +25641,7 @@
         "modifier": 0
       },
       "id": "stegosaurus",
+      "intelligent": null,
       "intro": "Stocky, herbivorous dinosaurs with a ridge of plates along their backs, and a tail studded with spikes (used to deter attackers). Dwell in sub-tropical Lost World environments.",
       "morale": 7,
       "morale_alternates": [],
@@ -25542,6 +25762,7 @@
         "modifier": 0
       },
       "id": "stirge",
+      "intelligent": null,
       "intro": "Feathered, bird-like creatures with long, sharp beaks.",
       "morale": 9,
       "morale_alternates": [],
@@ -25682,6 +25903,7 @@
         "modifier": 0
       },
       "id": "stone_giant",
+      "intelligent": null,
       "intro": "14’ tall humanoids with stone-like, grey skin. Dwell in natural caverns or primitive huts built of stone.",
       "morale": 9,
       "morale_alternates": [],
@@ -25831,6 +26053,7 @@
         "modifier": 0
       },
       "id": "storm_giant",
+      "intelligent": null,
       "intro": "22’ tall humanoids with bronze-hued skin and garish hair (red or yellow).",
       "morale": 10,
       "morale_alternates": [],
@@ -25975,6 +26198,7 @@
         "modifier": 1
       },
       "id": "swamp_termite",
+      "intelligent": null,
       "intro": "Giant (1’–5’ long), wood-eating, aquatic insects with a sack to take in and jet out water. Prone to feeding on passing ships. Only attack creatures if cornered.",
       "morale": 10,
       "morale_alternates": [],
@@ -26095,6 +26319,7 @@
         "modifier": 0
       },
       "id": "tarantella",
+      "intelligent": null,
       "intro": "7’ long, hairy hunting spiders that resemble tarantulas. Magical in nature.",
       "morale": 8,
       "morale_alternates": [],
@@ -26237,6 +26462,7 @@
         "modifier": 0
       },
       "id": "thoul",
+      "intelligent": null,
       "intro": "Magical monstrosities that look like hobgoblins (except on close inspection), but combine the powers of ghouls and trolls. Sometimes live among hobgoblins.",
       "morale": 10,
       "morale_alternates": [],
@@ -26374,6 +26600,7 @@
         "modifier": 0
       },
       "id": "tiger",
+      "intelligent": null,
       "intro": "Large, solitary hunters with striped camouflage markings. Favour woodlands and cooler regions.",
       "morale": 9,
       "morale_alternates": [],
@@ -26472,6 +26699,7 @@
         "modifier": 1
       },
       "id": "tiger_beetle",
+      "intelligent": null,
       "intro": "Carnivorous, 4’ long, tiger-striped beetles with powerful, crushing mandibles. Hunt robber flies, but sometimes eat humans.",
       "morale": 9,
       "morale_alternates": [],
@@ -26600,6 +26828,7 @@
         "modifier": 0
       },
       "id": "titanothere",
+      "intelligent": null,
       "intro": "Giant (12’ at the shoulder), ancient relatives of the rhinoceros, with massive, blunt horns. Eat grass and tree leaves. Dwell in small herds in Lost World grasslands.",
       "morale": 7,
       "morale_alternates": [],
@@ -26718,6 +26947,7 @@
         "modifier": 2
       },
       "id": "toad_giant",
+      "intelligent": null,
       "intro": "Warty amphibians with long, sticky tongues. As large as a great hound, weighing 150 to 250 pounds.",
       "morale": 6,
       "morale_alternates": [],
@@ -26833,6 +27063,7 @@
         "modifier": 0
       },
       "id": "trader",
+      "intelligent": null,
       "intro": "1st level fighters who live by trading in borderland areas.",
       "morale": 7,
       "morale_alternates": [],
@@ -26954,6 +27185,7 @@
         "modifier": 0
       },
       "id": "treant",
+      "intelligent": null,
       "intro": "Giant (18’ tall) humanoids that look like trees. Dwell in forests. Are concerned only with protecting the plants of their home. Speak their own long-winded and circuitous language.",
       "morale": 9,
       "morale_alternates": [],
@@ -27089,6 +27321,7 @@
         "modifier": 0
       },
       "id": "triceratops",
+      "intelligent": null,
       "intro": "Massive (12’ to the shoulder, almost 40’ long), aggressive, herbivorous dinosaurs with a protective crest behind the head, and three long horns. Dwell in Lost World grasslands.",
       "morale": 8,
       "morale_alternates": [],
@@ -27219,6 +27452,7 @@
         "modifier": 0
       },
       "id": "troglodyte",
+      "intelligent": true,
       "intro": "Intelligent, reptilian humanoids with agile hands, long legs, short tails, and spiky combs on their heads and arms.",
       "morale": 9,
       "morale_alternates": [],
@@ -27242,7 +27476,9 @@
           "see_below": false
         }
       },
-      "overrides_applied": [],
+      "overrides_applied": [
+        "intelligent"
+      ],
       "page": "Troglodyte.md",
       "saves": {
         "save_as": "2",
@@ -27364,6 +27600,7 @@
         "modifier": 3
       },
       "id": "troll",
+      "intelligent": true,
       "intro": "Intelligent, wicked, 8’ tall humanoids with emaciated, rubbery bodies. Consume the flesh of other humanoids. Dwell underground, in barren wilderness, and in the ruined homes of former victims.",
       "morale": 10,
       "morale_alternates": [
@@ -27392,7 +27629,9 @@
           "see_below": false
         }
       },
-      "overrides_applied": [],
+      "overrides_applied": [
+        "intelligent"
+      ],
       "page": "Troll.md",
       "saves": {
         "save_as": "6",
@@ -27485,6 +27724,7 @@
         "modifier": 0
       },
       "id": "tuatara",
+      "intelligent": null,
       "intro": "8’ long, iguana-like, carnivorous lizards with olive scales and a ridge of white spikes along the back. Have been known to attack humans.",
       "morale": 6,
       "morale_alternates": [],
@@ -27591,6 +27831,7 @@
         "modifier": 0
       },
       "id": "tyrannosaurus_rex",
+      "intelligent": null,
       "intro": "Great (over 20’ tall), two-legged, predatory dinosaurs with huge jaws. Hunt human-sized or larger prey. Dwell in Lost World regions.",
       "morale": 11,
       "morale_alternates": [],
@@ -27714,6 +27955,7 @@
         "modifier": 0
       },
       "id": "unicorn",
+      "intelligent": null,
       "intro": "Fantastic creatures that appear as elegant horses with a long horn. Unicorns are timid, but proud and wilful.",
       "morale": 7,
       "morale_alternates": [],
@@ -27922,6 +28164,7 @@
         "modifier": 0
       },
       "id": "vampire_7",
+      "intelligent": null,
       "intro": "Greatly feared undead monsters that live by drinking the blood of mortals. Dwell in ruins, tombs, and deserted locales.",
       "morale": 11,
       "morale_alternates": [],
@@ -28132,6 +28375,7 @@
         "modifier": 0
       },
       "id": "vampire_8",
+      "intelligent": null,
       "intro": "Greatly feared undead monsters that live by drinking the blood of mortals. Dwell in ruins, tombs, and deserted locales.",
       "morale": 11,
       "morale_alternates": [],
@@ -28342,6 +28586,7 @@
         "modifier": 0
       },
       "id": "vampire_9",
+      "intelligent": null,
       "intro": "Greatly feared undead monsters that live by drinking the blood of mortals. Dwell in ruins, tombs, and deserted locales.",
       "morale": 11,
       "morale_alternates": [],
@@ -28452,6 +28697,7 @@
         "modifier": 0
       },
       "id": "veteran_1",
+      "intelligent": null,
       "intro": "Low level fighters, often on their way to or from war.",
       "morale": 9,
       "morale_alternates": [],
@@ -28562,6 +28808,7 @@
         "modifier": 0
       },
       "id": "veteran_2",
+      "intelligent": null,
       "intro": "Low level fighters, often on their way to or from war.",
       "morale": 9,
       "morale_alternates": [],
@@ -28672,6 +28919,7 @@
         "modifier": 0
       },
       "id": "veteran_3",
+      "intelligent": null,
       "intro": "Low level fighters, often on their way to or from war.",
       "morale": 9,
       "morale_alternates": [],
@@ -28799,6 +29047,7 @@
         "modifier": 0
       },
       "id": "war_horse",
+      "intelligent": null,
       "intro": "Bred for strength and courage in battle. Adapted to short bursts of speed; not suited to long-distance riding.",
       "morale": 9,
       "morale_alternates": [],
@@ -28917,6 +29166,7 @@
         "modifier": 0
       },
       "id": "warp_beast",
+      "intelligent": null,
       "intro": "Large, black, six-legged, semi-intelligent monsters. Look similar to panthers with a tentacle growing from each front shoulder. Tentacles ridged with razor-sharp edges.",
       "morale": 8,
       "morale_alternates": [],
@@ -29048,6 +29298,7 @@
         "modifier": 0
       },
       "id": "water_elemental_greater",
+      "intelligent": null,
       "intro": "Huge waves of water.",
       "morale": 10,
       "morale_alternates": [],
@@ -29184,6 +29435,7 @@
         "modifier": 0
       },
       "id": "water_elemental_intermediate",
+      "intelligent": null,
       "intro": "Huge waves of water.",
       "morale": 10,
       "morale_alternates": [],
@@ -29320,6 +29572,7 @@
         "modifier": 0
       },
       "id": "water_elemental_lesser",
+      "intelligent": null,
       "intro": "Huge waves of water.",
       "morale": 10,
       "morale_alternates": [],
@@ -29461,6 +29714,7 @@
         "modifier": 4
       },
       "id": "weasel_giant",
+      "intelligent": null,
       "intro": "8’ to 9’ long, vicious, predatory mammals with rich fur of brown, gold, or white. Dwell in subterranean tunnels, hunting alone or in small groups.",
       "morale": 8,
       "morale_alternates": [],
@@ -29656,6 +29910,7 @@
         "modifier": 0
       },
       "id": "werebear",
+      "intelligent": true,
       "intro": "Highly intelligent, also in bear form. Dwell alone or among normal bears.",
       "morale": 10,
       "morale_alternates": [],
@@ -29679,7 +29934,9 @@
           "see_below": false
         }
       },
-      "overrides_applied": [],
+      "overrides_applied": [
+        "intelligent"
+      ],
       "page": "Lycanthrope.md",
       "saves": {
         "save_as": "6",
@@ -29834,6 +30091,7 @@
         "modifier": 1
       },
       "id": "wereboar",
+      "intelligent": null,
       "intro": "Semi-intelligent and irascible. In human form, often appear like berserkers.",
       "morale": 9,
       "morale_alternates": [],
@@ -30034,6 +30292,7 @@
         "modifier": 0
       },
       "id": "wererat",
+      "intelligent": true,
       "intro": "Intelligent, humanoid rats who can change into normal humans.",
       "morale": 8,
       "morale_alternates": [],
@@ -30057,7 +30316,9 @@
           "see_below": false
         }
       },
-      "overrides_applied": [],
+      "overrides_applied": [
+        "intelligent"
+      ],
       "page": "Lycanthrope.md",
       "saves": {
         "save_as": "3",
@@ -30222,6 +30483,7 @@
         "modifier": 0
       },
       "id": "weretiger",
+      "intelligent": null,
       "intro": "Exhibit feline behaviour: curious, but dangerous when cornered. Talented swimmers and trackers.",
       "morale": 9,
       "morale_alternates": [],
@@ -30400,6 +30662,7 @@
         "modifier": 0
       },
       "id": "werewolf",
+      "intelligent": null,
       "intro": "Semi-intelligent pack hunters.",
       "morale": 8,
       "morale_alternates": [],
@@ -30615,6 +30878,7 @@
         "modifier": 0
       },
       "id": "white_dragon",
+      "intelligent": null,
       "intro": "Found in cold regions.",
       "morale": 8,
       "morale_alternates": [],
@@ -30754,6 +31018,7 @@
         "modifier": 0
       },
       "id": "wight",
+      "intelligent": null,
       "intro": "Corpses of humans or demihumans, possessed by malevolent spirits.",
       "morale": 12,
       "morale_alternates": [],
@@ -30867,6 +31132,7 @@
         "modifier": 0
       },
       "id": "wild_horse",
+      "intelligent": null,
       "intro": "Lightly built horses adapted to run at high speed. Can survive purely on grass, wherever available.",
       "morale": 7,
       "morale_alternates": [],
@@ -31019,6 +31285,7 @@
         "modifier": 2
       },
       "id": "wood_golem",
+      "intelligent": null,
       "intro": "3’ tall, roughly constructed, humanoid figures of wood.",
       "morale": 12,
       "morale_alternates": [],
@@ -31147,6 +31414,7 @@
         "modifier": 0
       },
       "id": "woolly_rhinoceros",
+      "intelligent": null,
       "intro": "Giant rhinoceroses adapted for cold climates: their bodies covered with shaggy, white fur. Live in herds, in cold Lost World areas.",
       "morale": 6,
       "morale_alternates": [],
@@ -31293,6 +31561,7 @@
         "modifier": 0
       },
       "id": "wraith",
+      "intelligent": null,
       "intro": "Incorporeal, undead monsters that appear as pale, human-like forms of coalescing mist. Dwell in deserted regions or in the homes of former victims.",
       "morale": 12,
       "morale_alternates": [],
@@ -31418,6 +31687,7 @@
         "modifier": 0
       },
       "id": "wyvern",
+      "intelligent": null,
       "intro": "Winged, two-legged, dragon-like monsters with a long tail tipped with a venomous stinger. Dwell in any terrain, but favour cliffs and forests.",
       "morale": 9,
       "morale_alternates": [],
@@ -31561,6 +31831,7 @@
         "modifier": 0
       },
       "id": "yellow_mould",
+      "intelligent": null,
       "intro": "Deadly fungus that covers walls, ceilings, and other surfaces.",
       "morale": 12,
       "morale_alternates": [],
@@ -31685,6 +31956,7 @@
         "modifier": 0
       },
       "id": "zombie",
+      "intelligent": null,
       "intro": "Listless, humanoid corpses, reanimated as guardians by powerful clerics or wizards.",
       "morale": 12,
       "morale_alternates": [],
