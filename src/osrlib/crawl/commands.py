@@ -4174,9 +4174,11 @@ class EndEncounter(Command):
     away, and then switches to `exploring`:
 
     - Monsters that were slain earlier in the encounter, or that fled, are still fleeing, or
-      were turned, count as defeated and are worth experience.
-    - Slain monsters drop their treasure in a pile on the party's cell. Monsters that fled or
-      were turned take theirs with them.
+      were turned, count as defeated and are worth experience. So does each afraid member of a
+      group whose living members are all turned or afraid, because that group retreats as a whole.
+      The session applies the same rule however the encounter ends.
+    - Slain monsters drop their treasure in a pile on the party's cell. Monsters that fled, were
+      turned, or retreat with such a group take theirs with them.
     - Monsters still standing aren't defeated and are worth no experience.
     - Effects on the encounter's monsters end.
     - The clock advances, so the encounter costs at least one turn.

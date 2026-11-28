@@ -1325,8 +1325,12 @@ def end_encounter(session, outcome: str) -> list[Event]:
 
     Every monster that ended slain or routed gets a
     [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] and a record in
-    `session.defeated_monsters` with its experience value. Routed covers three cases: a monster
-    that fled, one that's still fleeing, and one a cleric turned. The function records a defeated
+    `session.defeated_monsters` with its experience value. Routed covers four cases: a monster
+    that fled, one that's still fleeing, one a cleric turned, and an afraid member of a group whose
+    living members are all turned or afraid, because that group retreats as a whole. The rule is the
+    same for every outcome, so a party that frightens a group and then evades gets the experience for
+    it. An afraid member of a group with a living member who is neither turned nor afraid isn't
+    routed. The function records a defeated
     NPC adventurer with the template id `npc:<class_id>`.
 
     The treasure slain monsters carried drops in a pile on the party's cell, which
@@ -1420,6 +1424,7 @@ def end_encounter(session, outcome: str) -> list[Event]:
         ```
     """
     from osrlib.core.clock import ROUNDS_PER_TURN
+    from osrlib.crawl.battle import _group_all_shaken
     from osrlib.crawl.session import DefeatedMonsterRecord
 
     state = session.encounter
@@ -1429,12 +1434,15 @@ def end_encounter(session, outcome: str) -> list[Event]:
     events: list[Event] = []
     all_defeated = True
     for group in state.groups:
+        # A group whose living members are all turned or afraid retreats as a whole, so each of them is routed, as
+        # a member of a group that failed morale is (see the adaptations register).
+        running = group.fled or group.fleeing or _group_all_shaken(session, group)
         for monster_id in group.monster_ids:
             combatant = session.combatant(monster_id)
             monster_outcome = None
             if has_condition(combatant, Condition.DEAD):
                 monster_outcome = "slain"
-            elif has_condition(combatant, Condition.TURNED) or group.fled or group.fleeing:
+            elif has_condition(combatant, Condition.TURNED) or running:
                 monster_outcome = "routed"
             if monster_outcome is None:
                 all_defeated = False
