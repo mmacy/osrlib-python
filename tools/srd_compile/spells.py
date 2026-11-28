@@ -826,6 +826,27 @@ _SPELL_MECHANICS: dict[str, dict[str, list[dict[str, object]]]] = {
     },
 }
 
+# Spell id → the range the reverse's text states, as the page would print it on a range line. The range line
+# belongs to the normal form, so a reverse that reaches a different distance says so in its text: *cause fear*
+# "Causes a target within 120’ to flee". The compiler fails if the reverse's text no longer says "within" the
+# range, or if another reverse's text names a distance "within" that this table lacks.
+_REVERSED_RANGES = {"remove_fear": "120’"}
+_WITHIN_DISTANCE = re.compile(r"\bwithin (\d+’)")
+
+
+def _reversed_range(spell_id: str, reversed_body: str) -> tuple[str | None, dict[str, object] | None]:
+    """Return the reverse's own `(range, range spec)`, or `(None, None)` when the normal form's range covers it."""
+    printed = _REVERSED_RANGES.get(spell_id)
+    stated = _WITHIN_DISTANCE.findall(reversed_body)
+    if printed is None:
+        if stated:
+            raise ValueError(f"{spell_id}'s reverse states a range within {stated}, but _REVERSED_RANGES lacks it")
+        return None, None
+    if stated != [printed]:
+        raise ValueError(f"{spell_id}'s reverse no longer states its range as within {printed}: {reversed_body!r}")
+    return printed, _parse_range(printed)
+
+
 _CONJURED_MONSTER_PAGES = {"sticks_to_snakes": "Sticks_to_Snakes.md", "conjure_elemental": "Conjure_Elemental.md"}
 
 _ELEMENTAL_IDS = {
@@ -1018,8 +1039,10 @@ class _ParsedPage:
         self.base_id = slugify(title)
 
         range_index = next(index for index, line in enumerate(lines) if line.startswith("**Range:**"))
-        self.usages, self.body, self.intro, self.stat_lines = self._parse_body(lines[range_index + 1 :])
-        self.reversed_usages, self.reversed_body, _, _ = self._parse_body(reversed_lines)
+        self.usages, self.body, self.intro, self.stat_lines, self.after_usages = self._parse_body(
+            lines[range_index + 1 :]
+        )
+        self.reversed_usages, self.reversed_body, _, _, self.reversed_after_usages = self._parse_body(reversed_lines)
 
     @staticmethod
     def _first_label(lines: list[str], label: str) -> str:
@@ -1029,13 +1052,22 @@ class _ParsedPage:
         raise ValueError(f"no {label} label found")
 
     @staticmethod
-    def _parse_body(lines: list[str]) -> tuple[dict[int, str], str, str, list[tuple[str | None, str]]]:
-        """Split body lines into numbered usages, joined prose, the intro, and stat lines."""
+    def _parse_body(
+        lines: list[str],
+    ) -> tuple[dict[int, str], str, str, list[tuple[str | None, str]], list[str]]:
+        """Split body lines into numbered usages, joined prose, the intro, stat lines, and the text after the usages.
+
+        The prose keeps every line of text the page prints: its paragraphs and list items, its headings as
+        lines of their own, each row of a pipe table in pipe syntax, and each stat line. Only the contents list
+        and the horizontal rules are left out. The text after the usages is the prose lines that follow the last
+        numbered usage, which is empty on a page with no usages.
+        """
         usages: dict[int, str] = {}
         prose: list[str] = []
         stat_lines: list[tuple[str | None, str]] = []
         heading: str | None = None
         in_contents = False
+        last_usage_index: int | None = None
         for line in lines:
             stripped = line.strip()
             if stripped.startswith("#"):
@@ -1043,11 +1075,17 @@ class _ParsedPage:
                 in_contents = heading_text == "Contents"
                 if not in_contents:
                     heading = heading_text
+                    prose.append(_clean(heading_text))
                 continue
-            if in_contents or not stripped or stripped.startswith("|") or stripped == "---":
+            if in_contents or not stripped or stripped == "---":
+                continue
+            if stripped.startswith("|"):
+                prose.append(_clean(stripped))
                 continue
             if stripped.startswith("**AC**"):
                 stat_lines.append((heading, stripped))
+                # Only the bold markers go: an asterisk after the Hit Dice, like `12*`, is data.
+                prose.append(re.sub(r"\s+", " ", strip_links(stripped).replace("**", "")).strip())
                 continue
             numbered = _NUMBERED_ITEM.match(stripped)
             if numbered:
@@ -1055,9 +1093,12 @@ class _ParsedPage:
             cleaned = _clean(re.sub(r"^- ", "", stripped))
             if cleaned:
                 prose.append(cleaned)
+                if numbered:
+                    last_usage_index = len(prose) - 1
         body = "\n".join(prose)
         intro = prose[0] if prose else ""
-        return usages, body, intro, stat_lines
+        after_usages = prose[last_usage_index + 1 :] if last_usage_index is not None else []
+        return usages, body, intro, stat_lines, after_usages
 
 
 _LEAD_IN = re.compile(r"^(?P<verb>[A-Z][a-z]+)(?P<rest>[^:.\n]*): ")
@@ -1087,8 +1128,80 @@ def _lead_in_label(prose: str) -> str:
     return _LEAD_IN_VERBS[match["verb"]] + match["rest"]
 
 
+_SLEEP_HD_RULES = "When targeting creatures of 4 HD or less, the following rules apply:"
+_SLEEP_SHARED_RULES = ("Killing:", "Awakening:")
+_RAISE_DEAD_STIPULATIONS = "Restoring life:"
+
+
+def _divide_sleep_rules(after_usages: list[str]) -> dict[str, list[str]]:
+    """Give *sleep*'s rules for creatures of 4 HD or less to `hd_budget`, and its last two rules to both modes.
+
+    The page introduces the first rules with "When targeting creatures of 4 HD or less", so they cover only the
+    mode that targets those creatures. The **Killing** and **Awakening** rules that follow cover any creature
+    the spell puts to sleep.
+    """
+    shared_start = next((i for i, line in enumerate(after_usages) if line.startswith(_SLEEP_SHARED_RULES[0])), None)
+    if (
+        shared_start is None
+        or not after_usages
+        or after_usages[0] != _SLEEP_HD_RULES
+        or tuple(line.split(":", 1)[0] + ":" for line in after_usages[shared_start:]) != _SLEEP_SHARED_RULES
+    ):
+        raise ValueError(
+            f"sleep no longer prints its HD rules and then its killing and awakening rules: {after_usages}"
+        )
+    shared = after_usages[shared_start:]
+    return {"single_4_plus": shared, "hd_budget": after_usages}
+
+
+def _divide_raise_dead_stipulations(after_usages: list[str]) -> dict[str, list[str]]:
+    """Give the stipulations for restoring life to `restore_life` alone, whose usage line ends "See below."."""
+    if not after_usages or not after_usages[0].startswith(_RAISE_DEAD_STIPULATIONS):
+        raise ValueError(f"raise dead no longer follows its usages with its stipulations: {after_usages}")
+    return {"restore_life": after_usages, "destroy_undead": []}
+
+
+# (spell id, reversed) → the function that divides the text after a form's numbered usages among the modes
+# bound to them. A form missing here gives that text to each of its usage-bound modes whole, as the
+# **Restrictions** line of *hold person* covers both of its modes.
+_AFTER_USAGE_DIVISIONS = {
+    ("sleep", False): _divide_sleep_rules,
+    ("raise_dead", False): _divide_raise_dead_stipulations,
+}
+
+
+def _after_usages_by_mode(
+    spell_id: str, reversed_form: bool, bound_keys: list[str], after_usages: list[str]
+) -> dict[str, list[str]]:
+    """Return the lines of text after the usages that each usage-bound mode's prose ends with.
+
+    A form with no usage-bound mode needs none, because each of its modes has the whole body.
+
+    Raises:
+        ValueError: If a division names other modes than the usage-bound ones, or a line of the text
+            reaches no mode.
+    """
+    if not after_usages or not bound_keys:
+        return {}
+    divide = _AFTER_USAGE_DIVISIONS.get((spell_id, reversed_form))
+    if divide is None:
+        return {key: after_usages for key in bound_keys}
+    parts = divide(after_usages)
+    if set(parts) != set(bound_keys):
+        raise ValueError(f"{spell_id}: the text after the usages divides into {sorted(parts)}, not {bound_keys}")
+    reached = {line for lines in parts.values() for line in lines}
+    if reached != set(after_usages):
+        raise ValueError(f"{spell_id}: lines after the usages reach no mode: {set(after_usages) - reached}")
+    return parts
+
+
 def _build_modes(
-    spell_id: str, raw_modes: list[dict[str, object]], usages: dict[int, str], body: str
+    spell_id: str,
+    reversed_form: bool,
+    raw_modes: list[dict[str, object]],
+    usages: dict[int, str],
+    body: str,
+    after_usages: list[str],
 ) -> list[dict[str, object]]:
     """Build one form's modes, labelling each mode of a multi-mode form.
 
@@ -1096,18 +1209,24 @@ def _build_modes(
     every other mode of a multi-mode form takes the label written in `_SPELL_MECHANICS`. The mode of a
     single-mode form compiles with an empty label, which `SpellMode` fills from the key.
 
+    A mode bound to a usage has that usage's line as its prose, followed by the lines of text after the
+    usages that cover it, which `_after_usages_by_mode` chooses. Every other mode has the form's whole body.
+
     Raises:
         ValueError: If a mode binds a usage the page lacks, a written label stands in for a lead-in's,
-            or a mode of a multi-mode form ends with no label or with a sibling's label.
+            a mode of a multi-mode form ends with no label or with a sibling's label, or the text after the
+            usages doesn't divide among the usage-bound modes.
     """
     multi_mode = len(raw_modes) > 1
+    bound_keys = [str(raw["key"]) for raw in raw_modes if isinstance(raw.get("usage"), int)]
+    after_by_mode = _after_usages_by_mode(spell_id, reversed_form, bound_keys, after_usages)
     modes = []
     for raw in raw_modes:
         usage = raw.get("usage")
         if isinstance(usage, int) and usage not in usages:
             raise ValueError(f"mode {raw['key']!r} binds usage {usage}, but the page has usages {sorted(usages)}")
-        prose = usages[usage] if isinstance(usage, int) else body
-        lead_in = _lead_in_label(prose) if isinstance(usage, int) else ""
+        prose = "\n".join([usages[usage], *after_by_mode.get(str(raw["key"]), [])]) if isinstance(usage, int) else body
+        lead_in = _lead_in_label(usages[usage]) if isinstance(usage, int) else ""
         written = raw["display_name"]
         if lead_in and written:
             raise ValueError(f"{spell_id} mode {raw['key']!r} has a written label, but its lead-in gives {lead_in!r}")
@@ -1271,6 +1390,11 @@ def compile_spells(srd_dir: Path, monster_entries: list[dict[str, object]]) -> d
     unknown_mechanics = set(_SPELL_MECHANICS) - known_ids
     if unknown_mechanics:
         raise ValueError(f"_SPELL_MECHANICS ids do not resolve to parsed pages: {sorted(unknown_mechanics)}")
+    reversible_ids = {ids[page.filename] for page in pages if page.reversed_name is not None}
+    if set(_REVERSED_RANGES) - reversible_ids:
+        raise ValueError(
+            f"_REVERSED_RANGES ids are not reversible spells: {sorted(set(_REVERSED_RANGES) - reversible_ids)}"
+        )
 
     monster_ids = {entry["id"]: entry for entry in monster_entries}
     spells = []
@@ -1279,7 +1403,11 @@ def compile_spells(srd_dir: Path, monster_entries: list[dict[str, object]]) -> d
         duration_spec, reversed_duration_spec, reversed_duration_raw = _parse_duration(page.duration_raw)
         mechanics = _SPELL_MECHANICS.get(spell_id, {})
         raw_modes = mechanics.get("modes")
-        modes = _build_modes(spell_id, raw_modes, page.usages, page.body) if raw_modes else [_default_mode(page.body)]
+        modes = (
+            _build_modes(spell_id, False, raw_modes, page.usages, page.body, page.after_usages)
+            if raw_modes
+            else [_default_mode(page.body)]
+        )
         _divide_prose(spell_id, False, modes, page.body)
         entry: dict[str, object] = {
             "id": spell_id,
@@ -1298,17 +1426,22 @@ def compile_spells(srd_dir: Path, monster_entries: list[dict[str, object]]) -> d
         if page.reversed_name is not None:
             raw_reversed = mechanics.get("reversed_modes")
             reversed_modes = (
-                _build_modes(spell_id, raw_reversed, page.reversed_usages, page.reversed_body)
+                _build_modes(
+                    spell_id, True, raw_reversed, page.reversed_usages, page.reversed_body, page.reversed_after_usages
+                )
                 if raw_reversed
                 else [_default_mode(page.reversed_body)]
             )
             _divide_prose(spell_id, True, reversed_modes, page.reversed_body)
+            reversed_range, reversed_range_spec = _reversed_range(spell_id, page.reversed_body)
             entry["reversed_form"] = {
                 "name": page.reversed_name,
                 "prose": page.reversed_body,
                 "modes": reversed_modes,
                 "duration": reversed_duration_raw,
                 "duration_spec": reversed_duration_spec,
+                "range": reversed_range,
+                "range_spec": reversed_range_spec,
             }
         else:
             entry["reversed_form"] = None

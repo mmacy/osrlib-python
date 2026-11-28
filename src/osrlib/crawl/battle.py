@@ -3512,7 +3512,7 @@ def _cast_targets(
         else:
             candidates = _living_monsters(session, group)
         return candidates, placement.distance(declaration.character_id, group), []
-    touch = spell.range_spec.kind == "touch"
+    touch = spell.range_spec_for(reversed=declaration.reversed).kind == "touch"
     targets: list = []
     distance: int | None = None
     for target_ref in declaration.targets:
