@@ -29,6 +29,7 @@ from hypothesis import strategies as st
 import positions_fixtures as pf
 from osrlib.core.effects import Condition, grant_condition
 from osrlib.core.items import MagicItemInstance
+from osrlib.core.ruleset import Ruleset
 from osrlib.core.validation import Rejection
 from osrlib.crawl import battle as battle_module
 from osrlib.crawl.battle import (
@@ -210,7 +211,7 @@ def _candidates(game: GameSession) -> list[BattleCandidate]:
         BattleCandidate(declaration=cure, target_field="targets", target_ids=members),
         BattleCandidate(declaration=harm, target_field="targets", target_ids=monsters),
         BattleCandidate(
-            declaration=pf.declare(wren_id, "cast", spell_id="sleep", spell_mode="default"),
+            declaration=pf.declare(wren_id, "cast", spell_id="sleep", spell_mode="hd_budget"),
             target_field="target_group_id",
             target_ids=groups,
         ),
@@ -445,16 +446,15 @@ def test_a_hand_over_to_oneself_and_to_an_incapacitated_member():
 
     judgement = _one(game, [], _on_targets(give, ids["Tam"], ids["Osric"], ids["Hild"]))
 
-    codes = _codes(judgement)
-    assert codes[ids["Tam"]] != []
-    assert codes[ids["Hild"]] == []
-    # Osric can't act but can still be handed an item, as the session judges a hand-over.
-    assert codes[ids["Osric"]] == [
-        rejection.code
-        for rejection in preview_battle_round(game, [give.model_copy(update={"targets": (ids["Osric"],)})]).rejections[
-            ids["Tam"]
-        ]
-    ]
+    assert judgement.rejections == {
+        ids["Tam"]: (Rejection(code="exploration.give.same_member", params={"character": ids["Tam"]}),),
+        ids["Osric"]: (
+            Rejection(
+                code="session.command.member_incapacitated", params={"character": ids["Tam"], "target": ids["Osric"]}
+            ),
+        ),
+        ids["Hild"]: (),
+    }
 
 
 def test_a_weapon_that_isnt_wielded_is_refused_under_every_target():
@@ -518,16 +518,22 @@ def test_a_declaration_with_the_other_target_field_set_is_judged_with_both():
     cast = pf.declare(wren, "cast", spell_id="magic_missile", spell_mode="missiles", target_group_id=group)
     candidate = _on_targets(cast, monster)
 
-    assert candidate.declaration_for(monster).target_group_id == group
-    _one(game, [], candidate)
+    assert candidate.declaration_for(monster) == cast.model_copy(update={"targets": (monster,)})
+    judgement = _one(game, [], candidate)
+    assert judgement.rejections == {monster: ()}
+    assert judgement.attack_kinds == {}
 
 
 # ---------------------------------------------------------------------- attack kinds
 
 
 def _melee_at_resolution(game: GameSession, declaration: BattleDeclaration) -> bool:
-    """Play a round with `declaration` and everyone else holding, and say whether the member fought in melee."""
-    pf.play(game, declaration)
+    """Play a round with `declaration` and everyone else holding, and say whether the member fought in melee.
+
+    The member has to have attacked, so a missile attack is told apart from no attack at all.
+    """
+    events = pf.play(game, declaration)
+    assert pf.attacks_by(events, declaration.character_id), "precondition: the member attacked"
     return bool(game.battle.melee_engagements.get(declaration.character_id))
 
 
@@ -581,7 +587,7 @@ def test_a_candidate_that_isnt_an_attack_has_no_kinds():
     group = _groups(game)[0]
     candidates = [
         _on_groups(pf.declare(ids["Hild"], "move", move="close"), group),
-        _on_groups(pf.declare(ids["Wren"], "cast", spell_id="sleep", spell_mode="default"), group),
+        _on_groups(pf.declare(ids["Wren"], "cast", spell_id="sleep", spell_mode="hd_budget"), group),
     ]
 
     for judgement in _assert_agrees(game, [], candidates).candidates:
@@ -642,7 +648,7 @@ def test_a_call_with_candidates_takes_no_draw_and_changes_nothing():
 
 
 def test_declaration_for_sets_the_named_field_only():
-    declaration = pf.declare("character-0001", "cast", spell_id="sleep", spell_mode="default", reversed=False)
+    declaration = pf.declare("character-0001", "cast", spell_id="sleep", spell_mode="hd_budget", reversed=False)
     by_group = BattleCandidate(declaration=declaration, target_field="target_group_id", target_ids=("group-0001",))
     by_target = BattleCandidate(declaration=declaration, target_field="targets", target_ids=("monster-0001",))
 
@@ -683,3 +689,128 @@ def test_the_models_are_frozen_and_public():
     for model in (BattleCandidate, BattleCandidateJudgement):
         assert model.model_config.get("frozen") is True
         assert model.__name__ in battle_module.__all__
+
+
+# ---------------------------------------------------------------------- more fixed cases
+
+
+def test_generators_give_the_same_result_as_lists():
+    game = _corridor()
+    ids = _ids(game)
+    plan = [pf.close(game, ids["Hild"]), pf.declare(ids["Osric"])]
+    candidates = _candidates(game)
+
+    expected = preview_battle_round(game, plan, candidates)
+
+    assert preview_battle_round(game, (d for d in plan), (c for c in candidates)) == expected
+    assert preview_battle_round(game, (d for d in plan)) == preview_battle_round(game, plan)
+    assert len(expected.candidates) == len(candidates)
+
+
+def test_candidates_in_the_partys_free_round():
+    """The goblins are surprised, so Nim's back-stab with a close is judged as a melee attack."""
+    game = pf.battle(distance=30, surprised=True)
+    pf.hold_monsters(game)
+    ids = _ids(game)
+    group = _groups(game)[0]
+    stab = pf.declare(ids["Nim"], "attack", move="close", weapon_id="dagger", back_stab=True)
+    candidates = [
+        _on_groups(stab, group),
+        _on_groups(pf.declare(ids["Hild"], "attack", move="close", weapon_id="sword", back_stab=True), group),
+    ]
+
+    nim, hild = _assert_agrees(game, [], candidates).candidates
+
+    assert _codes(nim) == {group: []}
+    assert nim.attack_kinds == {group: "melee"}
+    assert _codes(hild) == {group: ["battle.declaration.back_stab_no_ability"]}
+    assert hild.attack_kinds == {}
+
+
+def test_candidates_with_the_formation_width_limit_off():
+    """With no width limit, every member at 5' stands in the front rank, so Nim's close joins Hild and Osric."""
+    game = _held(distance=25, ruleset=Ruleset(formation_width_limit=False))
+    ids = _ids(game)
+    group = _groups(game)[0]
+    plan = [pf.strike(game, member_id, move="close", weapon_id="sword") for member_id in (ids["Hild"], ids["Osric"])]
+
+    nim = _one(game, plan, _on_groups(pf.declare(ids["Nim"], "attack", move="close", weapon_id="dagger"), group))
+
+    assert _codes(nim) == {group: []}
+    assert nim.attack_kinds == {group: "melee"}
+
+
+def test_a_fled_group_gets_the_unknown_group_rejection():
+    game = _held(distance=30)
+    hild = _ids(game)["Hild"]
+    group = game.encounter.groups[0]
+    group.fled = True
+
+    judgement = _one(game, [], _on_groups(pf.declare(hild, "attack", move="close", weapon_id="sword"), group.id))
+
+    assert judgement.rejections == {group.id: (Rejection(code=UNKNOWN_GROUP, params={"character": hild}),)}
+    assert judgement.attack_kinds == {}
+
+
+def test_a_hiding_members_back_stab():
+    """Nim hides behind Hild and Osric, 5' from the goblins: a stab skips the front rank, and a throw isn't a stab."""
+    game = _held(distance=5)
+    nim = _ids(game)["Nim"]
+    game.battle.hiding[nim] = True
+    near = _groups(game)[0]
+    stab = _on_groups(pf.declare(nim, "attack", weapon_id="dagger", back_stab=True), near)
+
+    judgement = _one(game, [], stab)
+
+    assert _codes(judgement) == {near: []}
+    assert judgement.attack_kinds == {near: "melee"}
+
+    far = _held(distance=30)
+    far_nim = _ids(far)["Nim"]
+    far.battle.hiding[far_nim] = True
+    group = _groups(far)[0]
+    throw = _one(far, [], _on_groups(pf.declare(far_nim, "attack", weapon_id="dagger", back_stab=True), group))
+
+    assert _codes(throw) == {group: ["battle.declaration.back_stab_not_melee"]}
+    assert throw.attack_kinds == {group: "missile"}
+
+
+def test_an_attack_that_sets_a_retreat_is_judged_not_raised():
+    game = _corridor()
+    hild = _ids(game)["Hild"]
+    group = _groups(game)[0]
+
+    judgement = _one(game, [], _on_groups(pf.declare(hild, "attack", move="retreat", weapon_id="sword"), group))
+
+    assert judgement.rejections == {
+        group: (Rejection(code="battle.declaration.move_not_combinable", params={"character": hild}),)
+    }
+    assert judgement.attack_kinds == {}
+
+
+def test_a_candidate_for_a_member_another_members_withdrawal_names():
+    """Hild falls back and names Nim, who plans to fall back too, so the plan refuses the trade.
+
+    The goblins stand 5' away, and Nim marches fourth, behind Osric and Aelin. A candidate for Nim takes the place of
+    Nim's withdrawal, so in the plan it's judged in, Hild's trade stands and Nim takes Hild's place in the front rank.
+    """
+    roster = (pf.HILD, pf.OSRIC, pf.AELIN, pf.NIM, pf.WREN, pf.TAM)
+    game = _held(roster=roster, distance=5)
+    ids = _ids(game)
+    hild, nim = ids["Hild"], ids["Nim"]
+    group = _groups(game)[0]
+    plan = [_withdraw(hild, replacement_id=nim), _withdraw(nim)]
+    assert [rejection.code for rejection in preview_battle_round(game, plan).rejections[hild]] == [
+        "battle.declaration.replacement_unavailable"
+    ], "precondition: the plan refuses Hild's trade"
+    assert preview_battle_round(game, [_withdraw(hild)]).front_rank[group] == (ids["Osric"], ids["Aelin"])
+    candidates = [
+        _on_targets(pf.declare(nim, "hide"), nim),
+        _on_groups(pf.declare(nim, "attack", weapon_id="dagger"), group),
+    ]
+
+    hide, attack = _assert_agrees(game, plan, candidates).candidates
+
+    assert _codes(hide) == {nim: ["battle.declaration.hide_in_front_rank"]}
+    assert _codes(attack) == {group: []}
+    assert attack.attack_kinds == {group: "melee"}

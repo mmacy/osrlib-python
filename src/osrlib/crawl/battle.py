@@ -2389,8 +2389,10 @@ class BattleCandidateJudgement(_Model):
     of attack the session makes with the weapon it picks.
 
     A target has an entry when the session's checks get as far as that decision. Every target the
-    session would accept has one. A target refused for reach, for the front rank, for range, or for
-    ammunition has one too. A target has no entry when the session refuses the attack before it
+    session would accept has one. A target refused by a check that comes after the decision has
+    one too. Examples are a refusal for reach, for the front rank, for range, or for ammunition,
+    `battle.declaration.back_stab_not_melee` with a `"missile"` entry, and
+    `battle.declaration.no_mirror`. A target has no entry when the session refuses the attack before it
     decides, because the group is unknown or has fled, the group has no monster to strike, the
     weapon isn't wielded or can't attack, the member can't move for a close, or a check of
     `back_stab` or `move` that comes before the group check refuses it. A candidate that isn't an
@@ -2398,8 +2400,10 @@ class BattleCandidateJudgement(_Model):
 
     The decision can change when the monsters act first. A group that moves before the attack
     comes up changes the distance. So a dagger judged as a throw can resolve as a melee attack, and
-    a dagger judged as a melee attack can resolve as a throw. An attack that closes from beyond
-    5' into reach stays a melee attack wherever the member ends up.
+    a dagger judged as a melee attack can resolve as a throw. A melee attack that closes from
+    beyond 5' into reach stays a melee attack wherever the member ends up. An attack with a weapon
+    that has only the `missile` quality, such as a bow, stays a missile attack after a close, even
+    one that takes the member within 5'.
 
     A judgement without `attack_kinds` parses with it empty."""
 
@@ -2484,7 +2488,7 @@ class BattleRoundPreview(_Model):
 
 
 def preview_battle_round(
-    session, declarations: Sequence[BattleDeclaration], candidates: Sequence[BattleCandidate] = ()
+    session, declarations: Iterable[BattleDeclaration], candidates: Iterable[BattleCandidate] = ()
 ) -> BattleRoundPreview:
     """Judge the declarations planned so far for this battle round, and show where they'd leave the party.
 
@@ -2559,9 +2563,11 @@ def preview_battle_round(
         session (osrlib.crawl.session.GameSession): A session in `battle` mode.
         declarations: The declarations planned so far, at most one for each member. Each one names a
             member in `EncounterView.declarers`. Any subset of the declarers works, including none.
+            A list, a tuple, a generator, or any other iterable works, and the call reads it once.
         candidates: The actions to judge at each of their targets, in the order you want the
             answers. Each one names a member in `EncounterView.declarers`. The default, no
-            candidates, gives a result with `candidates` empty and everything else unchanged.
+            candidates, gives a result with `candidates` empty and everything else unchanged. Any
+            iterable works, as for `declarations`.
 
     Returns:
         A [`BattleRoundPreview`][osrlib.crawl.battle.BattleRoundPreview] with each declaration's
@@ -2580,6 +2586,9 @@ def preview_battle_round(
     """
     if session.battle is None:
         raise ValueError("preview_battle_round needs a running battle")
+    # Read each argument once, so a generator gives the same result as a list.
+    declarations = tuple(declarations)
+    candidates = tuple(candidates)
     declarers = _able_declarers(session)
     declarer_ids = [member.id for member in declarers]
     seen: set[str] = set()
