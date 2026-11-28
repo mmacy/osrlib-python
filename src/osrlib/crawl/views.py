@@ -149,7 +149,7 @@ from osrlib.crawl._feature_handles import (
 from osrlib.crawl._light import _burn_rounds, _light_carry_rejection, _light_reveal, _party_open_flame
 from osrlib.crawl._party_location import _can_travel_to_town
 from osrlib.crawl._spells import _cast_context
-from osrlib.crawl._town import _temple_funds_gp, _temple_offer, _temple_spell
+from osrlib.crawl._town import _temple_funds_gp, _temple_modes, _temple_offer, _temple_spell
 from osrlib.crawl.adventure import Adventure
 from osrlib.crawl.battle import BattleState
 from osrlib.crawl.commands import Command, Evade, PurchaseHealing, SessionMode
@@ -1326,8 +1326,11 @@ class PlayerView(_Model):
 
     Read it to disable a temple service that a member can't use, and to show the reason. Each value is a tuple of
     [`Rejection`][osrlib.core.validation.Rejection] models with the `code` and `params` that a
-    [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] for that member and service gets. An empty tuple
-    means that some temple cleric can perform the service for the member, and
+    [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] for that member and service gets with `spell_mode`
+    unset, which is the spell's first usage. For a service the temple sells in more than one usage, such as *cure light
+    wounds*, which also cures paralysis, read
+    [`town_healing_mode_rejections`][osrlib.crawl.views.PlayerView.town_healing_mode_rejections] for each usage.
+    An empty tuple means that some temple cleric can perform the service for the member, and
     [`town_healing_caster_levels`][osrlib.crawl.views.PlayerView.town_healing_caster_levels] gives the level to send.
     A tuple that isn't empty means that no temple cleric, of any level, can, and it contains the rejections that a
     purchase with `caster_level` unset gets.
@@ -1381,6 +1384,41 @@ class PlayerView(_Model):
 
     The map is empty outside the `"town"` mode, and a `PlayerView` that osrlib 2.10.0 built validates with it
     empty."""
+    town_healing_mode_rejections: dict[str, dict[str, dict[str, tuple[Rejection, ...]]]] = {}
+    """Why the temple would refuse each usage of a service for each party member now, for the services it sells in
+    more than one usage. The map is keyed by [`MemberView.id`][osrlib.crawl.views.MemberView.id], then by the
+    [`HealingService`][osrlib.crawl.commands.HealingService] name, and then by the usage's
+    [`SpellMode.key`][osrlib.core.spells.SpellMode], which is what you send as
+    [`PurchaseHealing.spell_mode`][osrlib.crawl.commands.PurchaseHealing.spell_mode].
+
+    Read it to offer a usage beside the service's first one, such as "cure paralysis" beside *cure light wounds*'s
+    healing. Each value means what a value of
+    [`town_healing_rejections`][osrlib.crawl.views.PlayerView.town_healing_rejections] means, for a purchase that
+    names that usage: an empty tuple means that some temple cleric can perform it for the member, and a tuple that
+    isn't empty contains the rejections that a purchase with `caster_level` unset gets. The usages come in the order
+    the spell lists them, so the first is the one that `town_healing_rejections` answers for, with the same tuple.
+    The session makes the same check for the view and the command, so they can't disagree. Look a usage's display
+    name up in [`town_healing_mode_names`][osrlib.crawl.views.PlayerView.town_healing_mode_names].
+
+    The temple sells *cure light wounds* in its `heal` and `cure_paralysis` usages, and every other service in its
+    first usage alone, so *cure light wounds* is the only service in this map. A refusal of `cure_paralysis` is
+    `town.healing.no_effect` with the `reason` param `dead` for a dead member or `not_paralysed` for a member who
+    isn't paralysed. The cleric level doesn't change the answer for either usage, so the level to send is the lowest,
+    which is the level in `town_healing_caster_levels` for `heal`, or `caster_level` left unset.
+
+    The map has an entry for every party member, the dead included, while the session is in the `"town"` mode, and
+    it's empty in any other mode. A `PlayerView` that osrlib 2.11.0 or earlier built validates with it empty."""
+    town_healing_mode_names: dict[str, dict[str, str]] = {}
+    """The display name of each usage of a service, for the services the temple sells in more than one usage, keyed
+    by the [`HealingService`][osrlib.crawl.commands.HealingService] name and then by the usage's
+    [`SpellMode.key`][osrlib.core.spells.SpellMode], such as `{"cure_light_wounds": {"heal": "Heal a living subject",
+    "cure_paralysis": "Cure paralysis"}}`.
+
+    Each name is the usage's [`SpellMode.display_name`][osrlib.core.spells.SpellMode] in the session's spell catalog,
+    so a remote client can label each usage in
+    [`town_healing_mode_rejections`][osrlib.crawl.views.PlayerView.town_healing_mode_rejections] without the
+    catalog. The services and usages are the same as there, in the same order. The session fills it in every mode,
+    like `town_healing_prices`, and a `PlayerView` that osrlib 2.11.0 or earlier built validates with it empty."""
     town_healing_funds_gp: int | None = None
     """The whole gold pieces that the party's purses can pay toward a temple fee now.
 
@@ -1987,7 +2025,7 @@ def build_player_view(session) -> PlayerView:
     }
     spell_names, reversed_spell_names, spell_levels = _spell_names(session, members, effects)
     item_names, item_names_plural, valuable_names, valuable_phrases = _item_names(session, known_piles.values())
-    healing_rejections, healing_levels = _town_healing_offers(session)
+    healing_rejections, healing_levels, mode_rejections = _town_healing_offers(session)
     return PlayerView(
         adventure_name=session.adventure.name,
         adventure_description=session.adventure.description,
@@ -2000,6 +2038,8 @@ def build_player_view(session) -> PlayerView:
         },
         town_healing_rejections=healing_rejections,
         town_healing_caster_levels=healing_levels,
+        town_healing_mode_rejections=mode_rejections,
+        town_healing_mode_names=_town_healing_mode_names(session),
         town_healing_funds_gp=_temple_funds_gp(session),
         party=members,
         location=session.dungeon_state.location,
@@ -2031,28 +2071,53 @@ def build_player_view(session) -> PlayerView:
 
 def _town_healing_offers(
     session,
-) -> tuple[dict[str, dict[str, tuple[Rejection, ...]]], dict[str, dict[str, int]]]:
-    """The view's `town_healing_rejections` and `town_healing_caster_levels`, from `_temple_offer`.
+) -> tuple[
+    dict[str, dict[str, tuple[Rejection, ...]]],
+    dict[str, dict[str, int]],
+    dict[str, dict[str, dict[str, tuple[Rejection, ...]]]],
+]:
+    """The view's `town_healing_rejections`, `town_healing_caster_levels`, and `town_healing_mode_rejections`.
 
-    `_temple_offer` asks `_healing_rejections`, the check `PurchaseHealing` makes after its funds check, so the view
-    and the command can't disagree. Outside the modes that accept `PurchaseHealing` both maps are empty, and the
-    view does no work for them.
+    Each answer comes from `_temple_offer`, which asks `_healing_rejections`, the check `PurchaseHealing` makes after
+    its funds check, so the view and the command can't disagree. The first two maps answer for each service's first
+    usage, and the third for every usage of each service that `_temple_modes` gives more than one, reusing the first
+    usage's answer. Outside the modes that accept `PurchaseHealing` every map is empty, and the view does no work for
+    them.
     """
     if session.mode not in PurchaseHealing.allowed_modes:
-        return {}, {}
+        return {}, {}, {}
     spells = {service: _temple_spell(session, service) for service in HEALING_SERVICES}
+    modes = {service: _temple_modes(spells[service]) for service in HEALING_SERVICES}
     rejections: dict[str, dict[str, tuple[Rejection, ...]]] = {}
     levels: dict[str, dict[str, int]] = {}
+    by_mode: dict[str, dict[str, dict[str, tuple[Rejection, ...]]]] = {}
     for member in session.party.members:
         context = _cast_context(session, [member], in_combat=False)
         rejections[member.id] = {}
         levels[member.id] = {}
+        by_mode[member.id] = {}
         for service in HEALING_SERVICES:
-            level, refused = _temple_offer(session, member, service, spells[service], context)
+            first, *others = modes[service]
+            level, refused = _temple_offer(session, member, service, spells[service], first, context)
             rejections[member.id][service] = tuple(refused)
             if level is not None:
                 levels[member.id][service] = level
-    return rejections, levels
+            if others:
+                by_mode[member.id][service] = {first.key: tuple(refused)}
+                for mode in others:
+                    _, refused = _temple_offer(session, member, service, spells[service], mode, context)
+                    by_mode[member.id][service][mode.key] = tuple(refused)
+    return rejections, levels, by_mode
+
+
+def _town_healing_mode_names(session) -> dict[str, dict[str, str]]:
+    """The view's `town_healing_mode_names`: each usage's display name, for the services sold in more than one."""
+    names: dict[str, dict[str, str]] = {}
+    for service in HEALING_SERVICES:
+        modes = _temple_modes(_temple_spell(session, service))
+        if len(modes) > 1:
+            names[service] = {mode.key: mode.display_name for mode in modes}
+    return names
 
 
 _TRACKED_SUPPLIES = frozenset({"torch", "lantern", "oil_flask", "tinder_box", "rations_standard", "rations_iron"})

@@ -731,7 +731,8 @@
       "character_id": "character-0002",
       "command_type": "purchase_healing",
       "service": "cure_light_wounds",
-      "source": null
+      "source": null,
+      "spell_mode": null
     },
     {
       "character_id": "character-0001",
