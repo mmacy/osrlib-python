@@ -450,10 +450,6 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
         remaining = tuple(str(spell) for spell in inscribed) if isinstance(inscribed, tuple) else ()
         if not remaining:
             return [Rejection(code="items.scroll.spent", params={"item": instance.instance_id})], []
-        spell_id = command.spell_id or remaining[0]
-        if spell_id not in remaining:
-            return [Rejection(code="items.scroll.no_such_spell", params={"spell": spell_id})], []
-        spell = session.effective_spells.get(spell_id)
         definition = member.definition
         profile = caster_profile(definition)
         thief_params = _thief_scroll_use(definition)
@@ -467,6 +463,12 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
                 thief_reading = True
             else:
                 return [Rejection(code="items.scroll.wrong_caster", params={"item": instance.instance_id})], []
+        # The reader's class is checked before the spell they name, so a member who can't read the scroll gets the
+        # same refusal whatever spell they guess, and learns nothing about what's on it.
+        spell_id = command.spell_id or remaining[0]
+        if spell_id not in remaining:
+            return [Rejection(code="items.scroll.no_such_spell", params={"spell": spell_id})], []
+        spell = session.effective_spells.get(spell_id)
         mode = command.mode or spell.modes[0].key
         targets: list[Creature | str] = []
         target_refs = command.targets or ((command.target_id,) if command.target_id else ())

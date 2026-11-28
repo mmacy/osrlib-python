@@ -1905,8 +1905,9 @@ class UseItem(Command):
           id, and `items.use.target_cannot_drink` when it's the id of a member who is dead or
           turned to stone. A member who is asleep or paralysed can be given a potion to drink.
         - Scrolls: `exploration.action.requires_light` (reading needs light, and
-          infravision isn't enough), `items.scroll.spent`, `items.scroll.no_such_spell`,
-          and `items.scroll.wrong_caster`. A read also gets the checks of a cast, at the
+          infravision isn't enough), `items.scroll.spent`, `items.scroll.wrong_caster`, and
+          `items.scroll.no_such_spell`, in that order, so a member who can't read the scroll
+          gets `items.scroll.wrong_caster` whatever `spell_id` names. A read also gets the checks of a cast, at the
           scroll's level: `magic.cast.unknown_target` (a target that isn't a party member and
           isn't a living creature in a group of the open encounter that hasn't fled, or a cell
           reference that doesn't name a cell of the level the party stands on),
@@ -3390,7 +3391,7 @@ class ResolveBattleRound(Command):
         - Item declarations: `battle.declaration.item_unusable`,
           `battle.declaration.unknown_group`, `battle.declaration.no_target`,
           `items.use.not_usable`, `items.device.inert`, `items.scroll.spent`,
-          `items.scroll.no_such_spell`, `items.scroll.wrong_caster`,
+          `items.scroll.wrong_caster`, `items.scroll.no_such_spell`,
           `exploration.action.requires_light`, and `combat.attack.out_of_reach`. A staff's
           strike for a charge is a melee attack, so it also gets
           `battle.declaration.not_in_front_rank` when the member won't stand in the group's

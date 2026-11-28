@@ -3683,9 +3683,6 @@ def _validate_magic_item_declaration(
         remaining = tuple(str(spell) for spell in instance.state.get("spells", ()))
         if not remaining:
             return [Rejection(code="items.scroll.spent", params={"item": instance.instance_id})]
-        spell_id = declaration.spell_id or remaining[0]
-        if spell_id not in remaining:
-            return [Rejection(code="items.scroll.no_such_spell", params={"spell": spell_id})]
         definition = member.definition
         from osrlib.core.spells import caster_profile
 
@@ -3698,6 +3695,11 @@ def _validate_magic_item_declaration(
             thief_params = _magic_items._thief_scroll_use(definition)
             if thief_params is None or member.level < int(thief_params.get("min_level", 10)):
                 return [Rejection(code="items.scroll.wrong_caster", params={"item": instance.instance_id})]
+        # The reader's class is checked before the spell they name, as `_magic_items._use_scroll` does, so a member
+        # who can't read the scroll gets the same refusal whatever spell they guess.
+        spell_id = declaration.spell_id or remaining[0]
+        if spell_id not in remaining:
+            return [Rejection(code="items.scroll.no_such_spell", params={"spell": spell_id})]
         spell = session.effective_spells.get(spell_id)
         mode = declaration.spell_mode or spell.modes[0].key
         targets, distance, rejections = _cast_targets(
