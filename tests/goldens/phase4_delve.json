@@ -1817,6 +1817,7 @@
       "code": "exploration.trap.sprung",
       "direction": null,
       "event_type": "trap",
+      "feature_id": null,
       "trap_ref": "halls:1:pit_hall",
       "visibility": "player"
     },
@@ -2551,6 +2552,7 @@
       "character_id": "character-0002",
       "code": "exploration.search.found",
       "event_type": "search_completed",
+      "feature_ids": [],
       "found": [
         "secret_door:east"
       ],

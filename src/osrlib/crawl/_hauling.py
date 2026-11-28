@@ -75,12 +75,16 @@ def _handle_take_treasure(session, command: TakeTreasure) -> tuple[list[Rejectio
         return [Rejection(code="exploration.feature.emptied", params={"feature": command.feature_id})], []
     trap = feature.trap
     if trap is not None and ref not in state.sprung_traps and ref not in state.removed_traps:
-        spring_events, sprung = _spring_check(session, trap, ref, triggerer=opener)
+        spring_events, sprung = _spring_check(session, trap, ref, triggerer=opener, feature_id=target.public_id)
         events.extend(spring_events)
         if not sprung and ref in state.found_traps:
             # The party knows the trap is there and sees it fail to fire. An
             # unknown trap that doesn't spring stays referee-only (no leak).
-            events.append(TrapEvent(code="exploration.trap.safe", trap_ref=ref, character_id=opener.id))
+            events.append(
+                TrapEvent(
+                    code="exploration.trap.safe", trap_ref=ref, character_id=opener.id, feature_id=target.public_id
+                )
+            )
     # The spring check may have felled somebody. Whoever is still standing takes the
     # haul, and when the named recipient went down, the rest of the party takes it
     # instead.

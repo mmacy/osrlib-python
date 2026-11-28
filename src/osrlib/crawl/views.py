@@ -162,6 +162,7 @@ from osrlib.crawl.dungeon import (
     Position,
     cell_ref,
     edge_ref,
+    step,
 )
 from osrlib.crawl.encounter import _EVADE_DROPS, EncounterState, _evade_rejections, _member_kind
 from osrlib.crawl.exploration import EXHAUSTED_KIND, FATIGUE_KIND, HEALING_SERVICES
@@ -592,6 +593,31 @@ class EdgeView(_Model):
     door_wedged: bool | None = None
     """Whether the door has been wedged with an iron spike. `None` on an edge that is not
     a door."""
+    trap_state: Literal["found", "sprung", "removed"] | None = None
+    """The state of a room trap the party knows is on this door, with the values and meaning of
+    [`MapFeatureView.trap_state`][osrlib.crawl.views.MapFeatureView.trap_state]: `"found"` once a
+    [`Search`][osrlib.crawl.commands.Search] has found it, and `"sprung"` once it has gone off. No
+    command removes a room trap, so a door never shows `"removed"`.
+
+    Only a room trap that springs when someone opens a door of its area
+    ([`TrapSpec.trigger`][osrlib.crawl.dungeon.TrapSpec.trigger] `"open"`) shows on a door, and only
+    on a door of the trapped area where the party has learned of the trap:
+
+    - the door a `Search` found the trap through, which is the door in the
+      [`TrapEvent.direction`][osrlib.crawl.events.TrapEvent.direction] of the find. The edge is the
+      same from both sides of the door.
+    - the door whose opening sprang the trap.
+    - any door on a cell of the trapped area that the party has walked, which
+      [`EnteredAreaView.cells`][osrlib.crawl.views.EnteredAreaView.cells] lists. Once the party enters
+      the area, the doors on its walked cells show the area's `trap_state`, however the party got in
+      and wherever it found the trap. The exception is a door whose other side is a second trapped
+      area whose trap the party also knows of, where the rule below for two known traps decides.
+
+    A trapped area's other doors stay `None` until the party walks the area's cell beside them,
+    because the party can't yet know that they lead into the same area. When a door has known traps
+    of the areas on both of its sides, `"sprung"` wins over `"found"`. The field never names or
+    describes the area. It's `None` on every edge that isn't a door, including an undiscovered
+    secret door, which the view shows as a wall."""
 
 
 class PileItemView(_Model):
@@ -682,7 +708,8 @@ class EnteredAreaView(_Model):
     It's `None` while the party hasn't met the room's trap, and for a room with no trap, so a room
     the players know nothing about looks the same whether or not it's trapped. The view lists an area
     only once the party has entered it, so a trap found or sprung through a door of a room the party
-    hasn't entered shows here once the party walks in."""
+    hasn't entered shows here once the party walks in. Before then, the door shows it in
+    [`EdgeView.trap_state`][osrlib.crawl.views.EdgeView.trap_state]."""
 
 
 class MapFeatureView(_Model):
@@ -2400,6 +2427,59 @@ def _trap_state(session, ref: str, trapped: bool) -> Literal["found", "sprung", 
     return None
 
 
+_TrapState = Literal["found", "sprung", "removed"]
+_TRAP_STATE_RANK: dict[str, int] = {"found": 1, "sprung": 2, "removed": 3}
+
+
+def _door_trap_states(
+    session, dungeon_id: str, level_number: int, level, walked_by_area: dict[str, tuple[Position, ...]]
+) -> tuple[dict[str, _TrapState], dict[Position, _TrapState]]:
+    """The known states of one level's open-trigger room traps, by recorded door and by walked cell.
+
+    [`EdgeView.trap_state`][osrlib.crawl.views.EdgeView.trap_state] states the rule. The first map
+    has, keyed by `edge_key`, each door at which the session recorded the party learning of a trap.
+    The second has each walked cell of a trapped area, the cells `walked_by_area` lists for the area,
+    so a door on that cell shows the trap. A trap the party knows nothing about is in neither map.
+    """
+    doors: dict[str, _TrapState] = {}
+    cells: dict[Position, _TrapState] = {}
+    prefix = f"{dungeon_id}:{level_number}:"
+    for area in level.areas:
+        if area.trap is None or area.trap.trigger != "open":
+            continue
+        ref = prefix + area.id
+        trap_state = _trap_state(session, ref, True)
+        if trap_state is None:
+            continue
+        for door in session.dungeon_state.trap_doors.get(ref, ()):
+            _merge_trap_state(doors, door.removeprefix(prefix), trap_state)
+        for cell in walked_by_area.get(area.id, ()):
+            _merge_trap_state(cells, cell, trap_state)
+    return doors, cells
+
+
+def _merge_trap_state(states: dict, key, trap_state: _TrapState) -> None:
+    """Set `states[key]` to `trap_state` unless it already holds a state that outranks it."""
+    current = states.get(key)
+    if current is None or _TRAP_STATE_RANK[trap_state] > _TRAP_STATE_RANK[current]:
+        states[key] = trap_state
+
+
+def _door_trap_state(
+    door_traps: tuple[dict[str, _TrapState], dict[Position, _TrapState]],
+    key_text: str,
+    cell: Position,
+    direction: Direction,
+) -> _TrapState | None:
+    """The `EdgeView.trap_state` of the door on `direction`'s side of `cell`, whose `edge_key` is `key_text`."""
+    doors, cells = door_traps
+    strongest: dict[str, _TrapState] = {}
+    for state in (doors.get(key_text), cells.get(cell), cells.get(step(cell, direction))):
+        if state is not None:
+            _merge_trap_state(strongest, key_text, state)
+    return strongest.get(key_text)
+
+
 def _features_here_view(session, explored) -> tuple[str, ...]:
     """The handles of the caches the feature commands accept here, in the current level's feature order.
 
@@ -2499,11 +2579,13 @@ def _explored_levels(session):
         walked = set(dungeon_state.explored.get(key, []))
         areas = []
         entered_area_ids = set()
+        walked_by_area: dict[str, tuple[Position, ...]] = {}
         for area in level.areas:
             walked_cells = tuple(cell for cell in area.cells if cell in walked and level.area_at(cell) is area)
             if not walked_cells:
                 continue
             entered_area_ids.add(area.id)
+            walked_by_area[area.id] = walked_cells
             areas.append(
                 EnteredAreaView(
                     id=area.id,
@@ -2530,6 +2612,7 @@ def _explored_levels(session):
             for transition in level.transitions
             if transition.kind == "passage" and transition.side is not None
         }
+        door_traps = _door_trap_states(session, dungeon_id, level_number, level, walked_by_area)
         edges: dict[str, EdgeView] = {}
         for cell in visible:
             for direction in Direction:
@@ -2550,6 +2633,7 @@ def _explored_levels(session):
                         kind="door",
                         door_open=bool(state.open) if state is not None else edge.door.starts_open,
                         door_wedged=bool(state.wedged) if state is not None else False,
+                        trap_state=_door_trap_state(door_traps, key_text, cell, direction),
                     )
                 else:
                     edges[key_text] = EdgeView(kind=edge.kind.value)

@@ -19,7 +19,7 @@ from osrlib.crawl._treasure import (
     _generate_carried_treasure,
     _generate_lair_hoard,
 )
-from osrlib.crawl.dungeon import AreaSpec, Direction, PartyLocation, Position, TrapSpec, step
+from osrlib.crawl.dungeon import AreaSpec, Direction, PartyLocation, Position, TrapSpec, edge_ref, step
 from osrlib.crawl.events import DetectionRolledEvent, DoorEvent, LocationEnteredEvent, PartyMovedEvent, TrapEvent
 
 
@@ -88,7 +88,9 @@ def _enter_hooks(session) -> list[Event]:
     return events
 
 
-def _spring_check(session, trap: TrapSpec, trap_ref: str, *, triggerer) -> tuple[list[Event], bool]:
+def _spring_check(
+    session, trap: TrapSpec, trap_ref: str, *, triggerer, feature_id: str | None = None
+) -> tuple[list[Event], bool]:
     """Roll one trap's 2-in-6 spring die and resolve the hit.
 
     The one mechanism behind every springing action, whether the party enters a
@@ -96,7 +98,8 @@ def _spring_check(session, trap: TrapSpec, trap_ref: str, *, triggerer) -> tuple
     spring die, then, on a spring, the sprung record, the player-facing event,
     and the effect resolution on the triggerer. Each caller decides which traps
     get a spring roll, and handles any follow-up for a trap the party already found (the
-    cache path's `exploration.trap.safe`).
+    cache path's `exploration.trap.safe`). A cache's caller passes the cache's `feature:` handle as
+    `feature_id`, and the sprung event includes it.
     """
     from osrlib.crawl.session import EXPLORATION_STREAM
 
@@ -104,9 +107,25 @@ def _spring_check(session, trap: TrapSpec, trap_ref: str, *, triggerer) -> tuple
     events: list[Event] = [DetectionRolledEvent(kind="trap_spring", chance=2, roll=check.roll, passed=check.passed)]
     if check.passed:
         session.dungeon_state.sprung_traps.append(trap_ref)
-        events.append(TrapEvent(code="exploration.trap.sprung", trap_ref=trap_ref, character_id=triggerer.id))
+        events.append(
+            TrapEvent(
+                code="exploration.trap.sprung", trap_ref=trap_ref, character_id=triggerer.id, feature_id=feature_id
+            )
+        )
         events.extend(_resolve_trap(session, trap, triggerer=triggerer))
     return events, check.passed
+
+
+def _record_trap_door(session, trap_ref: str, door: str) -> None:
+    """Record that the party learned of the room trap `trap_ref` at the door whose `edge_ref` is `door`.
+
+    The player view reads the record for `EdgeView.trap_state`, so the door shows the trap before the
+    party enters the trapped area. The callers build `door` from the cell the party searched or opened
+    the door from, not from where the party stands afterwards, because a sprung chute moves the party.
+    """
+    doors = session.dungeon_state.trap_doors.setdefault(trap_ref, [])
+    if door not in doors:
+        doors.append(door)
 
 
 def _areas_at_door(level, position: Position, direction: Direction) -> list[AreaSpec]:
@@ -175,7 +194,9 @@ def _door_trap_check(session, direction: Direction, *, triggerer=None) -> list[E
         if not living:
             break
         victim = triggerer if triggerer in living else living[0]
-        spring_events, _ = _spring_check(session, area.trap, trap_ref, triggerer=victim)
+        spring_events, sprung = _spring_check(session, area.trap, trap_ref, triggerer=victim)
+        if sprung:
+            _record_trap_door(session, trap_ref, edge_ref(dungeon_id, level_number, position, direction))
         events.extend(spring_events)
     return events
 
