@@ -3,7 +3,7 @@
 from collections import Counter
 
 from crawl_fixtures import build_adventure, build_party
-from osrlib.core.items import MagicItemInstance
+from osrlib.core.items import MagicItemInstance, WeaponQuality, _wielded_qualities
 from osrlib.core.monsters import IdAllocator
 from osrlib.core.npc import NPC_PARTY_STREAM, generate_npc_party, npc_defeat_xp
 from osrlib.core.rng import RngStream
@@ -68,8 +68,12 @@ class TestGeneration:
                     if not isinstance(worn, MagicItemInstance):
                         assert worn is not None and worn.template.id == "plate_mail"
                 if member.class_id == "dwarf":
-                    # The battle axe is two-handed: the shield rides unwielded.
-                    assert member.inventory.shield is None or isinstance(member.inventory.shield, MagicItemInstance)
+                    # The battle axe is two-handed: the shield rides unwielded while the dwarf wields it. A magic
+                    # weapon that replaces the axe frees a hand for the shield.
+                    two_handed = any(
+                        WeaponQuality.TWO_HANDED in _wielded_qualities(wielded) for wielded in member.inventory.wielded
+                    )
+                    assert (member.inventory.shield is None) is two_handed
 
     def test_casters_roll_their_slots_and_books_match(self):
         found_caster = False
@@ -98,7 +102,7 @@ class TestGeneration:
                     if isinstance(instance, MagicItemInstance):
                         from osrlib.core.npc import _item_usable
 
-                        assert _item_usable(member, definition, instance)
+                        assert _item_usable(definition, instance)
 
     def test_basic_parties_take_no_items(self):
         for seed in range(20):

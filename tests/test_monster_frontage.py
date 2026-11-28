@@ -159,12 +159,13 @@ def test_npc_adventurers_fight_two_abreast_in_a_corridor_and_all_of_them_shoot()
         swung = [npc for npc in attackers(game, events) if npc in policy.chose("melee")]
         assert swung == [npc for npc in living[:2] if npc in policy.chose("melee")]
 
-    game = pf.battle(npc_party=True, distance=60, adventure=pf.corridor())
+    # 20 feet is within a thrown dagger's long range of 30 feet.
+    game = pf.battle(npc_party=True, distance=20, adventure=pf.corridor())
     policy = Logged(NpcPartyPolicy())
     game.action_policies[pf.group_id(game)] = policy
     events = pf.play(game)
     shooters = policy.chose("npc_shoot")
-    assert shooters, "precondition: some NPC adventurers shoot from 60 feet"
+    assert shooters, "precondition: some NPC adventurers shoot from 20 feet"
     assert set(shooters) <= set(attackers(game, events))
 
 

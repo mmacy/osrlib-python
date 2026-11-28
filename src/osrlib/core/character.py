@@ -109,10 +109,12 @@ from osrlib.core.dice import RollResult, roll
 from osrlib.core.effects import ActiveCondition, ActiveModifier
 from osrlib.core.frozen import _Model
 from osrlib.core.items import (
+    AnyInstance,
     CoinPurse,
     Inventory,
     ItemInstance,
     ItemTemplate,
+    MagicItemCategory,
     MagicItemInstance,
     equip,
     equipped_item_modifiers,
@@ -816,8 +818,33 @@ class Character(_Model):
             raise ContentValidationError(f"character document payload failed validation: {error}") from error
 
 
-_TESTS_AS: Final = {"shield": "shield_plus_1", "worn_armour": "armour_plus_1"}
-"""The +1 template that every test shows for a cursed item worn in each armour slot."""
+_TESTS_AS: Final = {"shield": "shield_plus_1", "armour": "armour_plus_1", "sword": "sword_plus_1"}
+"""The +1 template that every test shows for a cursed shield, suit of armour, or sword."""
+
+
+def _item_as_tested(instance: AnyInstance) -> AnyInstance:
+    """Return an item as every test shows it, for a choice that knows no more than a player does.
+
+    The OSE SRD says "All types of tests indicate that a cursed shield or suit of armour is enchanted with a +1
+    bonus. It is only when the armour is used in deadly combat that the curse is revealed." The Swords page says a
+    cursed sword's curse takes hold "Once the sword has been used in combat" and gives no test result, so osrlib
+    reads a cursed sword the same way, as a sword +1.
+    So an unidentified cursed shield, suit, or sword whose curse isn't revealed comes back as a copy of itself made
+    from the +1 template in `_TESTS_AS`, keeping its base item. Any other item comes back as it is. The copy is
+    only read, so the item never changes.
+    """
+    if not isinstance(instance, MagicItemInstance) or instance.identified or instance.cursed_revealed:
+        return instance
+    template = magic_item_template(instance)
+    if not template.cursed:
+        return instance
+    if template.category is MagicItemCategory.SWORD:
+        kind = "sword"
+    elif template.category is MagicItemCategory.ARMOUR:
+        kind = "shield" if (instance.base_item_id or template.base_item_id) == "shield" else "armour"
+    else:
+        return instance
+    return instance.model_copy(update={"template_id": _TESTS_AS[kind]})
 
 
 def _armour_as_tested(member: Character) -> Character:
@@ -826,7 +853,8 @@ def _armour_as_tested(member: Character) -> Character:
     The OSE SRD says "All types of tests indicate that a cursed shield or suit of armour is enchanted with a +1
     bonus. It is only when the armour is used in deadly combat that the curse is revealed." So in the copy this
     returns, each worn cursed shield or suit that is unidentified and whose curse isn't revealed becomes a copy of
-    itself made from the +1 template, `shield_plus_1` or `armour_plus_1`, keeping its base item. Read
+    itself made from the +1 template, `shield_plus_1` or `armour_plus_1`, keeping its base item (see
+    `_item_as_tested`). Read
     `armour_class` or `armour_class_ascending` from the copy for the number the item tests as. Everything else the
     member wears counts as usual.
 
@@ -836,15 +864,10 @@ def _armour_as_tested(member: Character) -> Character:
     """
     inventory = member.inventory
     masked = {}
-    for slot, lookalike in _TESTS_AS.items():
+    for slot in ("shield", "worn_armour"):
         worn = getattr(inventory, slot)
-        if (
-            isinstance(worn, MagicItemInstance)
-            and not worn.identified
-            and not worn.cursed_revealed
-            and magic_item_template(worn).cursed
-        ):
-            masked[slot] = worn.model_copy(update={"template_id": lookalike})
+        if worn is not None and _item_as_tested(worn) is not worn:
+            masked[slot] = _item_as_tested(worn)
     if not masked:
         return member
     return member.model_copy(update={"inventory": inventory.model_copy(update=masked)})

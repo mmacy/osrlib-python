@@ -40,7 +40,10 @@ lists every place osrlib commits to one reading of the rules, records each one:
 - A caster's spells are rolled at random from their class's list. The SRD lets the referee choose
   or roll, and only rolling gives the same party from the same seed.
 - An expert member rolls for magic items at 5% per level for each kind of item they could use. An
-  item the member can't use is dropped, not rolled again.
+  item the member's class can't use is dropped, not rolled again.
+- A rolled magic weapon takes the place of the first wielded weapon that makes the same kind of
+  attack, melee or missile, when it beats that weapon, and the member carries the loser. A magic
+  staff counts as a magic weapon only when its swing takes a bonus.
 
 Typical usage:
 
@@ -74,7 +77,7 @@ from pydantic import ConfigDict
 
 from osrlib.core.abilities import AbilityScore
 from osrlib.core.alignment import Alignment
-from osrlib.core.character import Character, _armour_as_tested, roll_ability_scores
+from osrlib.core.character import Character, _armour_as_tested, _item_as_tested, roll_ability_scores
 from osrlib.core.classes import ClassDefinition, level_up
 from osrlib.core.dice import roll
 from osrlib.core.frozen import _Model
@@ -82,8 +85,13 @@ from osrlib.core.items import (
     GeneratedTreasure,
     ItemInstance,
     MagicItemInstance,
+    WeaponQuality,
+    _enchanted_weapon,
+    _is_shield_instance,
+    _wielded_qualities,
     equip,
     magic_item_template,
+    unequip,
     usable_by_class,
     validate_equip,
 )
@@ -271,10 +279,18 @@ def _roll_spells(member: Character, definition: ClassDefinition, stream: RngStre
         member.spell_book = tuple(book)
 
 
-def _item_usable(member: Character, definition: ClassDefinition, instance: MagicItemInstance) -> bool:
+def _item_usable(definition: ClassDefinition, instance: MagicItemInstance) -> bool:
+    """Return whether the member's class can use a rolled magic item, whatever the member holds now.
+
+    The SRD's "Rolled items that cannot be used by the NPC should be ignored (no re-roll)" is about the class. A
+    two-handed weapon is usable by a fighter who wears a shield, so the fighter keeps it, and
+    `_maybe_equip_upgrade` decides whether to wield it or carry it. So the check passes no inventory to
+    [`validate_equip`][osrlib.core.items.validate_equip], which then checks the class's armour and weapon
+    policies alone.
+    """
     template = magic_item_template(instance)
     if template.category in ("sword", "weapon", "armour"):
-        return not validate_equip(definition, instance, member.inventory)
+        return not validate_equip(definition, instance, None)
     return usable_by_class(template, definition)
 
 
@@ -286,29 +302,134 @@ def _maybe_equip_upgrade(member: Character, definition: ClassDefinition, instanc
     every test shows, which `osrlib.core.character._armour_as_tested` returns. A cursed shield or
     suit tests as though it were a +1, which is what it appears to be, so the NPC equips it wherever
     it would equip that +1, and the curse comes out in play.
+
+    `_equip_weapon_upgrade` says which kit weapon a rolled weapon replaces.
     """
     template = magic_item_template(instance)
-    inventory = member.inventory
-    if template.category in ("sword", "weapon"):
-        wielded_magic = any(isinstance(existing, MagicItemInstance) for existing in inventory.wielded)
-        if not wielded_magic and not validate_equip(definition, instance, inventory):
-            equip(inventory, definition, instance)
+    if template.category in ("sword", "weapon", "staff"):
+        _equip_weapon_upgrade(member, definition, instance)
         return
     if template.category != "armour":
         return
+    _wear_if_better(member, definition, instance)
+
+
+def _wear_if_better(member: Character, definition: ClassDefinition, instance: ItemInstance | MagicItemInstance) -> None:
+    """Put on a carried shield or suit of armour when the armour class it tests at is lower than the one worn."""
+    inventory = member.inventory
     before = _armour_as_tested(member).armour_class
-    slot = "shield" if (instance.base_item_id or template.base_item_id) == "shield" else "worn_armour"
+    slot = "shield" if _is_shield_instance(instance) else "worn_armour"
     previous = getattr(inventory, slot)
     if validate_equip(definition, instance, inventory):
         return
     equip(inventory, definition, instance)
     if _armour_as_tested(member).armour_class >= before:
         # Not better: put things back the way they were.
-        from osrlib.core.items import unequip
-
         unequip(inventory, instance)
         if previous is not None and any(existing is previous for existing in inventory.items):
             equip(inventory, definition, previous)
+
+
+def _weapon_uses(instance: ItemInstance | MagicItemInstance) -> set[str]:
+    """Return `"melee"`, `"missile"`, or both: the attacks a weapon makes, as a battle chooses an NPC's weapon."""
+    qualities = _wielded_qualities(instance)
+    uses = set()
+    if WeaponQuality.MELEE in qualities or WeaponQuality.MISSILE not in qualities:
+        uses.add("melee")
+    if WeaponQuality.MISSILE in qualities:
+        uses.add("missile")
+    return uses
+
+
+def _weapon_rank(instance: ItemInstance | MagicItemInstance) -> tuple[int, float]:
+    """Return a wielded weapon's attack bonus and its average damage, with the damage bonus, for comparing weapons."""
+    from osrlib.core.dice import parse
+    from osrlib.data import load_equipment
+
+    if isinstance(instance, MagicItemInstance):
+        template = magic_item_template(instance)
+        base_id = instance.base_item_id or template.base_item_id
+        base = load_equipment().get(base_id) if base_id is not None else None
+        attack_bonus, damage_bonus = template.attack_bonus, template.damage_bonus
+    else:
+        base = instance.template
+        attack_bonus, damage_bonus = 0, 0
+    facet = getattr(base, "combat", None) or base
+    damage = getattr(facet, "damage", None)
+    if not isinstance(damage, str):
+        return attack_bonus, float(damage_bonus)
+    dice = parse(damage)
+    average = (dice.count * (dice.sides + 1) / 2 + dice.modifier) * dice.multiplier
+    return attack_bonus, average + damage_bonus
+
+
+def _weapon_beats(rolled: MagicItemInstance, wielded: ItemInstance | MagicItemInstance) -> bool:
+    """Return whether a rolled enchanted weapon beats a wielded one that makes the same kind of attack.
+
+    It beats any mundane weapon. It beats an enchanted one when its attack bonus is higher, or when the attack
+    bonuses are equal and its average damage, with its damage bonus, is higher. An NPC knows no more than a player
+    does, so both weapons are compared as every test shows them, which `osrlib.core.character._item_as_tested`
+    returns: an undiscovered cursed sword counts as a sword +1. So a wielded sword -1, cursed, keeps its place
+    against a rolled dagger +1, and the curse comes out in play.
+    """
+    if not _enchanted_weapon(wielded):
+        return True
+    return _weapon_rank(_item_as_tested(rolled)) > _weapon_rank(_item_as_tested(wielded))
+
+
+def _equip_weapon_upgrade(member: Character, definition: ClassDefinition, instance: MagicItemInstance) -> None:
+    """Wield a rolled magic weapon or magic staff in place of the kit weapon it beats.
+
+    A magic staff counts only when its swing takes a bonus, which in the built-in catalog is the staff of snakes and
+    the staff of wizardry. Every other staff swings as a mundane staff, so it beats nothing, and the member carries
+    it.
+
+    The rolled weapon is compared with the first wielded weapon that makes the same kind of attack, melee or
+    missile. It beats a mundane weapon. It beats an enchanted one when its attack bonus is higher, or when the attack
+    bonuses are equal and its average damage, with its damage bonus, is higher (see `_weapon_beats`). When it
+    beats that weapon, it takes the weapon's place in the wielded list, and the weapon it replaced goes into the
+    member's carried items. Otherwise the member carries the rolled weapon. Either way the member keeps everything.
+    A wielded weapon of the other kind stays: a halfling who rolls a sword +2 keeps the sling. With no wielded
+    weapon of the same kind, the rolled weapon is wielded beside the others.
+
+    A cursed sword is compared as the sword +1 it tests as, because the NPC hasn't discovered the curse.
+
+    The rolled weapon must pass [`validate_equip`][osrlib.core.items.validate_equip] as a player's would, so a
+    two-handed weapon stays in the pack of a member who wears a shield. When a one-handed weapon replaces a
+    two-handed one, such as a dwarf's battle axe, and no two-handed weapon is left wielded, the member takes up
+    the best shield they carry, weighed as `_wear_if_better` weighs a rolled shield.
+    """
+    inventory = member.inventory
+    if not _enchanted_weapon(instance) or validate_equip(definition, instance, inventory):
+        return
+    uses = _weapon_uses(instance)
+    rivals = [existing for existing in inventory.wielded if _weapon_uses(existing) & uses]
+    if rivals and not _weapon_beats(instance, rivals[0]):
+        return
+    if rivals:
+        replaced = rivals[0]
+        index = next(position for position, existing in enumerate(inventory.wielded) if existing is replaced)
+        unequip(inventory, replaced)
+        equip(inventory, definition, instance)
+        inventory.wielded.insert(index, inventory.wielded.pop())
+    else:
+        equip(inventory, definition, instance)
+    if inventory.shield is None:
+        for carried in list(inventory.items):
+            if _is_shield_instance(carried):
+                _wear_if_better(member, definition, carried)
+
+
+def _take_rolled_item(member: Character, definition: ClassDefinition, instance: MagicItemInstance) -> None:
+    """Give a member a magic item they rolled: drop it when the class can't use it, and otherwise keep and equip it.
+
+    An item the class can't use is dropped, with no re-roll, as the SRD says (see `_item_usable`). The member
+    keeps any other item, and `_maybe_equip_upgrade` decides whether to wear it, wield it, or carry it.
+    """
+    if not _item_usable(definition, instance):
+        return
+    member.inventory.items.append(instance)
+    _maybe_equip_upgrade(member, definition, instance)
 
 
 def _roll_expert_items(
@@ -331,10 +452,7 @@ def _roll_expert_items(
             continue
         instances = generate_magic_item(category, tier="expert", stream=treasure_stream, allocator=allocator)
         for instance in instances:
-            if not _item_usable(member, definition, instance):
-                continue  # An item the member can't use is dropped, with no re-roll, as written.
-            member.inventory.items.append(instance)
-            _maybe_equip_upgrade(member, definition, instance)
+            _take_rolled_item(member, definition, instance)
 
 
 def generate_npc_party(
@@ -364,8 +482,9 @@ def generate_npc_party(
 
     In an expert party, clerics, dwarves, and fighters wear plate mail instead of chainmail. Each
     expert member also has a 5% chance per level of a magic item from each kind of item they could
-    use. The party's treasure is treasure types U and V, rolled once for the whole party and added
-    together.
+    use. A rolled magic weapon takes the place of the first wielded weapon that makes the same kind
+    of attack, melee or missile, when it beats that weapon, and the member carries the loser. The party's treasure
+    is treasure types U and V, rolled once for the whole party and added together.
 
     The first level's hit die is rolled directly, with the CON modifier added, and gives at least
     1 hit point. Each level after the first is added with
