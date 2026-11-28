@@ -199,8 +199,8 @@ def test_a_spell_id_the_sessions_catalog_lacks_has_no_entry():
     assert view.spell_names == {"magic_missile": "Magic Missile"}
 
 
-def test_the_spells_on_a_scroll_stay_hidden():
-    """No spell on a scroll is named, identified or not, because the view shows no scroll's spells.
+def test_only_an_identified_scrolls_spells_are_named():
+    """An unidentified scroll's spells stay hidden, and the spells left on an identified one are named (#294).
 
     Wren's book is full at both levels she has slots for, so she can't learn the scrolls' spells either.
     """
@@ -224,9 +224,15 @@ def test_the_spells_on_a_scroll_stay_hidden():
 
     view = _player_view(game)
 
-    assert view.spell_names == {"magic_missile": "Magic Missile", "shield": "Shield", "invisibility": "Invisibility"}
+    assert view.spell_names == {
+        "magic_missile": "Magic Missile",
+        "shield": "Shield",
+        "invisibility": "Invisibility",
+        "web": "Web",
+        "fire_ball": "Fire Ball",
+    }
     blob = view.model_dump_json()
-    for hidden in ('"sleep"', '"Sleep"', '"web"', '"Web"', '"fire_ball"', '"Fire Ball"'):
+    for hidden in ('"sleep"', '"Sleep"'):
         assert hidden not in blob
 
 

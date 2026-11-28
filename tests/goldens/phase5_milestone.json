@@ -3424,6 +3424,7 @@
       "event_type": "spell_cast",
       "manual": false,
       "mode": "heal",
+      "mode_display_name": "Heal a living subject",
       "reversed": false,
       "spell_id": "cure_light_wounds",
       "target_ids": [
@@ -4551,7 +4552,7 @@
     "character-0003 sells 3 valuable(s) for 250 gp.",
     "character-0004 sells 4 valuable(s) for 220 gp.",
     "character-0002 purchases cure_light_wounds at the temple for 25 gp.",
-    "town-cleric casts cure_light_wounds [heal] at character-0002.",
+    "town-cleric casts cure_light_wounds [Heal a living subject] at character-0002.",
     "character-0002 regains 4 hit points (magical).",
     "character-0002 is at 6/6 hit points.",
     "character-0001 gives 400 gp in coin to character-0004.",

@@ -733,6 +733,11 @@ class GameSession:
         if lines := spell_conflicts.lines("spell"):
             raise ContentValidationError("adventure bundles colliding spell ids:\n" + "\n".join(lines))
         self._spell_catalog = spells
+        # The player view's usages of each spell form, keyed by spell id and whether the form is the reverse, and the
+        # effects of the spells that shoot missiles. Both depend on the catalog alone, which never changes in a
+        # session, so `views._spell_mode_views` and `views._missile_counts` build each one once.
+        self._spell_mode_views: dict[tuple[str, bool], tuple[Any, ...]] = {}
+        self._missile_effects: dict[str, tuple[Any, Any]] | None = None
         self.ruleset = ruleset
         """The ruleset in play. Its options settle the rules that B/X leaves open, like when
         experience is awarded. See
@@ -1159,9 +1164,10 @@ class GameSession:
         the name of a spell whose id is in a player view, read
         [`PlayerView.spell_names`][osrlib.crawl.views.PlayerView.spell_names] and
         [`PlayerView.reversed_spell_names`][osrlib.crawl.views.PlayerView.reversed_spell_names], and
-        read its level in [`PlayerView.spell_levels`][osrlib.crawl.views.PlayerView.spell_levels].
-        They contain the names and levels from this catalog, so a remote client that has only the view
-        can show them.
+        read its level in [`PlayerView.spell_levels`][osrlib.crawl.views.PlayerView.spell_levels] and
+        its usages in [`PlayerView.spell_modes`][osrlib.crawl.views.PlayerView.spell_modes]. They
+        contain the names, levels, and usages from this catalog, so a remote client that has only the
+        view can show them.
 
         A character can have a spell in their spell book or memorized that this catalog doesn't
         have, like a caster from a party made for another adventure. The session leaves the id on

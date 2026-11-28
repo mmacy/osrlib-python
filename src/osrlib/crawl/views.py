@@ -112,14 +112,14 @@ print([monster.current_hp for monster in referee.monsters])
 
 from collections.abc import Iterable
 from copy import deepcopy
-from typing import Literal
+from typing import Literal, NamedTuple
 
 from pydantic import ConfigDict, Field, SerializeAsAny, ValidationInfo, field_validator
 
 from osrlib.core.abilities import AbilityScore
 from osrlib.core.character import Character, _armour_as_tested
 from osrlib.core.classes import level_title
-from osrlib.core.combat import incapacitated
+from osrlib.core.combat import TargetingMode, incapacitated
 from osrlib.core.effects import Condition, EffectsLedger, has_condition
 from osrlib.core.events import Event
 from osrlib.core.frozen import _Model
@@ -136,7 +136,16 @@ from osrlib.core.items import (
 )
 from osrlib.core.monsters import IdAllocator, MonsterInstance, _regular_plural
 from osrlib.core.ruleset import Ruleset
-from osrlib.core.spells import _reverses_at, caster_profile
+from osrlib.core.spells import (
+    RangeSpec,
+    SpellMode,
+    SpellTemplate,
+    _missile_count,
+    _needs_creatures,
+    _reverses_at,
+    caster_profile,
+    minimum_caster_level,
+)
 from osrlib.core.treasure import _ROLLED_VALUABLE_NAMES
 from osrlib.core.validation import Rejection
 from osrlib.crawl._feature_handles import (
@@ -196,6 +205,7 @@ __all__ = [
     "PlayerView",
     "QuestView",
     "RefereeView",
+    "SpellModeView",
     "SuppliesView",
     "TransitionView",
     "build_player_view",
@@ -279,6 +289,15 @@ class MemberView(_Model):
     name comes from its category, like `"a wand"`, has neither key, because its display name doesn't refer to a
     weapon. An identified item shows its `name`, its `template_id`, and whether a curse has been revealed. Charges
     never appear.
+
+    An identified spell scroll also has a `spells` key, the ids of the spells left on it, in the order that
+    [`UseItem`][osrlib.crawl.commands.UseItem] reads them, so the first is the one that a `UseItem` with `spell_id`
+    unset reads. A spell appears once for each time it's on the scroll. Send one of them as `UseItem.spell_id` to
+    read it, and look its name and usages up in [`PlayerView.spell_names`][osrlib.crawl.views.PlayerView.spell_names]
+    and [`PlayerView.spell_modes`][osrlib.crawl.views.PlayerView.spell_modes]. Reading the scroll identifies it, and
+    so does a referee's [`IdentifyItem`][osrlib.crawl.commands.IdentifyItem]. An unidentified scroll has no `spells`
+    key, and neither has a scroll with no spells on it, such as a cursed scroll, a scroll of protection, or a
+    treasure map.
 
     To name an item in a sentence, look up the id it has here in
     [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names]: a mundane item's
@@ -483,6 +502,24 @@ class MemberView(_Model):
     (`session.command.member_incapacitated`). Learning one spell can fill the book at that spell's
     level, so read the view again after each `LearnSpell`. To show a spell's name, look its id up in
     [`PlayerView.spell_names`][osrlib.crawl.views.PlayerView.spell_names]."""
+    missile_counts: dict[str, int] = {}
+    """How many missiles the member's cast of a spell shoots, keyed by spell id, for each spell in `spell_book`,
+    `memorized_spells`, `preparable_spells`, or `learnable_spells` whose normal form has a usage that takes one
+    target per missile, such as `{"magic_missile": 3}` for a 6th-level magic-user. A cast of that usage takes
+    exactly this many targets, and the session refuses any other number with `magic.cast.target_count`. Name a
+    creature more than once to send it more missiles.
+
+    The number grows with the member's level, as the OSE SRD's *magic missile* gives "2 more missiles for every 5
+    experience levels", so read the view again after the member levels up or is drained. A usage takes one target per
+    missile when its [`SpellModeView.one_target_per_missile`][osrlib.crawl.views.SpellModeView.one_target_per_missile]
+    is true. A reading from a scroll takes the scroll's number instead, in
+    [`SpellModeView.scroll_missile_count`][osrlib.crawl.views.SpellModeView.scroll_missile_count]. A `MemberView`
+    that osrlib 2.11.0 or earlier built validates with this map empty."""
+    reversed_missile_counts: dict[str, int] = {}
+    """How many missiles the member's cast of a spell's reverse shoots, keyed by spell id, for the spells in the same
+    lists as `missile_counts` whose reverse has a usage that takes one target per missile. No built-in spell's
+    reverse has one, but a spell that an adventure bundles can. A `MemberView` that osrlib 2.11.0 or earlier built
+    validates with this map empty."""
     reverses_at: Literal["memorize", "cast"] | None = None
     """When the member chooses the form of a spell that reverses: `"memorize"`, `"cast"`, or `None` for a
     class that casts nothing.
@@ -1326,6 +1363,95 @@ class SuppliesView(_Model):
     order. They go short first. It's empty when every member is dead."""
 
 
+class SpellModeView(_Model):
+    """One usage of a spell's form, with what a cast dialog needs to label it and to collect its targets.
+
+    You get these from [`PlayerView.spell_modes`][osrlib.crawl.views.PlayerView.spell_modes] and
+    [`PlayerView.reversed_spell_modes`][osrlib.crawl.views.PlayerView.reversed_spell_modes], one per
+    [`SpellMode`][osrlib.core.spells.SpellMode] of the form, in the order the form lists them. Send `key` as
+    [`CastSpell.mode`][osrlib.crawl.commands.CastSpell.mode], as a battle `cast` declaration's
+    [`spell_mode`][osrlib.crawl.commands.BattleDeclaration.spell_mode], or as
+    [`UseItem.mode`][osrlib.crawl.commands.UseItem.mode] for a scroll.
+
+    The target fields describe the checks that the session makes of a cast's targets for this usage, the same checks
+    whichever command casts it: how many targets it takes, whether a cell reference may be one, and whether a battle
+    declaration names a group. A cast that passes them can still be refused for something the targets are, such as
+    `magic.cast.unknown_target` for an id that names nobody the party can act on, or for the range, such as
+    `magic.cast.out_of_range`. The range belongs to the whole form, in
+    [`PlayerView.spell_ranges`][osrlib.crawl.views.PlayerView.spell_ranges] and
+    [`PlayerView.reversed_spell_ranges`][osrlib.crawl.views.PlayerView.reversed_spell_ranges].
+
+    Every field comes from the session's spell catalog alone, so a usage reads the same in every view of a session.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    key: str
+    """The usage's [`SpellMode.key`][osrlib.core.spells.SpellMode], such as `"blind"`, which is what you send."""
+    display_name: str
+    """The usage's [`SpellMode.display_name`][osrlib.core.spells.SpellMode], such as `"Blind a creature"`. Show it where
+    a player chooses one of a form's usages. For a form with one usage, show the spell's name instead."""
+    manual: bool = False
+    """True when osrlib doesn't resolve the usage's outcome, as for
+    [`SpellMode.manual`][osrlib.core.spells.SpellMode]. Casting spends the copy and leaves the result to the referee,
+    so tell the player that before they cast it."""
+    targeting: TargetingMode | None = None
+    """How the usage picks who it affects, the [`TargetingMode`][osrlib.core.combat.TargetingMode] of its
+    [`SpellMode.targeting`][osrlib.core.spells.SpellMode], such as `"single"` or `"area"`. `None` for a usage with no
+    targeting, which is a manual usage in the built-in catalog, and the session then checks no number of targets."""
+    min_targets: int = 0
+    """The fewest ids that `targets` may hold: 1 for a `single` or `hd_budget` usage and for an `up_to_n` usage that
+    osrlib resolves, and 0 for every other usage, such as a `self` or `area` usage. The session refuses fewer with
+    `magic.cast.target_count`.
+
+    A battle declaration of an `area` usage names a group in
+    [`target_group_id`][osrlib.crawl.commands.BattleDeclaration.target_group_id] instead, and so can one of an
+    `hd_budget` usage, as `target_group` states. A usage whose `one_target_per_missile` is true takes an exact
+    number of targets instead, which depends on the caster."""
+    max_targets: int | None = None
+    """The most ids that `targets` may hold: 0 for a `self` usage, 1 for a `single` usage, and `None` for every other
+    usage, which the session doesn't limit. The session refuses more with `magic.cast.target_count`.
+
+    For an `up_to_n` or `hd_budget` usage, send every creature that the player wants the spell to reach, in the order
+    the player prefers. The spell affects at most the number of creatures that its targeting allows, and the session
+    picks them from the ones you send. An `up_to_n` usage affects the first ones in your order, up to the fixed
+    [`count`][osrlib.core.spells.TargetingSpec.count] or a roll of
+    [`count_dice`][osrlib.core.spells.TargetingSpec.count_dice] made when the spell is cast, such as *hold person*'s
+    1d4. An `hd_budget` usage affects the weakest first, until a roll of
+    [`hd_budget_dice`][osrlib.core.spells.TargetingSpec.hd_budget_dice], such as *sleep*'s 2d8 Hit Dice, runs out.
+    The others are unaffected, and the cast is still accepted. A usage whose `one_target_per_missile` is true takes
+    an exact number of targets instead."""
+    one_target_per_missile: bool = False
+    """True for a usage that shoots missiles and takes one target for each, such as *magic missile*'s. Name a
+    creature more than once to send it more missiles. The number of targets has to equal the number of missiles,
+    which grows with the caster's level, and the session refuses any other number with `magic.cast.target_count`.
+    Read the caster's number in [`MemberView.missile_counts`][osrlib.crawl.views.MemberView.missile_counts], or
+    `scroll_missile_count` for a reading from a scroll."""
+    scroll_missile_count: int | None = None
+    """How many targets a reading of the spell from a scroll takes, for a usage whose `one_target_per_missile` is
+    true. A scroll's spell resolves at the lowest level that could cast it, whatever the reader's level, so every
+    reader sends this many. `None` for every other usage, and for a spell on a list that no built-in class casts
+    from."""
+    accepts_cells: bool = False
+    """Whether a target may be a cell reference in the `cell:{dungeon}:{level}:{x},{y}` form that
+    [`cell_ref`][osrlib.crawl.dungeon.cell_ref] builds, for a usage that affects a place, such as *light*'s
+    `illuminate` or *web*. A usage that works only on creatures, such as one that allows a saving throw or deals
+    damage, has `False`, and the session refuses a cell reference for it with `magic.cast.target_must_be_creature`."""
+    target_group: Literal["none", "optional", "required"] = "none"
+    """Whether a battle `cast` declaration of the usage names a group in
+    [`target_group_id`][osrlib.crawl.commands.BattleDeclaration.target_group_id].
+
+    - `required`: an `area` usage, such as *fire ball*'s. The session takes the group's living members that the
+      area covers, ignores `targets`, and refuses a declaration with no group or a group that has fled with
+      `battle.declaration.unknown_group`.
+    - `optional`: an `hd_budget` usage, such as *sleep*'s. A declaration with a group and no `targets` takes the
+      group's living members, and one with `targets` takes those.
+    - `none`: every other usage, whose declaration names its targets in `targets`.
+
+    Outside a battle, [`CastSpell`][osrlib.crawl.commands.CastSpell] names targets alone, because the party can act
+    on no monster there."""
+
+
 class PlayerView(_Model):
     """What a player may see of a session: a fixed list of fields, every one safe to show.
 
@@ -1530,11 +1656,12 @@ class PlayerView(_Model):
     """The name of each spell whose id the view shows, keyed by spell id, like
     `{"magic_missile": "Magic Missile"}`. Show these names, not the ids.
 
-    A spell id appears in five places in the view: in a member's
+    A spell id appears in six places in the view: in a member's
     [`spell_book`][osrlib.crawl.views.MemberView.spell_book],
     [`preparable_spells`][osrlib.crawl.views.MemberView.preparable_spells], and
     [`learnable_spells`][osrlib.crawl.views.MemberView.learnable_spells], as the `spell_id` of a copy in
-    a member's [`memorized_spells`][osrlib.crawl.views.MemberView.memorized_spells], and as the
+    a member's [`memorized_spells`][osrlib.crawl.views.MemberView.memorized_spells], in the `spells` of an
+    identified spell scroll in a member's [`inventory`][osrlib.crawl.views.MemberView.inventory], and as the
     [`kind`][osrlib.crawl.views.MemberEffectView.kind] of an effect in `effects`, because a spell's
     effect has the spell's id as its kind unless the spell's data gives it a kind of its own. Every one
     of those ids that the session's catalog,
@@ -1545,7 +1672,8 @@ class PlayerView(_Model):
 
     It names no spell whose id the view doesn't show. So a spell the adventure bundles for a list that
     no member casts from stays hidden, and so does a spell at a level where no member could prepare or
-    learn it. A spell on a scroll is named only when a member could prepare or learn it anyway. A spell
+    learn it, unless a member carries an identified scroll with the spell on it. A spell on an
+    unidentified scroll is named only when the view shows its id in another place. A spell
     id on a member that the session's catalog doesn't have, like one from a party made for another
     adventure, has no entry either, and the session refuses to prepare or cast that spell. The name here
     is always the spell's normal form. For a copy prepared reversed, show its name from
@@ -1574,6 +1702,65 @@ class PlayerView(_Model):
     spell id belongs to exactly one spell list, like `light_mu` to the magic-user's and `light_c` to
     the cleric's, so each id has one level for every class that casts from its list, like the elf,
     who casts from the magic-user's list."""
+    spell_ranges: dict[str, RangeSpec] = {}
+    """How far each spell in `spell_names` reaches in its normal form, keyed by spell id, as the
+    [`RangeSpec`][osrlib.core.spells.RangeSpec] that
+    [`SpellTemplate.range_spec_for`][osrlib.core.spells.SpellTemplate.range_spec_for] returns, such as `kind` `"feet"`
+    and `feet` 150 for `"magic_missile"`. Use it to offer only the targets a cast can reach.
+
+    The session checks the range in a battle, where it measures the distance from the caster to the target's group,
+    the caster's entry in that group's
+    [`member_distance_feet`][osrlib.crawl.views.EncounterGroupView.member_distance_feet], or to a targeted party
+    member where that member will stand once the round's moves are made. It refuses a target beyond the range with
+    `magic.cast.out_of_range`. Outside a battle it checks no distance. The reach of each kind:
+
+    - `feet` and `yards`: `feet`, with yards already converted.
+    - `per_level`: `feet`, or 0 when it's `None`, plus `per_level_feet` times the caster's level, which is
+      [`MemberView.level`][osrlib.crawl.views.MemberView.level]. A spell read from a scroll uses the lowest level
+      that could cast it instead, whatever the reader's level.
+    - `touch`: 5', the reach of a melee attack. In a battle, the session also refuses a touch spell on a monster with
+      `battle.declaration.not_in_front_rank` when the caster isn't in the party's front rank toward the monster's
+      group, and with `combat.attack.out_of_reach` when the monster isn't in its group's front rank.
+    - `caster` and `special`: no distance that the session checks.
+
+    It's read from the same catalog as `spell_names`, and every spell there has an entry. A `PlayerView` that
+    osrlib 2.11.0 or earlier built validates with this map empty."""
+    reversed_spell_ranges: dict[str, RangeSpec] = {}
+    """How far each spell's reverse reaches, keyed by spell id, for every spell in `reversed_spell_names`, read the
+    way `spell_ranges` is. A reverse can reach a different distance from the normal form: `spell_ranges["remove_fear"]`
+    is touch, and `reversed_spell_ranges["remove_fear"]`, for *cause fear*, is 120 feet. A `PlayerView` that osrlib
+    2.11.0 or earlier built validates with this map empty."""
+    spell_range_texts: dict[str, str] = {}
+    """The range of each spell in `spell_names` as its page prints it, keyed by spell id, such as
+    `{"remove_fear": "The caster or a creature touched"}`. Show it to the player beside the spell's name. It's the
+    [`range`][osrlib.core.spells.SpellTemplate.range] that `spell_ranges` is parsed from, and for a range that osrlib
+    can't parse, whose `kind` in `spell_ranges` is `"special"`, such as *create food*'s `"Appears in the caster’s
+    presence"`, it's the only statement of the range. It's read from the same catalog as `spell_names`, and every spell
+    there has an entry. A `PlayerView` that osrlib 2.11.0 or earlier built validates with this map empty."""
+    reversed_spell_range_texts: dict[str, str] = {}
+    """The range of each spell's reverse as its page prints it, keyed by spell id, for every spell in
+    `reversed_spell_names`. It's the reverse's own [`range`][osrlib.core.spells.ReversedForm.range] when the reverse
+    has one, such as `"120’"` for *cause fear*, and the spell's `range` otherwise. A `PlayerView` that osrlib 2.11.0 or
+    earlier built validates with this map empty."""
+    spell_modes: dict[str, tuple[SpellModeView, ...]] = {}
+    """The usages of each spell in `spell_names`, in its normal form, keyed by spell id, as
+    [`SpellModeView`][osrlib.crawl.views.SpellModeView] models in the order the form lists them. Build a cast dialog
+    from them: each one has the key to send as the cast's mode, a label to show, and what the session checks of the
+    cast's targets. For example, `spell_modes["light_mu"]` has the usages `illuminate`, `blind`, and `cancel`, labelled
+    `"Conjure light"`, `"Blind a creature"`, and `"Cancel darkness"`.
+
+    Each usage is read from the same catalog as `spell_names`,
+    [`GameSession.effective_spells`][osrlib.crawl.session.GameSession.effective_spells], so a spell the adventure
+    bundles has the usages its author wrote. Every spell in `spell_names` has an entry, and no other spell does. A
+    `PlayerView` that osrlib 2.11.0 or earlier built validates with this map empty."""
+    reversed_spell_modes: dict[str, tuple[SpellModeView, ...]] = {}
+    """The usages of each spell's reverse, keyed by spell id, for every spell in `reversed_spell_names`, as
+    [`SpellModeView`][osrlib.crawl.views.SpellModeView] models in the order the reverse lists them. The reverse's keys
+    can differ from the normal form's: `spell_modes["cure_light_wounds"]` has `heal` and `cure_paralysis`, and
+    `reversed_spell_modes["cure_light_wounds"]` has `harm`. Send a key from here with `reversed` set.
+
+    It's read from the same catalog as `spell_modes`. A spell that doesn't reverse has no entry, and a `PlayerView`
+    that osrlib 2.11.0 or earlier built validates with this map empty."""
     item_names: dict[str, str] = {}
     """What to call one of each item whose id the view shows, keyed by that id, like
     `{"torch": "torch", "holy_water": "vial of holy water", "magic-item-0003": "potion"}`. Show these
@@ -1930,6 +2117,9 @@ def _masked_magic_item(instance: MagicItemInstance) -> dict:
             "identified": True,
             "cursed": instance.cursed_revealed,
         }
+        if _spell_scroll(template):
+            inscribed = instance.state.get("spells", ())
+            payload["spells"] = [str(spell) for spell in inscribed] if isinstance(inscribed, tuple) else []
     else:
         display = _with_article(_masked_names(instance)[0])
         if template.category in _MASKED_CATEGORY_NAMES and template.category is not MagicItemCategory.STAFF:
@@ -1949,6 +2139,20 @@ def _masked_magic_item(instance: MagicItemInstance) -> dict:
         if facet.missile_ranges is not None:
             payload["missile_ranges"] = facet.missile_ranges.model_dump(mode="json")
     return payload
+
+
+def _spell_scroll(template) -> bool:
+    """Whether a magic item is a scroll of spells, the kind `UseItem` reads a spell from.
+
+    It decides as the battle's scroll check does: a scroll with a `spell_count`, no curse, and no effect of its own,
+    such as a ward's.
+    """
+    return (
+        template.category is MagicItemCategory.SCROLL
+        and not template.cursed
+        and template.effect is None
+        and "spell_count" in template.params
+    )
 
 
 def _masked_instance(instance) -> dict:
@@ -2060,7 +2264,7 @@ def build_player_view(session) -> PlayerView:
         for member_id, state in session.deprivation.items()
         if state.worst > 0
     }
-    spell_names, reversed_spell_names, spell_levels = _spell_names(session, members, effects)
+    spells = _spell_names(session, members, effects)
     item_names, item_names_plural, valuable_names, valuable_phrases = _item_names(session, known_piles.values())
     healing_rejections, healing_levels, mode_rejections = _town_healing_offers(session)
     return PlayerView(
@@ -2089,9 +2293,15 @@ def build_player_view(session) -> PlayerView:
         piles=piles,
         emptied_caches=tuple(session.dungeon_state.emptied_caches),
         effects=effects,
-        spell_names=spell_names,
-        reversed_spell_names=reversed_spell_names,
-        spell_levels=spell_levels,
+        spell_names=spells.names,
+        reversed_spell_names=spells.reversed_names,
+        spell_levels=spells.levels,
+        spell_ranges=spells.ranges,
+        reversed_spell_ranges=spells.reversed_ranges,
+        spell_range_texts=spells.range_texts,
+        reversed_spell_range_texts=spells.reversed_range_texts,
+        spell_modes=spells.modes,
+        reversed_spell_modes=spells.reversed_modes,
         item_names=item_names,
         item_names_plural=item_names_plural,
         valuable_names=valuable_names,
@@ -2223,13 +2433,14 @@ def _supplies_view(session) -> SuppliesView:
     )
 
 
-def _spell_names(session, members, effects) -> tuple[dict[str, str], dict[str, str], dict[str, int]]:
-    """The view's `spell_names`, `reversed_spell_names`, and `spell_levels`, for the spell ids the view shows.
+def _spell_names(session, members, effects) -> _SpellNames:
+    """The view's spell maps: names, levels, usages, and ranges, for the spell ids the view shows.
 
     Only the ids the view already shows are named: those in the members' books, memorized copies, and the two lists
-    of what each member may prepare or learn, and the effect kinds. So a spell that the members can't choose stays
-    hidden, such as one on a scroll or one on a list that the party's classes don't cast from. An id the session's
-    catalog lacks, and an effect kind that is no spell's id, get no entry.
+    of what each member may prepare or learn, the effect kinds, and the spells left on each identified scroll in a
+    member's inventory. So a spell that the members can't choose stays hidden, such as one on an unidentified scroll
+    or one on a list that the party's classes don't cast from. An id the session's catalog lacks, and an effect kind
+    that is no spell's id, get no entry.
     """
     catalog = {spell.id: spell for spell in session.effective_spells.spells}
     shown = [
@@ -2238,19 +2449,149 @@ def _spell_names(session, members, effects) -> tuple[dict[str, str], dict[str, s
         *(effect.kind for effect in effects),
         *(spell_id for member in members for spell_id in member.preparable_spells),
         *(spell_id for member in members for spell_id in member.learnable_spells),
+        *(spell_id for member in members for item in member.inventory["items"] for spell_id in item.get("spells", ())),
     ]
     names: dict[str, str] = {}
     reversed_names: dict[str, str] = {}
     levels: dict[str, int] = {}
+    modes: dict[str, tuple[SpellModeView, ...]] = {}
+    reversed_modes: dict[str, tuple[SpellModeView, ...]] = {}
+    ranges: dict[str, RangeSpec] = {}
+    reversed_ranges: dict[str, RangeSpec] = {}
+    range_texts: dict[str, str] = {}
+    reversed_range_texts: dict[str, str] = {}
     for spell_id in shown:
         spell = catalog.get(spell_id)
         if spell is None or spell_id in names:
             continue
         names[spell_id] = spell.name
         levels[spell_id] = spell.level
+        modes[spell_id] = _spell_mode_views(session, spell, reversed=False)
+        ranges[spell_id] = spell.range_spec_for(reversed=False)
+        range_texts[spell_id] = spell.range
         if spell.reversed_form is not None:
             reversed_names[spell_id] = spell.reversed_form.name
-    return names, reversed_names, levels
+            reversed_modes[spell_id] = _spell_mode_views(session, spell, reversed=True)
+            reversed_ranges[spell_id] = spell.range_spec_for(reversed=True)
+            reversed_range_texts[spell_id] = spell.reversed_form.range or spell.range
+    return _SpellNames(
+        names, reversed_names, levels, modes, reversed_modes, ranges, reversed_ranges, range_texts, reversed_range_texts
+    )
+
+
+class _SpellNames(NamedTuple):
+    """The spell maps of the player view, built in one pass by `_spell_names`."""
+
+    names: dict[str, str]
+    reversed_names: dict[str, str]
+    levels: dict[str, int]
+    modes: dict[str, tuple[SpellModeView, ...]]
+    reversed_modes: dict[str, tuple[SpellModeView, ...]]
+    ranges: dict[str, RangeSpec]
+    reversed_ranges: dict[str, RangeSpec]
+    range_texts: dict[str, str]
+    reversed_range_texts: dict[str, str]
+
+
+def _missile_mode(mode: SpellMode) -> bool:
+    """Whether `validate_cast` asks for exactly one target per missile: an automated `up_to_n` usage with missiles."""
+    return (
+        mode.targeting is not None
+        and mode.targeting.mode is TargetingMode.UP_TO_N
+        and mode.effect is not None
+        and "missiles_base" in mode.effect.params
+    )
+
+
+def _spell_mode_views(session, spell: SpellTemplate, *, reversed: bool) -> tuple[SpellModeView, ...]:
+    """One form's usages as the view's `SpellModeView` models, with the target checks `validate_cast` makes.
+
+    The counts mirror `validate_cast`: a `self` usage takes no target, a `single` usage one, a missile usage exactly
+    `_missile_count` at the caster's level, and an `up_to_n` usage with an effect or an `hd_budget` usage at least one.
+    `accepts_cells` is the inverse of `_needs_creatures`, and `target_group` follows `battle._cast_targets`, which
+    takes an `area` usage's targets from its group, and an `hd_budget` usage's from its group when the declaration
+    names no targets.
+
+    The usages depend on the session's catalog alone, which doesn't change, so the session keeps each form's tuple
+    and builds it once.
+    """
+    key = (spell.id, reversed)
+    cached = session._spell_mode_views.get(key)
+    if cached is not None:
+        return cached
+    views: list[SpellModeView] = []
+    for mode in _form_modes(spell, reversed=reversed):
+        targeting = mode.targeting.mode if mode.targeting is not None else None
+        per_missile = _missile_mode(mode)
+        scroll_missiles: int | None = None
+        if per_missile and mode.effect is not None:
+            try:
+                scroll_missiles = _missile_count(mode.effect, minimum_caster_level(spell))
+            except ValueError:
+                scroll_missiles = None
+        counted = targeting is TargetingMode.HD_BUDGET or (
+            targeting is TargetingMode.UP_TO_N and mode.effect is not None
+        )
+        least = 1 if targeting is TargetingMode.SINGLE or counted else 0
+        most = {TargetingMode.SELF: 0, TargetingMode.SINGLE: 1}.get(targeting) if targeting is not None else None
+        target_group: Literal["none", "optional", "required"] = "none"
+        if targeting is TargetingMode.AREA:
+            target_group = "required"
+        elif targeting is TargetingMode.HD_BUDGET:
+            target_group = "optional"
+        views.append(
+            SpellModeView(
+                key=mode.key,
+                display_name=mode.display_name,
+                manual=mode.manual,
+                targeting=targeting,
+                min_targets=least,
+                max_targets=most,
+                one_target_per_missile=per_missile,
+                scroll_missile_count=scroll_missiles,
+                accepts_cells=not _needs_creatures(mode),
+                target_group=target_group,
+            )
+        )
+    result = tuple(views)
+    session._spell_mode_views[key] = result
+    return result
+
+
+def _form_modes(spell: SpellTemplate, *, reversed: bool) -> tuple[SpellMode, ...]:
+    """The usages of the normal form, or of the reverse when `reversed` is true and the spell has one."""
+    return spell.reversed_form.modes if reversed and spell.reversed_form is not None else spell.modes
+
+
+def _missile_counts(session, member, spell_ids) -> tuple[dict[str, int], dict[str, int]]:
+    """The member view's `missile_counts` and `reversed_missile_counts`, for the spell ids the member's sheet shows.
+
+    The session keeps, for each spell in its catalog that has a missile usage in either form, the effect of the first
+    such usage of each form, so a view looks up the member's ids in a small map instead of in the catalog. The count is
+    `_missile_count` at the member's level, the number `validate_cast` asks for.
+    """
+    missiles = session._missile_effects
+    if missiles is None:
+        missiles = {}
+        for spell in session.effective_spells.spells:
+            reverse = spell.reversed_form.modes if spell.reversed_form is not None else ()
+            normal_effect = next((mode.effect for mode in spell.modes if _missile_mode(mode)), None)
+            reverse_effect = next((mode.effect for mode in reverse if _missile_mode(mode)), None)
+            if normal_effect is not None or reverse_effect is not None:
+                missiles[spell.id] = (normal_effect, reverse_effect)
+        session._missile_effects = missiles
+    counts: dict[str, int] = {}
+    reversed_counts: dict[str, int] = {}
+    for spell_id in spell_ids:
+        effects = missiles.get(spell_id)
+        if effects is None or spell_id in counts or spell_id in reversed_counts:
+            continue
+        normal, reverse = effects
+        if normal is not None:
+            counts[spell_id] = _missile_count(normal, member.level)
+        if reverse is not None:
+            reversed_counts[spell_id] = _missile_count(reverse, member.level)
+    return counts, reversed_counts
 
 
 def _pile_view(pile: DropPile) -> PileView:
@@ -2650,6 +2991,18 @@ def _member_view(session, member) -> MemberView:
     definition = member.definition
     profile = caster_profile(definition)
     can_prepare_now, needs_sleep_to_prepare = _prepare_now(session, member, profile)
+    preparable_spells = _preparable_spells(session, member)
+    learnable_spells = _learnable_spells(session, member)
+    missile_counts, reversed_missile_counts = _missile_counts(
+        session,
+        member,
+        (
+            *member.spell_book,
+            *(copy.spell_id for copy in member.memorized_spells),
+            *preparable_spells,
+            *learnable_spells,
+        ),
+    )
     thief_skills = {}
     if definition.thief_skills:
         thief_skills = definition.thief_skills[member.level - 1].model_dump(exclude={"level"})
@@ -2689,8 +3042,10 @@ def _member_view(session, member) -> MemberView:
         languages=member.languages,
         spell_book=member.spell_book,
         spell_slots=definition.row(member.level).spell_slots,
-        preparable_spells=_preparable_spells(session, member),
-        learnable_spells=_learnable_spells(session, member),
+        preparable_spells=preparable_spells,
+        learnable_spells=learnable_spells,
+        missile_counts=missile_counts,
+        reversed_missile_counts=reversed_missile_counts,
         reverses_at=None if profile is None else _reverses_at(profile),
         can_prepare_now=can_prepare_now,
         needs_sleep_to_prepare=needs_sleep_to_prepare,
