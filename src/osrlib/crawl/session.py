@@ -3054,13 +3054,21 @@ def _handle_place_party(session: GameSession, command: PlaceParty) -> tuple[list
         session.mode = SessionMode.EXPLORING
         events.append(
             LocationEnteredEvent(
-                location_kind="dungeon", location_id=dungeon_id, level_number=level_number, via="placed"
+                location_kind="dungeon",
+                location_id=dungeon_id,
+                display_name=session.adventure.dungeon(dungeon_id).name.strip(),
+                level_number=level_number,
+                via="placed",
             )
         )
     else:
         session.dungeon_state.location = location
         session.mode = SessionMode.TOWN
-        events.append(LocationEnteredEvent(location_kind="town", location_id="town"))
+        events.append(
+            LocationEnteredEvent(
+                location_kind="town", location_id="town", display_name=session.adventure.town.name.strip()
+            )
+        )
     return [], events
 
 

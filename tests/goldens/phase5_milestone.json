@@ -881,6 +881,7 @@
   "event_log": [
     {
       "code": "exploration.location.entered",
+      "display_name": "The Barrow",
       "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": 1,
@@ -919,6 +920,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "",
       "dungeon_id": "barrow",
       "event_type": "location_entered",
       "level_number": 1,
@@ -1464,6 +1466,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "",
       "dungeon_id": "barrow",
       "event_type": "location_entered",
       "level_number": 1,
@@ -1476,6 +1479,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "The Barrow",
       "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": 2,
@@ -1506,6 +1510,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "",
       "dungeon_id": "barrow",
       "event_type": "location_entered",
       "level_number": 2,
@@ -3054,6 +3059,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "The Barrow",
       "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": 1,
@@ -3066,6 +3072,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "",
       "dungeon_id": "barrow",
       "event_type": "location_entered",
       "level_number": 1,
@@ -3087,6 +3094,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "",
       "dungeon_id": "barrow",
       "event_type": "location_entered",
       "level_number": 1,
@@ -3126,6 +3134,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "Threshold",
       "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": null,
@@ -3316,6 +3325,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "The Barrow",
       "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": 1,
@@ -3346,6 +3356,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "",
       "dungeon_id": "barrow",
       "event_type": "location_entered",
       "level_number": 1,
@@ -3376,6 +3387,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "",
       "dungeon_id": "barrow",
       "event_type": "location_entered",
       "level_number": 1,
@@ -3473,6 +3485,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "",
       "dungeon_id": "barrow",
       "event_type": "location_entered",
       "level_number": 1,
@@ -3512,6 +3525,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "Threshold",
       "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": null,
@@ -4178,7 +4192,7 @@
     }
   },
   "transcript": [
-    "The party enters dungeon barrow (level 1).",
+    "The party enters The Barrow (level 1).",
     "A new quest: The Jade Idol. The temple wants the Jade Idol off the barrow king's altar and back on its own.",
     "The party moves to (1, 0), facing east.",
     "The party moves to (2, 0), facing east.",
@@ -4228,7 +4242,7 @@
     "The party moves to (3, 0), facing east.",
     "The party moves to (4, 0), facing east.",
     "The party enters area shrine (level 1).",
-    "The party descends to level 2 of barrow.",
+    "The party descends to level 2 of The Barrow.",
     "The party moves to (1, 0), facing east.",
     "The party moves to (2, 0), facing east.",
     "The party enters area vault (level 2).",
@@ -4345,14 +4359,14 @@
     "The encounter ends (victory).",
     "The party moves to (1, 0), facing west.",
     "The party moves to (0, 0), facing west.",
-    "The party climbs to level 1 of barrow.",
+    "The party climbs to level 1 of The Barrow.",
     "The party enters area shrine (level 1).",
     "The party moves to (3, 0), facing west.",
     "The party enters area guard_room (level 1).",
     "The party moves to (2, 0), facing west.",
     "The party moves to (1, 0), facing west.",
     "The party moves to (0, 0), facing west.",
-    "The party enters town town.",
+    "The party enters Threshold.",
     "The adventure ends: 95 XP from monsters and 2740 XP from treasure, and each of 4 survivor(s) gets 708 XP.",
     "character-0001 gains 743 XP (base 708), now level 1.",
     "character-0002 gains 708 XP (base 708), now level 1.",
@@ -4368,7 +4382,7 @@
     "character-0002 is at 6/6 hit points.",
     "character-0001 gives 400 gp in coin to character-0004.",
     "character-0002 gives 250 gp in coin to character-0003.",
-    "The party enters dungeon barrow (level 1).",
+    "The party enters The Barrow (level 1).",
     "The party moves to (1, 0), facing east.",
     "The party moves to (2, 0), facing east.",
     "The party enters area guard_room (level 1).",
@@ -4385,7 +4399,7 @@
     "The party moves to (2, 0), facing west.",
     "The party moves to (1, 0), facing west.",
     "The party moves to (0, 0), facing west.",
-    "The party enters town town.",
+    "The party enters Threshold.",
     "The adventure ends: 0 XP from monsters and 50 XP from treasure, and each of 4 survivor(s) gets 12 XP.",
     "character-0001 gains 12 XP (base 12), now level 1.",
     "character-0002 gains 12 XP (base 12), now level 1.",

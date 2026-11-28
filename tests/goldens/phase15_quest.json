@@ -129,6 +129,7 @@
   "event_log": [
     {
       "code": "exploration.location.entered",
+      "display_name": "The Barrow",
       "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": 1,
@@ -181,6 +182,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "",
       "dungeon_id": "barrow",
       "event_type": "location_entered",
       "level_number": 1,
@@ -230,6 +232,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "",
       "dungeon_id": "barrow",
       "event_type": "location_entered",
       "level_number": 1,
@@ -469,7 +472,7 @@
     }
   ],
   "transcript": [
-    "The party enters dungeon barrow (level 1).",
+    "The party enters The Barrow (level 1).",
     "Trigger barrow-mouth fired. The barrow-mouth exhales cold air over the threshold.",
     "Journal: The barrow takes you in, and the daylight stops at the lintel.",
     "A new quest: The Votive Idol. Sister Halda wants the ninth idol back in the temple, rite and all.",

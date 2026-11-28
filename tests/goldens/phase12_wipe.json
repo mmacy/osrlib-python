@@ -25,6 +25,7 @@
   "event_log": [
     {
       "code": "exploration.location.entered",
+      "display_name": "The Fume Vault",
       "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": 1,
@@ -46,6 +47,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "",
       "dungeon_id": "vault",
       "event_type": "location_entered",
       "level_number": 1,
@@ -246,7 +248,7 @@
   },
   "master_seed": 20260806,
   "transcript": [
-    "The party enters dungeon vault (level 1).",
+    "The party enters The Fume Vault (level 1).",
     "The party moves to (1, 0), facing east.",
     "The party enters area gas_room (level 1).",
     "Detection roll (trap_spring): 2 vs 2-in-6. Success.",

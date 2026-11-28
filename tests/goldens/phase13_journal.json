@@ -60,6 +60,7 @@
   "event_log": [
     {
       "code": "exploration.location.entered",
+      "display_name": "The Delve",
       "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": 1,
@@ -183,7 +184,7 @@
   },
   "master_seed": 20260807,
   "transcript": [
-    "The party enters dungeon delve (level 1).",
+    "The party enters The Delve (level 1).",
     "The party moves to (1, 0), facing east.",
     "Trigger lever-east fired.",
     "Flag crypt.portcullis = 'open'.",

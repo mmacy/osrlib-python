@@ -191,7 +191,9 @@ def _handle_travel_to_town(session, command: TravelToTown) -> tuple[list[Rejecti
     travel = session.adventure.town.travel_turns.get(location.dungeon_id, 0)
     travel_events, _ = session.advance_turns(travel, field=False)
     events.extend(travel_events)
-    events.append(LocationEnteredEvent(location_kind="town", location_id="town"))
+    events.append(
+        LocationEnteredEvent(location_kind="town", location_id="town", display_name=session.adventure.town.name.strip())
+    )
     from osrlib.core.ruleset import XpAwardTiming
 
     if session.ruleset.xp_award_timing is XpAwardTiming.ON_RETURN:

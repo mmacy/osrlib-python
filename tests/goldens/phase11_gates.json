@@ -131,6 +131,7 @@
   "event_log": [
     {
       "code": "exploration.location.entered",
+      "display_name": "The Warren",
       "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": 1,
@@ -234,6 +235,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "The Warren",
       "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": 2,
@@ -290,6 +292,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "The Warren",
       "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": 1,
@@ -368,6 +371,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "",
       "dungeon_id": "warren",
       "event_type": "location_entered",
       "level_number": 1,
@@ -525,7 +529,7 @@
     }
   ],
   "transcript": [
-    "The party enters dungeon warren (level 1).",
+    "The party enters The Warren (level 1).",
     "The party moves to (1, 0), facing east.",
     "character-0001 acquires brass_key and toll_token.",
     "character-0001 gives brass_key to character-0004.",
@@ -534,12 +538,12 @@
     "The party moves to (3, 0), facing east.",
     "The door west of (2, 0) swings shut behind the party.",
     "character-0001 uses up toll_token.",
-    "The party descends to level 2 of warren. The ferryman pockets the token and the stair opens onto the dark.",
+    "The party descends to level 2 of The Warren. The ferryman pockets the token and the stair opens onto the dark.",
     "The party moves to (1, 0), facing east.",
     "character-0001 acquires silver_seal.",
     "Wandering check: skipped vs 0-in-6. Nothing comes.",
     "The party moves to (0, 0), facing west.",
-    "The party climbs to level 1 of warren.",
+    "The party climbs to level 1 of The Warren.",
     "The door east of (3, 0) opens.",
     "The party moves to (4, 0), facing east.",
     "The party moves to (3, 0), facing west.",

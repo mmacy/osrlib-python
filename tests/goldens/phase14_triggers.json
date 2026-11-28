@@ -78,6 +78,7 @@
   "event_log": [
     {
       "code": "exploration.location.entered",
+      "display_name": "The Keep",
       "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": 1,
@@ -157,6 +158,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "",
       "dungeon_id": "keep",
       "event_type": "location_entered",
       "level_number": 1,
@@ -359,7 +361,7 @@
     }
   ],
   "transcript": [
-    "The party enters dungeon keep (level 1).",
+    "The party enters The Keep (level 1).",
     "The party moves to (1, 0), facing east.",
     "The party moves to (2, 0), facing east.",
     "Flag keep.lever = 'pulled'.",

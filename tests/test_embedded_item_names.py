@@ -25,6 +25,7 @@ from osrlib.core.items import GearTemplate, ItemInstance, ItemTemplate
 from osrlib.crawl.adventure import Adventure, TownSpec
 from osrlib.crawl.commands import AddMember, GrantItem
 from osrlib.crawl.dungeon import DungeonSpec, LevelSpec
+from osrlib.crawl.events import parse_any_event
 from osrlib.crawl.party import Party
 from osrlib.crawl.session import GameSession
 from osrlib.crawl.views import PlayerView, RefereeView
@@ -166,8 +167,20 @@ def test_loading_a_2_7_0_save_draws_nothing_and_keeps_the_logs():
 
     again = save_game(load_game(document))["payload"]
 
-    for key in ("rng_streams", "command_log", "event_log", "clock_rounds", "allocator"):
+    for key in ("rng_streams", "command_log", "clock_rounds", "allocator"):
         assert again[key] == document["payload"][key], key
+    # A later release can add a field with a default to an event, which the next save writes out. Each entry keeps
+    # every key and value it had, and any key it gains holds that field's default.
+    original_log = document["payload"]["event_log"]
+    assert len(again["event_log"]) == len(original_log)
+    for resaved, original in zip(again["event_log"], original_log, strict=True):
+        assert {key: resaved[key] for key in original} == original
+        added = set(resaved) - set(original)
+        if added:
+            event = parse_any_event(original)
+            assert event is not None, original
+            fields = type(event).model_fields
+            assert {key: resaved[key] for key in added} == {key: fields[key].default for key in added}
 
 
 # ---------------------------------------------------------------------- a 2.7.0 party document
