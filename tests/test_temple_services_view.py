@@ -99,7 +99,8 @@ STATES: dict[str, Callable[[GameSession, object], None]] = {
         grant_condition(member, Condition.WEAKENED, None),
         attach(game, EffectDefinition(kind="mummy_rot", permanent=True, condition=Condition.DISEASED), member.id),
     ),
-    # The temple's cure light wounds heals and never lifts paralysis (#368), so this member gets nothing from it.
+    # Cure light wounds' first usage heals and leaves paralysis alone. `test_temple_spell_modes.py` covers the
+    # `cure_paralysis` usage (#368).
     "paralysed": lambda game, member: grant_condition(member, Condition.PARALYSED, None),
     "paralysed_and_wounded": lambda game, member: (wound(member), grant_condition(member, Condition.PARALYSED, None)),
     "revealed_cursed_ring": lambda game, member: cursed_ring(member, revealed=True),
@@ -379,7 +380,7 @@ def test_a_town_that_lists_no_temple_still_serves_the_party():
     [
         ("full_hit_points", "cure_light_wounds", "full_hit_points"),
         ("full_hit_points", "cure_serious_wounds", "full_hit_points"),
-        # The temple's cure light wounds never lifts paralysis (#368).
+        # Cure light wounds' first usage heals and leaves paralysis alone (#368).
         ("paralysed", "cure_light_wounds", "full_hit_points"),
         ("dead_today", "cure_light_wounds", "dead"),
         ("dead_today", "cure_serious_wounds", "dead"),

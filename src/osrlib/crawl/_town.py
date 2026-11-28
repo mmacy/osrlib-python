@@ -12,6 +12,7 @@ from osrlib.core.events import Event
 from osrlib.core.spells import (
     MAGIC_STREAM,
     CastContext,
+    SpellMode,
     SpellTemplate,
     _restores_life,
     _revives_poison_dead,
@@ -153,6 +154,9 @@ def _handle_purchase_healing(session, command: PurchaseHealing) -> tuple[list[Re
     except ValueError:
         return [Rejection(code="session.command.unknown_member", params={"character": command.character_id})], []
     spell = _temple_spell(session, command.service)
+    mode, rejections = _temple_mode(spell, command.service, command.spell_mode)
+    if mode is None:
+        return rejections, []
     lowest, highest = _temple_levels(spell)
     caster_level = lowest if command.caster_level is None else command.caster_level
     if not lowest <= caster_level <= highest:
@@ -168,7 +172,7 @@ def _handle_purchase_healing(session, command: PurchaseHealing) -> tuple[list[Re
             Rejection(code="items.purchase.insufficient_funds", params={"item": command.service, "cost_gp": cost_gp})
         ], []
     context = _cast_context(session, [member], in_combat=False)
-    rejections = _healing_rejections(session, member, command.service, spell, caster_level, context)
+    rejections = _healing_rejections(session, member, command.service, spell, mode, caster_level, context)
     if rejections:
         return rejections, []
     temple_cleric = _temple_cleric(spell, caster_level)
@@ -190,7 +194,7 @@ def _handle_purchase_healing(session, command: PurchaseHealing) -> tuple[list[Re
     result = cast_spell(
         temple_cleric,
         spell,
-        spell.modes[0].key,
+        mode.key,
         profile=temple_profile,
         targets=[member],
         context=context,
@@ -214,6 +218,45 @@ def _temple_spell(session, service: HealingService) -> SpellTemplate:
     return session.effective_spells.get(HEALING_SERVICES[service][0])
 
 
+def _temple_modes(spell: SpellTemplate) -> tuple[SpellMode, ...]:
+    """The usages of a service's spell that the temple sells, the default first.
+
+    The default is the spell's first usage, which is the only one the temple sold before
+    [`PurchaseHealing.spell_mode`][osrlib.crawl.commands.PurchaseHealing.spell_mode] existed, and the temple always
+    sells it. The temple also sells each other usage that the session resolves on a party member. It doesn't sell a
+    manual usage, because the session resolves nothing for one and the party would pay for a cast that changes no
+    state, such as *cure disease*'s usage against green slime or *neutralize poison*'s usage on an item. It doesn't sell
+    a usage that works only on undead, such as *raise dead*'s usage that destroys an undead monster, because the patient
+    is a party member and no party member is undead.
+    """
+    first, *others = spell.modes
+    sold = [
+        mode
+        for mode in others
+        if not mode.manual and not (mode.effect is not None and mode.effect.params.get("undead_only"))
+    ]
+    return (first, *sold)
+
+
+def _temple_mode(
+    spell: SpellTemplate, service: HealingService, key: str | None
+) -> tuple[SpellMode | None, list[Rejection]]:
+    """Return the usage a purchase names, or `None` and the rejections when the temple doesn't sell it.
+
+    `None` for `key` is the default usage, the spell's first. A key the spell has no usage for is refused with
+    `magic.cast.unknown_mode`, the code a cast gets for one, and a usage `_temple_modes` leaves out is refused with
+    `town.healing.mode_not_offered`. Both checks read only the spell, so a refusal makes no draw and changes nothing.
+    """
+    if key is None:
+        return spell.modes[0], []
+    if key not in {mode.key for mode in spell.modes}:
+        return None, [Rejection(code="magic.cast.unknown_mode", params={"spell": spell.id, "mode": key})]
+    for mode in _temple_modes(spell):
+        if mode.key == key:
+            return mode, []
+    return None, [Rejection(code="town.healing.mode_not_offered", params={"item": service, "mode": key})]
+
+
 _TEMPLE_LEVELS: dict[tuple[str, int], tuple[int, int]] = {}
 """The temple's cleric levels for a spell, keyed by the spell's list and level, filled by `_temple_levels`."""
 
@@ -234,12 +277,13 @@ def _temple_levels(spell: SpellTemplate) -> tuple[int, int]:
 
 
 def _temple_offer(
-    session, member, service: HealingService, spell: SpellTemplate, context: CastContext
+    session, member, service: HealingService, spell: SpellTemplate, mode: SpellMode, context: CastContext
 ) -> tuple[int | None, list[Rejection]]:
-    """Return the lowest temple cleric level that would sell a service to a member, and the rejections otherwise.
+    """Return the lowest temple cleric level that would sell a usage of a service to a member, or the rejections.
 
-    `PlayerView.town_healing_rejections` and `PlayerView.town_healing_caster_levels` come from this. It asks
-    `_healing_rejections`, the check `_handle_purchase_healing` makes after the fee, at as few levels as it can.
+    `PlayerView.town_healing_rejections`, `PlayerView.town_healing_caster_levels`, and
+    `PlayerView.town_healing_mode_rejections` come from this. It asks `_healing_rejections`, the check
+    `_handle_purchase_healing` makes after the fee, at as few levels as it can.
     Whether the temple sells a service is monotonic in the cleric's level: only *raise dead*'s reach depends on the
     level, and it grows with each level, while the temple cleric's cast check is the same at every level for these
     single-target spells. So it tries the lowest level first. A refusal there whose `reason` is
@@ -251,6 +295,7 @@ def _temple_offer(
         member: The member to treat, alive or dead.
         service: The service to check.
         spell: The service's spell, from `_temple_spell`.
+        mode: The usage of the spell to check, one of `_temple_modes(spell)`.
         context: The member's cast context, from `_cast_context`.
 
     Returns:
@@ -258,7 +303,7 @@ def _temple_offer(
         when no level from the lowest to the highest sells it.
     """
     lowest, highest = _temple_levels(spell)
-    rejections = _healing_rejections(session, member, service, spell, lowest, context)
+    rejections = _healing_rejections(session, member, service, spell, mode, lowest, context)
     if not rejections:
         return lowest, []
     if [rejection.params.get("reason") for rejection in rejections] != ["caster_level_too_low"]:
@@ -266,7 +311,7 @@ def _temple_offer(
     refused, sold = lowest, highest
     while sold - refused > 1:
         middle = (refused + sold) // 2
-        if _healing_rejections(session, member, service, spell, middle, context):
+        if _healing_rejections(session, member, service, spell, mode, middle, context):
             refused = middle
         else:
             sold = middle
@@ -285,30 +330,32 @@ def _healing_rejections(
     member,
     service: HealingService,
     spell: SpellTemplate,
+    mode: SpellMode,
     caster_level: int,
     context: CastContext,
 ) -> list[Rejection]:
-    """Return why the temple would refuse a service for a member, apart from the caster level and the fee.
+    """Return why the temple would refuse a service's usage for a member, apart from the usage, the level, and the fee.
 
-    `_handle_purchase_healing` calls this after its caster level and funds checks, and `_temple_offer` calls it to
-    build `PlayerView.town_healing_rejections` and `PlayerView.town_healing_caster_levels`, so the view and the
-    command can't disagree. It returns `town.healing.no_effect`, with the `reason` from `_no_effect_reason`, when
-    the service would do nothing for the member, and otherwise the rejections of the temple cleric's cast from
-    [`validate_cast`][osrlib.core.spells.validate_cast], which is empty when the temple would sell the service. The
-    check only reads the session, so it makes no draw, takes no time, and changes nothing.
+    `_handle_purchase_healing` calls this after its usage, caster level, and funds checks, and `_temple_offer` calls
+    it to build the player view's temple maps, so the view and the command can't disagree. It returns
+    `town.healing.no_effect`, with the `reason` from `_no_effect_reason`, when the usage would do nothing for the
+    member, and otherwise the rejections of the temple cleric's cast from
+    [`validate_cast`][osrlib.core.spells.validate_cast], which is empty when the temple would sell the usage. The check
+    only reads the session, so it makes no draw, takes no time, and changes nothing.
 
     Args:
         session: The session whose party member is treated.
         member: The member to treat, alive or dead.
         service: The service to check.
         spell: The service's spell, from `_temple_spell`.
+        mode: The usage of the spell the temple casts, which the caller has checked with `_temple_mode`.
         caster_level: The temple cleric's level, which the caller has checked.
         context: The member's cast context, from `_cast_context`, which carries the time since the member died.
 
     Returns:
         The rejections, empty when the temple would sell the service to a party that can pay for it.
     """
-    reason = _no_effect_reason(session, service, member, spell, caster_level, context)
+    reason = _no_effect_reason(session, service, member, spell, mode, caster_level, context)
     if reason is not None:
         return [
             Rejection(code="town.healing.no_effect", params={"item": service, "character": member.id, "reason": reason})
@@ -317,7 +364,7 @@ def _healing_rejections(
     return validate_cast(
         temple_cleric,
         spell,
-        spell.modes[0].key,
+        mode.key,
         profile=caster_profile(temple_cleric.definition),
         targets=[member],
         context=context,
@@ -326,15 +373,22 @@ def _healing_rejections(
 
 
 def _no_effect_reason(
-    session, service: str, member: Character, spell: SpellTemplate, caster_level: int, context: CastContext
+    session,
+    service: str,
+    member: Character,
+    spell: SpellTemplate,
+    mode: SpellMode,
+    caster_level: int,
+    context: CastContext,
 ) -> str | None:
-    """Return why a temple service cast at `caster_level` would do nothing for the member, or None when it would work.
+    """Return why a usage of a temple service cast at `caster_level` would do nothing for the member, or None.
 
     The reason is the `reason` param of `town.healing.no_effect`. Where more than one applies, the first in this
-    order for the service wins:
+    order for the usage wins:
 
-    - *Cure light wounds* and *cure serious wounds*: `dead`, then `weakened`, then `diseased`, because neither
-      condition lets a member heal by magic, then `full_hit_points`.
+    - A usage that cures paralysis, such as *cure light wounds*'s `cure_paralysis`: `dead`, then `not_paralysed`.
+    - The healing usage of *cure light wounds* and *cure serious wounds*: `dead`, then `weakened`, then `diseased`,
+      because neither condition lets a member heal by magic, then `full_hit_points`.
     - *Cure disease*: `not_diseased`.
     - *Neutralize poison*: `not_poisoned`, for a member who isn't poisoned and isn't dead of poison within the
       spell's revival window.
@@ -348,7 +402,11 @@ def _no_effect_reason(
     what the service changes. `_cast_context` works out the time since death from the session's death records. The
     check only reads state, so a refusal makes no random roll and changes nothing.
     """
-    effect = spell.modes[0].effect
+    effect = mode.effect
+    if effect is not None and effect.kind == "cure" and Condition.PARALYSED in effect.cures_conditions:
+        if has_condition(member, Condition.DEAD):
+            return "dead"
+        return None if has_condition(member, Condition.PARALYSED) else "not_paralysed"
     if service in ("cure_light_wounds", "cure_serious_wounds"):
         if has_condition(member, Condition.DEAD):
             return "dead"

@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- [`PurchaseHealing.spell_mode`][osrlib.crawl.commands.PurchaseHealing.spell_mode] names the usage of the service's spell that the temple cleric casts, by its [`SpellMode`][osrlib.core.spells.SpellMode] key (#368). `None`, the default, casts the spell's first usage, as every purchase did before. The temple sells *cure light wounds* in its `heal` and `cure_paralysis` usages, and every other service in its first usage alone. It refuses *cure disease*'s `kill_green_slime` and *neutralize poison*'s `items`, which are manual usages the session can't resolve, and *raise dead*'s `destroy_undead`, which works only on undead, with the new code `town.healing.mode_not_offered`. It refuses a key the spell doesn't have with `magic.cast.unknown_mode`. Both checks run before the caster level and funds checks. The price is the same for every usage of a service. `town.healing.no_effect` judges the usage the purchase names, and for `cure_paralysis` its `reason` is `dead` or `not_paralysed`. A command that osrlib 2.11.0 serialized validates with `spell_mode` set to `None`, and no draw changes.
+- [`PlayerView.town_healing_mode_rejections`][osrlib.crawl.views.PlayerView.town_healing_mode_rejections] answers for each usage of each service that the temple sells in more than one usage, keyed by member id, service, and usage key, with the same meaning and the same check as [`PlayerView.town_healing_rejections`][osrlib.crawl.views.PlayerView.town_healing_rejections], so a remote client can offer "cure paralysis" without applying a rule itself (#368). [`PlayerView.town_healing_mode_names`][osrlib.crawl.views.PlayerView.town_healing_mode_names] gives each of those usages' display names. `town_healing_rejections` still answers for each service's first usage. A `PlayerView` that osrlib 2.11.0 built validates with both new maps empty.
+
+### Fixed
+
+- The temple's *cure light wounds* can cure paralysis (#368). Before, [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] always cast the spell's healing usage, so a paralysed member stayed paralysed, and a paralysed member at full hit points was refused with `town.healing.no_effect`. Send `spell_mode="cure_paralysis"` to end the paralysis.
+
 ## [2.11.0] - 2026-11-27
 
 ### Added

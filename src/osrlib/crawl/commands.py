@@ -2295,6 +2295,8 @@ class PurchaseHealing(Command):
     The party must be in town. Name the patient in `character_id` and the service in `service`.
     Each service works as the matching spell, cast on the member by a temple cleric. The cleric is
     of the lowest level that can cast the service unless you choose a level in `caster_level`.
+    The cleric casts the spell's first usage unless you choose another in `spell_mode`, such as
+    *cure light wounds*'s `cure_paralysis`.
 
     The town's [`TownSpec.healing_prices`][osrlib.crawl.adventure.TownSpec.healing_prices] sets
     what each service costs, and a service the town doesn't list costs the standard price from
@@ -2322,7 +2324,10 @@ class PurchaseHealing(Command):
     [`PlayerView.town_healing_rejections`][osrlib.crawl.views.PlayerView.town_healing_rejections],
     which contains the rejections that follow the funds check, and
     [`PlayerView.town_healing_caster_levels`][osrlib.crawl.views.PlayerView.town_healing_caster_levels],
-    which gives the `caster_level` to send. To learn whether the party can pay, compare the
+    which gives the `caster_level` to send. Both answer for each service's first usage. For a
+    service the temple sells in more than one usage, read
+    [`PlayerView.town_healing_mode_rejections`][osrlib.crawl.views.PlayerView.town_healing_mode_rejections]
+    for the answer for each usage. To learn whether the party can pay, compare the
     price with
     [`PlayerView.town_healing_funds_gp`][osrlib.crawl.views.PlayerView.town_healing_funds_gp].
 
@@ -2332,16 +2337,21 @@ class PurchaseHealing(Command):
     Rejections:
         - `session.command.wrong_mode` - the party is not in town.
         - `session.command.unknown_member` - `character_id` matches no party member.
+        - `magic.cast.unknown_mode` - `spell_mode` matches no usage of the service's spell.
+        - `town.healing.mode_not_offered` - `spell_mode` names a usage the temple doesn't sell:
+          a manual usage, which the session can't resolve, or one that works only on undead.
         - `town.healing.caster_level_out_of_range` - `caster_level` is below the lowest level
           that can cast the service, or above the highest level a cleric can reach. The
           rejection's `minimum` and `maximum` params give the lowest and highest levels the
           temple accepts for the service.
         - `items.purchase.insufficient_funds` - the whole gold pieces in the party's
           purses add up to less than the town's price for the service.
-        - `town.healing.no_effect` - the service would do nothing for the member. The
-          rejection's `reason` param says why. For `cure_light_wounds` and
+        - `town.healing.no_effect` - the usage would do nothing for the member. The
+          rejection's `reason` param says why. For the healing usage of `cure_light_wounds` and
           `cure_serious_wounds` it's `dead`, `weakened`, `diseased`, or `full_hit_points`,
           checked in that order, because neither condition lets a member heal by magic. For
+          `cure_light_wounds`'s `cure_paralysis` usage it's `dead` or `not_paralysed`, checked
+          in that order. For
           `cure_disease` it's `not_diseased`. For `neutralize_poison` it's `not_poisoned`, for
           a member who isn't poisoned and didn't die of poison in the last 10 rounds. For
           `remove_curse` it's `not_cursed`, for a member who carries no item whose curse has
@@ -2381,6 +2391,22 @@ class PurchaseHealing(Command):
     every level. For each member and service,
     [`PlayerView.town_healing_caster_levels`][osrlib.crawl.views.PlayerView.town_healing_caster_levels]
     gives the lowest level that works."""
+    spell_mode: str | None = None
+    """Which usage of the service's spell the temple cleric casts, by that usage's
+    [`SpellMode.key`][osrlib.core.spells.SpellMode], or `None` for the spell's first usage.
+
+    The temple sells *cure light wounds* in two usages: `heal`, the first, which restores 1d6+1
+    hit points, and `cure_paralysis`, which ends the member's paralysis. Every other service has
+    one usage the temple sells, which is the spell's first. The temple doesn't sell a manual usage,
+    such as *cure disease*'s `kill_green_slime` or *neutralize poison*'s `items`, because the session
+    resolves nothing for one, or *raise dead*'s `destroy_undead`, which works only on undead. It
+    refuses those with `town.healing.mode_not_offered`, and a key the spell doesn't have with
+    `magic.cast.unknown_mode`. The price is the same for every usage of a service. For each member
+    and each service the temple sells in more than one usage,
+    [`PlayerView.town_healing_mode_rejections`][osrlib.crawl.views.PlayerView.town_healing_mode_rejections]
+    gives the answer for each usage, and
+    [`PlayerView.town_healing_mode_names`][osrlib.crawl.views.PlayerView.town_healing_mode_names]
+    gives each usage's display name."""
 
 
 class Parley(Command):
