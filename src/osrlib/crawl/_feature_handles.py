@@ -85,6 +85,79 @@ def _area_at_ref(session, ref: str):
     return matches[0]
 
 
+def _dungeon_state_reference_problems(session) -> list[str]:
+    """Return a message for each part of the dungeon state that names something the adventure doesn't have.
+
+    The session writes only references that resolve, so these come from a hand-edited or damaged save. A cache or a
+    pile on a cell that doesn't exist, or a cache whose lair reference doesn't match its origin and its cell, contains
+    treasure that every command refuses and every view leaves out. A party location on a missing dungeon, level, or
+    cell makes every view raise.
+    """
+    problems = []
+    state = session.dungeon_state
+    location = state.location
+    if location.kind == "dungeon":
+        problems.extend(_location_problems(session, location))
+    for cache_id, cache in state.generated_caches.items():
+        parsed_cell = _parse_cell_location(session, cache.cell_ref)
+        if parsed_cell is None:
+            problems.append(
+                f"generated cache {cache_id!r} has cell_ref {cache.cell_ref!r}, which names no cell of the adventure"
+            )
+        problem = _lair_reference_problem(session, cache, parsed_cell)
+        if problem is not None:
+            problems.append(f"generated cache {cache_id!r} {problem}")
+    for ref in state.piles:
+        if _parse_cell_location(session, ref) is None:
+            problems.append(f"drop pile key {ref!r} names no cell of the adventure")
+    return problems
+
+
+def _location_problems(session, location) -> list[str]:
+    """Return a message when a dungeon location's dungeon, level, or cell isn't in the adventure."""
+    try:
+        level = session.adventure.dungeon(location.dungeon_id).level(location.level_number)
+    except ValueError:
+        return [
+            f"party location names dungeon {location.dungeon_id!r} level {location.level_number}, "
+            "which the adventure doesn't have"
+        ]
+    if not level.in_bounds(location.position):
+        return [
+            f"party location {tuple(location.position)} is off the grid of dungeon {location.dungeon_id!r} "
+            f"level {location.level_number}"
+        ]
+    return []
+
+
+def _lair_reference_problem(session, cache: GeneratedCache, parsed_cell) -> str | None:
+    """Return what is wrong with a cache's `lair_area_ref` for its `origin`, or `None` when nothing is.
+
+    Area and legacy caches have no lair reference. A lair cache's reference names an area with a keyed encounter on
+    the cache's level whose cells include the cache's cell. Whether the encounter is resolved isn't checked, because a
+    lair cache stays hidden until it is, in normal play.
+    """
+    ref = cache.lair_area_ref
+    if cache.origin != "lair":
+        if ref is None:
+            return None
+        return f"has origin {cache.origin!r} and lair_area_ref {ref!r}, but only a lair cache has a lair_area_ref"
+    if ref is None:
+        return "has origin 'lair' and no lair_area_ref"
+    parsed_area = _area_at_ref(session, ref)
+    if parsed_area is None:
+        return f"has lair_area_ref {ref!r}, which names no area of the adventure"
+    area_dungeon_id, area_level_number, area = parsed_area
+    if area.encounter is None:
+        return f"has lair_area_ref {ref!r}, an area with no keyed encounter"
+    if parsed_cell is None:
+        return None
+    dungeon_id, level_number, position = parsed_cell
+    if (dungeon_id, level_number) != (area_dungeon_id, area_level_number) or position not in area.cells:
+        return f"has lair_area_ref {ref!r}, an area whose cells don't include its cell_ref {cache.cell_ref!r}"
+    return None
+
+
 def _lair_cache_available(session, cache: GeneratedCache) -> bool:
     parsed_cache = _parse_cell_location(session, cache.cell_ref)
     parsed_area = _area_at_ref(session, cache.lair_area_ref or "")
@@ -184,9 +257,9 @@ def _session_feature_handles(session) -> dict[str, str]:
 
     An authored feature's key is `"{dungeon}:{level}:{feature id}"`, for every feature the adventure
     authors on a level or in an area. A generated cache's key is its id in the session's generated
-    caches, for every cache whose cell reference names a cell of the adventure. A cache whose cell
-    reference names none has no level to derive a handle from, and the session can never show or
-    resolve it.
+    caches, for every cache whose cell reference names a cell of the adventure. `load_game` refuses a
+    save with a cache whose cell reference names none, so only a caller that writes the overlay
+    directly can leave one, and it has no level to derive a handle from.
     """
     handles: dict[str, str] = {}
     for dungeon in session.adventure.dungeons:

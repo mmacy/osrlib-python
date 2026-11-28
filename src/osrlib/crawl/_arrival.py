@@ -345,11 +345,13 @@ def _relocate(
         kind="dungeon", dungeon_id=dungeon_id, level_number=level_number, position=position, facing=facing
     )
     events: list[Event] = []
+    dungeon_name = session.adventure.dungeon(dungeon_id).name.strip()
     if old_location.kind != "dungeon" or old_location.dungeon_id != dungeon_id:
         events.append(
             LocationEnteredEvent(
                 location_kind="dungeon",
                 location_id=dungeon_id,
+                display_name=dungeon_name,
                 level_number=level_number,
                 narrative=narrative,
                 via=via,
@@ -361,6 +363,7 @@ def _relocate(
             LocationEnteredEvent(
                 location_kind="level",
                 location_id=dungeon_id,
+                display_name=dungeon_name,
                 level_number=level_number,
                 narrative=narrative,
                 via=via,

@@ -58,7 +58,7 @@ You do not need to read `session.event_log` to capture reactions from listeners.
 
 ```text
 > enter
-  The party enters dungeon barrow (level 1).
+  The party enters The Barrow (level 1).
   A new quest: The Jade Idol. The temple wants the Jade Idol off the barrow king's altar and back on its own.
 > move e
   The party moves to (1, 0), facing east.
@@ -142,7 +142,7 @@ Four `move w` steps bring the party back to the entrance, where `town` resolves 
 
 ```text
 > town
-  The party enters town town.
+  The party enters Threshold.
   The adventure ends: 0 XP from monsters and 50 XP from treasure, and each of 4 survivor(s) gets 12 XP.
   character-0001 gains 12 XP (base 12), now level 1.
   character-0002 gains 12 XP (base 12), now level 1.

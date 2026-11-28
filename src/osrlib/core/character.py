@@ -979,6 +979,9 @@ class AbilityScoreRolls(_Model):
     [`create_character`][osrlib.core.character.create_character] includes one in its result. Pass
     `scores` to [`validate_class_choice`][osrlib.core.character.validate_class_choice], and read
     `sub_par` to find out whether a referee may let the player start again. Frozen.
+
+    Parsing a document raises `pydantic.ValidationError` when `scores`, `rolls`, or `dropped` breaks
+    what its field says, so a roll you parse is one that the dice could have thrown.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -991,8 +994,9 @@ class AbilityScoreRolls(_Model):
     rolls: dict[AbilityScore, tuple[int, int, int]]
     """The three d6 results that count towards each score, keyed the same way, in the order they were thrown.
 
-    Each score is the sum of its three dice. With the `"4d6_drop_lowest"` method, the die dropped
-    from an ability's four is in `dropped` instead, and the other three keep their order here.
+    All six abilities are present, each die is from 1 to 6, and each score is the sum of its three
+    dice. With the `"4d6_drop_lowest"` method, the die dropped from an ability's four is in `dropped`
+    instead, and the other three keep their order here.
     """
 
     dropped: dict[AbilityScore, int] = {}
@@ -1002,6 +1006,8 @@ class AbilityScoreRolls(_Model):
     first of them thrown when two or more tie for lowest. A `"3d6"` roll drops nothing, so this is
     empty, and so is a roll that osrlib 2.8.0 or earlier recorded. Read an ability with no entry as one
     with no die dropped. To show all four dice of an ability, show its three `rolls` and this die.
+    When it isn't empty, all six abilities are present, and each die is from 1 to the lowest of the
+    ability's three `rolls`.
     """
 
     @field_validator("scores")
@@ -1009,6 +1015,29 @@ class AbilityScoreRolls(_Model):
     def _all_six_scores_in_range(cls, value: dict[AbilityScore, int]) -> dict[AbilityScore, int]:
         _check_scores(value)
         return value
+
+    @model_validator(mode="after")
+    def _dice_match_scores(self) -> AbilityScoreRolls:
+        missing = [ability.value for ability in AbilityScore if ability not in self.rolls]
+        if missing:
+            raise ValueError(f"rolls must include all six abilities; missing {missing}")
+        for ability, dice in self.rolls.items():
+            if not all(1 <= die <= 6 for die in dice):
+                raise ValueError(f"rolls for {ability} must be d6 results from 1 to 6, got {list(dice)}")
+            if sum(dice) != self.scores[ability]:
+                raise ValueError(f"rolls for {ability} sum to {sum(dice)}, not to its score of {self.scores[ability]}")
+        if not self.dropped:
+            return self
+        missing = [ability.value for ability in AbilityScore if ability not in self.dropped]
+        if missing:
+            raise ValueError(f"dropped must include all six abilities or none; missing {missing}")
+        for ability, die in self.dropped.items():
+            lowest = min(self.rolls[ability])
+            if not 1 <= die <= lowest:
+                raise ValueError(
+                    f"dropped die for {ability} must be from 1 to {lowest}, the lowest die in its rolls, got {die}"
+                )
+        return self
 
     @computed_field
     @property

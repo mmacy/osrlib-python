@@ -275,6 +275,15 @@ class LocationEnteredEvent(Event):
     location_id: str
     """What was entered: the area id for an area entry, the dungeon id for a level or dungeon
     entry, and `"town"` for the town."""
+    display_name: str = ""
+    """The authored name of the town or the dungeon, to show the player: the town's
+    [`TownSpec.name`][osrlib.crawl.adventure.TownSpec.name] on a town entry, like `"Threshold"`, and
+    the dungeon's [`DungeonSpec.name`][osrlib.crawl.dungeon.DungeonSpec.name] on a level or dungeon
+    entry, like `"The Old Crypt"`, without the spaces at either end. The player view shows the same names, in
+    [`PlayerView.town_name`][osrlib.crawl.views.PlayerView.town_name] and
+    [`PlayerView.dungeons`][osrlib.crawl.views.PlayerView.dungeons]. It's empty on an area entry, for
+    a dungeon whose author gave it no name, and on an event loaded from a save written before the field
+    existed."""
     level_number: int | None = None
     """The level the party is on, for area, level, and dungeon entries, and `None` for town."""
     dungeon_id: str | None = None

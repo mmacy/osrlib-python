@@ -73,17 +73,34 @@ def _entered(event: Any) -> str:
     trap, the entrance, a referee's placement) get the plain arrival line. A stairs crossing into
     another dungeon still includes the dungeon's name, because the level number alone wouldn't
     show the change of dungeon.
+
+    The line names the town or the dungeon by the event's `display_name`. An event without one, from
+    a save written before the field existed or for a dungeon with no authored name, names a dungeon
+    by its id and the town by the word alone. A name that is only spaces counts as none, and a line
+    that ends with a name ending in its own `.`, `!`, or `?` gets no second stop.
     """
+    name = event.display_name.strip()
+    if event.location_kind == "town":
+        return _sentence(f"The party enters {name}") if name else "The party enters town."
+    place = name or event.location_id
     verb = {"stairs_up": "climbs", "stairs_down": "descends"}.get(event.via or "")
     if verb is not None and event.level_number is not None:
         if event.location_kind == "dungeon":
-            return f"The party {verb} into {event.location_id}, level {event.level_number}."
-        return f"The party {verb} to level {event.level_number} of {event.location_id}."
+            return f"The party {verb} into {place}, level {event.level_number}."
+        return _sentence(f"The party {verb} to level {event.level_number} of {place}")
+    if event.location_kind == "level" and event.level_number is not None:
+        return _sentence(f"The party enters level {event.level_number} of {place}")
+    kind = "" if name else f"{event.location_kind} "
     return (
-        f"The party enters {event.location_kind} {event.location_id}"
+        f"The party enters {kind}{place}"
         + (f" (level {event.level_number})" if event.level_number is not None else "")
         + "."
     )
+
+
+def _sentence(text: str) -> str:
+    """End `text` with a full stop, unless it already ends with one, an exclamation mark, or a question mark."""
+    return text if text.endswith((".", "!", "?")) else f"{text}."
 
 
 def _detection(event: Any) -> str:

@@ -1620,6 +1620,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "The Halls",
       "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": 1,
@@ -1708,6 +1709,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "",
       "dungeon_id": "halls",
       "event_type": "location_entered",
       "level_number": 1,
@@ -1748,6 +1750,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "",
       "dungeon_id": "halls",
       "event_type": "location_entered",
       "level_number": 1,
@@ -1788,6 +1791,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "",
       "dungeon_id": "halls",
       "event_type": "location_entered",
       "level_number": 1,
@@ -1946,6 +1950,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "",
       "dungeon_id": "halls",
       "event_type": "location_entered",
       "level_number": 1,
@@ -3391,6 +3396,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "The Halls",
       "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": 2,
@@ -3431,6 +3437,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "",
       "dungeon_id": "halls",
       "event_type": "location_entered",
       "level_number": 2,
@@ -4300,6 +4307,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "",
       "dungeon_id": "halls",
       "event_type": "location_entered",
       "level_number": 2,
@@ -4505,6 +4513,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "",
       "dungeon_id": "halls",
       "event_type": "location_entered",
       "level_number": 2,
@@ -5343,6 +5352,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "The Halls",
       "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": 1,
@@ -5373,6 +5383,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "",
       "dungeon_id": "halls",
       "event_type": "location_entered",
       "level_number": 1,
@@ -5446,6 +5457,7 @@
     },
     {
       "code": "exploration.location.entered",
+      "display_name": "Threshold",
       "dungeon_id": null,
       "event_type": "location_entered",
       "level_number": null,
@@ -5843,7 +5855,7 @@
     "character-0004 acquires mace, chainmail, rations_standard, and waterskin.",
     "character-0005 acquires 150 gp in coin.",
     "character-0005 acquires dagger, rations_standard, and waterskin.",
-    "The party enters dungeon halls (level 1).",
+    "The party enters The Halls (level 1).",
     "character-0001 fumbles with the tinder box and gets no flame.",
     "character-0001 fumbles with the tinder box and gets no flame.",
     "character-0001 fumbles with the tinder box and gets no flame.",
@@ -6015,7 +6027,7 @@
     "An iron spike wedges the door east of (4, 1).",
     "The party moves to (5, 1), facing east.",
     "The party moves to (6, 1), facing east.",
-    "The party descends to level 2 of halls.",
+    "The party descends to level 2 of The Halls.",
     "The party moves to (1, 0), facing east.",
     "The door south of (1, 0) opens.",
     "The party moves to (1, 1), facing south.",
@@ -6224,7 +6236,7 @@
     "The party moves to (2, 0), facing west.",
     "The party moves to (1, 0), facing west.",
     "The party moves to (0, 0), facing west.",
-    "The party climbs to level 1 of halls.",
+    "The party climbs to level 1 of The Halls.",
     "The party moves to (5, 1), facing west.",
     "The party moves to (4, 1), facing west.",
     "The party enters area guard_room (level 1).",
@@ -6235,7 +6247,7 @@
     "The party moves to (0, 0), facing west.",
     "Effect effect-0017 (light) on character-0001 expires.",
     "The torch carried by character-0001 gutters out.",
-    "The party enters town town.",
+    "The party enters Threshold.",
     "The adventure ends: 150 XP from monsters and 380 XP from treasure, and each of 5 survivor(s) gets 106 XP.",
     "character-0005 gains 95 XP (base 106), now level 5.",
     "character-0001 gains 106 XP (base 106), now level 3.",
