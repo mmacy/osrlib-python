@@ -783,9 +783,28 @@ class SpellMode(_Model):
     """The SRD text for this usage.
 
     Show it to the player. For a manual mode, it's all the information osrlib has about the result.
-    In the built-in catalog, no two modes of one form have the same prose. Where the page describes
-    several usages in one passage, like the reverse of *light*, each mode's prose is the part of
-    the passage that covers that usage, and the whole passage is the form's own prose, such as
+
+    In the built-in catalog, the value is line-oriented text, and lines are separated by a single newline. Each
+    line is one paragraph, list item, heading, table row, or stat line of the page, and no line is empty. The
+    lines have no inline markup: the page's bold and italic markers and its link targets are removed, and an
+    asterisk that remains, such as the one in a stat line's `HD 12*`, is part of the data. A run of consecutive
+    lines that start with `|` is a table. Its first line is the header row, its second is the delimiter row,
+    such as `| --- | --- |`, and every row of the run has the same number of cells. The text as a whole is not
+    Markdown, so lay it out line by line rather than passing it to a Markdown renderer. A heading is a line like
+    any paragraph, such as `"Tornado"` on the *control weather* page, and nothing in the value marks it as a
+    heading.
+
+    A mode that covers one numbered usage has that usage's line, followed by the text the page prints after its
+    usages that applies to the mode. Both modes of *hold person* and of *hold monster* end with the
+    **Restrictions** line. The `hd_budget` mode of *sleep* has the rules for creatures of 4 HD or less, and both
+    of its modes have the **Killing** and **Awakening** rules. The `restore_life` mode of *raise dead* has the
+    stipulations for restoring life. Every other built-in mode has the whole text of its form, except where the
+    page describes several usages in one passage, as the next paragraph says. Each line of a spell page's text
+    is in the prose of at least one mode, in the reverse's prose, or in the template's `intro`.
+
+    In the built-in catalog, no two modes of one form have the same prose. Where the page describes several
+    usages in one passage, like the reverse of *light*, each mode's prose is the part of the passage that covers
+    that usage, and the whole passage is the form's own prose, such as
     [`ReversedForm.prose`][osrlib.core.spells.ReversedForm.prose].
     """
 
@@ -868,7 +887,10 @@ class ReversedForm(_Model):
     """The SRD text for the reverse, all of it.
 
     Each of the reverse's `modes` has the part of this text that covers that mode as its own
-    [`prose`][osrlib.core.spells.SpellMode.prose].
+    [`prose`][osrlib.core.spells.SpellMode.prose]. In the built-in catalog, the format is the same as a mode's
+    prose: line-oriented text with no inline markup, one paragraph, list item, heading, table row, or stat line
+    per line, where a run of lines that start with `|` is a table whose first line is the header row and whose
+    second is the delimiter row. It's not Markdown, so lay it out line by line.
     """
 
     modes: tuple[SpellMode, ...] = Field(min_length=1)
@@ -982,7 +1004,9 @@ class SpellTemplate(_Model):
 
     On a page with several usages, it's the lead-in, like `"This spell has two usages:"`. On a
     page with one usage, it's the opening of the spell's description, and that mode's `prose` is
-    the full text.
+    the full text. In the built-in catalog, it's the first line of the page's text, in the format of
+    [`SpellMode.prose`][osrlib.core.spells.SpellMode.prose]: one line with no inline markup, never a
+    table row. It's not Markdown.
     """
 
     conjured_monsters: tuple[MonsterTemplate, ...] = ()

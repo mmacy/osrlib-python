@@ -687,7 +687,7 @@
           },
           "key": "confuse",
           "manual": false,
-          "prose": "3d6 creatures within a 30’ radius area are stricken with delusions and become unable to control their actions.\nSubjects of 2+1 HD or greater: May save versus spells each round to resist the spell’s effect, acting with free will that round if they make the save.\nSubjects of 2 HD or lower: May not make a saving throw.\nBehaviour: Roll on the following table separately for each affected subject each round to determine how that subject acts that round:\nSubject Behaviour",
+          "prose": "3d6 creatures within a 30’ radius area are stricken with delusions and become unable to control their actions.\nSubjects of 2+1 HD or greater: May save versus spells each round to resist the spell’s effect, acting with free will that round if they make the save.\nSubjects of 2 HD or lower: May not make a saving throw.\nBehaviour: Roll on the following table separately for each affected subject each round to determine how that subject acts that round:\nSubject Behaviour\n| 2d6 | Behaviour |\n| --- | --- |\n| 2-5 | Attack caster’s group |\n| 6-8 | No action |\n| 9-12 | Attack subject’s group |",
           "save": null,
           "targeting": {
             "count": null,
@@ -741,7 +741,7 @@
           "effect": null,
           "key": "cast",
           "manual": true,
-          "prose": "A 16 Hit Dice elemental—a being formed of pure elemental matter—is summoned from an elemental plane of the caster’s choice (air, earth, fire, water) to do the caster’s bidding.\nMaterials: The summons requires a large volume of the appropriate element.\nConcentration: Is required to command an elemental.\nDismissing: While control over the elemental is maintained, the caster may dismiss it at any time, sending it back to its plane of origin.\nDisruption: If the caster moves at more than half speed or their concentration is disturbed, the command over the elemental ends. It is, henceforth, a free-willed entity and will immediately try to kill the caster and any who get in its way.\nDispelling: A conjured elemental may be dispelled by dispel magic or dispel evil.\nRestrictions: The caster may summon at most one elemental from each plane in a single day.\nHuge vortexes of whirling air.\nSize: 32’ tall, 8’ across.\nWhirlwind: Creatures with less than 2HD swept aside (save versus death).\nMundane damage immunity: Can only be harmed by magical attacks.\nHarm flying creatures: Inflict extra 1d8 damage.\nHuge, humanoid figures of earth or stone.\nSize: 16’ tall.\nBlocked by water: Cannot cross a channel wider than own height.\nMundane damage immunity: Can only be harmed by magical attacks.\nHarm creatures on the ground: Inflict extra 1d8 damage.\nWhirling columns of fire.\nSize: 16’ tall, 16’ across.\nBlocked by water: Cannot cross a channel wider than own diameter.\nMundane damage immunity: Can only be harmed by magical attacks.\nHarm cold-based creatures: Inflict extra 1d8 damage.\nHuge waves of water.\nSize: 8’ tall, 32’ across.\nWater-bound: Must remain within 60’ of water.\nMundane damage immunity: Can only be harmed by magical attacks.\nHarm creatures in water: Inflict extra 1d8 damage.",
+          "prose": "A 16 Hit Dice elemental—a being formed of pure elemental matter—is summoned from an elemental plane of the caster’s choice (air, earth, fire, water) to do the caster’s bidding.\nMaterials: The summons requires a large volume of the appropriate element.\nConcentration: Is required to command an elemental.\nDismissing: While control over the elemental is maintained, the caster may dismiss it at any time, sending it back to its plane of origin.\nDisruption: If the caster moves at more than half speed or their concentration is disturbed, the command over the elemental ends. It is, henceforth, a free-willed entity and will immediately try to kill the caster and any who get in its way.\nDispelling: A conjured elemental may be dispelled by dispel magic or dispel evil.\nRestrictions: The caster may summon at most one elemental from each plane in a single day.\nAir Elemental\nHuge vortexes of whirling air.\nAC -2 [21], HD 16* (72hp), Att 1 × blow (3d8), THAC0 8 [+11], MV 360’ (120’) flying, SV D2 W3 P4 B3 S6 (16), ML 10, AL Neutral, XP 2,300\nSize: 32’ tall, 8’ across.\nWhirlwind: Creatures with less than 2HD swept aside (save versus death).\nMundane damage immunity: Can only be harmed by magical attacks.\nHarm flying creatures: Inflict extra 1d8 damage.\nEarth Elemental\nHuge, humanoid figures of earth or stone.\nAC -2 [21], HD 16* (72hp), Att 1 × blow (3d8), THAC0 8 [+11], MV 60’ (20’), SV D2 W3 P4 B3 S6 (16), ML 10, AL Neutral, XP 2,300\nSize: 16’ tall.\nBlocked by water: Cannot cross a channel wider than own height.\nMundane damage immunity: Can only be harmed by magical attacks.\nHarm creatures on the ground: Inflict extra 1d8 damage.\nFire Elemental\nWhirling columns of fire.\nAC -2 [21], HD 16* (72hp), Att 1 × blow (3d8), THAC0 8 [+11], MV 120’ (40’), SV D2 W3 P4 B3 S6 (16), ML 10, AL Neutral, XP 2,300\nSize: 16’ tall, 16’ across.\nBlocked by water: Cannot cross a channel wider than own diameter.\nMundane damage immunity: Can only be harmed by magical attacks.\nHarm cold-based creatures: Inflict extra 1d8 damage.\nWater Elemental\nHuge waves of water.\nAC -2 [21], HD 16* (72hp), Att 1 × blow (3d8), THAC0 8 [+11], MV 60’ (20’) / 180’ (60’) swimming, SV D2 W3 P4 B3 S6 (16), ML 10, AL Neutral, XP 2,300\nSize: 8’ tall, 32’ across.\nWater-bound: Must remain within 60’ of water.\nMundane damage immunity: Can only be harmed by magical attacks.\nHarm creatures in water: Inflict extra 1d8 damage.",
           "save": null,
           "targeting": null
         }
@@ -779,7 +779,7 @@
           "effect": null,
           "key": "cast",
           "manual": true,
-          "prose": "A channel of communication is opened to a higher plane of existence, allowing the caster to ask powerful, otherworldly beings for advice and knowledge on any subject.\nPlane: The caster must choose which plane of existence to contact: communion with beings of the 3rd to 12th planes is possible via this spell. Higher numbered planes are home to more powerful and knowledgeable beings.\nQuestions: The caster may then ask a number of simple yes/no questions equal to the number of the plane contacted. The referee plays the role of the contacted being, responding to the caster’s questions.\nAnswers: For each question asked, there is a chance of the contacted being not knowing the answer or of answering untruthfully: see the table below. It is impossible to detect whether the entity is lying.\nRestrictions: Casting contact higher plane is a great and perilous deed.\nUsage limit: It may be cast at most once per week. (The referee may limit the spell’s usage to even less frequently, if desired.)\nInsanity: Communion with otherworldly beings of great power can shatter the caster’s sanity. The basic chance is shown in the table below. For every level of the caster above 11, this chance is reduced by 5%. If the caster is driven insane as a result of the communion, the recovery time is a number of weeks equal to the number of the plane contacted.\nContact Higher Plane Questions",
+          "prose": "A channel of communication is opened to a higher plane of existence, allowing the caster to ask powerful, otherworldly beings for advice and knowledge on any subject.\nPlane: The caster must choose which plane of existence to contact: communion with beings of the 3rd to 12th planes is possible via this spell. Higher numbered planes are home to more powerful and knowledgeable beings.\nQuestions: The caster may then ask a number of simple yes/no questions equal to the number of the plane contacted. The referee plays the role of the contacted being, responding to the caster’s questions.\nAnswers: For each question asked, there is a chance of the contacted being not knowing the answer or of answering untruthfully: see the table below. It is impossible to detect whether the entity is lying.\nRestrictions: Casting contact higher plane is a great and perilous deed.\nUsage limit: It may be cast at most once per week. (The referee may limit the spell’s usage to even less frequently, if desired.)\nInsanity: Communion with otherworldly beings of great power can shatter the caster’s sanity. The basic chance is shown in the table below. For every level of the caster above 11, this chance is reduced by 5%. If the caster is driven insane as a result of the communion, the recovery time is a number of weeks equal to the number of the plane contacted.\nContact Higher Plane Questions\n| Plane | #Qs | Don’t Know | Truth | Insanity |\n| --- | --- | --- | --- | --- |\n| 3rd | 3 | 75% | 50% | 5% |\n| 4th | 4 | 70% | 55% | 10% |\n| 5th | 5 | 65% | 60% | 15% |\n| 6th | 6 | 60% | 65% | 20% |\n| 7th | 7 | 50% | 70% | 25% |\n| 8th | 8 | 40% | 75% | 30% |\n| 9th | 9 | 30% | 80% | 35% |\n| 10th | 10 | 20% | 85% | 40% |\n| 11th | 11 | 10% | 90% | 45% |\n| 12th | 12 | 5% | 95% | 50% |",
           "save": null,
           "targeting": null
         }
@@ -1229,7 +1229,7 @@
           "effect": null,
           "key": "cast",
           "manual": true,
-          "prose": "By concentrating (no movement allowed), the caster causes one of the following conditions to manifest in the surrounding area. This spell only functions outdoors.\nCalm: Clears bad weather (though side-effects—e.g. mud after rain—remain.)\nExtreme heat: Dries up snow or mud (including transmute rock to mud). Creatures in the area move at half normal rate.\nFog: Visibility drops to 20’. Creatures in the fog move at half their normal rate. At the referee’s option, they may also have a chance of getting lost.\nHigh winds: Movement rates are halved. Missile fire and flight are impossible. High winds may be used to increase the sailing speed of ships by 50%, if they travel with the wind. In sandy areas, may cause a sandstorm, reducing visibility to 20’.\nRain: -2 penalty to missile attacks. Mud forms in 3 turns, halving movement rates.\nSnow: Visibility drops to 20’. Movement rates are halved. Bodies of water may freeze. After the snow thaws, mud remains and still impedes movement.\nTornado: Conjures a whirlwind that the caster directs, moving 120’ per round and attacking as directed (see stats below). Ships caught in a tornado have a 75% chance of suffering 12 points of hull damage.\nA whirling column of air, 24’ high and 6’ across, that wreaks havoc for flying creatures and ships.\nWhirlwind: Creatures with less than 2HD swept aside (save versus death).\nMundane damage immunity: Can only be harmed by magical attacks.\nHarm flying creatures: Inflict extra 1d8 damage.",
+          "prose": "By concentrating (no movement allowed), the caster causes one of the following conditions to manifest in the surrounding area. This spell only functions outdoors.\nCalm: Clears bad weather (though side-effects—e.g. mud after rain—remain.)\nExtreme heat: Dries up snow or mud (including transmute rock to mud). Creatures in the area move at half normal rate.\nFog: Visibility drops to 20’. Creatures in the fog move at half their normal rate. At the referee’s option, they may also have a chance of getting lost.\nHigh winds: Movement rates are halved. Missile fire and flight are impossible. High winds may be used to increase the sailing speed of ships by 50%, if they travel with the wind. In sandy areas, may cause a sandstorm, reducing visibility to 20’.\nRain: -2 penalty to missile attacks. Mud forms in 3 turns, halving movement rates.\nSnow: Visibility drops to 20’. Movement rates are halved. Bodies of water may freeze. After the snow thaws, mud remains and still impedes movement.\nTornado: Conjures a whirlwind that the caster directs, moving 120’ per round and attacking as directed (see stats below). Ships caught in a tornado have a 75% chance of suffering 12 points of hull damage.\nTornado\nA whirling column of air, 24’ high and 6’ across, that wreaks havoc for flying creatures and ships.\nAC 0 [19], HD 12* (54hp), Att 1 × blow (2d8), THAC0 10 [+9], MV 360’ (120’) flying, SV D6 W7 P8 B8 S10 (12), ML 10, AL Neutral, XP 1,900\nWhirlwind: Creatures with less than 2HD swept aside (save versus death).\nMundane damage immunity: Can only be harmed by magical attacks.\nHarm flying creatures: Inflict extra 1d8 damage.",
           "save": null,
           "targeting": null
         }
@@ -2657,7 +2657,7 @@
           },
           "key": "individual",
           "manual": false,
-          "prose": "Against an individual: The target’s saving throw is penalised by -2.",
+          "prose": "Against an individual: The target’s saving throw is penalised by -2.\nRestrictions: Undead are not affected.",
           "save": {
             "category": "spells",
             "modifier": -2,
@@ -2688,7 +2688,7 @@
           },
           "key": "group",
           "manual": false,
-          "prose": "Against a group: 1d4 individuals in the group are targeted.",
+          "prose": "Against a group: 1d4 individuals in the group are targeted.\nRestrictions: Undead are not affected.",
           "save": {
             "category": "spells",
             "modifier": 0,
@@ -2749,7 +2749,7 @@
           },
           "key": "individual",
           "manual": false,
-          "prose": "Against an individual: The target’s saving throw is penalised by -2.",
+          "prose": "Against an individual: The target’s saving throw is penalised by -2.\nRestrictions: Undead and human-like monsters of greater than 4+1 HD (see Hit point modifiers) are not affected.",
           "save": {
             "category": "spells",
             "modifier": -2,
@@ -2781,7 +2781,7 @@
           },
           "key": "group",
           "manual": false,
-          "prose": "Against a group: 1d4 individuals in the group are targeted.",
+          "prose": "Against a group: 1d4 individuals in the group are targeted.\nRestrictions: Undead and human-like monsters of greater than 4+1 HD (see Hit point modifiers) are not affected.",
           "save": {
             "category": "spells",
             "modifier": 0,
@@ -2842,7 +2842,7 @@
           },
           "key": "individual",
           "manual": false,
-          "prose": "Against an individual: The target’s saving throw is penalised by -2.",
+          "prose": "Against an individual: The target’s saving throw is penalised by -2.\nRestrictions: Undead and human-like monsters of greater than 4+1 HD (see Hit point modifiers) are not affected.",
           "save": {
             "category": "spells",
             "modifier": -2,
@@ -2874,7 +2874,7 @@
           },
           "key": "group",
           "manual": false,
-          "prose": "Against a group: 1d4 individuals in the group are targeted.",
+          "prose": "Against a group: 1d4 individuals in the group are targeted.\nRestrictions: Undead and human-like monsters of greater than 4+1 HD (see Hit point modifiers) are not affected.",
           "save": {
             "category": "spells",
             "modifier": 0,
@@ -3174,7 +3174,7 @@
           "effect": null,
           "key": "cast",
           "manual": true,
-          "prose": "An invisible stalker (see below) is summoned to the caster’s presence and magically bound to perform a mission of the caster’s choosing.\nWording: The caster must be careful with the wording of the mission. Invisible stalkers are treacherous and, unless the assigned mission can be easily and quickly accomplished, will follow the letter of the command while twisting the intent.\nDuration: The creature is bound to attempt the mission until it succeeds or is destroyed.\nBanishing: The spell dispel evil will banish an invisible stalker, ending the spell.\nHighly intelligent, magical creatures summoned from another plane of existence to perform tasks for powerful magic-users.\nTracking: Without fault.\nSurprise: On a 1–5, unless target can detect invisibility.\nIf killed: Returns to plane of origin.",
+          "prose": "An invisible stalker (see below) is summoned to the caster’s presence and magically bound to perform a mission of the caster’s choosing.\nWording: The caster must be careful with the wording of the mission. Invisible stalkers are treacherous and, unless the assigned mission can be easily and quickly accomplished, will follow the letter of the command while twisting the intent.\nDuration: The creature is bound to attempt the mission until it succeeds or is destroyed.\nBanishing: The spell dispel evil will banish an invisible stalker, ending the spell.\nInvisible Stalker\nHighly intelligent, magical creatures summoned from another plane of existence to perform tasks for powerful magic-users.\nAC 3 [16], HD 8* (36hp), Att 1 × blow (4d4), THAC0 12 [+7], MV 120’ (40’), SV D8 W9 P10 B10 S12 (F8), ML 12, AL Neutral, XP 1,200\nTracking: Without fault.\nSurprise: On a 1–5, unless target can detect invisibility.\nIf killed: Returns to plane of origin.",
           "save": null,
           "targeting": null
         }
@@ -4968,7 +4968,7 @@
           },
           "key": "restore_life",
           "manual": false,
-          "prose": "Restore life: To a recently deceased human or demihuman. See below.",
+          "prose": "Restore life: To a recently deceased human or demihuman. See below.\nRestoring life: When used to restore life, the following stipulations apply:\nTime limit: The caster can raise a person that has been dead for no longer than four days per level of the caster above 7th. For example, a 10th level caster can revive a character that has been dead for twelve days (three levels above 7th × four days).\nWeakness: Returning from death is an ordeal. Until the subject gets two full weeks of bed rest, they have 1 hit point, move at half the normal rate, cannot carry heavy items, and cannot attack, cast spells, or use other class abilities. This period of weakness may not be shortened by any magical healing.",
           "save": null,
           "targeting": {
             "count": null,
@@ -5159,7 +5159,7 @@
           "effect": null,
           "key": "cast",
           "manual": true,
-          "prose": "A dead character is returned to life in a new physical form that manifests in the presence of the caster. The character’s new body is not necessarily the same as the original; it is determined by rolling on the Reincarnated Class table below.\nThe roll indicates either a character class or a monster:\nCharacter class: The character is of experience level 1d6 (or at most the same level as the character achieved before death). The reincarnated character can continue to gain experience and advance as normal, in the new class.\nMonster: The type should be determined by the referee. The monster should be at least partially intelligent, have Hit Dice no greater than the level of the character being reincarnated (at most 6 HD), and be of the same alignment. The tables below may be used, or the referee may create their own tables. Monsters cannot gain experience or advance in level.\nReincarnated Class\nLawful Monsters\nNeutral Monsters\nChaotic Monsters\nStandard classes and monsters are listed in the tables. If other classes or monsters are in use, the referee may wish to create alternative reincarnation tables.",
+          "prose": "A dead character is returned to life in a new physical form that manifests in the presence of the caster. The character’s new body is not necessarily the same as the original; it is determined by rolling on the Reincarnated Class table below.\nThe roll indicates either a character class or a monster:\nCharacter class: The character is of experience level 1d6 (or at most the same level as the character achieved before death). The reincarnated character can continue to gain experience and advance as normal, in the new class.\nMonster: The type should be determined by the referee. The monster should be at least partially intelligent, have Hit Dice no greater than the level of the character being reincarnated (at most 6 HD), and be of the same alignment. The tables below may be used, or the referee may create their own tables. Monsters cannot gain experience or advance in level.\nReincarnated Class\n| d10 | Reincarnation |\n| --- | --- |\n| 1 | Cleric |\n| 2 | Dwarf |\n| 3 | Elf |\n| 4 | Fighter |\n| 5 | Halfling |\n| 6 | Magic-user |\n| 7 | Thief |\n| 8 | Monster (roll on alignment table) |\n| 9–10 | Same class |\nLawful Monsters\n| d6 | Reincarnation | HD |\n| --- | --- | --- |\n| 1 | Gnome | 1 |\n| 2 | Neanderthal | 2 |\n| 3 | Pegasus | 2 |\n| 4 | Blink dog | 4 |\n| 5 | Unicorn | 4 |\n| 6 | Roc, small | 6 |\nNeutral Monsters\n| d6 | Reincarnation | HD |\n| --- | --- | --- |\n| 1 | Pixie or sprite | 1 |\n| 2 | Lizard man | 2 |\n| 3 | Rock baboon | 2 |\n| 4 | Ape, white | 4 |\n| 5 | Centaur | 4 |\n| 6 | Werebear | 6 |\nChaotic Monsters\n| d10 | Reincarnation | HD |\n| --- | --- | --- |\n| 1 | Goblin | 1 |\n| 2 | Hobgoblin | 1 |\n| 3 | Kobold | 1 |\n| 4 | Orc | 1 |\n| 5 | Gnoll | 2 |\n| 6 | Bugbear | 3 |\n| 7 | Wererat | 3 |\n| 8 | Ogre | 4 |\n| 9 | Werewolf | 4 |\n| 10 | Minotaur | 6 |\nAlternative Reincarnation Tables\nStandard classes and monsters are listed in the tables. If other classes or monsters are in use, the referee may wish to create alternative reincarnation tables.",
           "save": null,
           "targeting": null
         }
@@ -5728,7 +5728,7 @@
           },
           "key": "single_4_plus",
           "manual": false,
-          "prose": "A single creature with 4+1 Hit Dice (see Hit point modifiers).",
+          "prose": "A single creature with 4+1 Hit Dice (see Hit point modifiers).\nKilling: A single attack with a bladed weapon can kill a creature enchanted by this spell.\nAwakening: Enchanted creatures can be forcefully awakened (e.g. by slapping).",
           "save": null,
           "targeting": {
             "count": null,
@@ -5756,7 +5756,7 @@
           },
           "key": "hd_budget",
           "manual": false,
-          "prose": "A total of 2d8 Hit Dice of creatures of 4 HD or lower each.",
+          "prose": "A total of 2d8 Hit Dice of creatures of 4 HD or lower each.\nWhen targeting creatures of 4 HD or less, the following rules apply:\nWeakest first: Targets with the least HD are affected first.\nHD: Treat monsters with less than 1 HD as having 1 HD and monsters with a fixed hit point bonus as having the flat HD. (For example, a 3+2 HD monster would be treated as having 3 HD.)\nKilling: A single attack with a bladed weapon can kill a creature enchanted by this spell.\nAwakening: Enchanted creatures can be forcefully awakened (e.g. by slapping).",
           "save": null,
           "targeting": {
             "count": null,
@@ -6015,7 +6015,7 @@
           "effect": null,
           "key": "cast",
           "manual": true,
-          "prose": "2d8 normal sticks are miraculously transformed into snakes that follow the caster’s orders.\nReversion: The snakes become sticks once more if killed or when the duration ends.\nPoison: There is a 50% chance of the snakes being poisonous.\nWhen killed: Revert back to sticks.",
+          "prose": "2d8 normal sticks are miraculously transformed into snakes that follow the caster’s orders.\nReversion: The snakes become sticks once more if killed or when the duration ends.\nConjured Snakes\nAC 6 [13], HD 1 (4hp), Att 1 × bite (1d4), THAC0 19 [0], MV 90’ (30’), SV D12 W13 P14 B15 S16 (1), ML 7, AL Neutral, XP 10 (13 if poisonous)\nPoison: There is a 50% chance of the snakes being poisonous.\nWhen killed: Revert back to sticks.",
           "save": null,
           "targeting": null
         }
@@ -6260,7 +6260,7 @@
           "effect": null,
           "key": "cast",
           "manual": true,
-          "prose": "The caster or a chosen creature vanishes and reappears at a location of the caster’s choosing.\nGear: The subject is teleported with all its gear, up to its maximum load.\nUnwilling subjects: May save versus spells to prevent the teleportation.\nDestination: May be at any distance, but must be known to the caster. The destination must be an open space at ground level. (It is not possible to intentionally teleport the subject into mid-air or into solid matter.)\nRisk: There is a risk, when teleporting, of accidentally arriving above or below ground level. The chance of a successful teleportation depends on the caster’s knowledge of the destination (see below). Roll d% and consult the table below.\nTeleport Result\nGround level: The subject appears at the intended destination.\nToo high: The subject appears 1d10×10’ above the intended destination. If this causes the subject to appear inside solid matter, they die instantly. Otherwise, the subject falls from a height.\nToo low: The subject appears below the surface of the ground and dies instantly.\nKnowledge of destination: The caster’s knowledge of the destination is rated as follows:\nScant: A location that the caster has visited once or twice, has seen by magical scrying, or has heard of from descriptions.\nModerate: A location that the caster has visited often or has studied via scrying for several weeks.\nExact: A location that the caster has made a detailed study of, in person.",
+          "prose": "The caster or a chosen creature vanishes and reappears at a location of the caster’s choosing.\nGear: The subject is teleported with all its gear, up to its maximum load.\nUnwilling subjects: May save versus spells to prevent the teleportation.\nDestination: May be at any distance, but must be known to the caster. The destination must be an open space at ground level. (It is not possible to intentionally teleport the subject into mid-air or into solid matter.)\nRisk: There is a risk, when teleporting, of accidentally arriving above or below ground level. The chance of a successful teleportation depends on the caster’s knowledge of the destination (see below). Roll d% and consult the table below.\nTeleport Result\n| Knowledge of Dest. | Ground Level | Too High | Too Low |\n| --- | --- | --- | --- |\n| Scant | 01–50 | 51–75 | 76–00 |\n| Moderate | 01–80 | 81–90 | 91–00 |\n| Exact | 01–95 | 96–99 | 00 |\nGround level: The subject appears at the intended destination.\nToo high: The subject appears 1d10×10’ above the intended destination. If this causes the subject to appear inside solid matter, they die instantly. Otherwise, the subject falls from a height.\nToo low: The subject appears below the surface of the ground and dies instantly.\nKnowledge of destination: The caster’s knowledge of the destination is rated as follows:\nScant: A location that the caster has visited once or twice, has seen by magical scrying, or has heard of from descriptions.\nModerate: A location that the caster has visited often or has studied via scrying for several weeks.\nExact: A location that the caster has made a detailed study of, in person.",
           "save": null,
           "targeting": null
         }
