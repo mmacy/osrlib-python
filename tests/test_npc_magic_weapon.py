@@ -147,6 +147,15 @@ def test_a_dwarf_with_a_shield_keeps_a_later_two_handed_axe():
             "war_hammer_plus_1",
             id="damage",
         ),
+        # The staff of wizardry swings a 1d4 staff at +1, and the sword +1 a 1d8 sword, so the sword replaces it.
+        pytest.param(
+            "elf",
+            ("staff_of_wizardry", "staff"),
+            ("sword_plus_1", "sword"),
+            "sword_plus_1",
+            "staff_of_wizardry",
+            id="staff",
+        ),
         # The mace +2 has the sword +2's bonus and a smaller die, so the sword stays.
         pytest.param(
             "fighter",
@@ -343,3 +352,40 @@ def test_an_identified_magic_weapon_keeps_its_name():
 
     assert rolls
     assert {roll.attack_name for roll in rolls} == {"Sword +1"}
+
+
+# ---------------------------------------------------------------------- magic staves (issue 257)
+
+STAVES = [
+    # The Rods, Staves, Wands page: "magic-users ... are able to use the staff of power, staff of striking, and staff
+    # of wizardry in melee". The staff of wizardry swings at +1, so it replaces the dagger.
+    pytest.param("magic_user", "staff_of_wizardry", ["staff_of_wizardry"], ["dagger"], id="mu_wizardry"),
+    # The staff of power swings as a mundane staff, with no bonus, so the magic-user keeps the dagger.
+    pytest.param("magic_user", "staff_of_power", ["dagger"], ["staff_of_power"], id="mu_power"),
+    # An elf may wield any weapon, and the staff of wizardry replaces the sword. The long bow stays.
+    pytest.param("elf", "staff_of_wizardry", ["staff_of_wizardry", "long_bow"], ["sword"], id="elf_wizardry"),
+    # The staff of snakes swings at +1, but it's two-handed, and a cleric wears a shield.
+    pytest.param("cleric", "staff_of_snakes", ["mace"], ["staff_of_snakes"], id="cleric_shield"),
+    # The staff of healing swings as a mundane staff.
+    pytest.param("cleric", "staff_of_healing", ["mace"], ["staff_of_healing"], id="cleric_healing"),
+]
+
+
+@pytest.mark.parametrize(("class_id", "template_id", "wielded", "carried"), STAVES)
+def test_an_npc_wields_a_rolled_staff_whose_swing_takes_a_bonus(class_id, template_id, wielded, carried):
+    member = _adventurer(class_id)
+
+    _rolls(member, template_id, "staff")
+
+    assert [_name(existing) for existing in member.inventory.wielded] == wielded
+    pack = [_name(existing) for existing in member.inventory.items]
+    assert all(name in pack for name in carried), pack
+
+
+def test_an_npc_swings_the_staff_of_wizardry_at_plus_1():
+    member = _adventurer("magic_user")
+    _rolls(member, "staff_of_wizardry", "staff")
+
+    attack = _npc_wielded(member, missile=False)
+
+    assert isinstance(attack, MagicItemInstance) and attack.template_id == "staff_of_wizardry"

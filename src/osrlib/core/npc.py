@@ -42,7 +42,8 @@ lists every place osrlib commits to one reading of the rules, records each one:
 - An expert member rolls for magic items at 5% per level for each kind of item they could use. An
   item the member's class can't use is dropped, not rolled again.
 - A rolled magic weapon takes the place of the first wielded weapon that makes the same kind of
-  attack, melee or missile, when it beats that weapon, and the member carries the loser.
+  attack, melee or missile, when it beats that weapon, and the member carries the loser. A magic
+  staff counts as a magic weapon only when its swing takes a bonus.
 
 Typical usage:
 
@@ -305,7 +306,7 @@ def _maybe_equip_upgrade(member: Character, definition: ClassDefinition, instanc
     `_equip_weapon_upgrade` says which kit weapon a rolled weapon replaces.
     """
     template = magic_item_template(instance)
-    if template.category in ("sword", "weapon"):
+    if template.category in ("sword", "weapon", "staff"):
         _equip_weapon_upgrade(member, definition, instance)
         return
     if template.category != "armour":
@@ -377,7 +378,11 @@ def _weapon_beats(rolled: MagicItemInstance, wielded: ItemInstance | MagicItemIn
 
 
 def _equip_weapon_upgrade(member: Character, definition: ClassDefinition, instance: MagicItemInstance) -> None:
-    """Wield a rolled magic weapon in place of the kit weapon it beats.
+    """Wield a rolled magic weapon or magic staff in place of the kit weapon it beats.
+
+    A magic staff counts only when its swing takes a bonus, which in the built-in catalog is the staff of snakes and
+    the staff of wizardry. Every other staff swings as a mundane staff, so it beats nothing, and the member carries
+    it.
 
     The rolled weapon is compared with the first wielded weapon that makes the same kind of attack, melee or
     missile. It beats a mundane weapon. It beats an enchanted one when its attack bonus is higher, or when the attack
@@ -395,7 +400,7 @@ def _equip_weapon_upgrade(member: Character, definition: ClassDefinition, instan
     the best shield they carry, weighed as `_wear_if_better` weighs a rolled shield.
     """
     inventory = member.inventory
-    if validate_equip(definition, instance, inventory):
+    if not _enchanted_weapon(instance) or validate_equip(definition, instance, inventory):
         return
     uses = _weapon_uses(instance)
     rivals = [existing for existing in inventory.wielded if _weapon_uses(existing) & uses]
