@@ -3512,7 +3512,7 @@ def validate_unequip(inventory: Inventory, instance: ItemInstance | MagicItemIns
     return []
 
 
-def _remove_instance(collection: list, instance: object) -> None:
+def _remove_by_identity(collection: list, instance: object) -> None:
     """Remove the instance itself, by identity, from a list of instances.
 
     Two stacks of the same mundane item compare equal, so `list.remove` could take the wrong one
@@ -3676,7 +3676,7 @@ def equip(inventory: Inventory, definition: ClassDefinition, instance: ItemInsta
     rejections = validate_equip(definition, instance, inventory)
     if rejections:
         raise ValueError(f"illegal equip: {[rejection.code for rejection in rejections]}")
-    _remove_instance(inventory.items, instance)
+    _remove_by_identity(inventory.items, instance)
     if isinstance(instance, MagicItemInstance) and magic_item_template(instance).category is MagicItemCategory.RING:
         inventory.rings.append(instance)
     elif _is_shield_instance(instance):
@@ -3731,7 +3731,7 @@ def unequip(inventory: Inventory, instance: ItemInstance | MagicItemInstance) ->
     elif inventory.shield is instance:
         inventory.shield = None
     elif any(existing is instance for existing in inventory.wielded):
-        _remove_instance(inventory.wielded, instance)
+        _remove_by_identity(inventory.wielded, instance)
     else:
-        _remove_instance(inventory.rings, instance)
+        _remove_by_identity(inventory.rings, instance)
     inventory.items.append(instance)

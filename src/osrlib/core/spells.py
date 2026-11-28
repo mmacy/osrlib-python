@@ -173,6 +173,7 @@ from osrlib.core.combat import (
     DamageSource,
     SaveCategory,
     TargetingMode,
+    _absorbed,
     apply_healing,
     attack_roll,
     check_immunity,
@@ -196,7 +197,6 @@ from osrlib.core.effects import (
     remove_condition,
 )
 from osrlib.core.events import (
-    DamageAbsorbedEvent,
     EffectTickedEvent,
     Event,
     HitPointsReportedEvent,
@@ -3504,7 +3504,7 @@ def _resolve_damage(
         # cast and attaches nothing, so the printed 1-turn duration never applies.
         for target in selected:
             if check_immunity(target, source, ruleset=ruleset, attacker=caster):
-                state.events.extend(_absorbed_events(target, caster_id, source))
+                state.events.append(_absorbed(target, caster, source))
                 continue
             result = roll(str(params["dice"]), stream)
             state.events.extend(
@@ -3531,7 +3531,7 @@ def _resolve_damage(
             if not hit:
                 return
         if check_immunity(target, source, ruleset=ruleset, attacker=caster):
-            state.events.extend(_absorbed_events(target, caster_id, source))
+            state.events.append(_absorbed(target, caster, source))
             return
         result = roll(str(params["dice"]), stream)
         state.events.extend(
@@ -3550,7 +3550,7 @@ def _resolve_damage(
         return
     for target in selected:
         if check_immunity(target, source, ruleset=ruleset, attacker=caster):
-            state.events.extend(_absorbed_events(target, caster_id, source))
+            state.events.append(_absorbed(target, caster, source))
             continue
         passed = False
         save = mode.save
@@ -3583,11 +3583,6 @@ def _resolve_damage(
             )
         )
         state.affect(target)
-
-
-def _absorbed_events(target: Any, caster_id: str, source: DamageSource) -> list[Event]:
-    keys = source.keys if source.element is None else (*source.keys, source.element)
-    return [DamageAbsorbedEvent(target_id=_target_ref(target), attacker_id=caster_id, keys=keys)]
 
 
 def _resolve_heal(mode: SpellMode, selected: list[Any], state: _CastState, stream: RngStream) -> None:
