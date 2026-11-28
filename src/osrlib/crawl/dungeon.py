@@ -1917,6 +1917,7 @@ class DungeonState(_Model):
         sprung_traps: Traps that have gone off.
         removed_traps: Treasure traps a thief has taken out.
         found_traps: Traps the party has found.
+        trap_doors: The doors at which the party learned of a room trap.
         found_tricks: Construction tricks the party has found.
         emptied_caches: Authored caches the party has emptied.
         piles: What is lying on the floor, by cell.
@@ -1967,6 +1968,14 @@ class DungeonState(_Model):
     [`InspectTreasure`][osrlib.crawl.commands.InspectTreasure]. A room trap here no longer springs. A
     treasure trap here can still spring when the party opens the cache, and it has to be here before
     [`RemoveTreasureTrap`][osrlib.crawl.commands.RemoveTreasureTrap] can take it out."""
+    trap_doors: dict[str, list[str]] = {}
+    """The doors at which the party learned of an open-trigger room trap, as lists of
+    [`edge_ref`][osrlib.crawl.dungeon.edge_ref] values keyed by the trap's area reference. A
+    [`Search`][osrlib.crawl.commands.Search] that finds the trap through a door adds that door, and
+    opening a door that springs the trap adds that door. The player view reads it for
+    [`EdgeView.trap_state`][osrlib.crawl.views.EdgeView.trap_state]. A save from osrlib 2.11.0 has
+    none, so a trap that such a save found or sprung at a door shows on that door only once the party
+    walks the trapped area's cell beside it."""
     found_tricks: list[str] = []
     """The construction tricks the party has found with a
     [`Search`][osrlib.crawl.commands.Search] for construction, as feature references."""

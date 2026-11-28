@@ -7,7 +7,7 @@
 from osrlib.core.classes import detection_chance, detection_check, thief_skill_check
 from osrlib.core.events import Event
 from osrlib.core.validation import Rejection
-from osrlib.crawl._arrival import _areas_at_door, _resolve_trap
+from osrlib.crawl._arrival import _areas_at_door, _record_trap_door, _resolve_trap
 from osrlib.crawl._doors import _door_state, _materialize_door
 from osrlib.crawl._feature_handles import _authored_feature_id, _resolve_current_feature
 from osrlib.crawl._light import _requires_light
@@ -16,6 +16,7 @@ from osrlib.crawl._party_location import (
     _area_ref,
     _cell_ref,
     _dungeon_coords,
+    _edge_ref,
     _feature_ref,
     _features_here,
     _level,
@@ -145,6 +146,8 @@ def _reveal(session, member, kind: str, events: list[Event]) -> tuple[list[str],
             trap_ref = _area_ref(session, candidate.id)
             if trap_ref not in state.found_traps and trap_ref not in state.sprung_traps:
                 state.found_traps.append(trap_ref)
+                if direction_found is not None:
+                    _record_trap_door(session, trap_ref, _edge_ref(session, direction_found))
                 bearing = None if direction_found is None else direction_found.value
                 found.append(f"room_trap:{candidate.id}" + (f":{bearing}" if bearing is not None else ""))
                 events.append(
