@@ -178,16 +178,21 @@ def _memorized(event: SpellsMemorizedEvent) -> str:
     return f"{event.caster_id} memorizes: {_listed(prepared) or 'nothing'}."
 
 
+def _cast_mode(event: SpellCastEvent) -> str:
+    """The cast mode's label, or its key for an event recorded before the event contained the label."""
+    return event.mode_display_name or event.mode
+
+
 def _cast(event: SpellCastEvent) -> str:
     spell = f"{event.spell_id} (reversed)" if event.reversed else event.spell_id
     at = f" at {_listed(list(event.target_ids))}" if event.target_ids else ""
     manual = ". The effect is narrated, not automated" if event.manual else ""
-    return f"{event.caster_id} casts {spell} [{event.mode}]{at}{manual}."
+    return f"{event.caster_id} casts {spell} [{_cast_mode(event)}]{at}{manual}."
 
 
 def _cast_no_effect(event: SpellCastEvent) -> str:
     spell = f"{event.spell_id} (reversed)" if event.reversed else event.spell_id
-    return f"{event.caster_id} casts {spell} [{event.mode}]. It has no effect."
+    return f"{event.caster_id} casts {spell} [{_cast_mode(event)}]. It has no effect."
 
 
 def _healing_purchased(event: HealingPurchasedEvent) -> str:

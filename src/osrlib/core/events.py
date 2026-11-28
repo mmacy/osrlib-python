@@ -1110,6 +1110,13 @@ class SpellCastEvent(Event):
     """The key of the spell mode that was cast. For a spell with more than one mode, like one that can harm or
     heal, it's the mode the caster chose."""
 
+    mode_display_name: str = ""
+    """The cast mode's [`SpellMode.display_name`][osrlib.core.spells.SpellMode.display_name], such as
+    `"Blind a creature"` for the `blind` mode of *light*, for a line that states which usage the caster chose. It's read
+    from the form that was cast, so a reversed cast has the reverse's label. An event loaded from a save written
+    before the field existed has an empty string, and [`format_message`][osrlib.messages.format_message] names the
+    mode by `mode`."""
+
     reversed: bool = False
     """True when the spell was cast in its reversed form."""
 

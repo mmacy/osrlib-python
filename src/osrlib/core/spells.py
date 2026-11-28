@@ -768,6 +768,9 @@ class SpellMode(_Model):
     loads this way, with a label on every mode. A spell with a single mode has nothing to choose
     between, so the built-in catalog gives that mode the label from its key too, like *fire ball*'s
     `"Damage"`. For a form with one mode, show the spell's name and not the mode's label.
+
+    The cast event includes the label of the mode that was cast, in
+    [`SpellCastEvent.mode_display_name`][osrlib.core.events.SpellCastEvent.mode_display_name].
     """
 
     targeting: TargetingSpec | None = None
@@ -2650,6 +2653,7 @@ def _perform_cast(
             caster_id=caster_id,
             spell_id=spell.id,
             mode=spell_mode.key,
+            mode_display_name=spell_mode.display_name,
             reversed=reversed,
             target_ids=tuple(_target_ref(target) for target in targets),
             manual=True,
@@ -2687,6 +2691,7 @@ def _perform_cast(
         caster_id=caster_id,
         spell_id=spell.id,
         mode=spell_mode.key,
+        mode_display_name=spell_mode.display_name,
         reversed=reversed,
         target_ids=tuple(_target_ref(target) for target in targets),
     )
