@@ -9,6 +9,7 @@ from osrlib.core.character import Character
 from osrlib.core.combat import _healing_blocked
 from osrlib.core.effects import EFFECTS_STREAM, Condition, has_condition
 from osrlib.core.events import Event
+from osrlib.core.items import _item_name_fields
 from osrlib.core.spells import (
     MAGIC_STREAM,
     CastContext,
@@ -55,7 +56,14 @@ def _handle_purchase_equipment(session, command: PurchaseEquipment) -> tuple[lis
 
     for template in templates:
         purchase(member.inventory, template, 1)
-    return [], [ItemAcquiredEvent(character_id=member.id, item_ids=tuple(command.item_ids), origin="purchase")]
+    return [], [
+        ItemAcquiredEvent(
+            character_id=member.id,
+            item_ids=tuple(command.item_ids),
+            origin="purchase",
+            **_item_name_fields(templates),
+        )
+    ]
 
 
 def _handle_sell_treasure(session, command: SellTreasure) -> tuple[list[Rejection], list[Event]]:
@@ -91,6 +99,7 @@ def _handle_sell_treasure(session, command: SellTreasure) -> tuple[list[Rejectio
                 character_id=member.id,
                 instance_ids=tuple(valuable.instance_id for valuable in valuables),
                 gp_value=total,
+                **_item_name_fields(valuables),
             )
         )
     return [], events

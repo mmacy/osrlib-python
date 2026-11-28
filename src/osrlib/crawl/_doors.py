@@ -6,6 +6,7 @@ helpers here read a default built from the door's authored spec, so reading a do
 
 from osrlib.core.classes import detection_chance, detection_check, thief_skill_check
 from osrlib.core.events import Event
+from osrlib.core.items import _item_name_fields
 from osrlib.core.validation import Rejection
 from osrlib.crawl._arrival import _door_trap_check
 from osrlib.crawl._gating import _gate_refusal, _gate_success, _pay_toll
@@ -253,7 +254,9 @@ def _handle_wedge_door(session, command: WedgeDoor) -> tuple[list[Rejection], li
     _materialize_door(session, command.direction).wedged = True
     x, y = _position(session)
     return [], [
-        ItemConsumedEvent(character_id=spike_carrier.id, item_id=_consumed_item_id(spike)),
+        ItemConsumedEvent(
+            character_id=spike_carrier.id, item_id=_consumed_item_id(spike), **_item_name_fields([spike])
+        ),
         DoorEvent(code="exploration.door.wedged", x=x, y=y, direction=command.direction.value),
     ]
 

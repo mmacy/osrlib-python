@@ -1364,6 +1364,8 @@
       "coins_gp_value": 3,
       "event_type": "loot_dropped",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "visibility": "player"
     },
     {
@@ -1387,6 +1389,12 @@
       "item_ids": [
         "valuable-0005"
       ],
+      "item_names": {
+        "valuable-0005": "piece of jewellery"
+      },
+      "item_names_plural": {
+        "valuable-0005": "pieces of jewellery"
+      },
       "origin": "treasure",
       "visibility": "player"
     },
@@ -1405,6 +1413,12 @@
       "item_ids": [
         "valuable-0006"
       ],
+      "item_names": {
+        "valuable-0006": "piece of jewellery"
+      },
+      "item_names_plural": {
+        "valuable-0006": "pieces of jewellery"
+      },
       "origin": "treasure",
       "visibility": "player"
     },
@@ -1424,6 +1438,14 @@
         "valuable-0003",
         "valuable-0002"
       ],
+      "item_names": {
+        "valuable-0002": "gem",
+        "valuable-0003": "gem"
+      },
+      "item_names_plural": {
+        "valuable-0002": "gems",
+        "valuable-0003": "gems"
+      },
       "origin": "treasure",
       "visibility": "player"
     },
@@ -1443,6 +1465,14 @@
         "valuable-0004",
         "valuable-0001"
       ],
+      "item_names": {
+        "valuable-0001": "gem",
+        "valuable-0004": "gem"
+      },
+      "item_names_plural": {
+        "valuable-0001": "gems",
+        "valuable-0004": "gems"
+      },
       "origin": "treasure",
       "visibility": "player"
     },
@@ -1553,6 +1583,8 @@
       "coins_gp_value": 27,
       "event_type": "item_acquired",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "origin": "treasure",
       "visibility": "player"
     },
@@ -1569,6 +1601,8 @@
       "coins_gp_value": 27,
       "event_type": "item_acquired",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "origin": "treasure",
       "visibility": "player"
     },
@@ -1585,6 +1619,8 @@
       "coins_gp_value": 27,
       "event_type": "item_acquired",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "origin": "treasure",
       "visibility": "player"
     },
@@ -1601,6 +1637,8 @@
       "coins_gp_value": 27,
       "event_type": "item_acquired",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "origin": "treasure",
       "visibility": "player"
     },
@@ -2218,6 +2256,32 @@
         "sword",
         "long_bow"
       ],
+      "item_names": {
+        "arrows": "arrow",
+        "chainmail": "suit of chainmail",
+        "dagger": "dagger",
+        "long_bow": "long bow",
+        "rations_standard": "standard ration",
+        "sword": "sword",
+        "torch": "torch",
+        "valuable-0007": "gem",
+        "valuable-0008": "gem",
+        "valuable-0009": "gem",
+        "waterskin": "waterskin"
+      },
+      "item_names_plural": {
+        "arrows": "arrows",
+        "chainmail": "suits of chainmail",
+        "dagger": "daggers",
+        "long_bow": "long bows",
+        "rations_standard": "standard rations",
+        "sword": "swords",
+        "torch": "torches",
+        "valuable-0007": "gems",
+        "valuable-0008": "gems",
+        "valuable-0009": "gems",
+        "waterskin": "waterskins"
+      },
       "visibility": "player"
     },
     {
@@ -2292,6 +2356,26 @@
         "sword",
         "long_bow"
       ],
+      "item_names": {
+        "arrows": "arrow",
+        "chainmail": "suit of chainmail",
+        "dagger": "dagger",
+        "long_bow": "long bow",
+        "rations_standard": "standard ration",
+        "sword": "sword",
+        "torch": "torch",
+        "waterskin": "waterskin"
+      },
+      "item_names_plural": {
+        "arrows": "arrows",
+        "chainmail": "suits of chainmail",
+        "dagger": "daggers",
+        "long_bow": "long bows",
+        "rations_standard": "standard rations",
+        "sword": "swords",
+        "torch": "torches",
+        "waterskin": "waterskins"
+      },
       "origin": "treasure",
       "visibility": "player"
     },
@@ -2308,6 +2392,8 @@
       "coins_gp_value": 90,
       "event_type": "item_acquired",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "origin": "treasure",
       "visibility": "player"
     },
@@ -2326,6 +2412,12 @@
       "item_ids": [
         "valuable-0009"
       ],
+      "item_names": {
+        "valuable-0009": "gem"
+      },
+      "item_names_plural": {
+        "valuable-0009": "gems"
+      },
       "origin": "treasure",
       "visibility": "player"
     },
@@ -2345,6 +2437,14 @@
         "valuable-0007",
         "valuable-0008"
       ],
+      "item_names": {
+        "valuable-0007": "gem",
+        "valuable-0008": "gem"
+      },
+      "item_names_plural": {
+        "valuable-0007": "gems",
+        "valuable-0008": "gems"
+      },
       "origin": "treasure",
       "visibility": "player"
     },
@@ -3031,6 +3131,28 @@
         "sword",
         "long_bow"
       ],
+      "item_names": {
+        "arrows": "arrow",
+        "battle_axe": "battle axe",
+        "chainmail": "suit of chainmail",
+        "long_bow": "long bow",
+        "rations_standard": "standard ration",
+        "shield": "shield",
+        "sword": "sword",
+        "torch": "torch",
+        "waterskin": "waterskin"
+      },
+      "item_names_plural": {
+        "arrows": "arrows",
+        "battle_axe": "battle axes",
+        "chainmail": "suits of chainmail",
+        "long_bow": "long bows",
+        "rations_standard": "standard rations",
+        "shield": "shields",
+        "sword": "swords",
+        "torch": "torches",
+        "waterskin": "waterskins"
+      },
       "visibility": "player"
     },
     {
@@ -3211,6 +3333,12 @@
       "instance_ids": [
         "valuable-0005"
       ],
+      "item_names": {
+        "valuable-0005": "piece of jewellery"
+      },
+      "item_names_plural": {
+        "valuable-0005": "pieces of jewellery"
+      },
       "visibility": "player"
     },
     {
@@ -3221,6 +3349,12 @@
       "instance_ids": [
         "valuable-0006"
       ],
+      "item_names": {
+        "valuable-0006": "piece of jewellery"
+      },
+      "item_names_plural": {
+        "valuable-0006": "pieces of jewellery"
+      },
       "visibility": "player"
     },
     {
@@ -3233,6 +3367,16 @@
         "valuable-0002",
         "valuable-0009"
       ],
+      "item_names": {
+        "valuable-0002": "gem",
+        "valuable-0003": "gem",
+        "valuable-0009": "gem"
+      },
+      "item_names_plural": {
+        "valuable-0002": "gems",
+        "valuable-0003": "gems",
+        "valuable-0009": "gems"
+      },
       "visibility": "player"
     },
     {
@@ -3246,6 +3390,18 @@
         "valuable-0007",
         "valuable-0008"
       ],
+      "item_names": {
+        "valuable-0001": "gem",
+        "valuable-0004": "gem",
+        "valuable-0007": "gem",
+        "valuable-0008": "gem"
+      },
+      "item_names_plural": {
+        "valuable-0001": "gems",
+        "valuable-0004": "gems",
+        "valuable-0007": "gems",
+        "valuable-0008": "gems"
+      },
       "visibility": "player"
     },
     {
@@ -3304,6 +3460,8 @@
       "coins_gp_value": 400,
       "event_type": "items_given",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "recipient_id": "character-0004",
       "visibility": "player"
     },
@@ -3320,6 +3478,8 @@
       "coins_gp_value": 250,
       "event_type": "items_given",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "recipient_id": "character-0003",
       "visibility": "player"
     },
@@ -3411,6 +3571,8 @@
       "coins_gp_value": 13,
       "event_type": "item_acquired",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "origin": "treasure",
       "visibility": "player"
     },
@@ -3429,6 +3591,12 @@
       "item_ids": [
         "jade-idol"
       ],
+      "item_names": {
+        "jade-idol": "Jade Idol of the Barrow King"
+      },
+      "item_names_plural": {
+        "jade-idol": "Jade Idols of the Barrow King"
+      },
       "origin": "treasure",
       "visibility": "player"
     },
@@ -3445,6 +3613,8 @@
       "coins_gp_value": 12,
       "event_type": "item_acquired",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "origin": "treasure",
       "visibility": "player"
     },
@@ -3461,6 +3631,8 @@
       "coins_gp_value": 12,
       "event_type": "item_acquired",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "origin": "treasure",
       "visibility": "player"
     },
@@ -3633,6 +3805,8 @@
       "coins_gp_value": 200,
       "event_type": "item_acquired",
       "item_ids": [],
+      "item_names": {},
+      "item_names_plural": {},
       "origin": "grant",
       "visibility": "player"
     },

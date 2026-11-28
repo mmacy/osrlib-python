@@ -83,7 +83,7 @@ from osrlib.core.clock import TimeUnit
 from osrlib.core.dice import _highest_total, parse
 from osrlib.core.effects import Condition
 from osrlib.core.frozen import FrozenMap, _Model
-from osrlib.core.items import Coins, MagicItemInstance, ValuableInstance
+from osrlib.core.items import Coins, EquipmentCatalog, ItemTemplate, MagicItemInstance, ValuableInstance
 from osrlib.core.spells import SaveSpec
 from osrlib.core.tables import _SPAWN_LIMIT, EncounterTable, ReactionResult, _spawn_count_dice
 from osrlib.crawl.gates import GateSpec
@@ -1879,6 +1879,25 @@ class DropPile(_Model):
     """The gems and jewellery lying here, each with the id it had before it was dropped."""
     magic_items: list[MagicItemInstance] = []
     """The magic items lying here, each with the charges or quantity it had before it was dropped."""
+
+
+def _pile_goods(
+    equipment: EquipmentCatalog, pile: DropPile
+) -> list[ItemTemplate | MagicItemInstance | ValuableInstance]:
+    """Return the things in a pile as the objects that item names are built from, for the view and the pile events.
+
+    A mundane entry is named by the template `equipment` has under its catalog id, and an entry whose id the catalog
+    lacks is left out, so it has no name. The magic items and the valuables are named as they are.
+    """
+    goods: list[ItemTemplate | MagicItemInstance | ValuableInstance] = []
+    for entry in pile.items:
+        try:
+            goods.append(equipment.get(entry.item_id))
+        except ValueError:
+            continue
+    goods.extend(pile.magic_items)
+    goods.extend(pile.valuables)
+    return goods
 
 
 class DungeonState(_Model):

@@ -90,8 +90,8 @@ print(torches.quantity, inventory.purse.gp, movement_rate_feet(inventory, Rulese
 
 import re
 import unicodedata
-from collections.abc import Mapping
-from typing import TYPE_CHECKING, Annotated, Any, Literal
+from collections.abc import Iterable, Mapping
+from typing import TYPE_CHECKING, Annotated, Any, Literal, TypedDict
 
 from pydantic import ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
@@ -2563,6 +2563,62 @@ def _with_article(name: str) -> str:
     """
     first = unicodedata.normalize("NFD", name[:1])[:1].lower()
     return f"{'an' if first in ('a', 'e', 'i', 'o', 'u') else 'a'} {name}"
+
+
+_VALUABLE_NAMES = {"gem": ("gem", "gems"), "jewellery": ("piece of jewellery", "pieces of jewellery")}
+"""What the players call a valuable of each kind, whatever name the piece has."""
+
+
+def _player_item_names(item: ItemInstance | MagicItemInstance | ValuableInstance | ItemTemplate) -> tuple[str, str]:
+    """Return what the players call one of an item and two or more of it, as the player view names it.
+
+    [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] and the player-visible item events both name
+    items through this function, so an event and the view can't name the same item differently. An identified magic
+    item has its template's display names, and an unidentified one its masked names, so the names never tell the
+    players more than the inventory does. A gem or a piece of jewellery is named by its kind. A mundane stack is named
+    by the display names of the template it embeds, and a catalog template by its own.
+    """
+    if isinstance(item, MagicItemInstance):
+        if not item.identified:
+            return _masked_names(item)
+        template = magic_item_template(item)
+        return template.display_name, template.display_name_plural
+    if isinstance(item, ValuableInstance):
+        return _VALUABLE_NAMES[item.kind]
+    template = item.template if isinstance(item, ItemInstance) else item
+    return template.display_name, template.display_name_plural
+
+
+def _player_item_id(item: ItemInstance | MagicItemInstance | ValuableInstance | ItemTemplate) -> str:
+    """Return the id the player-visible events list an item by: an instance id, or a mundane item's catalog id."""
+    if isinstance(item, MagicItemInstance | ValuableInstance):
+        return item.instance_id
+    return item.template.id if isinstance(item, ItemInstance) else item.id
+
+
+class _ItemNameFields(TypedDict):
+    """The `item_names` and `item_names_plural` keywords of a player-visible item event."""
+
+    item_names: dict[str, str]
+    item_names_plural: dict[str, str]
+
+
+def _item_name_fields(
+    items: Iterable[ItemInstance | MagicItemInstance | ValuableInstance | ItemTemplate],
+) -> _ItemNameFields:
+    """Return an item event's `item_names` and `item_names_plural`, keyed by the ids the event lists the items by.
+
+    Each item is named as it stands when the event is built, so an item a command identified before the event is
+    named by its true name, as the command's [`ItemIdentifiedEvent`][osrlib.crawl.events.ItemIdentifiedEvent] names
+    it. The first item with an id names it.
+    """
+    names: dict[str, str] = {}
+    plurals: dict[str, str] = {}
+    for item in items:
+        item_id = _player_item_id(item)
+        if item_id not in names:
+            names[item_id], plurals[item_id] = _player_item_names(item)
+    return {"item_names": names, "item_names_plural": plurals}
 
 
 def _shield_ac_parts(shield: AnyInstance | None, *, ascending: bool) -> tuple[int | None, int]:

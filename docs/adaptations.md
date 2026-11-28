@@ -1678,7 +1678,7 @@ Locked by `test_srd_data.py` and the `test_magic_items.py` census.
 
 ### Magic items enter play unidentified, identify on first meaningful use, and curses stick
 
-A magic item shows a generic name until it's identified. An enchanted weapon, piece of ammunition, suit of armour, or shield is named after one unit of the mundane item underneath it, "a {base} with a faint aura", like "an arrow with a faint aura" or "a suit of chainmail with a faint aura", and a suit of enchanted armour whose mundane armour isn't recorded is "a suit of armour with a faint aura". A miscellaneous item is "a curious device". The player view's `item_names` and `EquipmentDestroyedEvent` name an unidentified item the same way, so a cursed item reads as the item it passes for. An item is identified by any of these:
+A magic item shows a generic name until it's identified. An enchanted weapon, piece of ammunition, suit of armour, or shield is named after one unit of the mundane item underneath it, "a {base} with a faint aura", like "an arrow with a faint aura" or "a suit of chainmail with a faint aura", and a suit of enchanted armour whose mundane armour isn't recorded is "a suit of armour with a faint aura". A miscellaneous item is "a curious device". The player view's `item_names`, the `item_names` of the player-visible item events, and `EquipmentDestroyedEvent` name an unidentified item the same way, so a cursed item reads as the item it passes for. An item is identified by any of these:
 
 - Its first meaningful use.
 - The referee's `IdentifyItem`.

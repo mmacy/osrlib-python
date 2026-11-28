@@ -153,14 +153,14 @@ from osrlib.core.combat import cannot_move, incapacitated, roll_reaction
 from osrlib.core.effects import Condition, has_condition, regeneration_definition
 from osrlib.core.events import Event
 from osrlib.core.frozen import _Model
-from osrlib.core.items import Coins
+from osrlib.core.items import Coins, _item_name_fields
 from osrlib.core.monsters import MonsterInstance, _regular_plural
 from osrlib.core.spells import MAGIC_STREAM, turn_undead, validate_turn_undead
 from osrlib.core.tables import ReactionResult
 from osrlib.core.validation import Rejection
 from osrlib.crawl import _party_members
 from osrlib.crawl.commands import DropItems, EngageBattle, Evade, Parley, SessionMode, TurnUndead, Wait
-from osrlib.crawl.dungeon import TreasureBundle
+from osrlib.crawl.dungeon import TreasureBundle, _pile_goods
 from osrlib.crawl.events import (
     EncounterEndedEvent,
     EncounterGroupJoinedEvent,
@@ -1025,7 +1025,11 @@ def _handle_evade(session, command: Evade) -> tuple[list[Rejection], list[Event]
             )
             if ration is not None:
                 events.append(
-                    ItemsDroppedEvent(character_id=member.id, item_ids=(_party_members._consumed_item_id(ration),))
+                    ItemsDroppedEvent(
+                        character_id=member.id,
+                        item_ids=(_party_members._consumed_item_id(ration),),
+                        **_item_name_fields([ration]),
+                    )
                 )
 
     pursuers = [group for group in state.groups if _group_pursues(session, group)]
@@ -1381,7 +1385,14 @@ def _drop_loot(session, state: EncounterState) -> list[Event]:
     if not (loot.items or loot.valuables or loot.magic_items or loot.coins.total_coins):
         return []
     item_ids = _hauling._add_to_pile(session, loot)
-    return [LootDroppedEvent(item_ids=item_ids, coins_gp_value=loot.coins.value_gp, coins=loot.coins)]
+    return [
+        LootDroppedEvent(
+            item_ids=item_ids,
+            coins_gp_value=loot.coins.value_gp,
+            coins=loot.coins,
+            **_item_name_fields(_pile_goods(session.effective_equipment, loot)),
+        )
+    ]
 
 
 def end_encounter(session, outcome: str) -> list[Event]:

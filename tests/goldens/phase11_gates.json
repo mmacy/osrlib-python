@@ -167,6 +167,14 @@
         "brass_key",
         "toll_token"
       ],
+      "item_names": {
+        "brass_key": "Brass key",
+        "toll_token": "Ferryman's token"
+      },
+      "item_names_plural": {
+        "brass_key": "Brass keys",
+        "toll_token": "Ferryman's tokens"
+      },
       "origin": "treasure",
       "visibility": "player"
     },
@@ -185,6 +193,12 @@
       "item_ids": [
         "brass_key"
       ],
+      "item_names": {
+        "brass_key": "Brass key"
+      },
+      "item_names_plural": {
+        "brass_key": "Brass keys"
+      },
       "recipient_id": "character-0004",
       "visibility": "player"
     },
@@ -231,6 +245,12 @@
       "code": "exploration.item.consumed",
       "event_type": "item_consumed",
       "item_id": "toll_token",
+      "item_names": {
+        "toll_token": "Ferryman's token"
+      },
+      "item_names_plural": {
+        "toll_token": "Ferryman's tokens"
+      },
       "visibility": "player"
     },
     {
@@ -270,6 +290,12 @@
       "item_ids": [
         "silver_seal"
       ],
+      "item_names": {
+        "silver_seal": "Silver seal"
+      },
+      "item_names_plural": {
+        "silver_seal": "Silver seals"
+      },
       "origin": "treasure",
       "visibility": "player"
     },

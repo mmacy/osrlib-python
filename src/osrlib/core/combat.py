@@ -173,6 +173,7 @@ from osrlib.core.items import (
     MissileRanges,
     WeaponQuality,
     WeaponTemplate,
+    _item_name_fields,
     _masked_names,
     _shield_ac_parts,
     _with_article,
@@ -2188,11 +2189,14 @@ def destroy_equipment(
     inventory.worn_armour = None
     inventory.shield = None
     inventory.rings = []
+    saved_names = _item_name_fields(saved)
     return [
         EquipmentDestroyedEvent(
             target_id=_entity_id(target),
             item_names=tuple(destroyed),
             saved_items=tuple(instance.instance_id for instance in saved),
+            saved_item_names=saved_names["item_names"],
+            saved_item_names_plural=saved_names["item_names_plural"],
         )
     ]
 

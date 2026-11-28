@@ -130,6 +130,7 @@ from osrlib.core.items import (
     MagicItemInstance,
     ValuableInstance,
     _masked_names,
+    _player_item_names,
     _with_article,
     magic_item_template,
 )
@@ -160,6 +161,7 @@ from osrlib.crawl.dungeon import (
     EdgeKind,
     PartyLocation,
     Position,
+    _pile_goods,
     cell_ref,
     edge_ref,
     step,
@@ -1613,12 +1615,11 @@ class PlayerView(_Model):
       a list, and the phrase in place of the kind in a sentence.
 
     It names no item whose id the view doesn't show. The player-visible item events, like
-    [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent], name items by the same ids. An
-    item the command left in a member's pack or in a pile the view shows is a key in the view you
-    build after the command. An item the command used up, sold, or left behind on a trail is a key
-    in the view from before it. An item that is identified and used up in the same command, like a
-    potion drunk before the party knew it, has its true name on the
-    [`ItemIdentifiedEvent`][osrlib.crawl.events.ItemIdentifiedEvent]."""
+    [`ItemAcquiredEvent`][osrlib.crawl.events.ItemAcquiredEvent], list items by the same ids, and
+    each has its own `item_names` and `item_names_plural` for the ids it lists. An event's names come
+    from the same function as these, so an event names an id as a view built when the event happened
+    would. Read the event's names for an item the command used up, sold, or left behind on a trail,
+    because the view you build after the command doesn't name it."""
     item_names_plural: dict[str, str] = {}
     """What to call two or more of each item in `item_names`, with the same keys, like
     `{"torch": "torches", "holy_water": "vials of holy water", "magic-item-0003": "potions"}`.
@@ -1626,8 +1627,8 @@ class PlayerView(_Model):
     Each value is the plural of the name in `item_names`: the template's
     [`display_name_plural`][osrlib.core.items.GearTemplate.display_name_plural], the plural of a
     masked name, like `"shields with a faint aura"`, or `"gems"` or `"pieces of jewellery"`. Use it
-    with a count from a pile's [`contents`][osrlib.crawl.views.PileView.contents], an inventory
-    entry's `quantity`, or the ids an event repeats, one per unit: "2 vials of holy water"."""
+    with a count from a pile's [`contents`][osrlib.crawl.views.PileView.contents] or an inventory
+    entry's `quantity`: "2 vials of holy water"."""
     valuable_names: dict[str, str] = {}
     """The own name of each gem and piece of jewellery that has one, keyed by its instance id, like
     `{"valuable-0007": "Prior's chain of office"}`. Show it as written in a list, such as an inventory
@@ -2271,10 +2272,6 @@ def _pile_view(pile: DropPile) -> PileView:
     )
 
 
-_VALUABLE_NAMES = {"gem": ("gem", "gems"), "jewellery": ("piece of jewellery", "pieces of jewellery")}
-"""What the players call a valuable of each kind, whatever name the piece has."""
-
-
 _ARTICLES = frozenset({"the", "a", "an"})
 """The first words that make a valuable's name a phrase already, in lowercase."""
 
@@ -2309,11 +2306,6 @@ def _item_names(
     plurals: dict[str, str] = {}
     valuable_names: dict[str, str] = {}
     valuable_phrases: dict[str, str] = {}
-    equipment = session.effective_equipment
-    catalog = {
-        template.id: template
-        for template in (*equipment.weapons, *equipment.armour, *equipment.gear, *equipment.ammunition)
-    }
 
     def add(item_id: str, singular: str, plural: str) -> None:
         if item_id not in names:
@@ -2321,7 +2313,7 @@ def _item_names(
             plurals[item_id] = plural
 
     def add_valuable(valuable: ValuableInstance) -> None:
-        add(valuable.instance_id, *_VALUABLE_NAMES[valuable.kind])
+        add(valuable.instance_id, *_player_item_names(valuable))
         # A piece has a name of its own unless its trimmed name is empty or the one treasure generation gives its
         # kind.
         name = valuable.name.strip()
@@ -2330,31 +2322,27 @@ def _item_names(
             valuable_phrases[valuable.instance_id] = _valuable_phrase(valuable)
 
     def add_magic_item(instance: MagicItemInstance, *, carried: bool) -> None:
-        if instance.identified:
-            template = magic_item_template(instance)
-            add(instance.instance_id, template.display_name, template.display_name_plural)
-            if carried:
-                add(instance.template_id, template.display_name, template.display_name_plural)
-        else:
-            add(instance.instance_id, *_masked_names(instance))
+        names_of_item = _player_item_names(instance)
+        add(instance.instance_id, *names_of_item)
+        if instance.identified and carried:
+            add(instance.template_id, *names_of_item)
 
     for member in session.party.members:
         for instance in member.inventory.all_instances():
             if isinstance(instance, MagicItemInstance):
                 add_magic_item(instance, carried=True)
             else:
-                add(instance.template.id, instance.template.display_name, instance.template.display_name_plural)
+                add(instance.template.id, *_player_item_names(instance))
         for valuable in member.inventory.valuables:
             add_valuable(valuable)
     for pile in piles:
-        for entry in pile.items:
-            template = catalog.get(entry.item_id)
-            if template is not None:
-                add(entry.item_id, template.display_name, template.display_name_plural)
-        for instance in pile.magic_items:
-            add_magic_item(instance, carried=False)
-        for valuable in pile.valuables:
-            add_valuable(valuable)
+        for item in _pile_goods(session.effective_equipment, pile):
+            if isinstance(item, MagicItemInstance):
+                add_magic_item(item, carried=False)
+            elif isinstance(item, ValuableInstance):
+                add_valuable(item)
+            else:
+                add(item.id, *_player_item_names(item))
     return names, plurals, valuable_names, valuable_phrases
 
 

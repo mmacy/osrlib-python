@@ -14,7 +14,13 @@ from osrlib.core.creature import Creature
 from osrlib.core.dice import roll
 from osrlib.core.effects import EFFECTS_STREAM, Condition, EffectDefinition, ModifierSpec, has_condition
 from osrlib.core.events import Event
-from osrlib.core.items import MagicItemCategory, MagicItemInstance, magic_item_template, usable_by_class
+from osrlib.core.items import (
+    MagicItemCategory,
+    MagicItemInstance,
+    _item_name_fields,
+    magic_item_template,
+    usable_by_class,
+)
 from osrlib.core.spells import MAGIC_STREAM, cast_from_scroll, caster_profile, validate_scroll_cast
 from osrlib.core.validation import Rejection
 from osrlib.crawl._light import _requires_light
@@ -54,7 +60,10 @@ def _identify_item_events(session, member, instance: MagicItemInstance) -> list:
         instance.cursed_revealed = True
         events.append(
             CurseRevealedEvent(
-                character_id=member.id, instance_id=instance.instance_id, template_id=instance.template_id
+                character_id=member.id,
+                instance_id=instance.instance_id,
+                **_item_name_fields([instance]),
+                template_id=instance.template_id,
             )
         )
     return events
@@ -263,6 +272,7 @@ def _use_potion(session, carrier, drinker, instance: MagicItemInstance, template
                 code="items.potion.mixed",
                 character_id=carrier.id,
                 instance_id=instance.instance_id,
+                **_item_name_fields([instance]),
                 target_id=fed_to,
             )
         )
@@ -285,6 +295,7 @@ def _use_potion(session, carrier, drinker, instance: MagicItemInstance, template
             code="items.potion.drunk",
             character_id=carrier.id,
             instance_id=instance.instance_id,
+            **_item_name_fields([instance]),
             manual=template.manual if effect_spec is None else (),
             target_id=fed_to,
         )
@@ -362,6 +373,7 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
                 code="items.scroll.cursed",
                 character_id=member.id,
                 instance_id=instance.instance_id,
+                **_item_name_fields([instance]),
                 manual=(f"{curse.name}: {curse.prose}",) if not curse.wired else (),
             )
         )
@@ -405,7 +417,14 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
         stream = session.streams.get(MAGIC_STREAM)
         _remove_instance(member, instance)
         events.extend(_identify_item_events(session, member, instance))
-        events.append(ItemUsedEvent(code="items.scroll.read", character_id=member.id, instance_id=instance.instance_id))
+        events.append(
+            ItemUsedEvent(
+                code="items.scroll.read",
+                character_id=member.id,
+                instance_id=instance.instance_id,
+                **_item_name_fields([instance]),
+            )
+        )
         params: dict[str, int | str | bool | tuple[int | str, ...]] = {"party_wide": True}
         for key in ("targets", "bars_categories", "bars_template_ids"):
             if key in template.effect.params:
@@ -481,7 +500,14 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
         else:
             _remove_instance(member, instance)
         events.extend(_identify_item_events(session, member, instance))
-        events.append(ItemUsedEvent(code="items.scroll.read", character_id=member.id, instance_id=instance.instance_id))
+        events.append(
+            ItemUsedEvent(
+                code="items.scroll.read",
+                character_id=member.id,
+                instance_id=instance.instance_id,
+                **_item_name_fields([instance]),
+            )
+        )
         if thief_reading and thief_params is not None:
             error_pct = _int_param(thief_params, "error_pct", 10)
             if stream.randbelow(100) + 1 <= error_pct:
@@ -517,6 +543,7 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
             code="items.scroll.read",
             character_id=member.id,
             instance_id=instance.instance_id,
+            **_item_name_fields([instance]),
             manual=template.manual,
         )
     )
@@ -648,6 +675,7 @@ def _use_device(session, member, instance: MagicItemInstance, template, command)
             code="items.device.activated",
             character_id=member.id,
             instance_id=instance.instance_id,
+            **_item_name_fields([instance]),
             manual=template.manual if referee else (),
         )
     )

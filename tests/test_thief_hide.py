@@ -700,8 +700,10 @@ class TestTheRolls:
 def _digest(game: GameSession) -> str:
     """The SHA-256 of a session's event log and every stream's state, as the no-hide guards pin it.
 
-    Two event fields arrived after the digests were taken at d31702f, and neither changes a draw, so the digest leaves
-    them out: `DeathEvent.poison` when it's false, and `LocationEnteredEvent.display_name` (#314).
+    Some event fields arrived after the digests were taken at d31702f, and none changes a draw, so the digest leaves
+    them out: `DeathEvent.poison` when it's false, `LocationEnteredEvent.display_name` (#314), and the item events'
+    `item_names` and `item_names_plural` and `EquipmentDestroyedEvent`'s `saved_item_names` and
+    `saved_item_names_plural` (#325).
     """
     events = [event.model_dump(mode="json") for event in game.event_log]
     for event in events:
@@ -709,6 +711,8 @@ def _digest(game: GameSession) -> str:
             del event["poison"]
         if event["event_type"] == "location_entered":
             del event["display_name"]
+        for key in ("item_names", "item_names_plural", "saved_item_names", "saved_item_names_plural"):
+            event.pop(key, None)
     record = {"events": events, "streams": _streams(game)}
     return hashlib.sha256(json.dumps(record, sort_keys=True).encode()).hexdigest()
 

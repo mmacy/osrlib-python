@@ -13,6 +13,7 @@ from osrlib.core.items import (
     Coins,
     ItemInstance,
     MagicItemInstance,
+    _item_name_fields,
     _max_load_coins,
     _treasure_room_coins,
     magic_item_template,
@@ -29,7 +30,7 @@ from osrlib.crawl._party_location import _cell_ref
 from osrlib.crawl._party_members import _member_able
 from osrlib.crawl._treasure import _treasure_tier
 from osrlib.crawl.commands import TakeTreasure
-from osrlib.crawl.dungeon import DroppedItem, DropPile
+from osrlib.crawl.dungeon import DroppedItem, DropPile, _pile_goods
 from osrlib.crawl.events import ItemAcquiredEvent, ItemsLeftBehindEvent, TrapEvent
 
 
@@ -383,6 +384,7 @@ def _distribute_haul(session, carriers, haul: DropPile) -> tuple[list[Event], Dr
     ruleset = session.ruleset
     equipment = session.effective_equipment
     taken_ids: list[list[str]] = [[] for _ in carriers]
+    taken_goods: list[list] = [[] for _ in carriers]
     taken_valuables: list = []
     leftovers = DropPile()
 
@@ -398,6 +400,7 @@ def _distribute_haul(session, carriers, haul: DropPile) -> tuple[list[Event], Dr
             leftovers.magic_items.append(magic_item)
             continue
         taken_ids[holder].append(magic_item.instance_id)
+        taken_goods[holder].append(magic_item)
     for dropped in haul.items:
         instance = ItemInstance(template=equipment.get(dropped.item_id), quantity=dropped.quantity)
         holder = _hand_item(
@@ -411,6 +414,7 @@ def _distribute_haul(session, carriers, haul: DropPile) -> tuple[list[Event], Dr
             leftovers.items.append(dropped)
             continue
         taken_ids[holder].extend([dropped.item_id] * dropped.quantity)
+        taken_goods[holder].append(instance)
     # Richest piece first: the greedy split of a set of values is at its evenest when
     # the big lumps are placed while there is still room to balance them.
     for valuable in sorted(haul.valuables, key=lambda piece: -piece.value_gp):
@@ -419,6 +423,7 @@ def _distribute_haul(session, carriers, haul: DropPile) -> tuple[list[Event], Dr
             leftovers.valuables.append(valuable)
             continue
         taken_ids[holder].append(valuable.instance_id)
+        taken_goods[holder].append(valuable)
         taken_valuables.append(valuable)
     takes, leftovers.coins = _spread_coins(carriers, ruleset, haul.coins)
 
@@ -436,6 +441,7 @@ def _distribute_haul(session, carriers, haul: DropPile) -> tuple[list[Event], Dr
                 coins_gp_value=taken_coins.value_gp,
                 coins=taken_coins,
                 origin="treasure",
+                **_item_name_fields(taken_goods[index]),
             )
         )
     return events, leftovers, taken_cp, taken_valuables
@@ -481,7 +487,14 @@ def _leave_behind(session, leftovers: DropPile) -> list[Event]:
     if not (leftovers.items or leftovers.valuables or leftovers.magic_items or leftovers.coins.total_coins):
         return []
     item_ids = _add_to_pile(session, leftovers)
-    return [ItemsLeftBehindEvent(item_ids=item_ids, coins_gp_value=leftovers.coins.value_gp, coins=leftovers.coins)]
+    return [
+        ItemsLeftBehindEvent(
+            item_ids=item_ids,
+            coins_gp_value=leftovers.coins.value_gp,
+            coins=leftovers.coins,
+            **_item_name_fields(_pile_goods(session.effective_equipment, leftovers)),
+        )
+    ]
 
 
 def _take_haul(session, carriers, haul: DropPile) -> list[Event]:

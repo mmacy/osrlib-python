@@ -5,6 +5,7 @@ command, so a refusal costs no draw, no time, and no item.
 """
 
 from osrlib.core.events import Event
+from osrlib.core.items import _item_name_fields
 from osrlib.crawl import gates
 from osrlib.crawl._party_members import _consume_item, _consumed_item_id
 from osrlib.crawl.events import ItemConsumedEvent
@@ -48,7 +49,9 @@ def _pay_toll(session, gate) -> list[Event]:
     if holder is None or holder.id is None or instance is None:
         # Unreachable: the gate passed on this very matching rule a moment ago.
         raise ValueError(f"the toll {condition.item_id!r} went missing between the check and the taking")
-    return [ItemConsumedEvent(character_id=holder.id, item_id=_consumed_item_id(instance))]
+    return [
+        ItemConsumedEvent(character_id=holder.id, item_id=_consumed_item_id(instance), **_item_name_fields([instance]))
+    ]
 
 
 def _gate_success(gate) -> str | None:

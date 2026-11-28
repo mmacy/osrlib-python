@@ -84,6 +84,7 @@ from typing import Annotated, ClassVar, Literal, Union
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 
 from osrlib.core.events import KERNEL_EVENT_CLASSES, Event, Visibility, _classes_by_type, _parse_record
+from osrlib.core.frozen import FrozenMap
 from osrlib.core.items import Coins
 from osrlib.core.monsters import _regular_plural
 
@@ -624,6 +625,18 @@ class ItemAcquiredEvent(Event):
     [`GrantItem`][osrlib.crawl.commands.GrantItem] or [`GrantCoins`][osrlib.crawl.commands.GrantCoins].
     Every command that emits this event fills it, so it is `None` only on an event loaded from a save
     written before the field existed."""
+    item_names: Annotated[Mapping[str, str], FrozenMap] = FrozenMap()
+    """What to call one of each item in `item_ids`, keyed by the same id, such as
+    `{"torch": "torch", "magic-item-0003": "potion", "valuable-0007": "gem"}`. Each name is the name that
+    [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] has for that id, so an unidentified magic
+    item has its masked name, such as `"potion"` or `"shield with a faint aura"`, and never its true name. The names
+    are the ones the party knew when the event happened. A client that replays an event log, or that didn't keep a
+    view, can name the items from the event. It's empty on an event from a log written before the field existed."""
+    item_names_plural: Annotated[Mapping[str, str], FrozenMap] = FrozenMap()
+    """What to call two or more of each item in `item_names`, with the same keys, such as
+    `{"torch": "torches", "magic-item-0003": "potions"}`, from
+    [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural]. Use it with a count of your
+    own."""
 
 
 class ItemConsumedEvent(Event):
@@ -656,6 +669,19 @@ class ItemConsumedEvent(Event):
     """What was consumed: the catalog id for mundane gear, and the session-scoped instance id for
     a magic item, never its template id, so an unidentified item's identity never reaches a
     player-visible event."""
+    item_names: Annotated[Mapping[str, str], FrozenMap] = FrozenMap()
+    """What to call the item in `item_id`, keyed by that id, such as `{"iron_spikes": "iron spike"}`. Each name is
+    the name that [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] has for that id, so an
+    unidentified magic item has its masked name, such as `"potion"` or `"shield with a faint aura"`, and never its
+    true name. The names are the ones the party knew when the event happened. The item may be the last unit the
+    member had, so the view built after the command may not name it. A client that replays an event log, or that
+    didn't keep a view, can name the items from the event. It's empty on an event from a log written before the
+    field existed."""
+    item_names_plural: Annotated[Mapping[str, str], FrozenMap] = FrozenMap()
+    """What to call two or more of each item in `item_names`, with the same keys, such as
+    `{"iron_spikes": "iron spikes"}`, from
+    [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural]. Use it with a count of your
+    own."""
 
 
 class ItemsDroppedEvent(Event):
@@ -690,6 +716,18 @@ class ItemsDroppedEvent(Event):
     coins: Coins = Coins()
     """The same coins by denomination, so a client can show the exact amount, and every
     coin of a small amount that `coins_gp_value` rounds down to zero."""
+    item_names: Annotated[Mapping[str, str], FrozenMap] = FrozenMap()
+    """What to call one of each item in `item_ids`, keyed by the same id, such as
+    `{"torch": "torch", "magic-item-0003": "potion"}`. Each name is the name that
+    [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] has for that id, so an unidentified magic
+    item has its masked name, such as `"potion"` or `"shield with a faint aura"`, and never its true name. The names
+    are the ones the party knew when the event happened. A drop made while fleeing leaves the goods on the trail, so
+    no view built after the command names them. A client that replays an event log, or that didn't keep a view, can
+    name the items from the event. It's empty on an event from a log written before the field existed."""
+    item_names_plural: Annotated[Mapping[str, str], FrozenMap] = FrozenMap()
+    """What to call two or more of each item in `item_names`, with the same keys, such as `{"torch": "torches"}`,
+    from [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural]. Use it with a count of
+    your own."""
 
 
 class ItemsLeftBehindEvent(Event):
@@ -720,6 +758,17 @@ class ItemsLeftBehindEvent(Event):
     coins: Coins = Coins()
     """The same coins by denomination, so a client can show the exact amount, and every
     coin of a small amount that `coins_gp_value` rounds down to zero."""
+    item_names: Annotated[Mapping[str, str], FrozenMap] = FrozenMap()
+    """What to call one of each item in `item_ids`, keyed by the same id, such as
+    `{"torch": "torch", "valuable-0007": "gem"}`. Each name is the name that
+    [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] has for that id, so an unidentified magic
+    item has its masked name, such as `"potion"` or `"shield with a faint aura"`, and never its true name. The names
+    are the ones the party knew when the event happened. A client that replays an event log, or that didn't keep a
+    view, can name the items from the event. It's empty on an event from a log written before the field existed."""
+    item_names_plural: Annotated[Mapping[str, str], FrozenMap] = FrozenMap()
+    """What to call two or more of each item in `item_names`, with the same keys, such as `{"torch": "torches"}`,
+    from [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural]. Use it with a count of
+    your own."""
 
 
 class ItemsGivenEvent(Event):
@@ -753,6 +802,17 @@ class ItemsGivenEvent(Event):
     coins: Coins = Coins()
     """The same coins by denomination, so a client can show the exact amount, and every
     coin of a small amount that `coins_gp_value` rounds down to zero."""
+    item_names: Annotated[Mapping[str, str], FrozenMap] = FrozenMap()
+    """What to call one of each item in `item_ids`, keyed by the same id, such as
+    `{"torch": "torch", "magic-item-0003": "potion"}`. Each name is the name that
+    [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] has for that id, so an unidentified magic
+    item has its masked name, such as `"potion"` or `"shield with a faint aura"`, and never its true name. The names
+    are the ones the party knew when the event happened. A client that replays an event log, or that didn't keep a
+    view, can name the items from the event. It's empty on an event from a log written before the field existed."""
+    item_names_plural: Annotated[Mapping[str, str], FrozenMap] = FrozenMap()
+    """What to call two or more of each item in `item_names`, with the same keys, such as `{"torch": "torches"}`,
+    from [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural]. Use it with a count of
+    your own."""
 
 
 class LightEvent(Event):
@@ -1223,6 +1283,17 @@ class LootDroppedEvent(Event):
     coins: Coins = Coins()
     """The same coins by denomination, so a client can show the exact amount, and every
     coin of a small amount that `coins_gp_value` rounds down to zero."""
+    item_names: Annotated[Mapping[str, str], FrozenMap] = FrozenMap()
+    """What to call one of each item in `item_ids`, keyed by the same id, such as
+    `{"sword": "sword", "magic-item-0003": "potion", "valuable-0007": "gem"}`. Each name is the name that
+    [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] has for that id, so an unidentified magic
+    item has its masked name, such as `"potion"` or `"shield with a faint aura"`, and never its true name. The names
+    are the ones the party knew when the event happened. A client that replays an event log, or that didn't keep a
+    view, can name the items from the event. It's empty on an event from a log written before the field existed."""
+    item_names_plural: Annotated[Mapping[str, str], FrozenMap] = FrozenMap()
+    """What to call two or more of each item in `item_names`, with the same keys, such as `{"sword": "swords"}`,
+    from [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural]. Use it with a count of
+    your own."""
 
 
 class EncounterEndedEvent(Event):
@@ -1788,6 +1859,21 @@ class ItemUsedEvent(Event):
     It's `None` when the member who used the potion drank it, and on every other code. Name the drinker
     in [`UseItem.target_id`][osrlib.crawl.commands.UseItem.target_id], or in the one id of a `use_item`
     declaration's [`targets`][osrlib.crawl.commands.BattleDeclaration.targets]."""
+    item_names: Annotated[Mapping[str, str], FrozenMap] = FrozenMap()
+    """What to call the item in `instance_id`, keyed by that id, such as `{"magic-item-0003": "potion of healing"}`.
+    Each name is the name that [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] has for that id,
+    so an unidentified magic item has its masked name, such as `"potion"` or `"shield with a faint aura"`, and never
+    its true name. The first use of an item identifies it, and that use's
+    [`ItemIdentifiedEvent`][osrlib.crawl.events.ItemIdentifiedEvent] comes earlier in the same result, so the name
+    is always the item's true display name, the same as that event's `display_name`. A potion drunk or a scroll read
+    is used up, so no view built after the command names it. A client that replays an event log, or that didn't keep
+    a view, can name the items from the event. It's empty on an event from a log written before the field
+    existed."""
+    item_names_plural: Annotated[Mapping[str, str], FrozenMap] = FrozenMap()
+    """What to call two or more of each item in `item_names`, with the same keys, such as
+    `{"magic-item-0003": "potions of healing"}`, from
+    [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural]. Use it with a count of your
+    own."""
 
 
 class ItemIdentifiedEvent(Event):
@@ -1799,8 +1885,9 @@ class ItemIdentifiedEvent(Event):
     [`ResolveBattleRound`][osrlib.crawl.commands.ResolveBattleRound], and when the
     referee identifies it with [`IdentifyItem`][osrlib.crawl.commands.IdentifyItem].
 
-    Before this, player-visible events contain only the item's `instance_id`. After it,
-    you can show the party the name of the item whose catalog id is `template_id`.
+    Before this, player-visible events contain the item's `instance_id` and its masked name, such as
+    `"potion"`, in their `item_names`. After it, you can show the party the name of the item whose
+    catalog id is `template_id`, and the item events that follow name it by `display_name`.
     """
 
     allowed_codes: ClassVar[frozenset[str]] = frozenset({"items.item.identified"})
@@ -1858,6 +1945,19 @@ class CurseRevealedEvent(Event):
     """The session-scoped id of the cursed item."""
     template_id: str
     """What the item is, as its magic item catalog id."""
+    item_names: Annotated[Mapping[str, str], FrozenMap] = FrozenMap()
+    """What to call the item in `instance_id`, keyed by that id, such as `{"magic-item-0003": "ring of weakness"}`.
+    Each name is the name that [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] has for that id,
+    so an unidentified magic item has its masked name, such as `"potion"` or `"shield with a faint aura"`, and never
+    its true name. The curse is revealed only on an identified item, so the name is the item's true display name,
+    which names the item that `template_id` already identifies. A client that replays an event log, or that didn't
+    keep a view, can name the items from the event. It's empty on an event from a log written before the field
+    existed."""
+    item_names_plural: Annotated[Mapping[str, str], FrozenMap] = FrozenMap()
+    """What to call two or more of each item in `item_names`, with the same keys, such as
+    `{"magic-item-0003": "rings of weakness"}`, from
+    [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural]. Use it with a count of your
+    own."""
 
 
 class NpcPartySpawnedEvent(Event):
@@ -1955,6 +2055,18 @@ class TreasureSoldEvent(Event):
     """The session-scoped ids of the valuables that were sold."""
     gp_value: int
     """What they fetched, in gold pieces."""
+    item_names: Annotated[Mapping[str, str], FrozenMap] = FrozenMap()
+    """What to call one of each item in `instance_ids`, keyed by the same id, such as
+    `{"valuable-0007": "gem", "valuable-0008": "piece of jewellery"}`. Each name is the name that
+    [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] has for that id. The names are the ones the
+    party knew when the event happened. The items have left the party, so no view built after the command names
+    them. A client that replays an event log, or that didn't keep a view, can name the items from the event. It's
+    empty on an event from a log written before the field existed."""
+    item_names_plural: Annotated[Mapping[str, str], FrozenMap] = FrozenMap()
+    """What to call two or more of each item in `item_names`, with the same keys, such as
+    `{"valuable-0007": "gems"}`, from
+    [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural]. Use it with a count of your
+    own."""
 
 
 class HealingPurchasedEvent(Event):
@@ -2502,6 +2614,18 @@ class ItemsRemovedEvent(Event):
     coins: Coins = Coins()
     """The same coins by denomination, so a client can show the exact amount, and every
     coin of a small amount that `coins_gp_value` rounds down to zero."""
+    item_names: Annotated[Mapping[str, str], FrozenMap] = FrozenMap()
+    """What to call one of each item in `item_ids`, keyed by the same id, such as
+    `{"torch": "torch", "magic-item-0003": "potion"}`. Each name is the name that
+    [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names] has for that id, so an unidentified magic
+    item has its masked name, such as `"potion"` or `"shield with a faint aura"`, and never its true name. The names
+    are the ones the party knew when the event happened. The items have left the party, so no view built after the
+    command names them. A client that replays an event log, or that didn't keep a view, can name the items from the
+    event. It's empty on an event from a log written before the field existed."""
+    item_names_plural: Annotated[Mapping[str, str], FrozenMap] = FrozenMap()
+    """What to call two or more of each item in `item_names`, with the same keys, such as `{"torch": "torches"}`,
+    from [`PlayerView.item_names_plural`][osrlib.crawl.views.PlayerView.item_names_plural]. Use it with a count of
+    your own."""
 
 
 class MemberAddedEvent(Event):
