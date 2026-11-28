@@ -297,3 +297,27 @@ def test_a_nameless_bundled_monster_is_named_by_its_id_in_play():
     started = next(event for event in result.events if event.code == "encounter.started")
     assert "cave goblins" in format_message(started)
 
+
+# ---------------------------------------------------------------------- MonsterInstance.drained_hd (#257)
+
+
+def ogre():
+    stream = RngStreams(master_seed=3).get(MONSTER_SPAWN_STREAM)
+    return spawn_monster(load_monsters().get("ogre"), id="monster-0002", stream=stream)
+
+
+@pytest.mark.parametrize("drained", [4, 5])
+def test_a_monster_cant_be_drained_of_every_hit_die(drained):
+    monster = ogre()
+    with pytest.raises(ValidationError, match="drained_hd"):
+        monster.drained_hd = drained
+    assert monster.drained_hd == 0
+    with pytest.raises(ValidationError, match="drained_hd"):
+        type(monster).model_validate({**monster.model_dump(), "drained_hd": drained})
+
+
+def test_a_monster_drained_to_one_hit_die_still_saves():
+    monster = ogre()
+    monster.drained_hd = 3
+    assert monster.hit_dice_count == 1
+    assert monster.saves.death == 12

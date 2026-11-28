@@ -1240,12 +1240,19 @@ class MonsterInstance(_Model):
     drained_hd: int = Field(default=0, ge=0)
     """How many Hit Dice have been drained from it, which [`drain_monster_hd`][osrlib.core.combat.drain_monster_hd]
     adds to. Its THAC0, attack bonus, and saving throws follow the Hit Dice it has left.
+
+    When it's above 0, it's less than the template's Hit Dice count, because a drain that would take the last Hit
+    Die kills the creature instead. Setting a value at or above that count raises `pydantic.ValidationError`.
     """
 
     @model_validator(mode="after")
     def _hit_points_within_maximum(self) -> MonsterInstance:
         if self.current_hp > self.max_hp:
             raise ValueError(f"current hp {self.current_hp} exceeds max hp {self.max_hp}")
+        if self.drained_hd and self.drained_hd >= self.template.hit_dice.count:
+            raise ValueError(
+                f"drained_hd {self.drained_hd} leaves no Hit Die of the template's {self.template.hit_dice.count}"
+            )
         return self
 
     @property
