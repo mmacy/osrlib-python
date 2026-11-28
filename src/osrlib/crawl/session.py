@@ -104,7 +104,7 @@ print(restored.view(Visibility.PLAYER) == view)
 
 import re
 from collections.abc import Mapping, Sequence
-from typing import Any, Literal, Protocol
+from typing import Any, Literal, Protocol, overload
 
 from pydantic import ConfigDict, Field
 
@@ -2287,6 +2287,12 @@ class GameSession:
 
     # ------------------------------------------------------------------ views
 
+    @overload
+    def view(self, visibility: Literal[Visibility.PLAYER]) -> osrlib.crawl.views.PlayerView: ...
+
+    @overload
+    def view(self, visibility: Literal[Visibility.REFEREE]) -> osrlib.crawl.views.RefereeView: ...
+
     def view(self, visibility: Visibility) -> osrlib.crawl.views.PlayerView | osrlib.crawl.views.RefereeView:
         """Return a snapshot of the session for one audience: the players or the referee.
 
@@ -2312,8 +2318,12 @@ class GameSession:
                 player-handle key.
 
         Returns:
-            A [`PlayerView`][osrlib.crawl.views.PlayerView] or a
-                [`RefereeView`][osrlib.crawl.views.RefereeView], to match the level asked for.
+            A [`PlayerView`][osrlib.crawl.views.PlayerView] for `Visibility.PLAYER` and a
+                [`RefereeView`][osrlib.crawl.views.RefereeView] for `Visibility.REFEREE`. A type checker
+                infers which one when it knows the argument is one of the two members, such as
+                `Visibility.PLAYER` written in the call, so you can read a field that only one of the
+                two views has without narrowing the result. For an argument declared as `Visibility`, it
+                infers either view.
 
         Examples:
             ```python
@@ -3117,6 +3127,6 @@ _REFEREE_HANDLERS = {
 
 
 # `osrlib.crawl.views` imports this module, so this module imports it last, once every name here exists.
-# `GameSession.view` builds a view through it when it runs. Its annotation reads the view types through it when
+# `GameSession.view` builds a view through it when it runs. Its annotations read the view types through it when
 # something asks for the signature.
 import osrlib.crawl.views  # noqa: E402

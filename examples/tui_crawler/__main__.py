@@ -156,7 +156,7 @@ def _fight(session) -> None:
 
 
 # --8<-- [start:player-view]
-def _status(session) -> None:
+def _status(session: GameSession) -> None:
     view = session.view(Visibility.PLAYER)
     print(f"[{view.mode}] round {view.clock_rounds}")
     for member in view.party:
@@ -171,7 +171,7 @@ def _status(session) -> None:
         print(f"  Quest: {quest.name}" + (f" — {objectives}" if objectives else ""))
 
 
-def _journal(session) -> None:
+def _journal(session: GameSession) -> None:
     view = session.view(Visibility.PLAYER)
     if not view.journal:
         print("  (the journal is empty)")

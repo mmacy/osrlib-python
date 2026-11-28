@@ -91,11 +91,23 @@ def test_every_callable_across_a_cycle_is_public():
     assert ACROSS_A_CYCLE <= {name for name, _ in CALLABLES}
 
 
+def test_the_harness_reads_the_overloads_of_view():
+    # `GameSession.view` names the view types in its overloads too, so the signature tests below read them.
+    from osrlib.crawl.session import GameSession
+    from osrlib.crawl.views import PlayerView, RefereeView
+
+    returns = [typing.get_type_hints(overload)["return"] for overload in typing.get_overloads(GameSession.view)]
+    assert returns == [PlayerView, RefereeView]
+
+
 @pytest.mark.parametrize(("name", "function"), CALLABLES, ids=[name for name, _ in CALLABLES])
 def test_inspect_signature_works(name, function):
     signature = inspect.signature(function, eval_str=True)
     assert signature is not None
     assert typing.get_type_hints(function) is not None
+    for overload in typing.get_overloads(function):
+        assert inspect.signature(overload, eval_str=True) is not None
+        assert typing.get_type_hints(overload) is not None
 
 
 CYCLE_MODULES = (
@@ -111,7 +123,7 @@ CYCLE_MODULES = (
 """The modules in the import cycles. Which one a program imports first decides the order the rest load in."""
 
 READ_EVERY_SIGNATURE = """
-import importlib, inspect, sys
+import importlib, inspect, sys, typing
 importlib.import_module(sys.argv[1])
 for path in sys.argv[2:]:
     module_name, _, rest = path.partition(":")
@@ -119,6 +131,8 @@ for path in sys.argv[2:]:
     for part in rest.split("."):
         member = getattr(member, part)
     inspect.signature(member, eval_str=True)
+    for overload in typing.get_overloads(member):
+        inspect.signature(overload, eval_str=True)
 """
 
 
