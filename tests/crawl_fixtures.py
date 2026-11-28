@@ -158,7 +158,7 @@ def build_adventure(wandering_chance: int = 1) -> Adventure:
     needle = TrapSpec(
         kind="treasure",
         trigger="open",
-        effect=TrapEffect(save={"category": "death", "on_save": "negates"}, kills=True),
+        effect=TrapEffect(save={"category": "death", "on_save": "negates"}, kills=True, poison=True),
     )
     chest = FeatureSpec(
         id="chest",
@@ -735,8 +735,8 @@ def build_gas_trap_adventure() -> Adventure:
     ```
 
     `gas_room` at (1,0) carries an enter-trigger room trap whose effect is
-    `kills=True`, `affects="party"`, and no save — the save-or-die gas that fills
-    the room, with no save to make. Stepping east springs it 2-in-6, and a spring
+    `kills=True`, `poison=True`, `affects="party"`, and no save: the poison gas
+    that fills the room, with no save to make. Stepping east springs it 2-in-6, and a spring
     ends the whole party at once.
     """
     edges: dict[str, Edge] = {}
@@ -745,7 +745,7 @@ def build_gas_trap_adventure() -> Adventure:
         kind="room",
         trigger="enter",
         affects="party",
-        effect=TrapEffect(kills=True),
+        effect=TrapEffect(kills=True, poison=True),
     )
     level = LevelSpec(
         number=1,

@@ -2056,9 +2056,10 @@ class CastContext(_Model):
     rounds_since_death: int | None = None
     """How many rounds ago the target died, for *neutralize poison*.
 
-    That spell revives a character killed by poison within the last 10 rounds. When you set this
-    field, you state that poison was the cause, because osrlib doesn't record the cause of death. Leave it unset for
-    a death by any other cause.
+    That spell revives a character killed by poison within the last 10 rounds. The kernel doesn't track the cause of
+    death, so when you set this field, you state that poison was the cause. Leave it unset for a death by any other
+    cause. A [`GameSession`][osrlib.crawl.session.GameSession] sets it from its death records, and only for a death
+    by poison.
     """
 
     days_since_death: int | None = None

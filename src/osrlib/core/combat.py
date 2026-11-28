@@ -3944,7 +3944,8 @@ def resolve_breath(
     - A hellhound's breath rolls its listed dice, with no daily limit. The function rolls
       the dice again for each target.
     - A sea dragon's spittle kills a target that fails its save, and does nothing to one
-      that passes.
+      that passes. The spittle is poison, so its death event has
+      [`DeathEvent.poison`][osrlib.core.events.DeathEvent.poison] set.
 
     A target that saves takes half damage, rounded down, so a breath of 1 point does
     nothing to it. A target immune to the breath's element doesn't save and takes nothing.
@@ -4029,7 +4030,8 @@ def resolve_breath(
         events.extend(save.events)
         if save_or_die:
             if not save.passed:
-                events.extend(kill(target))
+                # The sea dragon's spittle is poison: "Poison spittle ... Save versus breath or die."
+                events.extend(kill(target, poison=element == "poison"))
             continue
         damage_spec = params.get("damage")
         if damage_spec == "current_hp":

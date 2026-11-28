@@ -340,6 +340,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
+      "poison": false,
       "target_id": "pc-fighter",
       "visibility": "player"
     },
@@ -1066,6 +1067,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
+      "poison": false,
       "target_id": "monster-0001",
       "visibility": "player"
     },
@@ -1850,6 +1852,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
+      "poison": false,
       "target_id": "monster-0001",
       "visibility": "player"
     },
@@ -2136,6 +2139,7 @@
     {
       "code": "combat.death.permanent",
       "event_type": "death",
+      "poison": false,
       "target_id": "monster-0001",
       "visibility": "player"
     },
@@ -2655,6 +2659,7 @@
     {
       "code": "combat.death.permanent",
       "event_type": "death",
+      "poison": false,
       "target_id": "monster-0002",
       "visibility": "player"
     },
@@ -3554,6 +3559,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
+      "poison": false,
       "target_id": "monster-0003",
       "visibility": "player"
     },
@@ -3662,6 +3668,7 @@
     {
       "code": "combat.death.permanent",
       "event_type": "death",
+      "poison": false,
       "target_id": "monster-0003",
       "visibility": "player"
     },
@@ -4303,6 +4310,7 @@
     {
       "code": "combat.death.permanent",
       "event_type": "death",
+      "poison": false,
       "target_id": "monster-0004",
       "visibility": "player"
     },

@@ -499,7 +499,7 @@ def _remove_modifiers(target: Any, effect_id: str) -> None:
         target.stat_modifiers = remaining
 
 
-def kill(target: Creature, *, permanent: bool = False) -> list[Event]:
+def kill(target: Creature, *, permanent: bool = False, poison: bool = False) -> list[Event]:
     """Kill a creature outright: hit points to zero, the `dead` condition, and the death events.
 
     In B/X a creature dies the moment it drops to zero hit points or fewer.
@@ -518,6 +518,11 @@ def kill(target: Creature, *, permanent: bool = False) -> list[Event]:
         permanent: True when a regenerating creature can't come back, which for a troll means its
             non-regenerable damage has reached its maximum hit points. It changes the death event's code from
             `combat.death.died` to `combat.death.permanent`, not the outcome.
+        poison: True when poison killed the creature, such as a viper's bite or a poison needle. It sets
+            [`DeathEvent.poison`][osrlib.core.events.DeathEvent.poison], which the session reads to decide whether
+            *neutralize poison* can revive a character. Leave it False for every other death, including a failed save
+            versus death against *finger of death*: that save covers death ray and poison alike, so the category
+            doesn't say which killed.
 
     Returns:
         The [`ConditionGainedEvent`][osrlib.core.events.ConditionGainedEvent] for `dead`, the
@@ -553,7 +558,7 @@ def kill(target: Creature, *, permanent: bool = False) -> list[Event]:
     events: list[Event] = []
     events.extend(grant_condition(target, Condition.DEAD, None))
     code = "combat.death.permanent" if permanent else "combat.death.died"
-    events.append(DeathEvent(code=code, target_id=_entity_id(target)))
+    events.append(DeathEvent(code=code, target_id=_entity_id(target), poison=poison))
     events.append(
         HitPointsReportedEvent(target_id=_entity_id(target), current_hp=0, max_hp=getattr(target, "max_hp", 0))
     )
@@ -1041,7 +1046,8 @@ class EffectDefinition(_Model):
     """The effect's name, like `"sleep"` or `"regeneration"`. The model accepts any non-empty string. The ledger
     compares kinds on the same target for `stacking`, and
     [`EffectsLedger.active_on`][osrlib.core.effects.EffectsLedger.active_on] filters on the kind, so give each kind of
-    effect one name and use it everywhere."""
+    effect one name and use it everywhere. A kind that contains `poison`, such as `"poison"` or `"spider_poison"`,
+    makes a `"death"` expiry a death by poison."""
 
     duration_unit: TimeUnit | None = None
     """The unit the duration is counted in: rounds, turns, or days. `None` means the effect has no duration and
@@ -1084,7 +1090,10 @@ class EffectDefinition(_Model):
     [`EffectExpiredEvent`][osrlib.core.events.EffectExpiredEvent], and takes off the condition and modifiers.
     Then it runs the outcome on the bearer:
 
-    - `"death"` kills the bearer, which is how a delayed poison works.
+    - `"death"` kills the bearer, which is how a delayed poison works. The death is a death by poison, with
+      [`DeathEvent.poison`][osrlib.core.events.DeathEvent.poison] set, only when the effect's `kind` contains
+      `poison`. Name a delayed poison's kind that way, because a session revives a character with
+      *neutralize poison* only after a death by poison. A kind such as `"venom"` kills, but not by poison.
     - `"splash_damage"` deals the second round of damage from burning oil or holy water. It rolls the `dice`
       param, which the definition needs.
     - `"weakness_strength_set"` attaches the Ring of Weakness curse when its onset ends. Pass an `allocator` to
@@ -1676,7 +1685,8 @@ class EffectsLedger(_Model):
             return events
         if definition.expiry == "death":
             if not has_condition(target, Condition.DEAD):
-                events.extend(kill(target))
+                # A poison whose onset ran out, like the black widow's, kills by poison.
+                events.extend(kill(target, poison="poison" in definition.kind))
         elif definition.expiry == "weakness_strength_set":
             # The Ring of Weakness's onset ran out: the curse takes hold as an
             # indefinite item-kind effect setting STR to the printed value.

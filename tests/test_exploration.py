@@ -828,7 +828,7 @@ class TestTrapResolutionCensus:
         trap = TrapSpec(
             kind="room",
             trigger="enter",
-            effect=TrapEffect(save={"category": "death", "on_save": "negates"}, kills=True),
+            effect=TrapEffect(save={"category": "death", "on_save": "negates"}, kills=True, poison=True),
             affects="party",
         )
         session, member, events = resolve_trap(trap)

@@ -563,7 +563,8 @@ class TrapEffect(_Model):
 
     Put one in the `effect` of a [`TrapSpec`][osrlib.crawl.dungeon.TrapSpec], which sets when the
     trap springs and whom it hits. The fields combine: a dart trap deals damage, a pit deals falling
-    damage and can add a condition, and a gas trap calls for a saving throw and kills on a failure.
+    damage and can add a condition, and a poison gas trap calls for a saving throw and kills by poison on a
+    failure.
     For a trap that your own code resolves, leave the other fields unset and describe the trap in
     `manual`.
 
@@ -579,6 +580,7 @@ class TrapEffect(_Model):
         volley_dice: The number of projectiles, for a trap that fires several.
         save: The saving throw the victim rolls.
         kills: Whether the trap kills a victim who fails the save.
+        poison: Whether the trap's kill is a death by poison.
         condition: A condition a failed save inflicts.
         condition_duration_dice: The condition's duration, rolled.
         condition_duration_amount: The condition's duration, fixed.
@@ -591,7 +593,8 @@ class TrapEffect(_Model):
         ContentValidationError: If `damage_dice`, `volley_dice`, or `condition_duration_dice` is not
             a valid dice expression.
         ValueError: If a duration field is set without a `condition`, if the duration isn't whole,
-            if `volley_dice` is set without `damage_dice`, or if `transition` has a gate. A whole
+            if `volley_dice` is set without `damage_dice`, if `poison` is set without `kills`, or if
+            `transition` has a gate. A whole
             duration is `condition_duration_unit` with exactly one of `condition_duration_dice` and
             `condition_duration_amount`.
 
@@ -627,7 +630,15 @@ class TrapEffect(_Model):
     `condition`."""
     kills: bool = False
     """Whether the trap kills a victim who fails the save, like a poison gas trap. A victim who
-    passes the save survives, whatever `on_save` is. With no `save`, the trap kills every victim."""
+    passes the save survives, whatever `on_save` is. With no `save`, the trap kills every victim.
+    Set `poison` as well when the trap kills by poison."""
+    poison: bool = False
+    """Whether the trap's kill is a death by poison, such as the OSE SRD's poison gas and poisoned
+    needle, or `False` for any other kill, such as a death ray. The save versus death covers both, so
+    the save's category doesn't say which. *Neutralize poison* revives a character who died of
+    poison within ten rounds and no one else, so set this for every trap that kills with poison.
+    The victim's [`DeathEvent`][osrlib.core.events.DeathEvent] reports it in its `poison` field,
+    which the players see. Set it only with `kills`: damage from a trap is a death by damage."""
     condition: Condition | None = None
     """A condition the trap gives a victim who fails the save, like blindness, or `None`. A victim who
     passes the save doesn't get it. With no `save`, every victim gets it."""
@@ -682,6 +693,8 @@ class TrapEffect(_Model):
             raise ValueError("a condition duration needs a unit and either dice or a fixed amount")
         if self.volley_dice is not None and self.damage_dice is None:
             raise ValueError("a volley needs per-projectile damage dice")
+        if self.poison and not self.kills:
+            raise ValueError("poison marks a trap's kill, so it needs kills=True")
         if self.transition is not None and self.transition.requires is not None:
             # The chute moves the party by force. The party never attempts it, so
             # there is no attempt for a gate to guard.
@@ -729,11 +742,11 @@ class TrapSpec(_Model):
             kind="room",
             trigger="enter",
             affects="party",
-            effect=TrapEffect(kills=True, save=SaveSpec(category=SaveCategory.DEATH)),
+            effect=TrapEffect(kills=True, poison=True, save=SaveSpec(category=SaveCategory.DEATH)),
         )
         tomb = AreaSpec(id="tomb", cells=((2, 0),), trap=gas)
 
-        # A poisoned needle in the lock of a chest.
+        # A needle in the lock of a chest.
         needle = TrapSpec(kind="treasure", trigger="open", effect=TrapEffect(damage_dice="1d4"))
         chest = FeatureSpec(id="chest", kind="treasure_cache", trap=needle)
 

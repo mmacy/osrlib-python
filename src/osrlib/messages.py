@@ -303,7 +303,9 @@ _TEMPLATES: dict[str, Callable[[Any], str]] = {
     ),
     "combat.healing.applied": lambda event: f"{event.target_id} regains {event.amount} hit points ({event.source}).",
     "combat.healing.blocked": lambda event: f"{event.target_id} cannot be healed by {event.source} means.",
-    "combat.death.died": lambda event: f"{event.target_id} is killed.",
+    "combat.death.died": lambda event: (
+        f"{event.target_id} is killed by poison." if event.poison else f"{event.target_id} is killed."
+    ),
     "combat.death.permanent": lambda event: f"{event.target_id} is permanently destroyed.",
     "combat.equipment.destroyed": lambda event: (
         f"{event.target_id}'s equipment is destroyed: " + _listed(list(event.item_names)) + "."

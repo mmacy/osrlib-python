@@ -305,11 +305,19 @@ class DeathRecord(_Model):
     """Where the clock stood at the death, in rounds since the session began. Both revival windows
     are measured from here."""
     cause: str
-    """What killed the character: `"poison"`, `"damage"`, or `"unknown"`. The session reads the
-    events of the command that killed the character, up to the death, and records the last cause
-    among them. A failed save versus death ray or poison, or a poison effect that ran its course,
-    gives `"poison"`. Damage dealt gives `"damage"`. With neither, the cause is `"unknown"`. Only
-    *neutralize poison* treats `"poison"` differently from the other causes."""
+    """What killed the character: `"poison"`, `"damage"`, or `"unknown"`.
+
+    It's `"poison"` when the character's [`DeathEvent`][osrlib.core.events.DeathEvent] has `poison`
+    set. Every death by poison sets it: a monster's poison, at once or when its onset runs out, a
+    sea dragon's spittle, a potion of poison, and a trap whose
+    [`TrapEffect.poison`][osrlib.crawl.dungeon.TrapEffect.poison] is set. An effect whose `expiry` is
+    `"death"` kills by poison only when its [`kind`][osrlib.core.effects.EffectDefinition.kind]
+    contains `poison`. A failed save versus death
+    alone never makes it `"poison"`, because that save covers death ray as well. For any other
+    death, the session reads the events of the command that killed the character, up to the death.
+    It's `"damage"` when the character took damage after their last failed saving throw among them, and
+    `"unknown"` otherwise, as for *finger of death*. Only *neutralize poison* treats `"poison"`
+    differently from the other causes."""
 
 
 class JournalEntry(_Model):
@@ -2200,26 +2208,34 @@ class GameSession:
     def _record_deaths(self, events: Sequence[Event]) -> None:
         """Record party deaths with the clock round and the cause just resolved.
 
-        The cause is `poison` when the killing resolution was a poison save (a failed
-        death-category save immediately before the death) or a poison effect running its course,
-        and otherwise the kind of the nearest preceding cause-bearing event. Only *neutralize
-        poison* uses the difference between poison and other causes.
+        The cause is `poison` when the death event says poison killed. Otherwise it's `damage` when
+        the member took damage after their last failed save before the death, and `unknown` when
+        they didn't. Only *neutralize poison* uses the difference between poison and other causes.
+
+        Only a death recorded in these events counts: the member gains the `dead` condition, which
+        [`kill`][osrlib.core.effects.kill] reports before its death event. A `combat.death.permanent`
+        event for a member who was already dead, such as fire on the corpse of a member who wears a
+        ring of regeneration, leaves the record as it was, so the revival windows still count from
+        the death.
 
         Args:
             events: The just-executed command's events, in order. Monsters and NPC adventurers have
                 ids that aren't members', so their deaths are never recorded.
         """
         member_ids = {member.id for member in self.party.members}
-        cause = "unknown"
+        causes: dict[str, str] = {}
+        newly_dead: set[str] = set()
         for event in events:
-            if isinstance(event, SavingThrowRolledEvent) and event.category == "death":
-                if event.code == "combat.save.failed":
-                    cause = "poison"
-            elif isinstance(event, EffectExpiredEvent) and "poison" in event.kind:
-                cause = "poison"
+            if isinstance(event, SavingThrowRolledEvent) and event.code == "combat.save.failed":
+                # A failed save can kill without damage, so damage taken before it isn't the cause.
+                causes[event.target_id] = "unknown"
             elif isinstance(event, DamageDealtEvent):
-                cause = "damage"
-            if isinstance(event, DeathEvent) and event.target_id in member_ids:
+                causes[event.target_id] = "damage"
+            elif isinstance(event, ConditionGainedEvent) and event.condition == Condition.DEAD.value:
+                newly_dead.add(event.target_id)
+            elif isinstance(event, DeathEvent) and event.target_id in member_ids and event.target_id in newly_dead:
+                newly_dead.discard(event.target_id)
+                cause = "poison" if event.poison else causes.get(event.target_id, "unknown")
                 self.death_records[event.target_id] = DeathRecord(round=self.clock.rounds, cause=cause)
 
     def _felled_a_member(self, events: Sequence[Event]) -> bool:
