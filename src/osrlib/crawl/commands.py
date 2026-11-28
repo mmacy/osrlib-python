@@ -2317,6 +2317,12 @@ class PurchaseHealing(Command):
     Because the party pays, a dead member can be raised even when that member's purse is
     empty, and the party doesn't have to move coins between purses first.
 
+    To learn before you send the command which services the temple would refuse for each
+    member, and why, read
+    [`PlayerView.town_healing_rejections`][osrlib.crawl.views.PlayerView.town_healing_rejections].
+    It contains the rejections that follow the funds check, for a purchase that leaves
+    `caster_level` unset.
+
     Modes:
         `town`
 
@@ -2330,11 +2336,15 @@ class PurchaseHealing(Command):
         - `items.purchase.insufficient_funds` - the whole gold pieces in the party's
           purses add up to less than the town's price for the service.
         - `town.healing.no_effect` - the service would do nothing for the member. That's
-          `raise_dead` for a living member or for one dead longer than the spell reaches at
-          the cleric's level, `cure_disease` for a member who isn't diseased, and
+          `cure_light_wounds` or `cure_serious_wounds` for a member who is dead, at full hit
+          points, or `diseased` or `weakened`, because neither of those conditions lets a
+          member heal by magic. It's `cure_disease` for a member who isn't diseased, and
           `neutralize_poison` for a member who isn't poisoned and didn't die of poison in the
-          last 10 rounds. The session checks the party's funds first, so a party that can't
-          pay gets `items.purchase.insufficient_funds` instead.
+          last 10 rounds. It's `remove_curse` for a member who carries no item whose curse has
+          been revealed and has no item curse's effect on them. It's `raise_dead` for a living
+          member or for one dead longer than the spell reaches at the cleric's level. The
+          session checks the party's funds first, so a party that can't pay gets
+          `items.purchase.insufficient_funds` instead.
 
     Events:
         A [`HealingPurchasedEvent`][osrlib.crawl.events.HealingPurchasedEvent] listing

@@ -135,8 +135,9 @@ from osrlib.core.items import (
 )
 from osrlib.core.monsters import IdAllocator, MonsterInstance, _regular_plural
 from osrlib.core.ruleset import Ruleset
-from osrlib.core.spells import _reverses_at, caster_profile
+from osrlib.core.spells import _reverses_at, caster_profile, minimum_caster_level
 from osrlib.core.treasure import _ROLLED_VALUABLE_NAMES
+from osrlib.core.validation import Rejection
 from osrlib.crawl._feature_handles import (
     _authored_feature_id,
     _cache_available,
@@ -147,9 +148,11 @@ from osrlib.crawl._feature_handles import (
 )
 from osrlib.crawl._light import _burn_rounds, _light_carry_rejection, _light_reveal, _party_open_flame
 from osrlib.crawl._party_location import _can_travel_to_town
+from osrlib.crawl._spells import _cast_context
+from osrlib.crawl._town import _healing_rejections, _temple_spell
 from osrlib.crawl.adventure import Adventure
 from osrlib.crawl.battle import BattleState
-from osrlib.crawl.commands import Command, SessionMode
+from osrlib.crawl.commands import Command, PurchaseHealing, SessionMode
 from osrlib.crawl.dungeon import (
     Direction,
     DropPile,
@@ -1289,6 +1292,33 @@ class PlayerView(_Model):
     [`HEALING_SERVICES`][osrlib.crawl.exploration.HEALING_SERVICES] otherwise. Read it to show the
     temple's price list, and to check the party's gold against a price before you send a
     [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing]."""
+    town_healing_rejections: dict[str, dict[str, tuple[Rejection, ...]]] = {}
+    """Why the temple would refuse each of its services for each party member now, keyed by
+    [`MemberView.id`][osrlib.crawl.views.MemberView.id] and then by the
+    [`HealingService`][osrlib.crawl.commands.HealingService] name, like `"raise_dead"`.
+
+    Read it to disable a temple service that a member can't use, and to show the reason. Each value is the tuple of
+    [`Rejection`][osrlib.core.validation.Rejection] models that a
+    [`PurchaseHealing`][osrlib.crawl.commands.PurchaseHealing] for that member and service would get, with the same
+    `code` and `params`, and it's empty when the temple would sell the service. Turn a rejection into text by its
+    code, as you do for a refused command. The code you'll meet is `town.healing.no_effect`, for a service that
+    would do nothing for the member: *raise dead* for a living member, *cure light wounds* for a member at full hit
+    points, *remove curse* for a member with no curse to lift, and so on.
+
+    The answer is for a `PurchaseHealing` that leaves `caster_level` unset, so the temple cleric is of the lowest
+    level that can cast the service. That matters for *raise dead*, whose reach depends on the cleric's level: a
+    member who died a day or more ago shows `town.healing.no_effect` here, and a purchase with a higher
+    `caster_level` can still raise them.
+
+    The fee isn't part of the answer, so a service the party can't afford is listed as one it can buy. Compare the
+    price in `town_healing_prices` with what the party's purses can pay, because the session refuses a purchase the
+    party can't pay for with `items.purchase.insufficient_funds` before it makes these checks.
+
+    The map has an entry for every party member, the dead included, and every service, while the session is in the
+    `"town"` mode. The town's `town_services` don't change it, because the temple serves the party in any town. In
+    any other mode the map is empty, because the session refuses every `PurchaseHealing` there with
+    `session.command.wrong_mode`. A `PlayerView` that osrlib 2.10.0 built, such as a stored feed entry, has no
+    `town_healing_rejections`, and it validates with this map empty."""
     party: tuple[MemberView, ...]
     """The party's character sheets, in marching order, the dead included."""
     location: PartyLocation
@@ -1890,6 +1920,7 @@ def build_player_view(session) -> PlayerView:
             service: session.adventure.town.healing_prices.get(service, standard_gp)
             for service, (_, standard_gp) in HEALING_SERVICES.items()
         },
+        town_healing_rejections=_town_healing_rejections(session),
         party=members,
         location=session.dungeon_state.location,
         clock_rounds=session.clock.rounds,
@@ -1916,6 +1947,27 @@ def build_player_view(session) -> PlayerView:
         encounter=_encounter_view(session),
         supplies=_supplies_view(session),
     )
+
+
+def _town_healing_rejections(session) -> dict[str, dict[str, tuple[Rejection, ...]]]:
+    """The view's `town_healing_rejections`, from `_healing_rejections`, the check `PurchaseHealing` makes.
+
+    Outside the modes that accept `PurchaseHealing` the map is empty, and the view does no work for it. Inside them
+    each check uses the cleric level a purchase gets with `caster_level` unset, which never fails the command's level
+    check, and leaves out the funds check.
+    """
+    if session.mode not in PurchaseHealing.allowed_modes:
+        return {}
+    spells = {service: _temple_spell(session, service) for service in HEALING_SERVICES}
+    levels = {service: minimum_caster_level(spell) for service, spell in spells.items()}
+    rejections: dict[str, dict[str, tuple[Rejection, ...]]] = {}
+    for member in session.party.members:
+        context = _cast_context(session, [member], in_combat=False)
+        rejections[member.id] = {
+            service: tuple(_healing_rejections(session, member, service, spells[service], levels[service], context))
+            for service in HEALING_SERVICES
+        }
+    return rejections
 
 
 _TRACKED_SUPPLIES = frozenset({"torch", "lantern", "oil_flask", "tinder_box", "rations_standard", "rations_iron"})

@@ -6,6 +6,7 @@ The temple's services and standard prices are `HEALING_SERVICES` in `osrlib.craw
 from typing import Any
 
 from osrlib.core.character import Character
+from osrlib.core.combat import _healing_blocked
 from osrlib.core.effects import EFFECTS_STREAM, Condition, has_condition
 from osrlib.core.events import Event
 from osrlib.core.spells import (
@@ -21,8 +22,8 @@ from osrlib.core.spells import (
 )
 from osrlib.core.validation import Rejection
 from osrlib.crawl._party_members import _member_able
-from osrlib.crawl._spells import _cast_context, _cast_outcomes
-from osrlib.crawl.commands import PurchaseEquipment, PurchaseHealing, SellTreasure
+from osrlib.crawl._spells import _cast_context, _cast_outcomes, _has_curse_to_lift
+from osrlib.crawl.commands import HealingService, PurchaseEquipment, PurchaseHealing, SellTreasure
 from osrlib.crawl.events import HealingPurchasedEvent, ItemAcquiredEvent, TreasureSoldEvent
 from osrlib.data import load_classes, load_equipment
 
@@ -131,14 +132,11 @@ def _healing_payers(session, patient: Character, cost_gp: int) -> list[tuple[Cha
 
 
 def _handle_purchase_healing(session, command: PurchaseHealing) -> tuple[list[Rejection], list[Event]]:
-    from osrlib.crawl.exploration import HEALING_SERVICES
-
     try:
         member = session.member(command.character_id)
     except ValueError:
         return [Rejection(code="session.command.unknown_member", params={"character": command.character_id})], []
-    spell_id, standard_gp = HEALING_SERVICES[command.service]
-    spell = session.effective_spells.get(spell_id)
+    spell = _temple_spell(session, command.service)
     lowest = minimum_caster_level(spell)
     highest = load_classes().get("cleric").max_level
     caster_level = lowest if command.caster_level is None else command.caster_level
@@ -149,30 +147,20 @@ def _handle_purchase_healing(session, command: PurchaseHealing) -> tuple[list[Re
                 params={"item": command.service, "caster_level": caster_level, "minimum": lowest, "maximum": highest},
             )
         ], []
-    cost_gp = session.adventure.town.healing_prices.get(command.service, standard_gp)
+    cost_gp = _healing_price(session, command.service)
     payers = _healing_payers(session, member, cost_gp)
     if payers is None:
         return [
             Rejection(code="items.purchase.insufficient_funds", params={"item": command.service, "cost_gp": cost_gp})
         ], []
     context = _cast_context(session, [member], in_combat=False)
-    if not _healing_would_work(command.service, member, spell, caster_level, context):
-        return [Rejection(code="town.healing.no_effect", params={"item": command.service, "character": member.id})], []
+    rejections = _healing_rejections(session, member, command.service, spell, caster_level, context)
+    if rejections:
+        return rejections, []
     temple_cleric = _temple_cleric(spell, caster_level)
     temple_profile = caster_profile(temple_cleric.definition)
     if temple_profile is None:  # unreachable: the temple cleric is a cleric
         raise ValueError("the temple cleric has no casting profile")
-    cast_rejections = validate_cast(
-        temple_cleric,
-        spell,
-        spell.modes[0].key,
-        profile=temple_profile,
-        targets=[member],
-        context=context,
-        ledger=session.ledger,
-    )
-    if cast_rejections:
-        return cast_rejections, []
     for payer, share in payers:
         payer.inventory.purse.spend(share)
     events: list[Event] = [
@@ -204,20 +192,87 @@ def _handle_purchase_healing(session, command: PurchaseHealing) -> tuple[list[Re
     return [], events
 
 
+def _temple_spell(session, service: HealingService) -> SpellTemplate:
+    """The spell the temple casts for a service, from the session's catalog."""
+    from osrlib.crawl.exploration import HEALING_SERVICES
+
+    return session.effective_spells.get(HEALING_SERVICES[service][0])
+
+
+def _healing_price(session, service: HealingService) -> int:
+    """What the session's town charges for a service, in gold pieces: the town's own price, or the standard one."""
+    from osrlib.crawl.exploration import HEALING_SERVICES
+
+    return session.adventure.town.healing_prices.get(service, HEALING_SERVICES[service][1])
+
+
+def _healing_rejections(
+    session,
+    member,
+    service: HealingService,
+    spell: SpellTemplate,
+    caster_level: int,
+    context: CastContext,
+) -> list[Rejection]:
+    """Return why the temple would refuse a service for a member, apart from the caster level and the fee.
+
+    `_handle_purchase_healing` calls this after its caster level and funds checks, and
+    `PlayerView.town_healing_rejections` calls it for every member and service, so the view and the command can't
+    disagree. It returns `town.healing.no_effect` when the service would do nothing for the member (see
+    `_healing_would_work`), and otherwise the rejections of the temple cleric's cast from
+    [`validate_cast`][osrlib.core.spells.validate_cast], which is empty when the temple would sell the service. The
+    check only reads the session, so it makes no draw, takes no time, and changes nothing.
+
+    Args:
+        session: The session whose party member is treated.
+        member: The member to treat, alive or dead.
+        service: The service to check.
+        spell: The service's spell, from `_temple_spell`.
+        caster_level: The temple cleric's level, which the caller has checked.
+        context: The member's cast context, from `_cast_context`, which carries the time since the member died.
+
+    Returns:
+        The rejections, empty when the temple would sell the service to a party that can pay for it.
+    """
+    if not _healing_would_work(session, service, member, spell, caster_level, context):
+        return [Rejection(code="town.healing.no_effect", params={"item": service, "character": member.id})]
+    temple_cleric = _temple_cleric(spell, caster_level)
+    return validate_cast(
+        temple_cleric,
+        spell,
+        spell.modes[0].key,
+        profile=caster_profile(temple_cleric.definition),
+        targets=[member],
+        context=context,
+        ledger=session.ledger,
+    )
+
+
 def _healing_would_work(
-    service: str, member: Character, spell: SpellTemplate, caster_level: int, context: CastContext
+    session, service: str, member: Character, spell: SpellTemplate, caster_level: int, context: CastContext
 ) -> bool:
     """Return whether a temple service cast at `caster_level` would do anything for the member.
 
-    *Raise dead* needs a dead member, dead no longer than the spell reaches at the cleric's level.
-    *Cure disease* needs a diseased member. *Neutralize poison* needs a poisoned member, or one
-    that poison killed within the spell's revival window. The two revivals are judged by the same
-    functions the spells resolve with, so the temple and a cast agree about who comes back.
-    `_cast_context` works out the time since death from the session's death records. The other
-    services always count as working. The check only reads state, so a refusal makes no random
-    roll and changes nothing.
+    *Cure light wounds* and *cure serious wounds* need a living member below their maximum hit points whom no
+    condition stops from healing by magic: a `diseased` or `weakened` member heals nothing from them. *Cure disease*
+    needs a diseased member. *Neutralize poison* needs a poisoned member, or one that poison killed within the
+    spell's revival window. *Remove curse* needs a member with something to lift: a carried item whose curse has been
+    revealed, or an item curse's effect. *Raise dead* needs a dead member, dead no longer than the spell reaches at
+    the cleric's level.
+
+    Each check uses the function that the spell or the session resolves with, so the temple and a cast agree about
+    what the service changes. `_cast_context` works out the time since death from the session's death records. The
+    check only reads state, so a refusal makes no random roll and changes nothing.
     """
     effect = spell.modes[0].effect
+    if service in ("cure_light_wounds", "cure_serious_wounds"):
+        return (
+            not has_condition(member, Condition.DEAD)
+            and not _healing_blocked(member, "magical")
+            and member.current_hp < member.max_hp
+        )
+    if service == "remove_curse":
+        return _has_curse_to_lift(session, member)
     if service == "raise_dead":
         return effect is not None and _restores_life(effect, caster_level, member, context)
     if service == "cure_disease":

@@ -304,6 +304,8 @@ class TestScriptedPlaythrough:
         assert instance_ids == ["valuable-7001"]
         result = run(client, session_id, {"command_type": "sell_treasure", "item_ids": instance_ids})
         assert result["accepted"], result
+        # The temple refuses to heal a member at full hit points, so the member takes a wound first.
+        member.current_hp = 1
         result = run(
             client,
             session_id,
