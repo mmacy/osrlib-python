@@ -1130,19 +1130,28 @@ class EncounterView(_Model):
     - `encounter.evade.already_evading`, for every value, while a pursuit is running, as `pursuit_gap_feet` shows.
       Each round of a pursuit comes from a [`Wait`][osrlib.crawl.commands.Wait] or a
       [`DropItems`][osrlib.crawl.commands.DropItems] instead.
+    - `encounter.evade.nobody_able_to_act`, for every value, when no living member can act, because each one is
+      paralysed, petrified, or asleep.
+    - `encounter.evade.cannot_move`, for every value, with the `character` param, when that living member is caught in
+      a *web*.
+    - `encounter.evade.cannot_move`, with the `reason` param `"overloaded"`, when a living member would still carry
+      more than the maximum load after the drop. The `"treasure"` drop scatters every coin before the party runs, so
+      an overloaded party can get the rejection for `"none"` and `"food"` and none for `"treasure"`.
     - `encounter.evade.nothing_to_drop`, with the `drop` param `"treasure"`, when no living member has a coin in
       their purse.
     - `encounter.evade.nothing_to_drop`, with the `drop` param `"food"`, when no living member carries a
       `rations_standard` or a `rations_iron`.
 
     A dead member's coins and rations don't count. A member who is alive but can't act, such as one who is asleep or
-    paralysed, counts.
+    paralysed, counts, as long as another member can act.
 
-    While the session is in the `encounter` mode and no pursuit is running, the `"none"` entry is empty. So when the
-    `"none"` entry holds a rejection, the party can't evade with any drop. The map has an entry for every value while
-    the session is in the `encounter` mode. In a battle, the map is empty, because the session refuses every `Evade`
-    there with `session.command.wrong_mode`. An `EncounterView` that osrlib 2.10.0 built, such as one in a stored
-    feed entry, has no `evade_rejections`, and it validates with this map empty."""
+    While the session is in the `encounter` mode and no pursuit is running, the `"none"` entry is empty unless the party
+    can't run: nobody can act, a member is caught in a *web*, or a member carries too much to move. Only the overload
+    can clear with a drop, so read the `"treasure"` entry before you tell the player that the party can't evade.
+
+    The map has an entry for every value while the session is in the `encounter` mode. In a battle, the map is empty,
+    because the session refuses every `Evade` there with `session.command.wrong_mode`. An `EncounterView` that osrlib
+    2.10.0 built, such as one in a stored feed entry, has no `evade_rejections`, and it validates with the map empty."""
 
 
 class ObjectiveView(_Model):

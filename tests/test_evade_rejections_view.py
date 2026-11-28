@@ -33,6 +33,9 @@ client might store a feed entry. osrlib 2.10.0 had no `EncounterView.evade_rejec
 
 NOTHING_TO_DROP = "encounter.evade.nothing_to_drop"
 ALREADY_EVADING = Rejection(code="encounter.evade.already_evading")
+NOBODY_ABLE_TO_ACT = Rejection(code="encounter.evade.nobody_able_to_act")
+CANNOT_MOVE = "encounter.evade.cannot_move"
+OVERLOADED = (Rejection(code=CANNOT_MOVE, params={"reason": "overloaded"}),)
 
 
 def encounter_session(*, stance: ReactionResult = ReactionResult.INDIFFERENT, distance: int = 40) -> GameSession:
@@ -69,6 +72,16 @@ def paralyse(game: GameSession, index: int) -> None:
     grant_condition(game.party.members[index], Condition.PARALYSED, None)
 
 
+def entangle(game: GameSession, index: int) -> None:
+    grant_condition(game.party.members[index], Condition.ENTANGLED, None)
+
+
+def overload(game: GameSession, index: int) -> None:
+    """Give the member 5,000 gp, which weighs more than the maximum load, so they can't move until it's dropped."""
+    assert game.execute(GrantCoins(character_id=game.party.members[index].id, coins=Coins(gp=5000))).accepted
+    assert game.party.members[index].movement_rate(game.ruleset) == 0
+
+
 STATES: dict[str, Callable[[GameSession], None]] = {
     "nothing_to_drop": lambda game: None,
     "coins_in_one_purse": lambda game: coins(game, 1),
@@ -83,6 +96,14 @@ STATES: dict[str, Callable[[GameSession], None]] = {
         coins(game, 3),
         *(paralyse(game, index) for index in range(len(game.party.members))),
     ),
+    "one_member_entangled": lambda game: (coins(game, 0), food(game, 1), entangle(game, 2)),
+    "entangled_beside_the_asleep": lambda game: (
+        coins(game, 0),
+        food(game, 1),
+        entangle(game, 3),
+        *(grant_condition(game.party.members[index], Condition.ASLEEP, None) for index in range(3)),
+    ),
+    "overloaded_by_coins": lambda game: (overload(game, 0), food(game, 1)),
     "coins_and_food": lambda game: (coins(game, 0), food(game, 1)),
 }
 
@@ -99,8 +120,17 @@ EXPECTED: dict[str, dict[str, tuple[Rejection, ...]]] = {
     "food_only_on_a_dead_member": {"none": (), "treasure": TREASURE_REFUSED, "food": FOOD_REFUSED},
     # A member who is alive counts, whether or not they can act.
     "food_and_coins_only_on_a_paralysed_member": {"none": (), "treasure": (), "food": ()},
-    # The session accepts an evasion from a party that can't act (#372), and the view says so.
-    "nobody_able_to_act": {"none": (), "treasure": (), "food": ()},
+    # A party with nobody able to act can't run, whatever it would drop (#372).
+    "nobody_able_to_act": dict.fromkeys(DROPS, (NOBODY_ABLE_TO_ACT,)),
+    # A member caught in a web can't be carried out of it, whatever the party would drop (#372).
+    "one_member_entangled": dict.fromkeys(
+        DROPS, (Rejection(code=CANNOT_MOVE, params={"character": "character-0003"}),)
+    ),
+    "entangled_beside_the_asleep": dict.fromkeys(
+        DROPS, (Rejection(code=CANNOT_MOVE, params={"character": "character-0004"}),)
+    ),
+    # Scattering the coins lightens the load enough to run, and dropping a ration doesn't (#372).
+    "overloaded_by_coins": {"none": OVERLOADED, "treasure": (), "food": OVERLOADED},
     "coins_and_food": {"none": (), "treasure": (), "food": ()},
 }
 """For each state and drop, the rejections an `Evade` gets with indifferent wolves and no pursuit running."""

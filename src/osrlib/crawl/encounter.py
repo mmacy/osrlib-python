@@ -149,7 +149,7 @@ from typing import get_args
 
 from pydantic import ConfigDict, Field, ValidationInfo, field_validator
 
-from osrlib.core.combat import cannot_move, roll_reaction
+from osrlib.core.combat import cannot_move, incapacitated, roll_reaction
 from osrlib.core.effects import Condition, has_condition, regeneration_definition
 from osrlib.core.events import Event
 from osrlib.core.frozen import _Model
@@ -922,10 +922,12 @@ def _evade_rejections(session, drop: str) -> list[Rejection]:
     """Return the rejections that an `Evade` with `drop` gets from its handler now.
 
     `_handle_evade` and the player view's `EncounterView.evade_rejections` both call this, so the view and the
-    command can't disagree. The check reads whether an encounter is open, whether a pursuit is running, and the living
-    members' purses and packs. The player view shows each of these, so the answer reveals nothing hidden from the
-    players. The check leaves out the mode gate, because the session refuses an `Evade` outside the `encounter` mode
-    with `session.command.wrong_mode` before the handler runs. The call draws nothing and changes nothing.
+    command can't disagree. The check reads whether an encounter is open, whether a pursuit is running, whether any
+    living member can act, whether a living member is entangled, the living members' purses and packs, and whether a
+    living member would carry too much to move once the drop is made. The player view shows each of these, so the
+    answer reveals nothing hidden from the players. The check leaves out the mode gate, because the session refuses an
+    `Evade` outside the `encounter` mode with `session.command.wrong_mode` before the handler runs. The call draws
+    nothing and changes nothing.
 
     Args:
         session (osrlib.crawl.session.GameSession): The running session.
@@ -940,6 +942,13 @@ def _evade_rejections(session, drop: str) -> list[Rejection]:
     if state.pursuit is not None:
         return [Rejection(code="encounter.evade.already_evading")]
     living = session.party.living_members()
+    if _nobody_able_to_act(session):
+        # A party with nobody able to act is forced to stop, so it can't run (see the adaptations register).
+        return [Rejection(code="encounter.evade.nobody_able_to_act")]
+    entangled = _entangled_member(session)
+    if entangled is not None:
+        # The others can't carry a member out of a web, so the party can't run while one is caught in it.
+        return [Rejection(code="encounter.evade.cannot_move", params={"character": entangled.id})]
     if drop == "treasure" and not any(member.inventory.purse.total_coins for member in living):
         return [Rejection(code="encounter.evade.nothing_to_drop", params={"drop": "treasure"})]
     if drop == "food" and not any(
@@ -947,7 +956,45 @@ def _evade_rejections(session, drop: str) -> list[Rejection]:
         for member in living
     ):
         return [Rejection(code="encounter.evade.nothing_to_drop", params={"drop": "food"})]
+    if any(_overloaded_after_drop(session, member, drop) for member in living):
+        return [Rejection(code="encounter.evade.cannot_move", params={"reason": "overloaded"})]
     return []
+
+
+def _nobody_able_to_act(session) -> bool:
+    """Whether every living member is dead, paralysed, petrified, or asleep, so nobody in the party can act.
+
+    This is the test that `session.command.member_incapacitated` and the battle's declarers use.
+    """
+    return all(incapacitated(member) for member in session.party.living_members())
+
+
+def _entangled_member(session):
+    """The first living member in marching order who is caught in a *web*, or None."""
+    return next(
+        (member for member in session.party.living_members() if has_condition(member, Condition.ENTANGLED)), None
+    )
+
+
+def _overloaded_after_drop(session, member, drop: str) -> bool:
+    """Whether `member` would carry too much to move once an `Evade` with `drop` has scattered its bait.
+
+    `_handle_evade` makes the drop before it compares the two sides' rates, so a member whose coins put them over the
+    maximum load can run once `"treasure"` has emptied the purse. The check works on a copy of the member's inventory
+    and changes nothing.
+    """
+    if member.movement_rate(session.ruleset) > 0:
+        return False
+    if drop == "none":
+        return True
+    after = member.model_copy(update={"inventory": member.inventory.model_copy(deep=True)})
+    if drop == "treasure":
+        purse = after.inventory.purse
+        purse.pp = purse.gp = purse.ep = purse.sp = purse.cp = 0
+    elif drop == "food":
+        if _party_members._consume_item(after, "rations_standard") is None:
+            _party_members._consume_item(after, "rations_iron")
+    return after.movement_rate(session.ruleset) == 0
 
 
 def _handle_evade(session, command: Evade) -> tuple[list[Rejection], list[Event]]:
@@ -981,7 +1028,7 @@ def _handle_evade(session, command: Evade) -> tuple[list[Rejection], list[Event]
                     ItemsDroppedEvent(character_id=member.id, item_ids=(_party_members._consumed_item_id(ration),))
                 )
 
-    pursuers = [group for group in state.groups if not group.fled and _group_can_pursue(session, group)]
+    pursuers = [group for group in state.groups if _group_pursues(session, group)]
     pursues = state.stance in (ReactionResult.ATTACKS.value, ReactionResult.HOSTILE.value) and pursuers
     if not pursues or _party_run_rate(session) > _pursuer_rate(session, pursuers):
         events.append(EvasionEvent(code="encounter.evasion.succeeded"))
@@ -1089,9 +1136,17 @@ def _handle_drop_during_encounter(session, command: DropItems) -> tuple[list[Rej
 
 
 def _party_run_rate(session) -> int:
-    """Running: full movement rate in feet per round (rules as written), slowest living member."""
+    """Running: full movement rate in feet per round (rules as written), slowest living member.
+
+    The members who can act carry the ones who are paralysed, petrified, or asleep at the party's rate (see the
+    adaptations register). A party with no living member able to act, or with a living member caught in a *web*, is
+    forced to stop, so its rate is 0. `Evade` refuses such a party, so the party gets this rate for those reasons only
+    during a pursuit that's already running, and the pursuers then close the gap at their rate.
+    """
     from osrlib.crawl import exploration
 
+    if _nobody_able_to_act(session) or _entangled_member(session) is not None:
+        return 0
     return exploration.exploration_rate(session)
 
 
@@ -1105,6 +1160,23 @@ def _group_can_pursue(session, group: EncounterGroup) -> bool:
     return any(
         not has_condition(combatant, Condition.DEAD) and not cannot_move(combatant)
         for combatant in (session.combatant(monster_id) for monster_id in group.monster_ids)
+    )
+
+
+def _group_pursues(session, group: EncounterGroup) -> bool:
+    """Whether the group gives chase to a party that runs: the one test for a pursuer.
+
+    A group pursues when it hasn't fled, isn't fleeing after a failed morale check, has a living member who is neither
+    turned nor afraid, and has a living member able to move. `_handle_evade` and `_pursuit_round` ask this, and so
+    does the battle when the party retreats from it.
+    """
+    from osrlib.crawl.battle import _group_all_shaken
+
+    return (
+        not group.fled
+        and not group.fleeing
+        and not _group_all_shaken(session, group)
+        and _group_can_pursue(session, group)
     )
 
 
@@ -1161,7 +1233,9 @@ def _pursuit_round(session, *, dropped_kind: str | None = None) -> list[Event]:
 
     If nobody in the party is alive after the round's clock advance, the round
     ends there: nobody is running, so the function rolls no distraction die,
-    doesn't update the gap, and starts no battle.
+    doesn't update the gap, and starts no battle. If no group still pursues the
+    party, as `_group_pursues` decides, the party escapes at once, with no
+    distraction roll and no exhaustion.
     """
     from osrlib.crawl.session import ENCOUNTER_STREAM
 
@@ -1171,7 +1245,13 @@ def _pursuit_round(session, *, dropped_kind: str | None = None) -> list[Event]:
     events = session.advance_rounds(1)
     if not session.party.living_members():
         return events
-    pursuers = [group for group in state.groups if not group.fled]
+    pursuers = [group for group in state.groups if _group_pursues(session, group)]
+    if not pursuers:
+        # Nobody is left to give chase, because every pursuer is asleep, paralysed, afraid, or otherwise out of the
+        # chase, so the party gets away at once. A chase that ends early doesn't exhaust the party.
+        events.append(PursuitEvent(code="encounter.pursuit.escaped", round=pursuit.round, gap_feet=pursuit.gap_feet))
+        events.extend(end_encounter(session, "escaped"))
+        return events
     if dropped_kind is not None:
         matches = any(_group_intelligent(session, group) == (dropped_kind == "treasure") for group in pursuers)
         if matches:
@@ -1325,8 +1405,12 @@ def end_encounter(session, outcome: str) -> list[Event]:
 
     Every monster that ended slain or routed gets a
     [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] and a record in
-    `session.defeated_monsters` with its experience value. Routed covers three cases: a monster
-    that fled, one that's still fleeing, and one a cleric turned. The function records a defeated
+    `session.defeated_monsters` with its experience value. Routed covers four cases: a monster
+    that fled, one that's still fleeing, one a cleric turned, and an afraid member of a group whose
+    living members are all turned or afraid, because that group retreats as a whole. The rule is the
+    same for every outcome, so a party that frightens a group and then evades gets the experience for
+    it. An afraid member of a group with a living member who is neither turned nor afraid isn't
+    routed. The function records a defeated
     NPC adventurer with the template id `npc:<class_id>`.
 
     The treasure slain monsters carried drops in a pile on the party's cell, which
@@ -1420,6 +1504,7 @@ def end_encounter(session, outcome: str) -> list[Event]:
         ```
     """
     from osrlib.core.clock import ROUNDS_PER_TURN
+    from osrlib.crawl.battle import _group_all_shaken
     from osrlib.crawl.session import DefeatedMonsterRecord
 
     state = session.encounter
@@ -1429,12 +1514,15 @@ def end_encounter(session, outcome: str) -> list[Event]:
     events: list[Event] = []
     all_defeated = True
     for group in state.groups:
+        # A group whose living members are all turned or afraid retreats as a whole, so each of them is routed, as
+        # a member of a group that failed morale is (see the adaptations register).
+        running = group.fled or group.fleeing or _group_all_shaken(session, group)
         for monster_id in group.monster_ids:
             combatant = session.combatant(monster_id)
             monster_outcome = None
             if has_condition(combatant, Condition.DEAD):
                 monster_outcome = "slain"
-            elif has_condition(combatant, Condition.TURNED) or group.fled or group.fleeing:
+            elif has_condition(combatant, Condition.TURNED) or running:
                 monster_outcome = "routed"
             if monster_outcome is None:
                 all_defeated = False

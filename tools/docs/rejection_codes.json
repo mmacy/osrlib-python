@@ -46,6 +46,8 @@
   "creation.languages.not_available": "The player chose a language that does not appear on the list of languages available for extra selection.",
   "creation.languages.too_many": "The player chose more extra languages than the character's Intelligence score allows.",
   "encounter.evade.already_evading": "The party sends another evade command while it is already fleeing and being chased in the current encounter.",
+  "encounter.evade.cannot_move": "The party tries to evade, but it can't run, because a living member is caught in a web or would still carry more than the maximum load after the drop.",
+  "encounter.evade.nobody_able_to_act": "The party tries to evade, but every living party member is paralysed, petrified, or asleep, so nobody can run.",
   "encounter.evade.nothing_to_drop": "The party tries to drop treasure or food to slow its pursuers, but no living party member is carrying anything of that kind to drop.",
   "encounter.none_active": "The command applies only during an encounter, but no encounter is currently active in the session.",
   "encounter.parley.mid_pursuit": "The party tries to open negotiations while a pursuit is underway, and parley isn't available once a chase has started.",

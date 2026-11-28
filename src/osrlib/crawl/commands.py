@@ -2464,13 +2464,20 @@ class Evade(Command):
     """Run from the encounter before a battle starts.
 
     An encounter must be open. Monsters whose stance is `attacks` or `hostile` pursue the
-    party, if any of them can move. The party gets away at once when no monster pursues it,
+    party, if any of them can move. A group that is running itself, after a failed morale
+    check or because its living members are all turned or afraid, doesn't pursue. A group
+    that stops pursuing during the chase drops out of it, and when no group is left, the
+    party gets away at once. The party gets away at once when no monster pursues it,
     or when it runs faster than the slowest monster that pursues it. Otherwise a pursuit
     starts, and each [`Wait`][osrlib.crawl.commands.Wait] or
     [`DropItems`][osrlib.crawl.commands.DropItems] runs one round of it. `drop` scatters
     bait as the party runs: coins tempt intelligent monsters, and food tempts unintelligent
     ones. Once battle has started, the party can't evade. The OSE SRD allows evasion only
-    before combat.
+    before combat. The members who can act carry a member who is asleep, paralysed, or turned
+    to stone at the party's usual rate. They can't carry a member out of a *web*, and a member
+    who carries more than the maximum load can't run. If nobody in the party can act during a
+    pursuit, or a member is caught in a *web*, the party stops running, and the pursuers close
+    the gap at their own rate.
 
     Modes:
         `encounter`
@@ -2480,6 +2487,12 @@ class Evade(Command):
         - `encounter.none_active` - a second check behind the mode gate, which normal
           play never reaches.
         - `encounter.evade.already_evading` - a pursuit is already running.
+        - `encounter.evade.nobody_able_to_act` - no living member can act, because each one
+          is paralysed, petrified, or asleep. A party with nobody able to act can't run.
+        - `encounter.evade.cannot_move` - the party can't run. The `character` param names a
+          living member caught in a *web*. The `reason` param `overloaded` means that a living
+          member would still carry more than the maximum load once the drop is made. In
+          practice only `treasure` can clear an overload, because it scatters every coin first.
         - `encounter.evade.nothing_to_drop` - no living member has coins (for
           `treasure`) or rations (for `food`) to scatter.
 
@@ -4174,9 +4187,11 @@ class EndEncounter(Command):
     away, and then switches to `exploring`:
 
     - Monsters that were slain earlier in the encounter, or that fled, are still fleeing, or
-      were turned, count as defeated and are worth experience.
-    - Slain monsters drop their treasure in a pile on the party's cell. Monsters that fled or
-      were turned take theirs with them.
+      were turned, count as defeated and are worth experience. So does each afraid member of a
+      group whose living members are all turned or afraid, because that group retreats as a whole.
+      The session applies the same rule however the encounter ends.
+    - Slain monsters drop their treasure in a pile on the party's cell. Monsters that fled, were
+      turned, or retreat with such a group take theirs with them.
     - Monsters still standing aren't defeated and are worth no experience.
     - Effects on the encounter's monsters end.
     - The clock advances, so the encounter costs at least one turn.

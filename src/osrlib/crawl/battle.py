@@ -2936,14 +2936,7 @@ def _check_ends(session, *, party_retreating: bool) -> list[Event] | None:
         # Only a group still willing and able to pursue: not one that failed morale and
         # not the shaken (they are fleeing themselves), and not a group whose
         # living members all lie helpless, because retreat from those succeeds.
-        pursuers = [
-            group
-            for group in groups
-            if not group.fled
-            and not group.fleeing
-            and not _group_all_shaken(session, group)
-            and encounter_module._group_can_pursue(session, group)
-        ]
+        pursuers = [group for group in groups if encounter_module._group_pursues(session, group)]
         if not pursuers:
             return [BattleEndedEvent(code="battle.ended.fled"), *encounter_module.end_encounter(session, "evaded")]
         session.mode = SessionMode.ENCOUNTER
