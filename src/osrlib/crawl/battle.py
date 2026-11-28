@@ -3486,9 +3486,8 @@ def _cast_targets(
     dead, out-of-encounter, or fled enemy gets `magic.cast.unknown_target` before the visibility or
     reach checks. A cell reference that doesn't name a cell of the level the party stands on gets
     `magic.cast.unknown_target` too (see `_party_members._spell_cell`). Party member targets retain their
-    existing checks. A scroll declaration
-    uses the same target lookup, and so do `CastSpell` and a scroll read with `UseItem` outside a
-    battle (see `_party_members._spell_target`).
+    existing checks. A scroll declaration uses the same target lookup, and so do `CastSpell` and a scroll read
+    with `UseItem` outside a battle (see `_party_members._named_spell_target`).
     """
     try:
         mode = spell.mode(declaration.spell_mode, reversed=declaration.reversed)
@@ -3518,18 +3517,12 @@ def _cast_targets(
     targets: list = []
     distance: int | None = None
     for target_ref in declaration.targets:
-        if target_ref.startswith("cell:"):
-            if _party_members._spell_cell(session, target_ref) is None:
-                return [], None, [Rejection(code="magic.cast.unknown_target", params={"target": target_ref})]
-            targets.append(target_ref)
-            continue
-        entity, group = _party_members._spell_target(session, target_ref)
-        if entity is None:
-            return [], None, [Rejection(code="magic.cast.unknown_target", params={"target": target_ref})]
-        if has_condition(entity, Condition.INVISIBLE):
-            # The player already knows the target is invisible, so this rejection reveals nothing.
-            return [], None, [Rejection(code="battle.declaration.invisible_target", params={"target": target_ref})]
+        entity, group, refused = _party_members._named_spell_target(session, target_ref, in_battle=True)
+        if refused is not None:
+            return [], None, [refused]
         targets.append(entity)
+        if isinstance(entity, str):
+            continue
         if group is None:
             distance = max(distance or 0, placement.between(declaration.character_id, target_ref))
             continue
@@ -3759,8 +3752,10 @@ def _healing_touch(session, declaration: BattleDeclaration, member, instance, pl
     2. The checks [`UseItem`][osrlib.crawl.commands.UseItem] makes (see `_magic_items._healing_target`):
        `items.use.unknown_target` for an id that isn't a party member's and isn't a creature's in a group of the
        encounter that hasn't fled, `items.use.target_cannot_be_healed` for a creature that's dead or turned to
-       stone, and `items.use.target_healed_today` for a creature the staff already healed today. A dead creature
-       of an encounter that has ended gets `items.use.unknown_target`, as an id that matches nothing does.
+       stone, `items.use.invisible_target` for another creature that's invisible, a member included (`UseItem`
+       accepts an invisible member, but in a battle an invisible combatant can't be targeted), and
+       `items.use.target_healed_today` for a creature the staff already healed today. A dead creature of an encounter
+       that has ended gets `items.use.unknown_target`, as an id that matches nothing does.
     3. Reach. Another member has to stand within 5' of the user in `placement` (see `_reach_rejection`). A touch on
        a monster takes the checks of `_touch_rejection`.
 
@@ -3771,7 +3766,7 @@ def _healing_touch(session, declaration: BattleDeclaration, member, instance, pl
     target_id, rejections = _sole_target(declaration, member.id, required=False)
     if rejections:
         return None, rejections
-    target, rejections = _magic_items._healing_target(session, member, instance, target_id)
+    target, rejections = _magic_items._healing_target(session, member, instance, target_id, in_battle=True)
     if target is None or target is member:
         return target, rejections
     _, group = _party_members._actable_target(session, target.id)

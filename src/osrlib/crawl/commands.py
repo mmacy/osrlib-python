@@ -1840,8 +1840,9 @@ class CastSpell(Command):
     adventurer's included, even one an earlier event named. A cell reference has to name a cell of
     the level the party stands on. The session refuses one that doesn't parse, names no cell of the
     adventure, or names a cell of another level or another dungeon with `magic.cast.unknown_target`,
-    and in town it refuses every cell reference that way. The mode's targeting sets how many
-    targets it takes, and the session refuses the wrong number with `magic.cast.target_count`.
+    and in town it refuses every cell reference that way. A member who is invisible is still a
+    target. The mode's targeting sets how many targets it takes, and the session refuses the
+    wrong number with `magic.cast.target_count`.
     The session refuses a cell reference for a mode that works only on creatures with
     `magic.cast.target_must_be_creature`."""
 
@@ -1909,7 +1910,8 @@ class UseItem(Command):
           scroll's level: `magic.cast.unknown_target` (a target that isn't a party member and
           isn't a living creature in a group of the open encounter that hasn't fled, or a cell
           reference that doesn't name a cell of the level the party stands on),
-          `magic.cast.unknown_mode`,
+          `magic.cast.invisible_target` (an invisible monster or NPC adventurer of the open
+          encounter, while an invisible member is still a target), `magic.cast.unknown_mode`,
           `magic.cast.target_count`, `magic.cast.target_must_be_creature`,
           `magic.cast.out_of_range`, `magic.cast.caster_incapacitated`,
           `magic.cast.caster_restrained`, and `magic.cast.anti_magic_shell`.
@@ -1919,6 +1921,8 @@ class UseItem(Command):
           has fled, or a staff of healing's target that isn't a party member and isn't in a group
           of the open encounter that hasn't fled), `items.use.target_cannot_be_healed` (a
           staff of healing used on a creature that's dead or turned to stone),
+          `items.use.invisible_target` (a staff of healing used on an invisible monster or NPC
+          adventurer of the open encounter that stands),
           `items.use.target_healed_today` (a staff of healing used on a creature it already
           healed today, because the OSE SRD's staff "Is effective on any individual at most once
           per day"), and `items.use.battle_only` (a staff whose only power is its strike, like the staff of
@@ -1965,7 +1969,9 @@ class UseItem(Command):
     or a creature in a group of the open encounter that hasn't fled, and the session refuses any
     other id with `items.use.unknown_target`, a creature of an encounter that has ended included.
     The session refuses a healing device on a creature that's dead or turned to stone with
-    `items.use.target_cannot_be_healed`, and one on a creature it already healed today with
+    `items.use.target_cannot_be_healed`. Then it refuses an invisible monster or NPC adventurer of
+    the open encounter with `items.use.invisible_target`, while an invisible member is still a
+    target. It refuses a healing device on a creature it already healed today with
     `items.use.target_healed_today`."""
     spell_id: str | None = None
     """Which spell to read off a scroll that has more than one, by its id (see the
@@ -2932,7 +2938,8 @@ class BattleDeclaration(_Model):
     - For a `use_item` of a staff of healing, it's the id of the creature the staff touches.
       Leave it empty, and the member using it is healed. The session refuses an id that matches no
       creature with `items.use.unknown_target`, a creature that's dead or turned to stone with
-      `items.use.target_cannot_be_healed`, a creature the staff already healed today with
+      `items.use.target_cannot_be_healed`, another creature that's invisible with
+      `items.use.invisible_target`, a creature the staff already healed today with
       `items.use.target_healed_today`, and another member out of reach with
       `battle.declaration.member_out_of_reach`. A monster's group has to stand within 5' of the
       member, or the use gets `combat.attack.out_of_reach`. A touch on a monster then follows the
@@ -3387,6 +3394,7 @@ class ResolveBattleRound(Command):
           `battle.declaration.member_out_of_reach`. A staff of healing's touch gets
           `battle.declaration.target_count`, `items.use.unknown_target`,
           `items.use.target_cannot_be_healed` on a creature that's dead or turned to stone,
+          `items.use.invisible_target` on another creature that's invisible,
           `items.use.target_healed_today` on a creature the staff already healed today, and
           `battle.declaration.member_out_of_reach` on another member. On a monster, it gets the
           checks of a touch spell on a monster.

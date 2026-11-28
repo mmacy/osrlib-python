@@ -269,7 +269,11 @@ class Condition(_StrEnum):
     INVISIBLE = "invisible"
     """Unseen. Apart from immunity, no core rule reads it. The battle procedure in
     [`osrlib.crawl.battle`][osrlib.crawl.battle] leaves the creature out of the ranks an enemy picks targets
-    from, and rejects a spell declared at it with `battle.declaration.invisible_target`."""
+    from, rejects a spell declared at it with `battle.declaration.invisible_target`, and rejects a staff of
+    healing's touch on it with `items.use.invisible_target`. Outside a battle, a scroll read with
+    [`UseItem`][osrlib.crawl.commands.UseItem] rejects an invisible monster or NPC adventurer of the open encounter
+    as a target with `magic.cast.invisible_target`, and a staff of healing rejects one with
+    `items.use.invisible_target`. An invisible party member is still a target outside a battle."""
 
     TURNED = "turned"
     """Driven off by a cleric's turning. [`turn_undead`][osrlib.core.spells.turn_undead] attaches the effect
