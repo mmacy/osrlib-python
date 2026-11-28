@@ -118,11 +118,11 @@ def here(session: GameSession) -> str:
 
 
 def gas_trap(modifier: int) -> TrapSpec:
-    """A room trap that kills on a failed save versus death, with `modifier` on the save."""
+    """A poison gas room trap that kills on a failed save versus death, with `modifier` on the save."""
     return TrapSpec(
         kind="room",
         trigger="enter",
-        effect=TrapEffect(kills=True, save=SaveSpec(category=SaveCategory.DEATH, modifier=modifier)),
+        effect=TrapEffect(kills=True, poison=True, save=SaveSpec(category=SaveCategory.DEATH, modifier=modifier)),
     )
 
 

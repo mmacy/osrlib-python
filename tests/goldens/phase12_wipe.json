@@ -85,7 +85,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
-      "poison": false,
+      "poison": true,
       "target_id": "character-0001",
       "visibility": "player"
     },
@@ -108,7 +108,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
-      "poison": false,
+      "poison": true,
       "target_id": "character-0002",
       "visibility": "player"
     },
@@ -131,7 +131,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
-      "poison": false,
+      "poison": true,
       "target_id": "character-0003",
       "visibility": "player"
     },
@@ -154,7 +154,7 @@
     {
       "code": "combat.death.died",
       "event_type": "death",
-      "poison": false,
+      "poison": true,
       "target_id": "character-0004",
       "visibility": "player"
     },
@@ -195,19 +195,19 @@
     "clock_rounds": 120,
     "death_records": {
       "character-0001": {
-        "cause": "unknown",
+        "cause": "poison",
         "round": 120
       },
       "character-0002": {
-        "cause": "unknown",
+        "cause": "poison",
         "round": 120
       },
       "character-0003": {
-        "cause": "unknown",
+        "cause": "poison",
         "round": 120
       },
       "character-0004": {
-        "cause": "unknown",
+        "cause": "poison",
         "round": 120
       }
     },
@@ -252,16 +252,16 @@
     "Detection roll (trap_spring): 2 vs 2-in-6. Success.",
     "A trap springs (vault:1:gas_room) on character-0001!",
     "character-0001 is dead.",
-    "character-0001 is killed.",
+    "character-0001 is killed by poison.",
     "character-0001 is at 0/6 hit points.",
     "character-0002 is dead.",
-    "character-0002 is killed.",
+    "character-0002 is killed by poison.",
     "character-0002 is at 0/6 hit points.",
     "character-0003 is dead.",
-    "character-0003 is killed.",
+    "character-0003 is killed by poison.",
     "character-0003 is at 0/6 hit points.",
     "character-0004 is dead.",
-    "character-0004 is killed.",
+    "character-0004 is killed by poison.",
     "character-0004 is at 0/6 hit points.",
     "The game is over: the party has fallen.",
     "Referee rolls 2d6: [2, 2], for a total of 4.",

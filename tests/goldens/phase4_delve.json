@@ -5572,7 +5572,7 @@
   },
   "master_seed": 20260757,
   "party_document": {
-    "engine_version": "2.6.0",
+    "engine_version": "2.11.0",
     "kind": "party",
     "payload": {
       "characters": [

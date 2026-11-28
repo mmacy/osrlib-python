@@ -3784,7 +3784,7 @@
   "master_seed": 39,
   "mode": "victory",
   "party_document": {
-    "engine_version": "2.7.0",
+    "engine_version": "2.11.0",
     "kind": "party",
     "payload": {
       "characters": [
