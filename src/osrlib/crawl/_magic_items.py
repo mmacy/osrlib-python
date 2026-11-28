@@ -12,13 +12,13 @@ from osrlib.core.clock import TimeUnit
 from osrlib.core.combat import SaveCategory, saving_throw
 from osrlib.core.creature import Creature
 from osrlib.core.dice import roll
-from osrlib.core.effects import EFFECTS_STREAM, Condition, EffectDefinition, ModifierSpec
+from osrlib.core.effects import EFFECTS_STREAM, Condition, EffectDefinition, ModifierSpec, has_condition
 from osrlib.core.events import Event
 from osrlib.core.items import MagicItemCategory, MagicItemInstance, magic_item_template, usable_by_class
 from osrlib.core.spells import MAGIC_STREAM, cast_from_scroll, caster_profile, validate_scroll_cast
 from osrlib.core.validation import Rejection
 from osrlib.crawl._light import _requires_light
-from osrlib.crawl._party_members import _actable_target, _member_able, _remove_instance, _spell_target
+from osrlib.crawl._party_members import _actable_target, _member_able, _named_spell_target, _remove_instance
 from osrlib.crawl._spells import _cast_context, _cast_outcomes, _drain_character
 from osrlib.crawl.commands import SessionMode, UseItem
 from osrlib.crawl.events import CurseRevealedEvent, ItemIdentifiedEvent, ItemUsedEvent, LightEvent
@@ -161,24 +161,29 @@ def _potion_drinker(session, carrier, instance: MagicItemInstance, target_id: st
     return drinker, []
 
 
-def _healing_target(session, user, instance: MagicItemInstance, target_id: str | None):
+def _healing_target(session, user, instance: MagicItemInstance, target_id: str | None, *, in_battle: bool = False):
     """Return whom a staff of healing heals, with every reason it can't, as a `(target, rejections)` pair.
 
     With no `target_id`, or the user's own id, the staff heals its user. Any other id has to be a party member's or
     a creature's in a group of the open encounter that hasn't fled (see `_party_members._actable_target`), or the
     use gets `items.use.unknown_target` with the id as `target`, so a creature of an encounter that has ended gets
     the answer an id that matches nothing gets, alive or dead. A creature the party can act on that's dead or
-    turned to stone can't be healed, and the use gets `items.use.target_cannot_be_healed`. The OSE SRD's staff "Is
+    turned to stone can't be healed, and the use gets `items.use.target_cannot_be_healed`, with the staff's
+    instance id as `item` and the creature's id as `target`. Then an invisible monster or NPC adventurer of the open
+    encounter gets `items.use.invisible_target` with the id as `target`, as a spell aimed at it does (see
+    `_party_members._named_spell_target`). With `in_battle`, for the battle's touch, another member who is invisible
+    gets it too, because a battle refuses any invisible target. The invisibility check comes after the check of
+    death and stone, so a dead creature gets the answer it got before it was invisible. The OSE SRD's staff "Is
     effective on any individual at most once per day", so a creature the staff already healed today gets
-    `items.use.target_healed_today` after that check (see `_healed_today`). Both rejections have the staff's
-    instance id as `item` and the creature's id as `target`. [`UseItem`][osrlib.crawl.commands.UseItem] takes
+    `items.use.target_healed_today` after those checks (see `_healed_today`), with the same params as
+    `items.use.target_cannot_be_healed`. [`UseItem`][osrlib.crawl.commands.UseItem] takes
     these checks, and a battle adds checks of reach (see `battle._healing_touch`). The target is None when there
     are rejections. The call reads state and takes no draw.
     """
     if target_id is None or target_id == user.id:
         target = user
     else:
-        target, _ = _actable_target(session, target_id)
+        target, group = _actable_target(session, target_id)
         if target is None:
             return None, [Rejection(code="items.use.unknown_target", params={"target": target_id})]
         if not _stands(target):
@@ -188,6 +193,10 @@ def _healing_target(session, user, instance: MagicItemInstance, target_id: str |
                     params={"item": instance.instance_id, "target": target_id},
                 )
             ]
+        # Only a creature that stands is checked, because the player view counts the conditions of living creatures
+        # alone. The rule is the one a spell aimed at the creature follows (see `_party_members._named_spell_target`).
+        if has_condition(target, Condition.INVISIBLE) and (in_battle or group is not None):
+            return None, [Rejection(code="items.use.invisible_target", params={"target": target_id})]
     if _healed_today(session, instance, target.id):
         return None, [
             Rejection(code="items.use.target_healed_today", params={"item": instance.instance_id, "target": target.id})
@@ -443,12 +452,9 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
         targets: list[Creature | str] = []
         target_refs = command.targets or ((command.target_id,) if command.target_id else ())
         for target_ref in target_refs:
-            if target_ref.startswith("cell:"):
-                targets.append(target_ref)
-                continue
-            target, _ = _spell_target(session, target_ref)
-            if target is None:
-                return [Rejection(code="magic.cast.unknown_target", params={"target": target_ref})], []
+            target, _, refused = _named_spell_target(session, target_ref, in_battle=False)
+            if refused is not None:
+                return [refused], []
             targets.append(target)
         context = _cast_context(session, targets, in_combat=False)
         # The kernel's pre-check, asked about a caster at the scroll's level, which is

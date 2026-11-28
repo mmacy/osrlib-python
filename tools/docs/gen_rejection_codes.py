@@ -3,8 +3,8 @@
 Runs under mkdocs-gen-files at build time. The codes come from the AST scan (see
 `rejection_scan.py`), the one-line descriptions from the hand-maintained
 `rejection_codes.json` beside this script. Generation fails on any mismatch in either
-direction — a scanned code with no description, or a described code no longer in the
-source — so the page and the code can never drift apart.
+direction: a scanned code with no description, or a described code no longer in the
+source. So the page and the code can never drift apart.
 """
 
 import json
@@ -23,7 +23,7 @@ _INTRO = """\
 A command the engine cannot accept comes back with a rejection: a structured refusal
 carrying a dotted snake_case `code`, never an exception. Validation is a pure
 pre-phase, so a rejected command consumes no randomness, no game time, and mutates
-nothing — in-fiction failures are a normal outcome, not an error. See
+nothing. An in-fiction failure is a normal outcome, not an error. See
 [`Rejection`][osrlib.core.validation.Rejection] and
 [`CommandResult`][osrlib.crawl.commands.CommandResult].
 
@@ -40,7 +40,7 @@ undescribed = sorted(set(scanned) - set(descriptions))
 stale = sorted(set(descriptions) - set(scanned))
 if undescribed or stale:
     raise ValueError(
-        "rejection_codes.json and the source scan disagree — "
+        "rejection_codes.json and the source scan disagree. "
         f"scanned codes with no description: {undescribed}; described codes not in source: {stale}. "
         "Update tools/docs/rejection_codes.json."
     )

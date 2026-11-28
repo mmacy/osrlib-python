@@ -942,9 +942,11 @@ Location effects anchor to a cell reference, `cell:{dungeon}:{level}:{x},{y}`, a
 - Stationary *silence* (see [Silence automates both forms](#silence-automates-both-forms-moving-on-a-failed-save-stationary-on-a-passed-one)).
 - *Web*'s blocking cube. Entering it attaches the entangled escape countdown. A web cast on a location lasts the spell's duration on the cell, and the escape params are on the effect.
 
+A spell or a scroll can be aimed only at a cell of the level the party stands on. `CastSpell`, a scroll read with `UseItem`, and a battle's `cast` declaration refuse any other cell reference, and every cell reference while the party is in town, with `magic.cast.unknown_target`.
+
 While a living member is entangled, the party can't move. The party doesn't leave a member behind on its own, and leaving someone is a decision for a referee command.
 
-The web's flammability, *cloudkill*, and the walls stay manual, for the referee. The visible-cell rule is a simplification of the visible flag in the spec. Locked by `test_exploration.py::TestLight` and `TestLocationEffects`.
+The web's flammability, *cloudkill*, and the walls stay manual, for the referee. The visible-cell rule is a simplification of the visible flag in the spec. Locked by `test_exploration.py::TestLight` and `TestLocationEffects`, and the cell targets by `test_cast_cell_targets.py`.
 
 ### Wandering monsters
 
@@ -1311,14 +1313,14 @@ Locked by `test_back_stab.py`, `test_thief_hide.py`, and `test_can_back_stab.py`
 Battle reads these spells and conditions on each combatant:
 
 - *Haste* makes the bearer's attack declaration resolve twice, and doubles the bearer's moves on the range track. The party's combined move doubles when every living member has the speed multiplier, which is osrlib's reading.
-- An invisible combatant can't be targeted. Refusing that attack reveals nothing, since the player already knows the target is invisible. The session ends the invisibility when the bearer attacks or turns undead.
+- An invisible combatant can't be targeted. The player view shows that a group has an invisible member, in `EncounterGroupView.visible_conditions` and `condition_counts`, and a refused target tells the players which member it is. A spell or scroll declared at an invisible target gets `battle.declaration.invisible_target`, and a staff of healing's touch on an invisible creature other than its user gets `items.use.invisible_target`, a member included. Outside a battle, a scroll read with `UseItem` refuses an invisible monster or NPC adventurer of the open encounter with `magic.cast.invisible_target`, and a staff of healing refuses one with `items.use.invisible_target`. An invisible party member is still a target outside a battle, because an ally cooperates with the caster. The session ends the invisibility when the bearer attacks or turns undead.
 - *Mirror image* loses one image for each attack on the bearer, with no attack roll.
 - Confusion replaces the bearer's declaration with the result of its 2d6 behaviour roll, on the combat stream, because it's a roll the rules require, not a choice a policy makes. Its re-saves draw on the magic stream, per its params. The session makes both rolls itself each round, not as ticks of the effect, so effects still draw at the times that [The `magic` RNG stream](#the-magic-rng-stream-and-the-attach-timetick-time-split) describes.
 - `entangled` stops a member's declared moves and a monster's moves from its policy, while an entangled member in the front rank still fights.
 - A `weakened` creature can't attack or cast. The kernel's validators refuse those actions, and the session reports the refusals.
 - *Protection from evil*'s melee ban: a monster whose template has a warded category can't start a melee with a warded target of a different alignment. So the default policy's target pick skips that target, and the session skips a melee on that target that any policy chooses, while missiles and breath still land. A scroll of protection's ward bars the monsters it names in the same way. An NPC adventurer is a person, which neither protection bars. The ban breaks for a target who has engaged the barred creature in melee, and the ±1 modifiers stay, as RAW's clause says.
 
-Locked by `test_battle.py::TestEffectConsumption`.
+Locked by `test_battle.py::TestEffectConsumption`, and the invisible targets by `test_invisible_targets.py`.
 
 ### The area footprint
 

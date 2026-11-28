@@ -57,6 +57,64 @@ def _spell_target(session, target_id: str) -> tuple[Any, Any]:
     return creature, group
 
 
+def _spell_cell(session, target_ref: str) -> str | None:
+    """Return `target_ref` when it names a cell a spell or a scroll can be aimed at, or None when it doesn't.
+
+    That's a cell of the level the party stands on, in the canonical form
+    [`cell_ref`][osrlib.crawl.dungeon.cell_ref] builds. A reference that doesn't parse, names no cell of the
+    adventure, or names a cell of another level or another dungeon gives None, and so does every reference while the
+    party isn't in a dungeon. `CastSpell`, a scroll read with `UseItem`, and a battle's `cast` and scroll
+    declarations use this check, and each refuses with `magic.cast.unknown_target` any reference for which it
+    returns None. Which cells of the party's level are in reach is left open, so any cell of the level passes. The
+    call reads state and takes no draw.
+    """
+    from osrlib.crawl._feature_handles import _parse_cell_location
+
+    location = session.dungeon_state.location
+    if location.kind != "dungeon":
+        return None
+    parsed = _parse_cell_location(session, target_ref)
+    if parsed is None or parsed[:2] != (location.dungeon_id, location.level_number):
+        return None
+    return target_ref
+
+
+def _named_spell_target(session, target_ref: str, *, in_battle: bool) -> tuple[Any, Any, Rejection | None]:
+    """Resolve one target a spell or a scroll names, as a `(target, group, rejection)` triple.
+
+    A `cell:` reference resolves to itself when `_spell_cell` accepts it, and any other id to the creature
+    `_spell_target` returns, with its encounter group. A reference or id that neither accepts gets
+    `magic.cast.unknown_target`. A creature with the `invisible` condition can be refused too:
+
+    - With `in_battle`, for a battle's `cast` and scroll declarations, any invisible creature gets
+      `battle.declaration.invisible_target`: a monster, an NPC adventurer, another member, or the caster named by id.
+    - Without it, for `CastSpell` and a scroll read with `UseItem`, an invisible monster or NPC adventurer of the
+      open encounter gets `magic.cast.invisible_target`. An invisible party member is still a target. `CastSpell`
+      is never legal while an encounter is open, so only a scroll read can get this code.
+
+    A dead creature of the encounter gets `magic.cast.unknown_target` from `_spell_target` before the visibility
+    check, so its invisibility is never reported.
+
+    Each rejection has the reference or id as `target`. The target and group are None when there's a rejection, and
+    the group is None for a cell or a party member. The call reads state and takes no draw.
+    """
+    if target_ref.startswith("cell:"):
+        if _spell_cell(session, target_ref) is None:
+            return None, None, Rejection(code="magic.cast.unknown_target", params={"target": target_ref})
+        return target_ref, None, None
+    creature, group = _spell_target(session, target_ref)
+    if creature is None:
+        return None, None, Rejection(code="magic.cast.unknown_target", params={"target": target_ref})
+    if has_condition(creature, Condition.INVISIBLE):
+        # The player view shows that the group has an invisible member, in `visible_conditions` and
+        # `condition_counts`, and a party member's conditions. A refusal tells the players which member it is.
+        if in_battle:
+            return None, None, Rejection(code="battle.declaration.invisible_target", params={"target": target_ref})
+        if group is not None:
+            return None, None, Rejection(code="magic.cast.invisible_target", params={"target": target_ref})
+    return creature, group, None
+
+
 def _consume_item(member, item_id: str, quantity: int = 1) -> ItemInstance | MagicItemInstance | None:
     """Take units of a carried item and return the instance they came from.
 
