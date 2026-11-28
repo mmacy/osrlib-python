@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- [`PlayerView.supplies`][osrlib.crawl.views.PlayerView.supplies] is a [`SuppliesView`][osrlib.crawl.views.SuppliesView] that says how long the party's light and food will last, so that a remote client can show "light left" and "food left" without applying a rule itself (#361). Every time is in rounds. `light_burning_rounds` is the longest time left on a timed light that burns on a living member, not a sum, and `light_permanent` is true while a light with no duration burns, such as *continual light*. `light_reserve_rounds` is the living members' unlit torches times a torch's burn time, plus their oil flasks times a flask's burn time when a living member carries a lantern, with `torches`, `oil_flasks`, and `lanterns` beside it. `light_reserve_usable` is true when the party has what a [`LightSource`][osrlib.crawl.commands.LightSource] for a carried torch or lantern needs: a living member who can act carries a torch, or a lantern and an oil flask, and either has a tinder box or a living member already has a flame burning. The command and the view use the same carrying check, so in town or while exploring the session accepts some such `LightSource` exactly when the flag is true. The flag doesn't depend on the mode. During an encounter or a battle the session refuses `LightSource` whatever the flag says, and a client reads `PlayerView.mode` for that. `rations` counts standard and iron rations together, with `rations_standard` and `rations_iron` beside it. `food_days` is the fewest rations any living member carries, which is the days before that member goes short because each member eats from their own pack, `food_short_first_ids` names those members in marching order, and `food_days_shared` is the rations divided by the living members, rounded down. Dead members' items don't count. A `PlayerView` that osrlib 2.10.0 built validates with `supplies` set to `None`, and no draw or event changes.
+
 ## [2.10.0] - 2026-11-27
 
 ### Added

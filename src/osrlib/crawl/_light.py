@@ -6,7 +6,9 @@ for actions that need light, like picking a lock or reading a scroll, call `_req
 anything.
 """
 
-from osrlib.core.clock import TimeUnit
+from functools import cache
+
+from osrlib.core.clock import ROUNDS_PER_TURN, TimeUnit
 from osrlib.core.combat import burning_oil_pool_definition
 from osrlib.core.effects import EffectDefinition
 from osrlib.core.events import Event
@@ -199,13 +201,11 @@ def _handle_light_source(session, command: LightSource) -> tuple[list[Rejection]
         in_pile = pile is not None and any(entry.item_id == "oil_flask" and entry.quantity > 0 for entry in pile.items)
         if not in_pile:
             return [Rejection(code="exploration.item.not_carried", params={"item": "oil_flask"})], []
-    elif _find_item(member, command.item_id) is None:
-        return [Rejection(code="exploration.item.not_carried", params={"item": command.item_id})], []
-    if command.item_id == "lantern" and _find_item(member, "oil_flask") is None:
-        return [Rejection(code="exploration.item.not_carried", params={"item": "oil_flask"})], []
     needs_tinder = not _party_open_flame(session)
-    if needs_tinder and _find_item(member, "tinder_box") is None:
-        return [Rejection(code="exploration.light.no_flame", params={"character": member.id})], []
+    carried = {item_id for item_id in _LIGHTING_ITEMS if _find_item(member, item_id) is not None}
+    rejection = _light_carry_rejection(member.id, command.item_id, carried, open_flame=not needs_tinder)
+    if rejection is not None:
+        return [rejection], []
     from osrlib.crawl.session import EXPLORATION_STREAM
 
     events: list[Event] = []
@@ -253,8 +253,57 @@ def _handle_light_source(session, command: LightSource) -> tuple[list[Rejection]
     return [], events
 
 
+_LIGHTING_ITEMS = ("torch", "lantern", "oil_flask", "tinder_box")
+"""The catalog ids that `_light_carry_rejection` asks about."""
+
+
+def _light_carry_rejection(member_id: str, item_id: str, carried, *, open_flame: bool) -> Rejection | None:
+    """The carrying checks `LightSource` applies to one member, or `None` when they pass.
+
+    The command handler and the player view's supplies summary both decide with this function, so the view's
+    `light_reserve_usable` can't disagree with the command. A torch needs a torch. A lantern needs a lantern and an
+    oil flask on the same member. When no living member has a flame burning, the member also needs a tinder box.
+    Lighting a dropped `oil_flask` checks the pile on the party's cell instead of the member's pack, so the handler
+    checks the pile before this function and this function asks only for the tinder box.
+
+    Args:
+        member_id: The id of the member who would strike the light.
+        item_id: `"torch"`, `"lantern"`, or `"oil_flask"`.
+        carried: The ids from `_LIGHTING_ITEMS` that the member carries, as `_find_item` finds them.
+        open_flame: Whether a living member already has a flame burning, as `_party_open_flame` reports it.
+
+    Returns:
+        The rejection the command reports, or `None` when the member passes every carrying check.
+    """
+    if item_id in ("torch", "lantern") and item_id not in carried:
+        return Rejection(code="exploration.item.not_carried", params={"item": item_id})
+    if item_id == "lantern" and "oil_flask" not in carried:
+        return Rejection(code="exploration.item.not_carried", params={"item": "oil_flask"})
+    if not open_flame and "tinder_box" not in carried:
+        return Rejection(code="exploration.light.no_flame", params={"character": member_id})
+    return None
+
+
+@cache
+def _burn_rounds(source: str) -> int:
+    """How long one lit torch, or one oil flask in a lantern, burns, in rounds.
+
+    It reads the same catalog params as `_light_definition`, so the supplies summary reports the time a lit source
+    burns. That catalog is the built-in one, which doesn't change, so the result is cached.
+
+    Args:
+        source: `"torch"` or `"lantern"`.
+    """
+    return _burn_turns(getattr(load_equipment().get(source), "params", {})) * ROUNDS_PER_TURN
+
+
+def _burn_turns(params) -> int:
+    """The burn time in a torch's or a lantern's catalog params, in turns, with six turns as the default."""
+    return int(params.get("burn_turns", params.get("burn_turns_per_flask", 6)))
+
+
 def _light_definition(source: str, params) -> EffectDefinition:
-    burn = int(params.get("burn_turns", params.get("burn_turns_per_flask", 6)))
+    burn = _burn_turns(params)
     return EffectDefinition(
         kind="light",
         duration_unit=TimeUnit.TURN,
