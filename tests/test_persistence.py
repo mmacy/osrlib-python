@@ -5,6 +5,7 @@ import json
 import pytest
 
 from crawl_fixtures import build_adventure, build_party
+from osrlib import persistence
 from osrlib.core.character import party_to_document
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.commands import (
@@ -21,7 +22,7 @@ from osrlib.crawl.commands import (
 from osrlib.crawl.dungeon import Direction
 from osrlib.crawl.session import GameSession
 from osrlib.errors import ContentValidationError, ReplayVersionError, SaveVersionError
-from osrlib.persistence import MIGRATIONS, _migrate, load_game, replay_game, save_game, session_state
+from osrlib.persistence import MIGRATIONS, load_game, replay_game, save_game, session_state
 from osrlib.versioning import SCHEMA_VERSION, engine_version
 
 SEED = 424_242
@@ -236,12 +237,22 @@ class TestMigrations:
         assert chest.trap.trigger == "open"
         assert save_game(restored)["schema_version"] == SCHEMA_VERSION
 
-    def test_missing_migration_step_raises(self):
-        with pytest.raises(ContentValidationError):
-            _migrate({"seed": 1}, 0, migrations={})
+    def test_every_old_schema_version_has_a_migration_step(self):
+        assert sorted(MIGRATIONS) == list(range(1, SCHEMA_VERSION))
 
-    def test_current_version_needs_no_migration(self):
-        assert _migrate({"seed": 1}, SCHEMA_VERSION, migrations={}) == {"seed": 1}
+    def test_missing_migration_step_raises(self, monkeypatch):
+        session, _ = drive_session()
+        document = save_game(session)
+        document["schema_version"] = SCHEMA_VERSION - 1
+        monkeypatch.setattr(persistence, "MIGRATIONS", {})
+        with pytest.raises(ContentValidationError, match=f"no migration from schema version {SCHEMA_VERSION - 1}"):
+            load_game(document)
+
+    def test_current_version_needs_no_migration(self, monkeypatch):
+        session, _ = drive_session()
+        document = save_game(session)
+        monkeypatch.setattr(persistence, "MIGRATIONS", {})
+        assert save_game(load_game(document)) == document
 
 
 class TestUnknownEventPreservation:

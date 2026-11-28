@@ -65,7 +65,7 @@ def _handle_move_party(session, command: MoveParty) -> tuple[list[Rejection], li
         PartyMovedEvent(code="exploration.party.moved", x=target[0], y=target[1], facing=command.direction.value)
     ]
     events.extend(_boundary_events(session, old_area, target))
-    events.extend(_swing_shut(session, previous=position))
+    events.extend(_swing_shut(session))
     events.extend(_enter_hooks(session))
     events.extend(_area_treasure_check(session))
     events.extend(_room_trap_check(session))

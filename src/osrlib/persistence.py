@@ -425,17 +425,12 @@ def save_game(session: GameSession, *, include_event_log: bool = True) -> dict:
     return stamp_document("save", session_state(session, include_event_log=include_event_log))
 
 
-def _migrate(
-    payload: dict, from_version: int, *, migrations: Mapping[int, Callable[[dict], dict]] | None = None
-) -> dict:
-    """Run the ordered migration chain from `from_version` to the current schema.
+def _migrate(payload: dict, from_version: int) -> dict:
+    """Run the steps of [`MIGRATIONS`][osrlib.persistence.MIGRATIONS] from `from_version` to the current schema.
 
     Args:
         payload: The save payload at `from_version`.
         from_version: The document's recorded schema version.
-        migrations: The chain to apply. Defaults to
-            [`MIGRATIONS`][osrlib.persistence.MIGRATIONS] (tests inject synthetic
-            chains here).
 
     Returns:
         The payload at the current schema version.
@@ -443,9 +438,8 @@ def _migrate(
     Raises:
         ContentValidationError: If a required migration step is missing.
     """
-    chain = MIGRATIONS if migrations is None else migrations
     for version in range(from_version, SCHEMA_VERSION):
-        step = chain.get(version)
+        step = MIGRATIONS.get(version)
         if step is None:
             raise ContentValidationError(f"no migration from schema version {version} to {version + 1}")
         payload = step(payload)
