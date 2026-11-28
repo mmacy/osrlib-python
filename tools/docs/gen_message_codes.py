@@ -24,7 +24,7 @@ Every event carries a message code — dotted snake_case, namespaced by subsyste
 The table lists all shipped codes: the event class that emits each one, that class's default
 visibility, and the default template. Templates are code (each receives the typed event),
 so the template column shows the registry source verbatim; the named helper functions it
-references appear in full at the bottom of the page.
+references, and the helpers those call, appear in full at the bottom of the page.
 
 The visibility column is the event class's field default — there is no per-code visibility.
 Specific emissions may override it: the referee's door-state command, for example, emits the
@@ -55,11 +55,28 @@ def _template_sources() -> tuple[dict[str, tuple[str, set[str]]], dict[str, str]
     if not isinstance(registry, ast.Dict):
         raise ValueError("could not locate the _TEMPLATES dict literal in osrlib.messages")
 
+    calls = {
+        node.name: {n.id for n in ast.walk(node) if isinstance(n, ast.Name) and n.id in helpers and n.id != node.name}
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name in helpers
+    }
+
+    def _with_callees(names: set[str]) -> set[str]:
+        """The helpers a template names, and every helper those helpers name in turn."""
+        found: set[str] = set()
+        pending = list(names)
+        while pending:
+            name = pending.pop()
+            if name not in found:
+                found.add(name)
+                pending.extend(calls[name])
+        return found
+
     entries: dict[str, tuple[str, set[str]]] = {}
     for key, value in zip(registry.keys, registry.values, strict=True):
         assert isinstance(key, ast.Constant)
         text = " ".join(ast.get_source_segment(source, value).split())
-        used = {n.id for n in ast.walk(value) if isinstance(n, ast.Name) and n.id in helpers}
+        used = _with_callees({n.id for n in ast.walk(value) if isinstance(n, ast.Name) and n.id in helpers})
         entries[key.value] = (text, used)
     return entries, helpers
 
