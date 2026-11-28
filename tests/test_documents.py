@@ -23,6 +23,13 @@ def make_character(name: str = "Test") -> Character:
 
 
 class TestStamping:
+    def test_stamp_copies_the_payload_at_every_depth(self):
+        payload = {"members": [{"name": "X"}]}
+        document = stamp_document("party", payload)
+        payload["members"][0]["name"] = "Y"
+        payload["members"].append({"name": "Z"})
+        assert document["payload"] == {"members": [{"name": "X"}]}
+
     def test_stamp_carries_kind_and_both_versions(self):
         document = stamp_document("character", {"name": "X"})
         assert document["kind"] == "character"
