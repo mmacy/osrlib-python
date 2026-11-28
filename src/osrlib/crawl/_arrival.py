@@ -337,8 +337,9 @@ def _relocate(
 
     `via` and `transition_ref` describe the crossing. For `UseStairs` and for a passage,
     they're the kind of the transition taken and the cell it stands on. For a slide,
-    `via` is `"trap"`, and for the way in, `"entrance"`. Every caller passes both, so a
-    consumer never has to work out the crossing from where the party ended up. Both go
+    `via` is `"trap"`, and for the way in, `"entrance"`, with no `transition_ref`, because the
+    party took no transition that stands on a cell. Every caller passes `via`, so a consumer
+    never has to work out the crossing from where the party ended up. Both go
     on the same `LocationEnteredEvent` as `narrative`, so a relocation within one level
     drops them.
 

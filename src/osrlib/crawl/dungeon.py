@@ -521,7 +521,9 @@ class TransitionSpec(_Model):
     `"passage"` by walking across its `side` instead."""
     position: Position
     """The cell on this level where the transition stands. The party has to stand here to use it
-    with [`UseStairs`][osrlib.crawl.commands.UseStairs] or to cross it as a passage."""
+    with [`UseStairs`][osrlib.crawl.commands.UseStairs] or to cross it as a passage. In a trap's
+    [`TrapEffect.transition`][osrlib.crawl.dungeon.TrapEffect.transition], the session doesn't read
+    it, because the trap moves the party from the cell where it springs."""
     side: Direction | None = None
     """The side of `position` that a passage stands on, and `None` for every other kind. A
     [`MoveParty`][osrlib.crawl.commands.MoveParty] from `position` in this direction crosses the
@@ -666,7 +668,9 @@ class TrapEffect(_Model):
     the whole party or no one. With a `save`, it moves the party when at least one victim fails
     the save, and leaves the party on the trapped cell when every victim passes. With no `save`,
     it always moves the party. The transition can't have a `requires` gate, because the party
-    doesn't choose to take it. [`validate_adventure`][osrlib.crawl.adventure.validate_adventure]
+    doesn't choose to take it. The session moves the party to `to_position` from the cell where the
+    trap springs, so it doesn't read the transition's `position`. Set `position` to a cell the trap
+    covers. [`validate_adventure`][osrlib.crawl.adventure.validate_adventure]
     checks it as it checks a level's transitions: it has to stand on the grid of the trap's level and
     lead to a cell on the grid of a level that exists. It also reports a transition whose `kind` is
     `"passage"`."""

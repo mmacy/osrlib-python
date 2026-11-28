@@ -1149,6 +1149,23 @@ class TestTwoTrappedAreas:
         assert len(rolls) == 1
         assert session.dungeon_state.sprung_traps == ["double:1:inner"]  # no ghost ref against level 2
 
+    def test_a_trap_transition_moves_the_party_whatever_its_position(self):
+        # The trap springs where it stands, so the session reads only where the transition leads (#257).
+        chute = TrapEffect(
+            transition=TransitionSpec(
+                kind="chute",
+                position=(0, 0),
+                to_dungeon_id="double",
+                to_level_number=2,
+                to_position=(0, 0),
+                to_facing=Direction.EAST,
+            )
+        )
+        session = self.build(self.blade(chute), self.blade(TrapEffect(damage_dice="1d4")), seed=SEED_INNER_SPRINGS)
+        assert session.execute(OpenDoor(direction=Direction.EAST)).accepted
+        location = session.dungeon_state.location
+        assert (location.level_number, location.position) == (2, (0, 0))
+
     def test_the_next_member_standing_takes_the_second_blade(self):
         # The far trap kills the opener; the near blade then falls on the next
         # living member in marching order, never on the corpse.
