@@ -1403,8 +1403,8 @@ class PlayerView(_Model):
     The temple sells *cure light wounds* in its `heal` and `cure_paralysis` usages, and every other service in its
     first usage alone, so *cure light wounds* is the only service in this map. A refusal of `cure_paralysis` is
     `town.healing.no_effect` with the `reason` param `dead` for a dead member or `not_paralysed` for a member who
-    isn't paralysed. The cleric level doesn't change the answer for either usage, so the level to send is the lowest,
-    which is the level in `town_healing_caster_levels` for `heal`, or `caster_level` left unset.
+    isn't paralysed. The cleric level doesn't change the answer for either usage of cure light wounds, so leave
+    `caster_level` unset, which uses the service's lowest level.
 
     The map has an entry for every party member, the dead included, while the session is in the `"town"` mode, and
     it's empty in any other mode. A `PlayerView` that osrlib 2.11.0 or earlier built validates with it empty."""
