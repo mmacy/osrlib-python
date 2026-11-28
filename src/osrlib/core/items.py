@@ -98,6 +98,7 @@ from pydantic import ConfigDict, Field, ValidationInfo, field_validator, model_v
 import osrlib.core
 from osrlib.core._descriptions import _StrEnum
 from osrlib.core.classes import ArmourPolicyKind, ClassDefinition, WeaponPolicyKind
+from osrlib.core.creature import _assign_or_restore
 from osrlib.core.dice import parse
 from osrlib.core.effects import ModifierSpec
 from osrlib.core.frozen import FrozenMap, _Model
@@ -1924,6 +1925,12 @@ class MagicItemInstance(_Model):
     [`magic_item_template`][osrlib.core.items.magic_item_template] gets you back to the
     template behind one.
 
+    A suit of magic armour needs a mundane base on either the instance or its template. For
+    a generic armour template, supply `base_item_id` when building an instance yourself.
+    Construction, JSON loading, copying with updates, and assignment raise
+    `pydantic.ValidationError` when both bases are `None`. A refused assignment leaves the
+    instance unchanged.
+
     An instance starts unidentified, and a player-facing view shows it as an unknown item
     until it's identified. In a session, the engine identifies it the first time a character
     uses it: drinks the potion, swings the sword, or puts on the ring. A referee can also
@@ -1934,6 +1941,8 @@ class MagicItemInstance(_Model):
     """
 
     model_config = ConfigDict(validate_assignment=True)
+
+    __setattr__ = _assign_or_restore
 
     instance_type: Literal["magic_item"] = "magic_item"
     """Always `"magic_item"`. This field distinguishes it from a mundane
@@ -1978,6 +1987,20 @@ class MagicItemInstance(_Model):
     remaining drains, a ring of wishes' remaining wishes, the day a staff of healing last healed each target, the
     spells left on a scroll.
     """
+
+    @model_validator(mode="after")
+    def _armour_has_base(self) -> MagicItemInstance:
+        if self.base_item_id is None:
+            from osrlib.data import load_magic_items
+
+            if any(
+                template.id == self.template_id
+                and template.category is MagicItemCategory.ARMOUR
+                and template.base_item_id is None
+                for template in load_magic_items().items
+            ):
+                raise ValueError(f"magic armour {self.template_id!r} requires a base_item_id")
+        return self
 
 
 class ItemInstance(_Model):
