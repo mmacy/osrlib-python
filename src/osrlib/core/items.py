@@ -3287,6 +3287,21 @@ def _wielded_qualities(instance: ItemInstance | MagicItemInstance) -> tuple[Weap
     return getattr(facet, "qualities", ()) or ()
 
 
+def _enchanted_weapon(instance: ItemInstance | MagicItemInstance) -> bool:
+    """Return whether an item is a magic weapon whose enchantment reaches the attack roll when it's swung or shot.
+
+    Every enchanted sword and weapon counts, cursed ones too. A magic staff counts only when its swing takes a bonus,
+    which in the built-in catalog is the staff of snakes and the staff of wizardry. Every other staff swings as the
+    mundane staff (see [`attack_facet`][osrlib.core.combat.attack_facet]).
+    """
+    if not isinstance(instance, MagicItemInstance):
+        return False
+    template = magic_item_template(instance)
+    if template.category in (MagicItemCategory.SWORD, MagicItemCategory.WEAPON):
+        return True
+    return template.category is MagicItemCategory.STAFF and (template.attack_bonus != 0 or template.damage_bonus != 0)
+
+
 def _caster_kind(definition: ClassDefinition) -> str | None:
     """Return `"arcane"` or `"divine"` from the class's casting tag, or `None` for no caster."""
     for ability in definition.abilities:

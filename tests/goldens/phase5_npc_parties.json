@@ -1129,6 +1129,18 @@
               "sentience": null,
               "state": {},
               "template_id": "potion_of_invisibility"
+            },
+            {
+              "base_item_id": "long_bow",
+              "charges_remaining": null,
+              "cursed_revealed": false,
+              "identified": false,
+              "instance_id": "magic-item-0006",
+              "instance_type": "magic_item",
+              "quantity": 1,
+              "sentience": null,
+              "state": {},
+              "template_id": "bow_plus_1"
             }
           ],
           "purse": {
@@ -1566,6 +1578,26 @@
               "sentience": null,
               "state": {},
               "template_id": "potion_of_control_human"
+            },
+            {
+              "instance_type": "item",
+              "quantity": 1,
+              "template": {
+                "cost_gp": 10,
+                "damage": "1d8",
+                "display_name": "sword",
+                "display_name_plural": "swords",
+                "id": "sword",
+                "item_type": "weapon",
+                "material": "standard",
+                "missile_ranges": null,
+                "name": "Sword",
+                "overrides_applied": [],
+                "qualities": [
+                  "melee"
+                ],
+                "weight_coins": 60
+              }
             }
           ],
           "purse": {
@@ -1597,24 +1629,32 @@
           "valuables": [],
           "wielded": [
             {
-              "instance_type": "item",
+              "base_item_id": "sword",
+              "charges_remaining": null,
+              "cursed_revealed": false,
+              "identified": false,
+              "instance_id": "magic-item-0010",
+              "instance_type": "magic_item",
               "quantity": 1,
-              "template": {
-                "cost_gp": 10,
-                "damage": "1d8",
-                "display_name": "sword",
-                "display_name_plural": "swords",
-                "id": "sword",
-                "item_type": "weapon",
-                "material": "standard",
-                "missile_ranges": null,
-                "name": "Sword",
-                "overrides_applied": [],
-                "qualities": [
-                  "melee"
+              "sentience": {
+                "alignment": "neutral",
+                "communication": "speech",
+                "ego": 12,
+                "extraordinary_powers": [
+                  "teleportation"
                 ],
-                "weight_coins": 60
-              }
+                "intelligence": 12,
+                "languages": 1,
+                "reading": true,
+                "sensory_powers": [
+                  "detect_evil_or_good",
+                  "detect_shifting_architecture",
+                  "see_invisible_objects"
+                ],
+                "special_purpose": null
+              },
+              "state": {},
+              "template_id": "sword_plus_2"
             },
             {
               "instance_type": "item",
@@ -1649,34 +1689,6 @@
                 ],
                 "weight_coins": 20
               }
-            },
-            {
-              "base_item_id": "sword",
-              "charges_remaining": null,
-              "cursed_revealed": false,
-              "identified": false,
-              "instance_id": "magic-item-0010",
-              "instance_type": "magic_item",
-              "quantity": 1,
-              "sentience": {
-                "alignment": "neutral",
-                "communication": "speech",
-                "ego": 12,
-                "extraordinary_powers": [
-                  "teleportation"
-                ],
-                "intelligence": 12,
-                "languages": 1,
-                "reading": true,
-                "sensory_powers": [
-                  "detect_evil_or_good",
-                  "detect_shifting_architecture",
-                  "see_invisible_objects"
-                ],
-                "special_purpose": null
-              },
-              "state": {},
-              "template_id": "sword_plus_2"
             }
           ],
           "worn_armour": {
@@ -1991,6 +2003,26 @@
               "template_id": "potion_of_longevity"
             },
             {
+              "instance_type": "item",
+              "quantity": 1,
+              "template": {
+                "cost_gp": 10,
+                "damage": "1d8",
+                "display_name": "sword",
+                "display_name_plural": "swords",
+                "id": "sword",
+                "item_type": "weapon",
+                "material": "standard",
+                "missile_ranges": null,
+                "name": "Sword",
+                "overrides_applied": [],
+                "qualities": [
+                  "melee"
+                ],
+                "weight_coins": 60
+              }
+            },
+            {
               "base_item_id": "war_hammer",
               "charges_remaining": null,
               "cursed_revealed": false,
@@ -2031,26 +2063,6 @@
           },
           "valuables": [],
           "wielded": [
-            {
-              "instance_type": "item",
-              "quantity": 1,
-              "template": {
-                "cost_gp": 10,
-                "damage": "1d8",
-                "display_name": "sword",
-                "display_name_plural": "swords",
-                "id": "sword",
-                "item_type": "weapon",
-                "material": "standard",
-                "missile_ranges": null,
-                "name": "Sword",
-                "overrides_applied": [],
-                "qualities": [
-                  "melee"
-                ],
-                "weight_coins": 60
-              }
-            },
             {
               "base_item_id": "sword",
               "charges_remaining": null,
@@ -2204,19 +2216,7 @@
                   "light_radius_feet": 30
                 }
               }
-            }
-          ],
-          "purse": {
-            "cp": 0,
-            "ep": 0,
-            "gp": 0,
-            "pp": 0,
-            "sp": 0
-          },
-          "rings": [],
-          "shield": null,
-          "valuables": [],
-          "wielded": [
+            },
             {
               "instance_type": "item",
               "quantity": 1,
@@ -2236,7 +2236,19 @@
                 ],
                 "weight_coins": 60
               }
-            },
+            }
+          ],
+          "purse": {
+            "cp": 0,
+            "ep": 0,
+            "gp": 0,
+            "pp": 0,
+            "sp": 0
+          },
+          "rings": [],
+          "shield": null,
+          "valuables": [],
+          "wielded": [
             {
               "base_item_id": "dagger",
               "charges_remaining": null,

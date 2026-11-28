@@ -379,6 +379,8 @@ from osrlib.core.items import (
     MagicItemCategory,
     MagicItemInstance,
     WeaponQuality,
+    WeaponTemplate,
+    _enchanted_weapon,
     magic_item_template,
 )
 from osrlib.core.monsters import AttackRoutine, MonsterAbility, MonsterAttack, MonsterInstance, RoutineUse
@@ -1273,21 +1275,32 @@ def _npc_healing_potion(npc):
 
 
 def _npc_wielded(npc, *, missile: bool):
-    """The NPC's first wielded weapon for a missile or a melee attack, either a template or a magic instance.
+    """The wielded weapon an NPC uses for a missile or a melee attack, either a template or a magic instance.
+
+    Of the wielded weapons that make the attack, the first enchanted one comes first, then the first of the rest. A
+    cursed sword counts, because the OSE SRD's Swords page says a character under its curse "will favour the sword
+    and use it whenever possible". An item with no combat stats, such as a wand, is never the weapon.
 
     The choice doesn't depend on distance. The attack's distance, the target member's own distance to the NPC's
     group, sets the missile's range band when the attack resolves (see `_resolve_npc_attack`).
     """
+    first = None
     for instance in npc.inventory.wielded:
         attack = instance if isinstance(instance, MagicItemInstance) else instance.template
         facet = _declaration_facet(attack)
+        if facet is None:
+            continue
         qualities = getattr(facet, "qualities", ())
         if missile:
-            if WeaponQuality.MISSILE in qualities:
-                return attack
-        elif WeaponQuality.MELEE in qualities or WeaponQuality.MISSILE not in qualities:
+            if WeaponQuality.MISSILE not in qualities:
+                continue
+        elif WeaponQuality.MELEE not in qualities and WeaponQuality.MISSILE in qualities:
+            continue
+        if _enchanted_weapon(instance):
             return attack
-    return None
+        if first is None:
+            first = attack
+    return first
 
 
 def _preferred_targets(monster: MonsterInstance, targets: list) -> list:
@@ -5813,11 +5826,30 @@ def _resolve_npc_attack(session, npc, target, group, *, missile: bool, retreatin
         stream=session.streams.get(COMBAT_STREAM),
         clock=session.clock,
     )
-    events.extend(result.events)
+    events.extend(_masked_npc_attack_names(result.events, weapon))
     if isinstance(weapon, MagicItemInstance) and result.attack_roll.hit and not result.absorbed:
         events.extend(_on_hit_drain(session, weapon, target))
     events.extend(_identify_worn_items(session, target))
     return events
+
+
+def _masked_npc_attack_names(events, weapon) -> list[Event]:
+    """Name an NPC's unidentified magic weapon in its attack events by the mundane weapon underneath.
+
+    An `AttackRolledEvent` is visible to the players, and the players never identify an NPC's items, so the
+    attack is made with a "Sword", not a "Sword +1" or a "Sword -1, Cursed". A party member's attack keeps the true
+    name, because that attack identifies the weapon in the same command.
+    """
+    if not isinstance(weapon, MagicItemInstance) or weapon.identified:
+        return list(events)
+    from osrlib.core.combat import attack_facet
+
+    base = attack_facet(weapon)
+    name = base.name if isinstance(base, WeaponTemplate) else "weapon"
+    return [
+        event.model_copy(update={"attack_name": name}) if isinstance(event, AttackRolledEvent) else event
+        for event in events
+    ]
 
 
 def _resolve_npc_cast(session, npc, group, ready: _Ready, disrupted: set) -> list[Event]:

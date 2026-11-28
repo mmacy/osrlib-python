@@ -316,7 +316,9 @@ class AttackRolledEvent(Event):
 
     attack_name: str
     """The name of what the attacker used: a weapon, a gear item, a magic item, or a monster's attack. It's
-    `"unarmed"` for an unarmed attack, and `"improvised"` for an attack with a gear item's combat stats alone."""
+    `"unarmed"` for an unarmed attack, and `"improvised"` for an attack with a gear item's combat stats alone. In a
+    session, an NPC adventurer's unidentified magic weapon is named by the mundane weapon underneath, such as
+    `"Sword"`, because the players never identify an NPC's items."""
 
     roll: int | None = None
     """The d20 as it landed, before modifiers. `None` on an automatic hit."""
