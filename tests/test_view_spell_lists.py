@@ -537,11 +537,12 @@ def test_a_spell_no_member_may_choose_stays_hidden():
         assert name not in blob
 
 
-def test_a_spell_on_a_scroll_appears_only_when_a_member_may_learn_it_anyway():
+def test_a_spell_on_a_scroll_is_listed_only_when_a_member_may_learn_it_anyway():
     """A scroll adds nothing to either list, because the OSE SRD adds a spell to a book by mentoring or research.
 
     Wren's book has room at the 2nd level and none at the 1st, so the scroll's *web* is listed because any
-    2nd-level magic-user spell is, while its *sleep* and its 3rd-level *fire ball* stay hidden.
+    2nd-level magic-user spell is, while its *hold portal* and its 3rd-level *fire ball* aren't. The view still
+    names all three, because the identified scroll's inventory entry shows their ids (#294).
     """
     game = casters()
     wren = game.member(pf.named(game, "Wren"))
@@ -556,8 +557,8 @@ def test_a_spell_on_a_scroll_appears_only_when_a_member_may_learn_it_anyway():
     view = _player_view(game)
 
     assert "web" in _sheet(view, "Wren").learnable_spells
-    assert "hold_portal" not in view.spell_names
-    assert "fire_ball" not in view.spell_names
+    assert "hold_portal" not in _sheet(view, "Wren").learnable_spells
+    assert {"hold_portal", "web", "fire_ball"} <= set(view.spell_names)
     assert _lists(view) == _lists(_player_view(casters()))
 
 

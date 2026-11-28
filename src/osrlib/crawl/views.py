@@ -290,6 +290,15 @@ class MemberView(_Model):
     weapon. An identified item shows its `name`, its `template_id`, and whether a curse has been revealed. Charges
     never appear.
 
+    An identified spell scroll also has a `spells` key, the ids of the spells left on it, in the order that
+    [`UseItem`][osrlib.crawl.commands.UseItem] reads them, so the first is the one that a `UseItem` with `spell_id`
+    unset reads. A spell appears once for each time it's on the scroll. Send one of them as `UseItem.spell_id` to
+    read it, and look its name and usages up in [`PlayerView.spell_names`][osrlib.crawl.views.PlayerView.spell_names]
+    and [`PlayerView.spell_modes`][osrlib.crawl.views.PlayerView.spell_modes]. Reading the scroll identifies it, and
+    so does a referee's [`IdentifyItem`][osrlib.crawl.commands.IdentifyItem]. An unidentified scroll has no `spells`
+    key, and neither has a scroll with no spells on it, such as a cursed scroll, a scroll of protection, or a
+    treasure map.
+
     To name an item in a sentence, look up the id it has here in
     [`PlayerView.item_names`][osrlib.crawl.views.PlayerView.item_names]: a mundane item's
     `template.id`, and a magic item's or a valuable's `instance_id`."""
@@ -1647,11 +1656,12 @@ class PlayerView(_Model):
     """The name of each spell whose id the view shows, keyed by spell id, like
     `{"magic_missile": "Magic Missile"}`. Show these names, not the ids.
 
-    A spell id appears in five places in the view: in a member's
+    A spell id appears in six places in the view: in a member's
     [`spell_book`][osrlib.crawl.views.MemberView.spell_book],
     [`preparable_spells`][osrlib.crawl.views.MemberView.preparable_spells], and
     [`learnable_spells`][osrlib.crawl.views.MemberView.learnable_spells], as the `spell_id` of a copy in
-    a member's [`memorized_spells`][osrlib.crawl.views.MemberView.memorized_spells], and as the
+    a member's [`memorized_spells`][osrlib.crawl.views.MemberView.memorized_spells], in the `spells` of an
+    identified spell scroll in a member's [`inventory`][osrlib.crawl.views.MemberView.inventory], and as the
     [`kind`][osrlib.crawl.views.MemberEffectView.kind] of an effect in `effects`, because a spell's
     effect has the spell's id as its kind unless the spell's data gives it a kind of its own. Every one
     of those ids that the session's catalog,
@@ -1662,7 +1672,8 @@ class PlayerView(_Model):
 
     It names no spell whose id the view doesn't show. So a spell the adventure bundles for a list that
     no member casts from stays hidden, and so does a spell at a level where no member could prepare or
-    learn it. A spell on a scroll is named only when a member could prepare or learn it anyway. A spell
+    learn it, unless a member carries an identified scroll with the spell on it. A spell on an
+    unidentified scroll is named only when the view shows its id in another place. A spell
     id on a member that the session's catalog doesn't have, like one from a party made for another
     adventure, has no entry either, and the session refuses to prepare or cast that spell. The name here
     is always the spell's normal form. For a copy prepared reversed, show its name from
@@ -2106,6 +2117,9 @@ def _masked_magic_item(instance: MagicItemInstance) -> dict:
             "identified": True,
             "cursed": instance.cursed_revealed,
         }
+        if _spell_scroll(template):
+            inscribed = instance.state.get("spells", ())
+            payload["spells"] = [str(spell) for spell in inscribed] if isinstance(inscribed, tuple) else []
     else:
         display = _with_article(_masked_names(instance)[0])
         if template.category in _MASKED_CATEGORY_NAMES and template.category is not MagicItemCategory.STAFF:
@@ -2125,6 +2139,20 @@ def _masked_magic_item(instance: MagicItemInstance) -> dict:
         if facet.missile_ranges is not None:
             payload["missile_ranges"] = facet.missile_ranges.model_dump(mode="json")
     return payload
+
+
+def _spell_scroll(template) -> bool:
+    """Whether a magic item is a scroll of spells, the kind `UseItem` reads a spell from.
+
+    It decides as the battle's scroll check does: a scroll with a `spell_count`, no curse, and no effect of its own,
+    such as a ward's.
+    """
+    return (
+        template.category is MagicItemCategory.SCROLL
+        and not template.cursed
+        and template.effect is None
+        and "spell_count" in template.params
+    )
 
 
 def _masked_instance(instance) -> dict:
@@ -2409,9 +2437,10 @@ def _spell_names(session, members, effects) -> _SpellNames:
     """The view's spell maps: names, levels, usages, and ranges, for the spell ids the view shows.
 
     Only the ids the view already shows are named: those in the members' books, memorized copies, and the two lists
-    of what each member may prepare or learn, and the effect kinds. So a spell that the members can't choose stays
-    hidden, such as one on a scroll or one on a list that the party's classes don't cast from. An id the session's
-    catalog lacks, and an effect kind that is no spell's id, get no entry.
+    of what each member may prepare or learn, the effect kinds, and the spells left on each identified scroll in a
+    member's inventory. So a spell that the members can't choose stays hidden, such as one on an unidentified scroll
+    or one on a list that the party's classes don't cast from. An id the session's catalog lacks, and an effect kind
+    that is no spell's id, get no entry.
     """
     catalog = {spell.id: spell for spell in session.effective_spells.spells}
     shown = [
@@ -2420,6 +2449,7 @@ def _spell_names(session, members, effects) -> _SpellNames:
         *(effect.kind for effect in effects),
         *(spell_id for member in members for spell_id in member.preparable_spells),
         *(spell_id for member in members for spell_id in member.learnable_spells),
+        *(spell_id for member in members for item in member.inventory["items"] for spell_id in item.get("spells", ())),
     ]
     names: dict[str, str] = {}
     reversed_names: dict[str, str] = {}

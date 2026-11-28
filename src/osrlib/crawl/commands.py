@@ -1976,8 +1976,9 @@ class UseItem(Command):
     spell_id: str | None = None
     """Which spell to read off a scroll that has more than one, by its id (see the
     [spell id index](https://mmacy.github.io/osrlib-python/reference/content-ids/spells/)).
-    `None` reads the first spell left on the scroll. Leave it `None` for anything that isn't a
-    scroll."""
+    `None` reads the first spell left on the scroll. Once the party has identified the scroll, its entry in
+    [`MemberView.inventory`][osrlib.crawl.views.MemberView.inventory] lists the spells left, in the order a read
+    takes them. Leave it `None` for anything that isn't a scroll."""
     mode: str | None = None
     """Which of the read spell's usages to cast, by that usage's
     [`SpellMode.key`][osrlib.core.spells.SpellMode]. `None` casts the spell's first usage,
