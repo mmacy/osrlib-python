@@ -190,6 +190,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -275,6 +276,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {
               "side_feet": 20
             },
@@ -359,6 +361,7 @@
             "targeting": {
               "count": null,
               "count_dice": null,
+              "creatures_only": false,
               "dimensions": {
                 "side_feet": 20
               },
@@ -419,6 +422,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -452,6 +456,7 @@
           "targeting": {
             "count": null,
             "count_dice": "3d6",
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": 3,
@@ -515,6 +520,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -694,6 +700,7 @@
           "targeting": {
             "count": null,
             "count_dice": "3d6",
+            "creatures_only": false,
             "dimensions": {
               "radius_feet": 30
             },
@@ -835,6 +842,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -864,6 +872,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -891,6 +900,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -933,6 +943,7 @@
             "targeting": {
               "count": null,
               "count_dice": null,
+              "creatures_only": false,
               "dimensions": {},
               "hd_budget_dice": null,
               "hd_cap": null,
@@ -962,6 +973,7 @@
             "targeting": {
               "count": null,
               "count_dice": null,
+              "creatures_only": false,
               "dimensions": {},
               "hd_budget_dice": null,
               "hd_cap": null,
@@ -989,6 +1001,7 @@
             "targeting": {
               "count": null,
               "count_dice": null,
+              "creatures_only": false,
               "dimensions": {},
               "hd_budget_dice": null,
               "hd_cap": null,
@@ -1043,6 +1056,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -1072,6 +1086,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -1099,6 +1114,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -1141,6 +1157,7 @@
             "targeting": {
               "count": null,
               "count_dice": null,
+              "creatures_only": false,
               "dimensions": {},
               "hd_budget_dice": null,
               "hd_cap": null,
@@ -1170,6 +1187,7 @@
             "targeting": {
               "count": null,
               "count_dice": null,
+              "creatures_only": false,
               "dimensions": {},
               "hd_budget_dice": null,
               "hd_cap": null,
@@ -1197,6 +1215,7 @@
             "targeting": {
               "count": null,
               "count_dice": null,
+              "creatures_only": false,
               "dimensions": {},
               "hd_budget_dice": null,
               "hd_cap": null,
@@ -1363,6 +1382,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -1431,6 +1451,7 @@
             "targeting": {
               "count": null,
               "count_dice": null,
+              "creatures_only": false,
               "dimensions": {},
               "hd_budget_dice": null,
               "hd_cap": null,
@@ -1483,6 +1504,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -1510,6 +1532,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -1551,6 +1574,7 @@
             "targeting": {
               "count": null,
               "count_dice": null,
+              "creatures_only": false,
               "dimensions": {},
               "hd_budget_dice": null,
               "hd_cap": null,
@@ -1603,6 +1627,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -1644,6 +1669,7 @@
             "targeting": {
               "count": null,
               "count_dice": null,
+              "creatures_only": false,
               "dimensions": {},
               "hd_budget_dice": null,
               "hd_cap": null,
@@ -1700,6 +1726,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {
               "side_feet": 60
             },
@@ -1991,6 +2018,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -2085,6 +2113,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {
               "side_feet": 20
             },
@@ -2186,6 +2215,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -2285,6 +2315,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {
               "radius_feet": 20
             },
@@ -2382,6 +2413,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": true,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -2618,6 +2650,7 @@
           "targeting": {
             "count": 24,
             "count_dice": null,
+            "creatures_only": true,
             "dimensions": {
               "radius_feet": 30
             },
@@ -2680,6 +2713,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -2711,6 +2745,7 @@
           "targeting": {
             "count": null,
             "count_dice": "1d4",
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -2772,6 +2807,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -2804,6 +2840,7 @@
           "targeting": {
             "count": null,
             "count_dice": "1d4",
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -2865,6 +2902,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -2897,6 +2935,7 @@
           "targeting": {
             "count": null,
             "count_dice": "1d4",
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -2992,6 +3031,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": true,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -3087,6 +3127,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -3144,6 +3185,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {
               "radius_feet": 10
             },
@@ -3317,6 +3359,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -3375,6 +3418,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -3404,6 +3448,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -3431,6 +3476,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -3473,6 +3519,7 @@
             "targeting": {
               "count": null,
               "count_dice": null,
+              "creatures_only": false,
               "dimensions": {},
               "hd_budget_dice": null,
               "hd_cap": null,
@@ -3502,6 +3549,7 @@
             "targeting": {
               "count": null,
               "count_dice": null,
+              "creatures_only": false,
               "dimensions": {},
               "hd_budget_dice": null,
               "hd_cap": null,
@@ -3529,6 +3577,7 @@
             "targeting": {
               "count": null,
               "count_dice": null,
+              "creatures_only": false,
               "dimensions": {},
               "hd_budget_dice": null,
               "hd_cap": null,
@@ -3583,6 +3632,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -3612,6 +3662,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -3639,6 +3690,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -3681,6 +3733,7 @@
             "targeting": {
               "count": null,
               "count_dice": null,
+              "creatures_only": false,
               "dimensions": {},
               "hd_budget_dice": null,
               "hd_cap": null,
@@ -3710,6 +3763,7 @@
             "targeting": {
               "count": null,
               "count_dice": null,
+              "creatures_only": false,
               "dimensions": {},
               "hd_budget_dice": null,
               "hd_cap": null,
@@ -3737,6 +3791,7 @@
             "targeting": {
               "count": null,
               "count_dice": null,
+              "creatures_only": false,
               "dimensions": {},
               "hd_budget_dice": null,
               "hd_cap": null,
@@ -3795,6 +3850,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {
               "length_feet": 60,
               "width_feet": 5
@@ -4010,6 +4066,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -4105,6 +4162,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -4202,6 +4260,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -4521,6 +4580,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {
               "radius_feet": 10
             },
@@ -4605,6 +4665,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {
               "radius_feet": 10
             },
@@ -4688,6 +4749,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -4769,6 +4831,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -4834,6 +4897,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -4993,6 +5057,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -5025,6 +5090,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -5067,6 +5133,7 @@
             "targeting": {
               "count": null,
               "count_dice": null,
+              "creatures_only": false,
               "dimensions": {},
               "hd_budget_dice": null,
               "hd_cap": null,
@@ -5364,6 +5431,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -5406,6 +5474,7 @@
             "targeting": {
               "count": null,
               "count_dice": null,
+              "creatures_only": false,
               "dimensions": {},
               "hd_budget_dice": null,
               "hd_cap": null,
@@ -5483,6 +5552,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {
               "radius_feet": 30
             },
@@ -5562,6 +5632,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -5637,6 +5708,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -5698,6 +5770,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -5765,6 +5838,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -5793,6 +5867,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": "2d8",
             "hd_cap": 4,
@@ -6099,6 +6174,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -6143,6 +6219,7 @@
             "targeting": {
               "count": null,
               "count_dice": null,
+              "creatures_only": false,
               "dimensions": {},
               "hd_budget_dice": null,
               "hd_cap": null,
@@ -6214,6 +6291,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -6562,6 +6640,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": true,
             "dimensions": {},
             "hd_budget_dice": null,
             "hd_cap": null,
@@ -6622,6 +6701,7 @@
           "targeting": {
             "count": null,
             "count_dice": null,
+            "creatures_only": false,
             "dimensions": {
               "side_feet": 10
             },

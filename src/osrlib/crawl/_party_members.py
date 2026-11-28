@@ -4,7 +4,7 @@ from typing import Any
 
 from osrlib.core.combat import incapacitated
 from osrlib.core.effects import Condition, has_condition
-from osrlib.core.items import ItemInstance, ItemTemplate, MagicItemInstance, ValuableInstance
+from osrlib.core.items import ItemInstance, ItemTemplate, MagicItemInstance, ValuableInstance, _remove_by_identity
 from osrlib.core.validation import Rejection
 
 
@@ -165,11 +165,11 @@ def _remove_instance(member, instance: ItemInstance | MagicItemInstance) -> None
     """Take one instance out of wherever it is carried: pack, hands, slot, or ring."""
     inventory = member.inventory
     if any(existing is instance for existing in inventory.items):
-        inventory.items.remove(instance)
+        _remove_by_identity(inventory.items, instance)
     elif any(existing is instance for existing in inventory.wielded):
-        inventory.wielded.remove(instance)
+        _remove_by_identity(inventory.wielded, instance)
     elif isinstance(instance, MagicItemInstance) and any(existing is instance for existing in inventory.rings):
-        inventory.rings.remove(instance)
+        _remove_by_identity(inventory.rings, instance)
     elif inventory.worn_armour is instance:
         inventory.worn_armour = None
     elif inventory.shield is instance:

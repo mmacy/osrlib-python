@@ -137,7 +137,7 @@ from osrlib.core._descriptions import _StrEnum
 from osrlib.core.classes import SavingThrows
 from osrlib.core.clock import GameClock, TimeUnit
 from osrlib.core.creature import Combatant, Creature
-from osrlib.core.dice import RollResult, roll
+from osrlib.core.dice import RollResult, parse, roll
 from osrlib.core.effects import (
     Condition,
     EffectDefinition,
@@ -185,6 +185,7 @@ from osrlib.core.rng import RngStream, StreamName
 from osrlib.core.ruleset import Ruleset
 from osrlib.core.tables import ReactionResult, reaction_result, to_hit_ac
 from osrlib.core.validation import Rejection
+from osrlib.errors import ContentValidationError
 
 if TYPE_CHECKING:
     from osrlib.core.character import Character
@@ -3422,7 +3423,8 @@ def drain_monster_hd(monster: MonsterInstance, *, levels: int = 1, stream: RngSt
     Every other Hit Die drained takes a rolled d8 from both the monster's maximum and its
     current hit points. Its THAC0 and saving throws become those of its new Hit Dice.
     Neither hit point total falls below 1, so the lost hit points alone never kill a
-    monster.
+    monster. When the monster's `nonregen_damage` is more than its new maximum, it drops to
+    that maximum.
 
     The function reports the drain as a
     [`LevelDrainedEvent`][osrlib.core.events.LevelDrainedEvent]. Its `hp_lost` is how far
@@ -3484,6 +3486,8 @@ def drain_monster_hd(monster: MonsterInstance, *, levels: int = 1, stream: RngSt
         monster.drained_hd += 1
         monster.current_hp = max(1, monster.current_hp - lost)
         monster.max_hp = max(1, monster.max_hp - lost)
+        # The damage regeneration can't heal is never more than the lower maximum.
+        monster.nonregen_damage = min(monster.nonregen_damage, monster.max_hp)
     events: list[Event] = []
     if slain:
         # The killing Hit Die counts as lost, mirroring character drain.
@@ -3988,6 +3992,8 @@ def resolve_breath(
         ValueError: If the monster has no breath weapon, or has used up its breath for the
             day. The function draws nothing and changes nothing first. Breathing anyway is a
             mistake in your code, not a move the rules reject, so call `validate_breath` first.
+            It also raises `ValueError`, again before any draw or change, when the breath deals
+            damage and its `damage` param is neither `"current_hp"` nor a dice expression.
 
     Examples:
         ```python
@@ -4016,6 +4022,16 @@ def resolve_breath(
     params = _monster_ability_params(monster, "breath_weapon")
     if params is None:
         raise ValueError(f"{_entity_id(monster)} has no breath_weapon ability")
+    save_or_die = params.get("outcome") == "death"
+    damage_spec = params.get("damage")
+    if not save_or_die and damage_spec != "current_hp":
+        # Check the damage before the use is counted and the saves draw.
+        try:
+            parse(str(damage_spec))
+        except ContentValidationError:
+            raise ValueError(
+                f"{_entity_id(monster)}'s breath damage {damage_spec!r} isn't current_hp or a dice expression"
+            ) from None
     if params.get("uses_per_day") is not None:
         monster.breath_uses_today += 1
     element = str(params.get("element")) if params.get("element") is not None else None
@@ -4025,7 +4041,6 @@ def resolve_breath(
     # equipment too, not only a dragon's.
     source = DamageSource(element=element, kind="breath", destructive=True)
     events: list[Event] = []
-    save_or_die = params.get("outcome") == "death"
     for target in targets:
         if check_immunity(target, source, ruleset=ruleset, attacker=monster):
             events.append(_absorbed(target, monster, source))
@@ -4037,7 +4052,6 @@ def resolve_breath(
                 # The sea dragon's spittle is poison: "Poison spittle ... Save versus breath or die."
                 events.extend(kill(target, poison=element == "poison"))
             continue
-        damage_spec = params.get("damage")
         if damage_spec == "current_hp":
             amount, rolls = monster.current_hp, ()
         else:

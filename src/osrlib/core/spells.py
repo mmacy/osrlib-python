@@ -173,6 +173,7 @@ from osrlib.core.combat import (
     DamageSource,
     SaveCategory,
     TargetingMode,
+    _absorbed,
     apply_healing,
     attack_roll,
     check_immunity,
@@ -196,7 +197,6 @@ from osrlib.core.effects import (
     remove_condition,
 )
 from osrlib.core.events import (
-    DamageAbsorbedEvent,
     EffectTickedEvent,
     Event,
     HitPointsReportedEvent,
@@ -211,7 +211,7 @@ from osrlib.core.events import (
     UndeadTurnedEvent,
 )
 from osrlib.core.frozen import FrozenMap, _Model
-from osrlib.core.monsters import MonsterInstance, MonsterTemplate
+from osrlib.core.monsters import MonsterInstance, MonsterTemplate, _id_words
 from osrlib.core.rng import RngStream, StreamName
 from osrlib.core.ruleset import Ruleset
 from osrlib.core.tables import turning_column
@@ -545,6 +545,17 @@ class TargetingSpec(_Model):
     them as candidates.
     """
 
+    creatures_only: bool = False
+    """True when every target has to be a creature, not a location string.
+
+    [`validate_cast`][osrlib.core.spells.validate_cast] refuses a location string as a target of a mode that sets
+    it, with `magic.cast.target_must_be_creature`. Set it on a mode whose effect does something only on a creature,
+    when neither the mode's save nor its effect already requires a creature. An effect with no condition and no
+    modifiers, like *light*'s, would otherwise take a location. In the built-in catalog, *fly*, *infravision*, *water
+    breathing*, and *haste* set it, because their pages name a creature as the subject. `False`, the default, leaves
+    the decision to the mode's save and effect.
+    """
+
     @field_validator("count_dice", "hd_budget_dice")
     @classmethod
     def _dice_must_parse(cls, value: str | None) -> str | None:
@@ -819,8 +830,8 @@ class SpellMode(_Model):
         key = data.get("key")
         if not isinstance(key, str):
             return data
-        words = " ".join(part for part in key.split("_") if part).strip()
-        if not words:
+        words = _id_words(key)
+        if not words.strip():
             return {**data, "display_name": key}
         capital = words[0].upper()
         if len(capital) == 1:
@@ -2130,14 +2141,20 @@ def _needs_creatures(mode: SpellMode) -> bool:
 
     A location can't roll a saving throw, take damage or healing, die, come back to life, or count against a pool
     of Hit Dice. An effect on a location grants no condition or modifiers either. *Web* is the one condition mode
-    that works on a location, because cast there it drops the condition and entangles whoever enters the cell.
+    that works on a location, because cast there it drops the condition and entangles whoever enters the cell. A
+    cure that ends only conditions, like *cure disease*, needs a creature, because only a creature has conditions.
+    A cure that ends effects, like *light*'s `cancel`, takes a location.
     """
     effect, targeting = mode.effect, mode.targeting
     if effect is None or targeting is None:
         return False
+    if targeting.creatures_only:
+        return True
     if mode.save is not None or targeting.mode is TargetingMode.HD_BUDGET:
         return True
     if effect.kind in ("damage", "heal", "kill", "restore_life") or effect.modifiers:
+        return True
+    if effect.kind == "cure" and effect.cures_conditions and not effect.cures_effect_kinds:
         return True
     return effect.condition is not None and "escape_dice" not in effect.params
 
@@ -2192,8 +2209,11 @@ def validate_cast(
     - Each target is a creature when the mode works only on creatures. A location string can't
       make a saving throw, take damage or healing, die, come back to life, or count against a
       pool of Hit Dice, and an effect on a location grants no condition or modifiers. *Web*,
-      *dispel magic*, the modes that cure, and the modes that attach an effect with no condition
-      or modifiers, like *light*'s, still take a location.
+      *dispel magic*, the cure modes that end effects, like *light*'s `cancel`, and the modes that
+      attach an effect with no condition or modifiers, like *light*'s `illuminate`, still take a
+      location. A cure mode that ends only conditions, such as *cure disease*'s, needs a creature,
+      and so does a mode whose targeting sets
+      [`creatures_only`][osrlib.core.spells.TargetingSpec.creatures_only], such as *fly*'s.
     - The target is in range, but only when the context gives a distance. A reversed cast is checked
       against the reverse's own range when it has one, such as *cause fear*'s 120'.
 
@@ -3490,7 +3510,7 @@ def _resolve_damage(
         # cast and attaches nothing, so the printed 1-turn duration never applies.
         for target in selected:
             if check_immunity(target, source, ruleset=ruleset, attacker=caster):
-                state.events.extend(_absorbed_events(target, caster_id, source))
+                state.events.append(_absorbed(target, caster, source))
                 continue
             result = roll(str(params["dice"]), stream)
             state.events.extend(
@@ -3517,7 +3537,7 @@ def _resolve_damage(
             if not hit:
                 return
         if check_immunity(target, source, ruleset=ruleset, attacker=caster):
-            state.events.extend(_absorbed_events(target, caster_id, source))
+            state.events.append(_absorbed(target, caster, source))
             return
         result = roll(str(params["dice"]), stream)
         state.events.extend(
@@ -3536,7 +3556,7 @@ def _resolve_damage(
         return
     for target in selected:
         if check_immunity(target, source, ruleset=ruleset, attacker=caster):
-            state.events.extend(_absorbed_events(target, caster_id, source))
+            state.events.append(_absorbed(target, caster, source))
             continue
         passed = False
         save = mode.save
@@ -3569,11 +3589,6 @@ def _resolve_damage(
             )
         )
         state.affect(target)
-
-
-def _absorbed_events(target: Any, caster_id: str, source: DamageSource) -> list[Event]:
-    keys = source.keys if source.element is None else (*source.keys, source.element)
-    return [DamageAbsorbedEvent(target_id=_target_ref(target), attacker_id=caster_id, keys=keys)]
 
 
 def _resolve_heal(mode: SpellMode, selected: list[Any], state: _CastState, stream: RngStream) -> None:

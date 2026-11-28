@@ -93,16 +93,17 @@ print(template.xp, template.ability("regeneration").params["per_round"])
 from collections.abc import Mapping
 from typing import Annotated, Literal
 
-from pydantic import ConfigDict, Field, ValidationInfo, field_validator, model_validator
+from pydantic import ConfigDict, Field, ValidationError, ValidationInfo, field_validator, model_validator
 
 from osrlib.core._descriptions import _StrEnum
 from osrlib.core.alignment import Alignment
 from osrlib.core.classes import SavingThrows
 from osrlib.core.creature import _assign_or_restore
 from osrlib.core.dice import parse
-from osrlib.core.effects import ActiveCondition, ActiveModifier, Condition
+from osrlib.core.effects import ActiveCondition, ActiveModifier, Condition, regeneration_definition
 from osrlib.core.frozen import FrozenMap, _Model
 from osrlib.core.rng import RngStream, StreamName
+from osrlib.errors import ContentValidationError
 
 __all__ = [
     "MONSTER_SPAWN_STREAM",
@@ -142,6 +143,15 @@ A stream key identifies one independent random-number sequence inside an
 It is separate from the combat stream so that a change to how a fight resolves never changes the
 creatures that spawn in a seeded scenario.
 """
+
+
+def _id_words(identifier: str) -> str:
+    """Return the words of a snake_case id, with each run of underscores as one space, like `"cave goblin"`.
+
+    An id with no words, such as `"_"`, is returned as it is.
+    """
+    words = " ".join(part for part in identifier.split("_") if part).strip()
+    return words or identifier
 
 
 def _regular_plural(name: str) -> str:
@@ -752,7 +762,26 @@ class MonsterAbility(_Model):
 
     A troll's regeneration has `delay_rounds` 3 and `per_round` 3, and a wight's energy drain has
     `levels` 1. The keys differ by tag. Empty when the SRD gives no numbers.
+
+    A `regeneration` ability's params become an effect when an encounter starts, through
+    [`regeneration_definition`][osrlib.core.effects.regeneration_definition]. Constructing the ability raises
+    `pydantic.ValidationError` when the params can't build that effect, such as a `per_round` of `"three"` or a
+    `revive` of `"lots"`, which isn't a dice expression.
     """
+
+    @model_validator(mode="after")
+    def _regeneration_can_run(self) -> MonsterAbility:
+        if self.tag == "regeneration":
+            # Both errors become a ValueError, so constructing the ability always raises pydantic's ValidationError.
+            try:
+                regeneration_definition(self.params)
+            except ValidationError as error:
+                raise ValueError(
+                    f"the regeneration params can't build its effect: {error.errors()[0]['msg']}"
+                ) from None
+            except ContentValidationError as error:
+                raise ValueError(f"the regeneration params can't build its effect: {error}") from None
+        return self
 
 
 class AcAlternate(_Model):
@@ -821,7 +850,8 @@ class MonsterTemplate(_Model):
     `"Hellhound (5)"`, a hellhound with 5 Hit Dice, is `"hellhound"`. The session gives a group of these
     creatures this name as its [`label`][osrlib.crawl.encounter.EncounterGroup.label].
 
-    A template you write that leaves it out gets its `name`.
+    A template you write that leaves it out gets its `name`. When `name` is empty or only spaces too, it gets the
+    words of its `id`, so `cave_goblin` is called `"cave goblin"`.
     """
 
     display_name_plural: str = Field(default="", validate_default=True)
@@ -973,12 +1003,18 @@ class MonsterTemplate(_Model):
     @field_validator("display_name")
     @classmethod
     def _display_name_defaults_to_name(cls, value: str, info: ValidationInfo) -> str:
-        return value or info.data.get("name", "")
+        if value:
+            return value
+        name = info.data.get("name", "")
+        return name if name.strip() else _id_words(info.data.get("id", ""))
 
     @field_validator("display_name_plural")
     @classmethod
     def _plural_defaults_to_regular_ending(cls, value: str, info: ValidationInfo) -> str:
-        return value or _regular_plural(info.data.get("display_name", ""))
+        # osrlib 2.11.0 wrote "s", the plural of an empty name, for a template with no name.
+        if value and not (value == "s" and not info.data.get("name", "").strip()):
+            return value
+        return _regular_plural(info.data.get("display_name", ""))
 
     @field_validator("family_id")
     @classmethod
@@ -1204,12 +1240,19 @@ class MonsterInstance(_Model):
     drained_hd: int = Field(default=0, ge=0)
     """How many Hit Dice have been drained from it, which [`drain_monster_hd`][osrlib.core.combat.drain_monster_hd]
     adds to. Its THAC0, attack bonus, and saving throws follow the Hit Dice it has left.
+
+    When it's above 0, it's less than the template's Hit Dice count, because a drain that would take the last Hit
+    Die kills the creature instead. Setting a value at or above that count raises `pydantic.ValidationError`.
     """
 
     @model_validator(mode="after")
     def _hit_points_within_maximum(self) -> MonsterInstance:
         if self.current_hp > self.max_hp:
             raise ValueError(f"current hp {self.current_hp} exceeds max hp {self.max_hp}")
+        if self.drained_hd and self.drained_hd >= self.template.hit_dice.count:
+            raise ValueError(
+                f"drained_hd {self.drained_hd} leaves no Hit Die of the template's {self.template.hit_dice.count}"
+            )
         return self
 
     @property

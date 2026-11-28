@@ -15,6 +15,7 @@ from osrlib.core.items import (
     MagicItemInstance,
     _item_name_fields,
     _max_load_coins,
+    _remove_by_identity,
     _treasure_room_coins,
     magic_item_template,
     tracked_weight_coins,
@@ -183,23 +184,6 @@ def _within_max_load(member, ruleset) -> bool:
     return tracked_weight_coins(member.inventory, mode) <= _max_load_coins(member.inventory, mode)
 
 
-def _uncarry(collection: list, instance) -> None:
-    """Remove exactly the object that was handed over, by identity rather than by equality.
-
-    Two like `ItemInstance`s (same template, same quantity) compare equal under
-    pydantic, so `list.remove` could take a torch the member already owned and leave
-    the newly offered one behind, aliased into two inventories at once.
-
-    Args:
-        collection: The inventory list the item was appended to.
-        instance: The exact object to take back out.
-    """
-    for index, entry in enumerate(collection):
-        if entry is instance:
-            del collection[index]
-            return
-
-
 def _can_use(member, instance) -> bool:
     """Return whether the member's class may use this item, the loot-sorting preference.
 
@@ -285,7 +269,7 @@ def _hand_valuable(carriers, ruleset, valuable):
         member.inventory.valuables.append(valuable)
         if _within_max_load(member, ruleset):
             return index
-        _uncarry(member.inventory.valuables, valuable)
+        _remove_by_identity(member.inventory.valuables, valuable)
     return None
 
 
@@ -394,7 +378,7 @@ def _distribute_haul(session, carriers, haul: DropPile) -> tuple[list[Event], Dr
             ruleset,
             magic_item,
             lambda member, item=magic_item: member.inventory.items.append(item),
-            lambda member, item=magic_item: _uncarry(member.inventory.items, item),
+            lambda member, item=magic_item: _remove_by_identity(member.inventory.items, item),
         )
         if holder is None:
             leftovers.magic_items.append(magic_item)
@@ -408,7 +392,7 @@ def _distribute_haul(session, carriers, haul: DropPile) -> tuple[list[Event], Dr
             ruleset,
             instance,
             lambda member, item=instance: member.inventory.items.append(item),
-            lambda member, item=instance: _uncarry(member.inventory.items, item),
+            lambda member, item=instance: _remove_by_identity(member.inventory.items, item),
         )
         if holder is None:
             leftovers.items.append(dropped)

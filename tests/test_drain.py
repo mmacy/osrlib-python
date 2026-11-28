@@ -6,7 +6,7 @@ from osrlib.core.abilities import AbilityScore
 from osrlib.core.alignment import Alignment
 from osrlib.core.character import Character
 from osrlib.core.classes import apply_xp, drain_levels
-from osrlib.core.combat import drain_monster_hd, resolve_energy_drain
+from osrlib.core.combat import DamageSource, deal_damage, drain_monster_hd, resolve_energy_drain
 from osrlib.core.effects import Condition, has_condition
 from osrlib.core.monsters import spawn_monster
 from osrlib.core.rng import RngStreams
@@ -145,6 +145,14 @@ class TestDrainLevels:
         with pytest.raises(ValueError):
             drain_levels(fighter, definition, xp_policy="midpoint", stream=FixedStream([]))
 
+    def test_a_drain_keeps_non_regenerable_damage_within_the_maximum(self):
+        fighter = make_fighter(4)
+        fighter.current_hp = 4
+        fighter.nonregen_damage = 20  # a ring of regeneration wearer burned by fire
+        drain_levels(fighter, load_classes().get("fighter"), xp_policy="halfway", stream=FixedStream([7]))
+        assert fighter.max_hp == 16 and fighter.current_hp == 1
+        assert fighter.nonregen_damage == 16
+
 
 class TestMonsterDrain:
     def test_monster_loses_hd_and_rederives(self):
@@ -167,6 +175,15 @@ class TestMonsterDrain:
         assert has_condition(ghoul, Condition.DEAD)
         assert events[0].code == "combat.drain.slain"
         assert events[0].levels_lost == 2  # the killing Hit Die counts (pinned)
+
+    def test_a_drain_keeps_a_trolls_non_regenerable_damage_within_its_maximum(self):
+        streams = RngStreams(master_seed=3)
+        troll = spawn_monster(load_monsters().get("troll"), id="m-t", stream=streams.get("monster_spawn"))
+        deal_damage(troll, troll.max_hp - 1, source=DamageSource(kind="spell", element="fire"))
+        assert troll.nonregen_damage == troll.max_hp - 1
+        drain_monster_hd(troll, levels=3, stream=FixedStream([7, 7, 7]))
+        assert troll.max_hp == 18 and troll.current_hp == 1
+        assert troll.nonregen_damage == 18
 
 
 class TestWiring:

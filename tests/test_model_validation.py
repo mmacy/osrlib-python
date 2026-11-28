@@ -64,6 +64,16 @@ def test_a_casting_class_needs_a_spell_list(class_id, tag):
         ClassDefinition.model_validate({**document, "id": "hedge_caster"})
 
 
+@pytest.mark.parametrize(
+    "tags", [("arcane_magic", "divine_magic"), ("divine_magic", "arcane_magic"), ("arcane_magic", "arcane_magic")]
+)
+def test_a_class_casts_from_one_spell_list_at_most(tags):
+    document = load_classes().get("fighter").model_dump()
+    casting = [{"tag": tag, "name": tag, "prose": "Casts spells.", "params": {"spell_list": "cleric"}} for tag in tags]
+    with pytest.raises(ValidationError, match="at most one"):
+        ClassDefinition.model_validate({**document, "id": "mystic", "abilities": [*document["abilities"], *casting]})
+
+
 def test_the_built_in_classes_round_trip():
     for definition in load_classes().classes:
         assert ClassDefinition.model_validate(definition.model_dump()) == definition
@@ -234,3 +244,80 @@ def test_an_adventure_still_dumps_and_loads():
     adventure = crawl_fixtures.build_milestone_adventure()
     assert type(adventure).model_validate(adventure.model_dump(mode="json")) == adventure
     assert type(adventure).model_validate(adventure.model_dump()) == adventure
+
+
+# ---------------------------------------------------------------------- MonsterTemplate.name (#257)
+
+
+def bundled(**fields):
+    """A template made from the goblin's, with the display names left to their defaults unless `fields` set them."""
+    document = {**load_monsters().get("goblin").model_dump(), "display_name": "", "display_name_plural": ""}
+    return type(load_monsters().get("goblin")).model_validate({**document, **fields})
+
+
+@pytest.mark.parametrize("name", ["", "   "])
+def test_a_nameless_template_is_called_by_the_words_of_its_id(name):
+    template = bundled(id="cave_goblin", name=name)
+    assert template.name == name
+    assert (template.display_name, template.display_name_plural) == ("cave goblin", "cave goblins")
+
+
+def test_a_nameless_template_from_2_11_0_loses_its_s_plural():
+    template = bundled(id="mud_puppy", name="", display_name="", display_name_plural="s")
+    assert (template.display_name, template.display_name_plural) == ("mud puppy", "mud puppies")
+
+
+def test_a_named_template_still_gets_its_display_names():
+    template = bundled(id="bogle", name="Bogle")
+    assert (template.display_name, template.display_name_plural) == ("Bogle", "Bogles")
+
+
+def test_a_nameless_bundled_monster_is_named_by_its_id_in_play():
+    from osrlib.crawl.adventure import Adventure, TownSpec
+    from osrlib.crawl.commands import EnterDungeon, SpawnMonsters
+    from osrlib.crawl.dungeon import DungeonSpec, LevelSpec
+    from osrlib.crawl.party import Party
+    from osrlib.crawl.session import GameSession
+    from osrlib.messages import format_message
+
+    level = LevelSpec(number=1, width=1, height=1, entrance=(0, 0))
+    adventure = Adventure(
+        name="A",
+        town=TownSpec(name="Threshold", travel_turns={"crypt": 1}),
+        dungeons=(DungeonSpec(id="crypt", name="Crypt", levels=(level,)),),
+        monsters=(bundled(id="cave_goblin", name=""),),
+    )
+    game = GameSession.new(Party(members=[hero()]), adventure, seed=4)
+    assert game.execute(EnterDungeon(dungeon_id="crypt")).accepted
+    result = game.execute(SpawnMonsters(template_id="cave_goblin", count_fixed=2, distance_feet=60))
+    assert result.accepted
+
+    group = game.view("player").encounter.groups[0]
+    assert (group.label, group.label_plural) == ("cave goblin", "cave goblins")
+    started = next(event for event in result.events if event.code == "encounter.started")
+    assert "cave goblins" in format_message(started)
+
+
+# ---------------------------------------------------------------------- MonsterInstance.drained_hd (#257)
+
+
+def ogre():
+    stream = RngStreams(master_seed=3).get(MONSTER_SPAWN_STREAM)
+    return spawn_monster(load_monsters().get("ogre"), id="monster-0002", stream=stream)
+
+
+@pytest.mark.parametrize("drained", [4, 5])
+def test_a_monster_cant_be_drained_of_every_hit_die(drained):
+    monster = ogre()
+    with pytest.raises(ValidationError, match="drained_hd"):
+        monster.drained_hd = drained
+    assert monster.drained_hd == 0
+    with pytest.raises(ValidationError, match="drained_hd"):
+        type(monster).model_validate({**monster.model_dump(), "drained_hd": drained})
+
+
+def test_a_monster_drained_to_one_hit_die_still_saves():
+    monster = ogre()
+    monster.drained_hd = 3
+    assert monster.hit_dice_count == 1
+    assert monster.saves.death == 12

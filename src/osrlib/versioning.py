@@ -154,7 +154,7 @@ def stamp_document(kind: str, payload: Mapping[str, object]) -> dict[str, object
 
     The result is ready for `json.dumps` if the payload is. Pass a payload you already
     turned into JSON-compatible values, which for a pydantic model means
-    `model_dump(mode="json")`. This function copies the mapping one level deep and converts
+    `model_dump(mode="json")`. This function copies the payload at every depth and converts
     nothing inside it.
 
     Args:
@@ -165,8 +165,8 @@ def stamp_document(kind: str, payload: Mapping[str, object]) -> dict[str, object
 
     Returns:
         A new dict with `kind`, `schema_version`, `engine_version`, and `payload` keys. The
-            payload is a shallow copy, so later edits to the mapping you passed don't change
-            the document, though edits to objects nested inside it do.
+            payload is a deep copy, so later edits to the mapping you passed, or to any object
+            nested inside it, don't change the document.
 
     Raises:
         ValueError: If `kind` is empty.
@@ -186,7 +186,7 @@ def stamp_document(kind: str, payload: Mapping[str, object]) -> dict[str, object
         "kind": kind,
         "schema_version": SCHEMA_VERSION,
         "engine_version": engine_version(),
-        "payload": dict(payload),
+        "payload": copy.deepcopy(dict(payload)),
     }
 
 
