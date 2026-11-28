@@ -244,3 +244,56 @@ def test_an_adventure_still_dumps_and_loads():
     adventure = crawl_fixtures.build_milestone_adventure()
     assert type(adventure).model_validate(adventure.model_dump(mode="json")) == adventure
     assert type(adventure).model_validate(adventure.model_dump()) == adventure
+
+
+# ---------------------------------------------------------------------- MonsterTemplate.name (#257)
+
+
+def bundled(**fields):
+    """A template made from the goblin's, with the display names left to their defaults unless `fields` set them."""
+    document = {**load_monsters().get("goblin").model_dump(), "display_name": "", "display_name_plural": ""}
+    return type(load_monsters().get("goblin")).model_validate({**document, **fields})
+
+
+@pytest.mark.parametrize("name", ["", "   "])
+def test_a_nameless_template_is_called_by_the_words_of_its_id(name):
+    template = bundled(id="cave_goblin", name=name)
+    assert template.name == name
+    assert (template.display_name, template.display_name_plural) == ("cave goblin", "cave goblins")
+
+
+def test_a_nameless_template_from_2_11_0_loses_its_s_plural():
+    template = bundled(id="mud_puppy", name="", display_name="", display_name_plural="s")
+    assert (template.display_name, template.display_name_plural) == ("mud puppy", "mud puppies")
+
+
+def test_a_named_template_still_gets_its_display_names():
+    template = bundled(id="bogle", name="Bogle")
+    assert (template.display_name, template.display_name_plural) == ("Bogle", "Bogles")
+
+
+def test_a_nameless_bundled_monster_is_named_by_its_id_in_play():
+    from osrlib.crawl.adventure import Adventure, TownSpec
+    from osrlib.crawl.commands import EnterDungeon, SpawnMonsters
+    from osrlib.crawl.dungeon import DungeonSpec, LevelSpec
+    from osrlib.crawl.party import Party
+    from osrlib.crawl.session import GameSession
+    from osrlib.messages import format_message
+
+    level = LevelSpec(number=1, width=1, height=1, entrance=(0, 0))
+    adventure = Adventure(
+        name="A",
+        town=TownSpec(name="Threshold", travel_turns={"crypt": 1}),
+        dungeons=(DungeonSpec(id="crypt", name="Crypt", levels=(level,)),),
+        monsters=(bundled(id="cave_goblin", name=""),),
+    )
+    game = GameSession.new(Party(members=[hero()]), adventure, seed=4)
+    assert game.execute(EnterDungeon(dungeon_id="crypt")).accepted
+    result = game.execute(SpawnMonsters(template_id="cave_goblin", count_fixed=2, distance_feet=60))
+    assert result.accepted
+
+    group = game.view("player").encounter.groups[0]
+    assert (group.label, group.label_plural) == ("cave goblin", "cave goblins")
+    started = next(event for event in result.events if event.code == "encounter.started")
+    assert "cave goblins" in format_message(started)
+

@@ -211,7 +211,7 @@ from osrlib.core.events import (
     UndeadTurnedEvent,
 )
 from osrlib.core.frozen import FrozenMap, _Model
-from osrlib.core.monsters import MonsterInstance, MonsterTemplate
+from osrlib.core.monsters import MonsterInstance, MonsterTemplate, _id_words
 from osrlib.core.rng import RngStream, StreamName
 from osrlib.core.ruleset import Ruleset
 from osrlib.core.tables import turning_column
@@ -830,8 +830,8 @@ class SpellMode(_Model):
         key = data.get("key")
         if not isinstance(key, str):
             return data
-        words = " ".join(part for part in key.split("_") if part).strip()
-        if not words:
+        words = _id_words(key)
+        if not words.strip():
             return {**data, "display_name": key}
         capital = words[0].upper()
         if len(capital) == 1:

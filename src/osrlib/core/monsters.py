@@ -145,6 +145,15 @@ creatures that spawn in a seeded scenario.
 """
 
 
+def _id_words(identifier: str) -> str:
+    """Return the words of a snake_case id, with each run of underscores as one space, like `"cave goblin"`.
+
+    An id with no words, such as `"_"`, is returned as it is.
+    """
+    words = " ".join(part for part in identifier.split("_") if part).strip()
+    return words or identifier
+
+
 def _regular_plural(name: str) -> str:
     """Return `name` with the regular English plural ending that `MonsterTemplate.display_name_plural` describes.
 
@@ -841,7 +850,8 @@ class MonsterTemplate(_Model):
     `"Hellhound (5)"`, a hellhound with 5 Hit Dice, is `"hellhound"`. The session gives a group of these
     creatures this name as its [`label`][osrlib.crawl.encounter.EncounterGroup.label].
 
-    A template you write that leaves it out gets its `name`.
+    A template you write that leaves it out gets its `name`. When `name` is empty or only spaces too, it gets the
+    words of its `id`, so `cave_goblin` is called `"cave goblin"`.
     """
 
     display_name_plural: str = Field(default="", validate_default=True)
@@ -993,12 +1003,18 @@ class MonsterTemplate(_Model):
     @field_validator("display_name")
     @classmethod
     def _display_name_defaults_to_name(cls, value: str, info: ValidationInfo) -> str:
-        return value or info.data.get("name", "")
+        if value:
+            return value
+        name = info.data.get("name", "")
+        return name if name.strip() else _id_words(info.data.get("id", ""))
 
     @field_validator("display_name_plural")
     @classmethod
     def _plural_defaults_to_regular_ending(cls, value: str, info: ValidationInfo) -> str:
-        return value or _regular_plural(info.data.get("display_name", ""))
+        # osrlib 2.11.0 wrote "s", the plural of an empty name, for a template with no name.
+        if value and not (value == "s" and not info.data.get("name", "").strip()):
+            return value
+        return _regular_plural(info.data.get("display_name", ""))
 
     @field_validator("family_id")
     @classmethod
