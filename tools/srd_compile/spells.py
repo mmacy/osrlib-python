@@ -710,7 +710,14 @@ _SPELL_MECHANICS: dict[str, dict[str, list[dict[str, object]]]] = {
         "modes": [
             _mode(
                 "haste",
-                targeting={"mode": "up_to_n", "count": 24, "shape": "sphere", "dimensions": {"radius_feet": 30}},
+                targeting={
+                    "mode": "up_to_n",
+                    "count": 24,
+                    "shape": "sphere",
+                    "dimensions": {"radius_feet": 30},
+                    # "Up to 24 creatures in a 30’ radius area are enchanted": a cell has nothing to speed up.
+                    "creatures_only": True,
+                },
                 effect={
                     "kind": "attach_only",
                     "params": {"effect_kind": "haste", "attacks_multiplier": 2, "movement_multiplier": 2},
@@ -792,7 +799,8 @@ _SPELL_MECHANICS: dict[str, dict[str, list[dict[str, object]]]] = {
         "modes": [
             _mode(
                 "grant",
-                targeting={"mode": "single"},
+                # Range: "The caster or a creature touched". A cell has no eyes to grant infravision to.
+                targeting={"mode": "single", "creatures_only": True},
                 effect={"kind": "attach_only", "params": {"effect_kind": "infravision", "range_feet": 60}},
             ),
         ],
@@ -801,7 +809,8 @@ _SPELL_MECHANICS: dict[str, dict[str, list[dict[str, object]]]] = {
         "modes": [
             _mode(
                 "grant",
-                targeting={"mode": "single"},
+                # Range: "The caster or a creature touched", and "The subject gains the ability to fly".
+                targeting={"mode": "single", "creatures_only": True},
                 effect={"kind": "attach_only", "params": {"effect_kind": "fly", "rate_feet": 360}},
             ),
         ],
@@ -819,7 +828,8 @@ _SPELL_MECHANICS: dict[str, dict[str, list[dict[str, object]]]] = {
         "modes": [
             _mode(
                 "grant",
-                targeting={"mode": "single"},
+                # "Bestows the ability to breathe water upon a single subject."
+                targeting={"mode": "single", "creatures_only": True},
                 effect={"kind": "attach_only", "params": {"effect_kind": "water_breathing"}},
             ),
         ],

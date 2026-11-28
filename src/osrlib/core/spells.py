@@ -545,6 +545,17 @@ class TargetingSpec(_Model):
     them as candidates.
     """
 
+    creatures_only: bool = False
+    """True when every target has to be a creature, not a location string.
+
+    [`validate_cast`][osrlib.core.spells.validate_cast] refuses a location string as a target of a mode that sets
+    it, with `magic.cast.target_must_be_creature`. Set it on a mode whose effect does something only on a creature,
+    when neither the mode's save nor its effect already requires a creature. An effect with no condition and no
+    modifiers, like *light*'s, would otherwise take a location. In the built-in catalog, *fly*, *infravision*, *water
+    breathing*, and *haste* set it, because their pages name a creature as the subject. `False`, the default, leaves
+    the decision to the mode's save and effect.
+    """
+
     @field_validator("count_dice", "hd_budget_dice")
     @classmethod
     def _dice_must_parse(cls, value: str | None) -> str | None:
@@ -2135,6 +2146,8 @@ def _needs_creatures(mode: SpellMode) -> bool:
     effect, targeting = mode.effect, mode.targeting
     if effect is None or targeting is None:
         return False
+    if targeting.creatures_only:
+        return True
     if mode.save is not None or targeting.mode is TargetingMode.HD_BUDGET:
         return True
     if effect.kind in ("damage", "heal", "kill", "restore_life") or effect.modifiers:
@@ -2193,7 +2206,8 @@ def validate_cast(
       make a saving throw, take damage or healing, die, come back to life, or count against a
       pool of Hit Dice, and an effect on a location grants no condition or modifiers. *Web*,
       *dispel magic*, the modes that cure, and the modes that attach an effect with no condition
-      or modifiers, like *light*'s, still take a location.
+      or modifiers, like *light*'s, still take a location. A mode whose targeting sets
+      [`creatures_only`][osrlib.core.spells.TargetingSpec.creatures_only], such as *fly*'s, needs a creature.
     - The target is in range, but only when the context gives a distance. A reversed cast is checked
       against the reverse's own range when it has one, such as *cause fear*'s 120'.
 
