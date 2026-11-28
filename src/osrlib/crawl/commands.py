@@ -2464,7 +2464,10 @@ class Evade(Command):
     """Run from the encounter before a battle starts.
 
     An encounter must be open. Monsters whose stance is `attacks` or `hostile` pursue the
-    party, if any of them can move. The party gets away at once when no monster pursues it,
+    party, if any of them can move. A group that is running itself, after a failed morale
+    check or because its living members are all turned or afraid, doesn't pursue. A group
+    that stops pursuing during the chase drops out of it, and when no group is left, the
+    party gets away at once. The party gets away at once when no monster pursues it,
     or when it runs faster than the slowest monster that pursues it. Otherwise a pursuit
     starts, and each [`Wait`][osrlib.crawl.commands.Wait] or
     [`DropItems`][osrlib.crawl.commands.DropItems] runs one round of it. `drop` scatters

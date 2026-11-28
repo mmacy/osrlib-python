@@ -1028,7 +1028,7 @@ def _handle_evade(session, command: Evade) -> tuple[list[Rejection], list[Event]
                     ItemsDroppedEvent(character_id=member.id, item_ids=(_party_members._consumed_item_id(ration),))
                 )
 
-    pursuers = [group for group in state.groups if not group.fled and _group_can_pursue(session, group)]
+    pursuers = [group for group in state.groups if _group_pursues(session, group)]
     pursues = state.stance in (ReactionResult.ATTACKS.value, ReactionResult.HOSTILE.value) and pursuers
     if not pursues or _party_run_rate(session) > _pursuer_rate(session, pursuers):
         events.append(EvasionEvent(code="encounter.evasion.succeeded"))
@@ -1163,6 +1163,23 @@ def _group_can_pursue(session, group: EncounterGroup) -> bool:
     )
 
 
+def _group_pursues(session, group: EncounterGroup) -> bool:
+    """Whether the group gives chase to a party that runs: the one test for a pursuer.
+
+    A group pursues when it hasn't fled, isn't fleeing after a failed morale check, has a living member who is neither
+    turned nor afraid, and has a living member able to move. `_handle_evade` and `_pursuit_round` ask this, and so
+    does the battle when the party retreats from it.
+    """
+    from osrlib.crawl.battle import _group_all_shaken
+
+    return (
+        not group.fled
+        and not group.fleeing
+        and not _group_all_shaken(session, group)
+        and _group_can_pursue(session, group)
+    )
+
+
 def _pursuer_rate(session, groups) -> int:
     """The slowest pursuing group's running rate per round, from its base ground movement mode.
 
@@ -1216,7 +1233,9 @@ def _pursuit_round(session, *, dropped_kind: str | None = None) -> list[Event]:
 
     If nobody in the party is alive after the round's clock advance, the round
     ends there: nobody is running, so the function rolls no distraction die,
-    doesn't update the gap, and starts no battle.
+    doesn't update the gap, and starts no battle. If no group still pursues the
+    party, as `_group_pursues` decides, the party escapes at once, with no
+    distraction roll and no exhaustion.
     """
     from osrlib.crawl.session import ENCOUNTER_STREAM
 
@@ -1226,7 +1245,13 @@ def _pursuit_round(session, *, dropped_kind: str | None = None) -> list[Event]:
     events = session.advance_rounds(1)
     if not session.party.living_members():
         return events
-    pursuers = [group for group in state.groups if not group.fled]
+    pursuers = [group for group in state.groups if _group_pursues(session, group)]
+    if not pursuers:
+        # Nobody is left to give chase, because every pursuer is asleep, paralysed, afraid, or otherwise out of the
+        # chase, so the party gets away at once. A chase that ends early doesn't exhaust the party.
+        events.append(PursuitEvent(code="encounter.pursuit.escaped", round=pursuit.round, gap_feet=pursuit.gap_feet))
+        events.extend(end_encounter(session, "escaped"))
+        return events
     if dropped_kind is not None:
         matches = any(_group_intelligent(session, group) == (dropped_kind == "treasure") for group in pursuers)
         if matches:
