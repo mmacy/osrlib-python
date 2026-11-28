@@ -1012,12 +1012,13 @@ When the party evades, the engine compares the two sides' speeds, and a pursuit 
 - The party's speed is its slowest member's running rate, in full feet per round. The pursuers' speed is their slowest base ground movement: the mode with no descriptor, or else the first one printed, so a flying mode doesn't count. Taking the slowest pursuer mirrors taking the slowest member, and the engine doesn't model a pack that strings out.
 - The party can drop bait. `Evade(drop="treasure")` scatters every living member's coins, and `"food"` drops one ration per member (osrlib's reading). During the pursuit, `DropItems` drops new bait each round.
 - `Wait`, `DropItems`, `UseItem`, and `GiveItems` each take the encounter round, and during a pursuit that round is a pursuit round. So the party keeps running while a member drinks a potion or hands something over, and the gap changes as it does in any round of the chase.
+- While monsters pursue the party, the session refuses `Parley` with `encounter.parley.mid_pursuit` and `TurnUndead` with `encounter.turning.mid_pursuit`. A refusal draws nothing, takes no time, and changes nothing. The SRD doesn't forbid either action: its Encounters page says "Any action is possible in an encounter" and lists parley among the common actions, and its Evasion and Pursuit page says only that "Each side is assumed to be running at full speed". So the refusal is osrlib's own rule, and the SRD gives no reason for it. The party can parley or turn again once the pursuit has ended.
 - Bait distracts the pursuers on 3-in-6 when it matches what they want. Monsters whose treasure type has letters want treasure, because osrlib uses the treasure type as a stand-in for intelligence, and an override can correct that for an encounter. Every other monster wants food.
 - One distraction roll stops the whole side, because the pursuers act as a pack.
 - The pursuit ends when bait distracts the pursuers, when they reach melee (a gap of 5' or less, which starts a battle at 5'), or after 30 rounds, when both sides are spent and the monsters give up. In a pursuit the party is no faster than the pursuers, so the gap never grows, and osrlib needs no distance at which the monsters lose sight of the party. So the 30-round limit is what ends every other pursuit.
 - Running exhaustion gives −2 to attacks, damage, and AC until the party rests for three turns. The engine applies the AC penalty as +2 to attackers' rolls, through `attack_penalty_of_attackers`.
 
-Locked by `test_encounter.py::TestEvasionAndPursuit`, and the item commands' round by `test_member_reach.py::test_give_items_works_in_an_encounter_and_takes_a_round`.
+Locked by `test_encounter.py::TestEvasionAndPursuit`, the two refusals by `test_encounter.py::TestNoParleyOrTurningDuringAChase`, and the item commands' round by `test_member_reach.py::test_give_items_works_in_an_encounter_and_takes_a_round`.
 
 ### The battle round
 
