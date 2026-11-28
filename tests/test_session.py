@@ -634,7 +634,7 @@ class TestListeners:
 
 class TestDeathRecords:
     def test_poison_death_records_the_cause(self):
-        from osrlib.core.events import DeathEvent, SavingThrowRolledEvent
+        from osrlib.core.events import ConditionGainedEvent, DeathEvent, SavingThrowRolledEvent
 
         session = make_session()
         member = session.member("character-0001")
@@ -642,6 +642,7 @@ class TestDeathRecords:
             SavingThrowRolledEvent(
                 code="combat.save.failed", target_id=member.id, category="death", roll=2, required=12
             ),
+            ConditionGainedEvent(target_id=member.id, condition="dead"),
             DeathEvent(code="combat.death.died", target_id=member.id, poison=True),
         ]
         session._record_deaths(events)
@@ -651,7 +652,7 @@ class TestDeathRecords:
 
     def test_a_failed_death_save_alone_is_not_poison(self):
         # The save versus death covers death ray as well, so the death event decides (issue #375).
-        from osrlib.core.events import DamageDealtEvent, DeathEvent, SavingThrowRolledEvent
+        from osrlib.core.events import ConditionGainedEvent, DamageDealtEvent, DeathEvent, SavingThrowRolledEvent
 
         session = make_session()
         member = session.member("character-0001")
@@ -660,22 +661,58 @@ class TestDeathRecords:
             SavingThrowRolledEvent(
                 code="combat.save.failed", target_id=member.id, category="death", roll=2, required=12
             ),
+            ConditionGainedEvent(target_id=member.id, condition="dead"),
             DeathEvent(code="combat.death.died", target_id=member.id),
         ]
         session._record_deaths(events)
         assert session.death_records[member.id].cause == "unknown"
 
     def test_damage_death_records_a_non_poison_cause(self):
-        from osrlib.core.events import DamageDealtEvent, DeathEvent
+        from osrlib.core.events import ConditionGainedEvent, DamageDealtEvent, DeathEvent
 
         session = make_session()
         member = session.member("character-0001")
         events = [
             DamageDealtEvent(target_id=member.id, amount=9),
+            ConditionGainedEvent(target_id=member.id, condition="dead"),
             DeathEvent(code="combat.death.died", target_id=member.id),
         ]
         session._record_deaths(events)
         assert session.death_records[member.id].cause == "damage"
+
+    def test_a_permanent_death_of_a_corpse_keeps_the_record(self):
+        # A member who wears a ring of regeneration dies of poison. Fire on the corpse three rounds
+        # later makes the death permanent, which must not restart either revival window.
+        from osrlib.core.clock import TimeUnit
+        from osrlib.core.combat import DamageSource, deal_damage
+        from osrlib.core.effects import kill
+        from osrlib.core.items import MagicItemInstance
+        from osrlib.core.ruleset import Ruleset
+        from osrlib.crawl.commands import AdvanceTime
+        from osrlib.crawl.session import DeathRecord
+        from test_temple_services_view import session as town_session
+
+        game = town_session()
+        member = game.party.members[1]
+        ring = MagicItemInstance(instance_id="magic-item-9002", template_id="ring_of_regeneration", identified=True)
+        member.inventory.rings.append(ring)
+        game._record_deaths(kill(member, poison=True))
+        assert game.death_records[member.id] == DeathRecord(round=0, cause="poison")
+        assert game.execute(AdvanceTime(n=3, unit=TimeUnit.ROUND)).accepted
+        burn = deal_damage(
+            member,
+            member.max_hp + 5,
+            source=DamageSource(kind="breath", element="fire"),
+            ruleset=Ruleset(),
+            clock=game.clock,
+        )
+        assert [event.code for event in burn] == [
+            "combat.damage.dealt",
+            "combat.state.hit_points",
+            "combat.death.permanent",
+        ], "precondition: the fire makes the corpse's death permanent"
+        game._record_deaths(burn)
+        assert game.death_records[member.id] == DeathRecord(round=0, cause="poison")
 
 
 class TestViews:

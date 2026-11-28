@@ -2210,19 +2210,29 @@ class GameSession:
         the member took damage after their last failed save before the death, and `unknown` when
         they didn't. Only *neutralize poison* uses the difference between poison and other causes.
 
+        Only a death recorded in these events counts: the member gains the `dead` condition, which
+        [`kill`][osrlib.core.effects.kill] reports before its death event. A `combat.death.permanent`
+        event for a member who was already dead, such as fire on the corpse of a member who wears a
+        ring of regeneration, leaves the record as it was, so the revival windows still count from
+        the death.
+
         Args:
             events: The just-executed command's events, in order. Monsters and NPC adventurers have
                 ids that aren't members', so their deaths are never recorded.
         """
         member_ids = {member.id for member in self.party.members}
         causes: dict[str, str] = {}
+        newly_dead: set[str] = set()
         for event in events:
             if isinstance(event, SavingThrowRolledEvent) and event.code == "combat.save.failed":
                 # A failed save can kill without damage, so damage taken before it isn't the cause.
                 causes[event.target_id] = "unknown"
             elif isinstance(event, DamageDealtEvent):
                 causes[event.target_id] = "damage"
-            elif isinstance(event, DeathEvent) and event.target_id in member_ids:
+            elif isinstance(event, ConditionGainedEvent) and event.condition == Condition.DEAD.value:
+                newly_dead.add(event.target_id)
+            elif isinstance(event, DeathEvent) and event.target_id in member_ids and event.target_id in newly_dead:
+                newly_dead.discard(event.target_id)
                 cause = "poison" if event.poison else causes.get(event.target_id, "unknown")
                 self.death_records[event.target_id] = DeathRecord(round=self.clock.rounds, cause=cause)
 
