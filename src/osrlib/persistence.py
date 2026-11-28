@@ -114,6 +114,7 @@ from osrlib.core.effects import EffectsLedger
 from osrlib.core.monsters import IdAllocator, MonsterInstance
 from osrlib.core.rng import RngStreams, RngStreamState
 from osrlib.core.ruleset import Ruleset
+from osrlib.crawl._feature_handles import _dungeon_state_reference_problems
 from osrlib.crawl.adventure import Adventure, _validate_canonical_references
 from osrlib.crawl.battle import BattleState
 from osrlib.crawl.commands import Command, SessionMode, parse_command
@@ -492,7 +493,12 @@ def load_game(document: Mapping[str, object]) -> GameSession:
     Raises:
         ContentValidationError: If the document isn't a save, if the envelope or the payload
             is malformed, if its schema version is below 1, or if a logged command is of a type
-            this osrlib doesn't define. A retry with the same document fails the same way.
+            this osrlib doesn't define. It's also raised when the dungeon state names something the
+            adventure doesn't have: a party location on a missing dungeon, level, or cell, a generated
+            cache whose `cell_ref` names no cell, a generated cache whose `lair_area_ref` doesn't fit
+            its `origin` and its cell, or a drop pile keyed by a cell reference that names no cell. The
+            message identifies each such entry and its reference. A retry with the same document fails
+            the same way.
         osrlib.errors.SaveVersionError: If the document's schema version is newer than this osrlib
             reads. Tell the player to upgrade osrlib. The file itself is fine.
 
@@ -547,6 +553,9 @@ def load_game(document: Mapping[str, object]) -> GameSession:
         session.allocator = IdAllocator.model_validate(payload["allocator"])
         session.ledger = EffectsLedger.model_validate(payload["ledger"])
         session.dungeon_state = DungeonState.model_validate(payload["dungeon_state"])
+        problems = _dungeon_state_reference_problems(session)
+        if problems:
+            raise ContentValidationError("save dungeon_state failed validation:\n" + "\n".join(problems))
         session.monsters = {}
         for entry in payload["monsters"]:
             instance = MonsterInstance.model_validate(entry)

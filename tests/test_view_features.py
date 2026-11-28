@@ -35,6 +35,8 @@ y0  ENT       hall   [counting  counting]   [cellar] hall
 import json
 from pathlib import Path
 
+import pytest
+
 from crawl_fixtures import build_party
 from osrlib.core.effects import kill
 from osrlib.core.events import Visibility
@@ -57,6 +59,7 @@ from osrlib.crawl.commands import (
 from osrlib.crawl.dungeon import (
     AreaSpec,
     Direction,
+    DropPile,
     DungeonSpec,
     Edge,
     EdgeKind,
@@ -72,6 +75,7 @@ from osrlib.crawl.dungeon import (
 )
 from osrlib.crawl.session import GameSession
 from osrlib.crawl.views import ExploredLevelView, MapFeatureView, PlayerView, RefereeView
+from osrlib.errors import ContentValidationError
 from osrlib.persistence import load_game, save_game
 from test_loot_and_traps import shared_cache_session
 
@@ -645,3 +649,121 @@ def test_a_player_view_document_without_the_new_fields_validates_with_their_defa
     assert restored.features_here == ()
     assert all(entry.trap_state is None for level in restored.explored for entry in level.areas)
     assert not any(feature.emptied for level in restored.explored for feature in level.features)
+
+
+# ---------------------------------------------------------------------- references that name nothing (#328)
+
+
+@pytest.mark.parametrize(
+    "ref",
+    ["cell:vault:9:0,0", "cell:cellar:1:0,0", "cell:vault:1:9,0", "malformed-on-purpose"],
+    ids=["no such level", "no such dungeon", "off the grid", "not a cell reference"],
+)
+def test_a_save_with_a_generated_cache_on_a_cell_that_does_not_exist_is_refused(ref):
+    session = new_session()
+    session.dungeon_state.generated_caches["cache-0009"] = GeneratedCache(
+        cell_ref=ref, treasure_types=("A",), coins=Coins(gp=5), origin="area"
+    )
+    document = json.loads(json.dumps(save_game(session)))
+
+    with pytest.raises(ContentValidationError) as excinfo:
+        load_game(document)
+
+    message = str(excinfo.value)
+    assert "generated cache 'cache-0009'" in message
+    assert repr(ref) in message
+
+
+def test_a_save_with_a_lair_cache_whose_area_does_not_exist_is_refused():
+    session = new_session()
+    session.dungeon_state.generated_caches["cache-0009"] = GeneratedCache(
+        cell_ref=cell_ref("vault", 1, (2, 0)), treasure_types=("A",), origin="lair", lair_area_ref="vault:1:vestry"
+    )
+    document = json.loads(json.dumps(save_game(session)))
+
+    with pytest.raises(ContentValidationError, match="generated cache 'cache-0009' has lair_area_ref 'vault:1:vestry'"):
+        load_game(document)
+
+
+@pytest.mark.parametrize(
+    ("origin", "lair_area_ref", "message"),
+    [
+        ("lair", None, "has origin 'lair' and no lair_area_ref"),
+        ("area", "vault:1:cellar", "has origin 'area' and lair_area_ref 'vault:1:cellar'"),
+        ("legacy", "vault:1:cellar", "has origin 'legacy' and lair_area_ref 'vault:1:cellar'"),
+        ("lair", "vault:1:cellar", "has lair_area_ref 'vault:1:cellar', an area with no keyed encounter"),
+    ],
+    ids=["lair with no area", "area with an area", "legacy with an area", "lair on an area with no encounter"],
+)
+def test_a_save_with_a_cache_whose_lair_reference_does_not_fit_its_origin_is_refused(origin, lair_area_ref, message):
+    # Each of these caches sits on a real cell, and `_cache_available` would never show it to the party standing there.
+    session = new_session()
+    session.dungeon_state.generated_caches["cache-0009"] = GeneratedCache(
+        cell_ref=cell_ref("vault", 1, (4, 0)),
+        treasure_types=("A",),
+        coins=Coins(gp=5),
+        origin=origin,
+        lair_area_ref=lair_area_ref,
+    )
+    document = json.loads(json.dumps(save_game(session)))
+
+    with pytest.raises(ContentValidationError, match=f"generated cache 'cache-0009' {message}"):
+        load_game(document)
+
+
+def test_a_save_with_a_lair_cache_off_its_areas_cells_is_refused():
+    session, _, _, lair_cache_id = shared_cache_session()
+    document = json.loads(json.dumps(save_game(session)))
+    lair_cache = document["payload"]["dungeon_state"]["generated_caches"][lair_cache_id]
+    lair_cache["cell_ref"] = lair_cache["cell_ref"].replace(":1,0", ":0,0")
+
+    with pytest.raises(ContentValidationError, match="an area whose cells don't include its cell_ref"):
+        load_game(document)
+
+
+def test_a_save_with_a_lair_cache_the_party_cannot_see_yet_loads():
+    # A lair cache stays hidden until its encounter is resolved, so an unresolved one is normal play.
+    session, _, _, lair_cache_id = shared_cache_session()
+
+    restored = clone(session)
+
+    assert lair_cache_id in restored.dungeon_state.generated_caches
+    assert lair_cache_id in referee(restored).feature_handles
+
+
+@pytest.mark.parametrize(
+    ("location", "message"),
+    [
+        ({"dungeon_id": "nowhere", "level_number": 1, "position": [0, 0]}, "names dungeon 'nowhere' level 1"),
+        ({"dungeon_id": "vault", "level_number": 9, "position": [0, 0]}, "names dungeon 'vault' level 9"),
+        ({"dungeon_id": "vault", "level_number": 1, "position": [99, 0]}, "party location \\(99, 0\\) is off the grid"),
+    ],
+    ids=["no such dungeon", "no such level", "off the grid"],
+)
+def test_a_save_with_the_party_somewhere_the_adventure_does_not_have_is_refused(location, message):
+    # Before, the save loaded and every view raised `ValueError`.
+    document = json.loads(json.dumps(save_game(new_session())))
+    document["payload"]["dungeon_state"]["location"] = {"kind": "dungeon", "facing": "east", **location}
+
+    with pytest.raises(ContentValidationError, match=message):
+        load_game(document)
+
+
+def test_a_save_with_a_drop_pile_on_a_cell_that_does_not_exist_is_refused():
+    session = new_session()
+    session.dungeon_state.piles["cell:vault:9:0,0"] = DropPile(coins=Coins(gp=3))
+    document = json.loads(json.dumps(save_game(session)))
+
+    with pytest.raises(ContentValidationError, match="drop pile key 'cell:vault:9:0,0'"):
+        load_game(document)
+
+
+def test_a_save_with_caches_and_piles_on_real_cells_loads():
+    session = new_session()
+    put_cache(session, "cache-0009", 4)
+    session.dungeon_state.piles[cell_ref("vault", 1, (1, 0))] = DropPile(coins=Coins(gp=3))
+
+    restored = clone(session)
+
+    assert "cache-0009" in referee(restored).feature_handles
+    assert restored.dungeon_state == session.dungeon_state

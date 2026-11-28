@@ -1853,9 +1853,9 @@ class RefereeView(_Model):
     [`DungeonState.found_traps`][osrlib.crawl.dungeon.DungeonState.found_traps], and every feature the
     adventure authors has one, on a level or in an area, found or not. A generated cache's key is its
     id in [`DungeonState.generated_caches`][osrlib.crawl.dungeon.DungeonState.generated_caches], like
-    `"cache-0001"`, and every cache there has one, including a lair cache the players can't see yet,
-    except a cache whose cell reference names no cell of the adventure, which the session never
-    shows or resolves.
+    `"cache-0001"`. Every cache that the session rolled or that [`load_game`][osrlib.persistence.load_game]
+    restored has one, including a lair cache the players can't see yet. A cache you write into
+    `DungeonState.generated_caches` yourself on a cell that doesn't exist has none.
 
     Each value is the [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id] that the player view
     shows for the feature once the party knows it. Use it to show a referee the feature the players
