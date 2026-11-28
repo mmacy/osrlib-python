@@ -488,6 +488,12 @@ class SearchCompletedEvent(Event):
     `"room_trap:<area id>:<direction>"`, and one found inside the searched area has none. A found
     secret door becomes an ordinary door the party can see and use, and a found room trap no longer
     springs on the party."""
+    feature_ids: tuple[str, ...] = ()
+    """The `feature:` handles of the construction tricks the search found, in the order of their
+    `"construction:<feature id>"` entries in `found`, and empty when it found none. Each is the
+    [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id] under which the player view lists the
+    trick from the view built after this command, so you can tell which listed feature the search
+    revealed without reading the authored id in `found`."""
 
 
 class TrapEvent(Event):
@@ -568,6 +574,13 @@ class TrapEvent(Event):
     [`Direction`][osrlib.crawl.dungeon.Direction] value. Set for that find alone: it is `None` on a
     room trap found inside the searched area, on a treasure trap found on a cache, and on every code but
     `exploration.trap.found`."""
+    feature_id: str | None = None
+    """The `feature:` handle of the treasure cache whose trap this is, the
+    [`MapFeatureView.id`][osrlib.crawl.views.MapFeatureView.id] under which the player view lists the
+    cache, so you can tell which listed cache the event is about without reading the authored id in
+    `trap_ref`. It's set on every code for a treasure trap, and `None` for a room trap. The cache's
+    commands act only on a cache where the party stands, which the player view lists, so the handle
+    here is always one the view already shows."""
 
 
 class ItemAcquiredEvent(Event):

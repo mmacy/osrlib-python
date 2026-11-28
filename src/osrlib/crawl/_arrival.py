@@ -88,7 +88,9 @@ def _enter_hooks(session) -> list[Event]:
     return events
 
 
-def _spring_check(session, trap: TrapSpec, trap_ref: str, *, triggerer) -> tuple[list[Event], bool]:
+def _spring_check(
+    session, trap: TrapSpec, trap_ref: str, *, triggerer, feature_id: str | None = None
+) -> tuple[list[Event], bool]:
     """Roll one trap's 2-in-6 spring die and resolve the hit.
 
     The one mechanism behind every springing action, whether the party enters a
@@ -96,7 +98,8 @@ def _spring_check(session, trap: TrapSpec, trap_ref: str, *, triggerer) -> tuple
     spring die, then, on a spring, the sprung record, the player-facing event,
     and the effect resolution on the triggerer. Each caller decides which traps
     get a spring roll, and handles any follow-up for a trap the party already found (the
-    cache path's `exploration.trap.safe`).
+    cache path's `exploration.trap.safe`). A cache's caller passes the cache's `feature:` handle as
+    `feature_id`, and the sprung event includes it.
     """
     from osrlib.crawl.session import EXPLORATION_STREAM
 
@@ -104,7 +107,11 @@ def _spring_check(session, trap: TrapSpec, trap_ref: str, *, triggerer) -> tuple
     events: list[Event] = [DetectionRolledEvent(kind="trap_spring", chance=2, roll=check.roll, passed=check.passed)]
     if check.passed:
         session.dungeon_state.sprung_traps.append(trap_ref)
-        events.append(TrapEvent(code="exploration.trap.sprung", trap_ref=trap_ref, character_id=triggerer.id))
+        events.append(
+            TrapEvent(
+                code="exploration.trap.sprung", trap_ref=trap_ref, character_id=triggerer.id, feature_id=feature_id
+            )
+        )
         events.extend(_resolve_trap(session, trap, triggerer=triggerer))
     return events, check.passed
 

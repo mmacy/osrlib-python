@@ -73,6 +73,7 @@
       "code": "exploration.trap.sprung",
       "direction": null,
       "event_type": "trap",
+      "feature_id": null,
       "trap_ref": "vault:1:gas_room",
       "visibility": "player"
     },

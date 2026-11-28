@@ -9,7 +9,7 @@ from osrlib.core.events import Event
 from osrlib.core.validation import Rejection
 from osrlib.crawl._arrival import _areas_at_door, _resolve_trap
 from osrlib.crawl._doors import _door_state, _materialize_door
-from osrlib.crawl._feature_handles import _resolve_current_feature
+from osrlib.crawl._feature_handles import _authored_feature_id, _resolve_current_feature
 from osrlib.crawl._light import _requires_light
 from osrlib.crawl._odometer import _spend_turn
 from osrlib.crawl._party_location import (
@@ -50,10 +50,15 @@ def _handle_search(session, command: Search) -> tuple[list[Rejection], list[Even
         )
     ]
     found: list[str] = []
+    handles: list[str] = []
     if check.passed:
-        found = _reveal(session, member, command.kind, events)
+        found, handles = _reveal(session, member, command.kind, events)
     code = "exploration.search.found" if found else "exploration.search.nothing"
-    events.append(SearchCompletedEvent(code=code, character_id=member.id, kind=command.kind, found=tuple(found)))
+    events.append(
+        SearchCompletedEvent(
+            code=code, character_id=member.id, kind=command.kind, found=tuple(found), feature_ids=tuple(handles)
+        )
+    )
     turn_events, _ = _spend_turn(session)
     events.extend(turn_events)
     return [], events
@@ -80,13 +85,15 @@ def _refund_trap_search(session, dungeon_id: str, level_number: int, position: P
         session.dungeon_state.search_attempts.pop(f"{cell_ref(dungeon_id, level_number, cell)}:room_traps", None)
 
 
-def _reveal(session, member, kind: str, events: list[Event]) -> list[str]:
+def _reveal(session, member, kind: str, events: list[Event]) -> tuple[list[str], list[str]]:
     """Reveal every hidden feature of one kind on the party's cell, and no other cell.
 
     `member` is the member who searched, and each reveal event has that member's id as its
-    `character_id`. Appends the reveal events to `events` and returns the reference tokens for what
-    turned up, which are the tokens `_handle_search` puts in
-    [`SearchCompletedEvent.found`][osrlib.crawl.events.SearchCompletedEvent]. Discovering a secret
+    `character_id`. Appends the reveal events to `events` and returns two lists: the reference tokens
+    for what turned up, which `_handle_search` puts in
+    [`SearchCompletedEvent.found`][osrlib.crawl.events.SearchCompletedEvent.found], and the `feature:`
+    handles of the construction tricks among them, which it puts in
+    [`SearchCompletedEvent.feature_ids`][osrlib.crawl.events.SearchCompletedEvent.feature_ids]. Discovering a secret
     door also clears the room-trap search attempts on both cells its edge joins, this one and the
     one across it, through `_refund_trap_search`.
     """
@@ -94,6 +101,7 @@ def _reveal(session, member, kind: str, events: list[Event]) -> list[str]:
     position = _position(session)
     state = session.dungeon_state
     found: list[str] = []
+    handles: list[str] = []
     if kind == "secret_doors":
         discovered_directions: list[Direction] = []
         for direction in Direction:
@@ -145,6 +153,7 @@ def _reveal(session, member, kind: str, events: list[Event]) -> list[str]:
                     )
                 )
     elif kind == "construction":
+        dungeon_id, level_number, _ = _dungeon_coords(session)
         for feature in _features_here(session):
             if feature.kind != "construction_trick":
                 continue
@@ -152,7 +161,8 @@ def _reveal(session, member, kind: str, events: list[Event]) -> list[str]:
             if ref not in state.found_tricks:
                 state.found_tricks.append(ref)
                 found.append(f"construction:{feature.id}")
-    return found
+                handles.append(_authored_feature_id(session, dungeon_id, level_number, feature.id))
+    return found, handles
 
 
 def _handle_inspect_treasure(session, command: InspectTreasure) -> tuple[list[Rejection], list[Event]]:
@@ -197,7 +207,9 @@ def _handle_inspect_treasure(session, command: InspectTreasure) -> tuple[list[Re
     )
     if result.passed and trapped and ref not in state.found_traps:
         state.found_traps.append(ref)
-        events.append(TrapEvent(code="exploration.trap.found", trap_ref=ref, character_id=member.id))
+        events.append(
+            TrapEvent(code="exploration.trap.found", trap_ref=ref, character_id=member.id, feature_id=target.public_id)
+        )
     else:
         events.append(
             SearchCompletedEvent(code="exploration.search.nothing", character_id=member.id, kind="treasure_traps")
@@ -245,16 +257,29 @@ def _handle_remove_treasure_trap(session, command: RemoveTreasureTrap) -> tuple[
     ]
     if result.passed:
         state.removed_traps.append(ref)
-        events.append(TrapEvent(code="exploration.trap.removed", trap_ref=ref, character_id=member.id))
+        events.append(
+            TrapEvent(
+                code="exploration.trap.removed", trap_ref=ref, character_id=member.id, feature_id=target.public_id
+            )
+        )
     elif not session.ruleset.failed_trap_removal_springs:
         # RAW says only "attempted once per trap". With failed_trap_removal_springs off, a
         # failure leaves the trap armed and found, and only this thief is barred from retrying.
-        events.append(TrapEvent(code="exploration.trap.removal_failed", trap_ref=ref, character_id=member.id))
+        events.append(
+            TrapEvent(
+                code="exploration.trap.removal_failed",
+                trap_ref=ref,
+                character_id=member.id,
+                feature_id=target.public_id,
+            )
+        )
     else:
         # With failed_trap_removal_springs on (the default), a failed removal springs the trap
         # on the thief, the classic reading. RAW says only "attempted once per trap".
         state.sprung_traps.append(ref)
-        events.append(TrapEvent(code="exploration.trap.sprung", trap_ref=ref, character_id=member.id))
+        events.append(
+            TrapEvent(code="exploration.trap.sprung", trap_ref=ref, character_id=member.id, feature_id=target.public_id)
+        )
         events.extend(_resolve_trap(session, feature.trap, triggerer=member))
     turn_events, _ = _spend_turn(session)
     events.extend(turn_events)
