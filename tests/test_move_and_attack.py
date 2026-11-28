@@ -506,5 +506,6 @@ def test_the_preview_result_has_the_fields_a_battle_screen_reads():
         "front_rank",
         "can_hide",
         "can_back_stab",
+        "candidates",
     }
     assert BattleRoundPreview.model_config.get("frozen") is True
