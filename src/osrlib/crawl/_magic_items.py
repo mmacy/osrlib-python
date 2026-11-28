@@ -18,7 +18,7 @@ from osrlib.core.items import MagicItemCategory, MagicItemInstance, magic_item_t
 from osrlib.core.spells import MAGIC_STREAM, cast_from_scroll, caster_profile, validate_scroll_cast
 from osrlib.core.validation import Rejection
 from osrlib.crawl._light import _requires_light
-from osrlib.crawl._party_members import _actable_target, _member_able, _remove_instance, _spell_target
+from osrlib.crawl._party_members import _actable_target, _member_able, _remove_instance, _spell_cell, _spell_target
 from osrlib.crawl._spells import _cast_context, _cast_outcomes, _drain_character
 from osrlib.crawl.commands import SessionMode, UseItem
 from osrlib.crawl.events import CurseRevealedEvent, ItemIdentifiedEvent, ItemUsedEvent, LightEvent
@@ -444,6 +444,8 @@ def _use_scroll(session, member, instance: MagicItemInstance, template, command)
         target_refs = command.targets or ((command.target_id,) if command.target_id else ())
         for target_ref in target_refs:
             if target_ref.startswith("cell:"):
+                if _spell_cell(session, target_ref) is None:
+                    return [Rejection(code="magic.cast.unknown_target", params={"target": target_ref})], []
                 targets.append(target_ref)
                 continue
             target, _ = _spell_target(session, target_ref)

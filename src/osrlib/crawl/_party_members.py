@@ -57,6 +57,28 @@ def _spell_target(session, target_id: str) -> tuple[Any, Any]:
     return creature, group
 
 
+def _spell_cell(session, target_ref: str) -> str | None:
+    """Return `target_ref` when it names a cell a spell or a scroll can be aimed at, or None when it doesn't.
+
+    That's a cell of the level the party stands on, in the canonical form
+    [`cell_ref`][osrlib.crawl.dungeon.cell_ref] builds. A reference that doesn't parse, names no cell of the
+    adventure, or names a cell of another level or another dungeon gives None, and so does every reference while the
+    party isn't in a dungeon. `CastSpell`, a scroll read with `UseItem`, and a battle's `cast` and scroll
+    declarations use this check, and each refuses with `magic.cast.unknown_target` any reference for which it
+    returns None. Which cells of the party's level are in reach is left open, so any cell of the level passes. The
+    call reads state and takes no draw.
+    """
+    from osrlib.crawl._feature_handles import _parse_cell_location
+
+    location = session.dungeon_state.location
+    if location.kind != "dungeon":
+        return None
+    parsed = _parse_cell_location(session, target_ref)
+    if parsed is None or parsed[:2] != (location.dungeon_id, location.level_number):
+        return None
+    return target_ref
+
+
 def _consume_item(member, item_id: str, quantity: int = 1) -> ItemInstance | MagicItemInstance | None:
     """Take units of a carried item and return the instance they came from.
 

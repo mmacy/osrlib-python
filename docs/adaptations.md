@@ -942,9 +942,11 @@ Location effects anchor to a cell reference, `cell:{dungeon}:{level}:{x},{y}`, a
 - Stationary *silence* (see [Silence automates both forms](#silence-automates-both-forms-moving-on-a-failed-save-stationary-on-a-passed-one)).
 - *Web*'s blocking cube. Entering it attaches the entangled escape countdown. A web cast on a location lasts the spell's duration on the cell, and the escape params are on the effect.
 
+A spell or a scroll can be aimed only at a cell of the level the party stands on. `CastSpell`, a scroll read with `UseItem`, and a battle's `cast` declaration refuse any other cell reference, and every cell reference while the party is in town, with `magic.cast.unknown_target`.
+
 While a living member is entangled, the party can't move. The party doesn't leave a member behind on its own, and leaving someone is a decision for a referee command.
 
-The web's flammability, *cloudkill*, and the walls stay manual, for the referee. The visible-cell rule is a simplification of the visible flag in the spec. Locked by `test_exploration.py::TestLight` and `TestLocationEffects`.
+The web's flammability, *cloudkill*, and the walls stay manual, for the referee. The visible-cell rule is a simplification of the visible flag in the spec. Locked by `test_exploration.py::TestLight` and `TestLocationEffects`, and the cell targets by `test_cast_cell_targets.py`.
 
 ### Wandering monsters
 

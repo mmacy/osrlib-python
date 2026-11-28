@@ -3484,7 +3484,9 @@ def _cast_targets(
 
     An explicit enemy id must name a living member of a current group that hasn't fled. An unknown,
     dead, out-of-encounter, or fled enemy gets `magic.cast.unknown_target` before the visibility or
-    reach checks. Party member and cell targets retain their existing checks. A scroll declaration
+    reach checks. A cell reference that doesn't name a cell of the level the party stands on gets
+    `magic.cast.unknown_target` too (see `_party_members._spell_cell`). Party member targets retain their
+    existing checks. A scroll declaration
     uses the same target lookup, and so do `CastSpell` and a scroll read with `UseItem` outside a
     battle (see `_party_members._spell_target`).
     """
@@ -3517,6 +3519,8 @@ def _cast_targets(
     distance: int | None = None
     for target_ref in declaration.targets:
         if target_ref.startswith("cell:"):
+            if _party_members._spell_cell(session, target_ref) is None:
+                return [], None, [Rejection(code="magic.cast.unknown_target", params={"target": target_ref})]
             targets.append(target_ref)
             continue
         entity, group = _party_members._spell_target(session, target_ref)

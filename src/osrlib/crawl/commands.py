@@ -1741,7 +1741,8 @@ class CastSpell(Command):
         - `magic.cast.unknown_target` - a target id isn't a party member's. No encounter is open
           in this command's modes, so the party can act on no other creature. A monster or an NPC
           adventurer of an encounter that has ended gets this code, with the same params as an id
-          that matches nothing.
+          that matches nothing. A cell reference gets it too when it doesn't name a cell of the
+          level the party stands on, and every cell reference gets it in town.
         - `magic.cast.not_memorized` - the caster has no memorized copy. A member who
           can't cast spells at all gets this code too.
         - `magic.cast.caster_incapacitated`, `magic.cast.caster_restrained`,
@@ -1836,7 +1837,10 @@ class CastSpell(Command):
     `cell:{dungeon}:{level}:{x},{y}` form that [`cell_ref`][osrlib.crawl.dungeon.cell_ref]
     builds. A dead or petrified member can be named, so *raise dead* and *stone to flesh* work on
     them. The session refuses any other id with `magic.cast.unknown_target`, a monster's or an NPC
-    adventurer's included, even one an earlier event named. The mode's targeting sets how many
+    adventurer's included, even one an earlier event named. A cell reference has to name a cell of
+    the level the party stands on. The session refuses one that doesn't parse, names no cell of the
+    adventure, or names a cell of another level or another dungeon with `magic.cast.unknown_target`,
+    and in town it refuses every cell reference that way. The mode's targeting sets how many
     targets it takes, and the session refuses the wrong number with `magic.cast.target_count`.
     The session refuses a cell reference for a mode that works only on creatures with
     `magic.cast.target_must_be_creature`."""
@@ -1903,7 +1907,8 @@ class UseItem(Command):
           infravision isn't enough), `items.scroll.spent`, `items.scroll.no_such_spell`,
           and `items.scroll.wrong_caster`. A read also gets the checks of a cast, at the
           scroll's level: `magic.cast.unknown_target` (a target that isn't a party member and
-          isn't a living creature in a group of the open encounter that hasn't fled),
+          isn't a living creature in a group of the open encounter that hasn't fled, or a cell
+          reference that doesn't name a cell of the level the party stands on),
           `magic.cast.unknown_mode`,
           `magic.cast.target_count`, `magic.cast.target_must_be_creature`,
           `magic.cast.out_of_range`, `magic.cast.caster_incapacitated`,
@@ -2890,7 +2895,9 @@ class BattleDeclaration(_Model):
     group gets `magic.cast.unknown_target`, whose `target` param is the id you supplied.
     Refresh the player view and choose an `"alive"` member. A running group remains targetable
     until it leaves. A refused round changes no state, draws no randomness, and spends no time.
-    Party member and cell targets retain the spell mode's existing checks.
+    A cell reference has to name a cell of the level the party stands on, or the session refuses
+    it with `magic.cast.unknown_target`, as it does a reference that doesn't parse. Party member
+    and cell targets otherwise retain the spell mode's existing checks.
 
     For a mode that affects a total number of Hit Dice (`hd_budget`), you can leave this empty
     and set `target_group_id` instead. The session then collects the targets from the group, as
