@@ -337,6 +337,7 @@ from osrlib.core.combat import (
     Participant,
     SaveCategory,
     TargetingMode,
+    _range_band_modifier,
     alignments_differ,
     cannot_move,
     incapacitated,
@@ -1064,9 +1065,10 @@ class NpcPartyPolicy:
     4. An NPC with a missile weapon shoots while every member of the player party it can see is
        farther than [`MELEE_RANGE_FEET`][osrlib.crawl.battle.MELEE_RANGE_FEET] from the NPC group.
        It picks its target at random from the first row of the player party's ranks toward the NPC
-       group, leaving out invisible members, and the shot's range band is that member's own
-       distance to the NPC group. So the members in front screen the members behind them from
-       arrows as well as from blades.
+       group, leaving out invisible members and members beyond the long range of every missile
+       weapon the NPC wields. The shot's range band is that member's own distance to the NPC group.
+       So the members in front screen the members behind them from arrows as well as from blades.
+       When no member of that row is within long range, the NPC closes instead.
     5. Otherwise, the NPC closes, and attacks in melee in the same round when the group's move
        brings a member within reach. It picks its target at random from the NPC group's front rank,
        the members [`group_front_rank`][osrlib.crawl.battle.group_front_rank] lists, leaving out
@@ -1143,8 +1145,10 @@ class NpcPartyPolicy:
         session.action_policies[session.encounter.groups[0].id] = policy
         session.execute(ResolveBattleRound(declarations=(BattleDeclaration(character_id=hild.id, action="hold"),)))
 
-        print(policy.log)  # the fighters close while the rest shoot from 60 feet
-        # [['close', 'close', 'npc_shoot', 'npc_shoot', 'npc_shoot', 'npc_shoot']]
+        # The fighters close. So do the magic-users, because a thrown dagger reaches only 30 feet. The elf's
+        # bow and the halfling's sling reach past 60 feet, so they shoot.
+        print(policy.log)
+        # [['close', 'close', 'close', 'close', 'npc_shoot', 'npc_shoot']]
         ```
     """
 
@@ -1211,8 +1215,15 @@ class NpcPartyPolicy:
                 )
                 continue
             if nearest > MELEE_RANGE_FEET:
-                if _npc_wielded(npc, missile=True) is not None and first_row:
-                    target = first_row[stream.randbelow(len(first_row))]
+                # A shot needs a member within the long range of a missile weapon the NPC wields.
+                in_range = [
+                    member
+                    for member in first_row
+                    if _npc_wielded(npc, missile=True, distance_feet=_member_distance(session, member.id, group))
+                    is not None
+                ]
+                if in_range:
+                    target = in_range[stream.randbelow(len(in_range))]
                     actions.append(MonsterAction(monster_id=npc.id, kind="npc_shoot", target_id=target.id))
                     continue
                 actions.append(MonsterAction(monster_id=npc.id, kind="close"))
@@ -1274,15 +1285,17 @@ def _npc_healing_potion(npc):
     return None
 
 
-def _npc_wielded(npc, *, missile: bool):
+def _npc_wielded(npc, *, missile: bool, distance_feet: int | None = None):
     """The wielded weapon an NPC uses for a missile or a melee attack, either a template or a magic instance.
 
     Of the wielded weapons that make the attack, the first enchanted one comes first, then the first of the rest. A
     cursed sword counts, because the OSE SRD's Swords page says a character under its curse "will favour the sword
     and use it whenever possible". An item with no combat stats, such as a wand, is never the weapon.
 
-    The choice doesn't depend on distance. The attack's distance, the target member's own distance to the NPC's
-    group, sets the missile's range band when the attack resolves (see `_resolve_npc_attack`).
+    With `distance_feet`, a missile weapon counts only when the distance is within its long range, as
+    `validate_attack` refuses a party member's shot past it with `combat.attack.out_of_range`. The distance is the
+    target member's own distance to the NPC's group, which also sets the range band when the attack resolves (see
+    `_resolve_npc_attack`). Without it, the choice doesn't depend on distance.
     """
     first = None
     for instance in npc.inventory.wielded:
@@ -1293,6 +1306,11 @@ def _npc_wielded(npc, *, missile: bool):
         qualities = getattr(facet, "qualities", ())
         if missile:
             if WeaponQuality.MISSILE not in qualities:
+                continue
+            if (
+                distance_feet is not None
+                and _range_band_modifier(attack, AttackContext(distance_feet=distance_feet)) is None
+            ):
                 continue
         elif WeaponQuality.MELEE not in qualities and WeaponQuality.MISSILE in qualities:
             continue
@@ -5570,7 +5588,8 @@ def _ready(
       ward or *protection from evil* bars it from the target (see `_reachable_targets`), and a monster's `routine` is
       one it can make (see `_routine`). An NPC adventurer ignores `routine`.
     - An `npc_shoot`, an `npc_cast`, or an `npc_drink` is by an NPC adventurer, not a monster.
-    - An `npc_shoot` has a `target_id` that's a living party member, and the NPC wields a missile weapon.
+    - An `npc_shoot` has a `target_id` that's a living party member, and the NPC wields a missile weapon whose long
+      range reaches that member.
     - An `npc_drink` has an `item_id` that's a potion the NPC carries.
     - An `npc_cast` meets the conditions in `_npc_cast_ready`.
 
@@ -5610,7 +5629,9 @@ def _ready(
         return None
     if action.kind == "npc_shoot":
         target = _living_member(session, action.target_id)
-        if target is None or _npc_wielded(actor, missile=True) is None:
+        if target is None:
+            return None
+        if _npc_wielded(actor, missile=True, distance_feet=_member_distance(session, target.id, group)) is None:
             return None
         return _Ready(actor, target)
     if action.kind == "npc_drink":
@@ -5807,13 +5828,14 @@ def _resolve_npc_attack(session, npc, target, group, *, missile: bool, retreatin
     A missile attack resolves at the target member's own distance to the NPC's group, which sets its range band.
     A melee attack resolves at 5'.
     """
-    weapon = _npc_wielded(npc, missile=missile)
+    distance = _member_distance(session, target.id, group) if missile else MELEE_RANGE_FEET
+    weapon = _npc_wielded(npc, missile=missile, distance_feet=distance if missile else None)
     events: list[Event] = []
     if session.ledger.active_on(getattr(target, "id", ""), "mirror_image"):
         events.extend(pop_mirror_image(session.ledger, target.id, registry=session.registry(), clock=session.clock))
         return events
     context = AttackContext(
-        distance_feet=_member_distance(session, target.id, group) if missile else MELEE_RANGE_FEET,
+        distance_feet=distance,
         defender_retreating=retreating,
         defender_ally_ac_bonus=_ally_protection_bonus(session, target, group),
     )

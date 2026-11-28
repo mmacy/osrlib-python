@@ -1393,10 +1393,10 @@ Locked by `test_monster_frontage.py`.
 A reader of the SRD will expect a monster's bow, or an NPC archer's, to reach the members at the back of the party. In osrlib it doesn't. The members in front screen the members behind them from arrows as well as from blades.
 
 - The monster data gives no ranges for monsters' missile attacks, so the default policy treats them as melee: the monster closes, then attacks at 5', a member of the group's front rank within 5' of it.
-- An NPC adventurer with a missile weapon shoots while every member it can see is farther than 5' from its group. It picks its target with equal chance from the first row of the party's ranks toward its group, at any distance, leaving out invisible members. The shot's range band is that member's distance to the group.
+- An NPC adventurer with a missile weapon shoots while every member it can see is farther than 5' from its group. It picks its target with equal chance from the first row of the party's ranks toward its group, leaving out invisible members and members beyond the long range of every missile weapon it wields. The shot's range band is that member's distance to the group. When no member of that row is within long range, the NPC closes instead, because `validate_attack` refuses a party member's shot past long range with `combat.attack.out_of_range`. The session also skips an `npc_shoot` that a policy of your own aims past long range.
 - An NPC adventurer's spell with one target picks its target from the same first row.
 
-The SRD has no rule for firing past the members in front, so osrlib reads the first row as the line of sight. That's osrlib's reading. Locked by `test_monster_reach.py::TestWhoTheGroupReaches` and `test_monster_tactics.py::TestTheSpittingCobrasSpit`.
+The SRD has no rule for firing past the members in front, so osrlib reads the first row as the line of sight. That's osrlib's reading. Locked by `test_monster_reach.py::TestWhoTheGroupReaches`, `test_monster_tactics.py::TestTheSpittingCobrasSpit`, and `test_npc_shot_range.py`.
 
 ### The default action policy and morale
 
@@ -1847,7 +1847,7 @@ An NPC party fights as an encounter side, like any monster group.
 - `EncounterGroup.monster_ids` contains the ids of combatants, monsters and NPCs alike.
 - The roster event is visible only to the referee, so players learn what a party is made of by fighting it.
 - An NPC group checks morale at the Veteran's morale score of 9, always counts as intelligent for distraction, and is worth XP as if each level were a Hit Die, recorded under `npc:<class_id>`.
-- The default `NpcPartyPolicy` heals an ally below half hit points with the best cure it has, drinks a healing potion when no cure is left, casts automated attack spells highest level first, shoots at more than 5', and otherwise melees.
+- The default `NpcPartyPolicy` heals an ally below half hit points with the best cure it has, drinks a healing potion when no cure is left, casts automated attack spells highest level first, shoots at more than 5' at a member within its weapon's long range, and otherwise melees.
 - NPC casters declare at the start of the round, and can be disrupted exactly like the party's casters.
 - An NPC attacks with the first enchanted weapon it wields that makes the attack, and with the first mundane one only when it wields no enchanted one. That covers an NPC built by hand and one from a save made before osrlib replaced the kit weapon. A cursed sword counts, because the Swords page says a character under its curse "will favour the sword and use it whenever possible". The players never identify an NPC's items, so the attack event names an unidentified magic weapon by the mundane weapon underneath, a "Sword" for a sword +1 or a sword -1, cursed. A party member's attack names the weapon in full, because that attack identifies the weapon in the same command. Only the name is masked. The attack's `modifier` still includes the weapon's bonus or penalty, and a hit's `DamageDealtEvent` still has `magic` in its `keys`, as they do for a party member's attack.
 
