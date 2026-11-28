@@ -270,7 +270,8 @@ def test_a_copy_cannot_set_the_field():
 def test_a_copy_with_new_scores_answers_for_them():
     rolled = roll_ability_scores(stream(6))
 
-    raised = rolled.model_copy(update={"scores": {**rolled.scores, INT: 6}})
+    # INT's dice change from (1, 1, 3) to (1, 2, 3) with the score, because the roll refuses dice that don't sum to it.
+    raised = rolled.model_copy(update={"scores": {**rolled.scores, INT: 6}, "rolls": {**rolled.rolls, INT: (1, 2, 3)}})
 
     # INT 6 leaves STR 4 the only score of 5 or less.
     assert raised.sub_par is False
