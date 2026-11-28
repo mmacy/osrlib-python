@@ -3403,7 +3403,8 @@ def _check_action(session, declaration: BattleDeclaration, member, placement: _P
         pool = _monster_pool(session, group)
         if not pool:
             return [Rejection(code="battle.declaration.no_target", params={"group": group.id})]
-        context = AttackContext(distance_feet=_member_distance(session, member.id, group), lit=True)
+        distance = (placement or _placement(session)).distance(member.id, group)
+        context = AttackContext(distance_feet=distance, lit=True)
         return validate_attack(member, pool[0], instance.template, context, ruleset=session.ruleset)
     if declaration.action == "give_item":
         return _hand_over(session, declaration, member, placement or _placement(session))[1]

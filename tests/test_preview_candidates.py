@@ -64,10 +64,12 @@ def _grant(game: GameSession, name: str, item_id: str, quantity: int = 1) -> str
 
 
 def _equip(game: GameSession) -> None:
-    """Give Tam a potion of healing, a staff of healing, and a torch, for the candidates that use them."""
+    """Give Tam a potion of healing, a staff of healing, and a torch, and Nim flasks of oil, for the candidates."""
     _grant(game, "Tam", "potion_of_healing")
     _grant(game, "Tam", "staff_of_healing")
     _grant(game, "Tam", "torch")
+    if any(member.name == "Nim" for member in game.party.members):
+        _grant(game, "Nim", "oil_flask", 2)
 
 
 def _held(**battle_args) -> GameSession:
@@ -192,6 +194,7 @@ def _candidates(game: GameSession) -> list[BattleCandidate]:
             )
         )
     nim = ids["Nim"]
+    found.append(_on_groups_of(pf.declare(nim, "use_item", item_id="oil_flask"), groups))
     found.append(
         BattleCandidate(declaration=pf.declare(nim, "attack"), target_field="target_group_id", target_ids=groups)
     )
@@ -232,6 +235,10 @@ def _candidates(game: GameSession) -> list[BattleCandidate]:
     ]
     declarers = set(pf.able(game))
     return [candidate for candidate in found if candidate.declaration.character_id in declarers]
+
+
+def _on_groups_of(declaration: BattleDeclaration, groups: tuple[str, ...]) -> BattleCandidate:
+    return BattleCandidate(declaration=declaration, target_field="target_group_id", target_ids=groups)
 
 
 def _replaced(plan, declaration: BattleDeclaration) -> list[BattleDeclaration]:
