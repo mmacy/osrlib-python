@@ -527,8 +527,9 @@ def start_encounter(
           runs.
 
     Raises:
-        ValueError: If an encounter is already open on the session. The session is left as it was,
-            with no draws taken and no time passed. To add monsters to the open encounter, execute
+        ValueError: If an encounter is already open on the session, the party is in town, or the
+            session has ended in `game_over` or `victory`. The session is left as it was, with no
+            draws taken and no time passed. To add monsters to the open encounter, execute
             [`SpawnMonsters`][osrlib.crawl.commands.SpawnMonsters].
 
     Examples:
@@ -624,6 +625,10 @@ def _open_encounter(
 
     if session.encounter is not None:
         raise ValueError("an encounter is already open on the session")
+    if session.mode.terminal:
+        raise ValueError(f"the session has ended in {session.mode.value}")
+    if session.dungeon_state.location.kind != "dungeon":
+        raise ValueError("the party is not in a dungeon")
     stream = session.streams.get(ENCOUNTER_STREAM)
     opened = [instance for _, _, instances in groups for instance in instances]
     events: list[Event] = _attach_regeneration(session, opened)

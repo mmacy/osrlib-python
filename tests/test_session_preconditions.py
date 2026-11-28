@@ -243,6 +243,32 @@ def test_start_encounter_refuses_to_replace_an_open_encounter():
     assert stream.export_state() == before
 
 
+def test_start_encounter_refuses_a_party_in_town():
+    # Before #257, the encounter opened in town, and closing it left the session exploring in
+    # town, where EnterDungeon was refused and MoveParty raised.
+    game = session(enter=False)
+    goblins = game.spawn("goblin", 2)
+    stream = game.streams.get(ENCOUNTER_STREAM)
+    before = stream.export_state()
+    with pytest.raises(ValueError, match="dungeon"):
+        start_encounter(game, groups=[("goblin", goblins)], kind="spawned", pinned_stance=ReactionResult.ATTACKS)
+    assert game.mode is SessionMode.TOWN
+    assert game.encounter is None
+    assert game.battle is None
+    assert stream.export_state() == before
+    assert game.execute(EnterDungeon(dungeon_id="crypt")).accepted
+
+
+def test_start_encounter_refuses_a_session_that_has_ended():
+    game = session()
+    game.mode = SessionMode.GAME_OVER
+    goblins = game.spawn("goblin", 1)
+    with pytest.raises(ValueError, match="ended"):
+        start_encounter(game, groups=[("goblin", goblins)], kind="spawned")
+    assert game.mode is SessionMode.GAME_OVER
+    assert game.encounter is None
+
+
 # ---------------------------------------------------------- negative spans and counts (#162, items 3 and 15)
 
 
