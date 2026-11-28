@@ -2596,6 +2596,7 @@ def preview_battle_round(
     for rejection in judgement.trade_rejections:
         rejections[str(rejection.params["character"])].append(rejection)
     projected = judgement.projected
+    replacements = _Replacements(session, declarers, declarations)
     return BattleRoundPreview(
         rejections={member_id: tuple(found) for member_id, found in rejections.items()},
         advance_feet={member.id: projected.advance_feet.get(member.id, 0) for member in session.party.living_members()},
@@ -2604,9 +2605,9 @@ def preview_battle_round(
             for group in session.encounter.groups
             if not group.fled
         },
-        can_hide=tuple(member.id for member in declarers if _could_hide(session, declarers, declarations, member)),
+        can_hide=tuple(member.id for member in declarers if _could_hide(session, replacements, member)),
         can_back_stab=_back_stabbers(session, declarers),
-        candidates=_judge_candidates(session, declarers, declarations, candidates),
+        candidates=_judge_candidates(session, replacements, candidates),
     )
 
 
@@ -2672,8 +2673,26 @@ class _Replacement:
         return projected
 
 
+class _Replacements:
+    """The `_Replacement` of a plan for each member, each built the first time it's asked for."""
+
+    def __init__(self, session, declarers, declarations: Sequence[BattleDeclaration]) -> None:
+        self._session = session
+        self._declarers = declarers
+        self._declarations = declarations
+        self._by_member: dict[str, _Replacement] = {}
+
+    def of(self, member_id: str) -> _Replacement:
+        """The projections of the plan with `member_id`'s declaration replaced."""
+        replacement = self._by_member.get(member_id)
+        if replacement is None:
+            replacement = _Replacement(self._session, self._declarers, self._declarations, member_id)
+            self._by_member[member_id] = replacement
+        return replacement
+
+
 def _judge_candidates(
-    session, declarers, declarations: Sequence[BattleDeclaration], candidates: Sequence[BattleCandidate]
+    session, replacements: _Replacements, candidates: Sequence[BattleCandidate]
 ) -> tuple[BattleCandidateJudgement, ...]:
     """Judge each candidate at each of its targets, in place of its member's planned declaration.
 
@@ -2682,13 +2701,10 @@ def _judge_candidates(
     for the plan with their declaration replaced by the entry's declaration. Such a declaration plans no trade, so
     it gets no trade rejection. The call reads state and takes no draw.
     """
-    replacements: dict[str, _Replacement] = {}
     judgements = []
     for candidate in candidates:
         member_id = candidate.declaration.character_id
-        replacement = replacements.get(member_id)
-        if replacement is None:
-            replacement = replacements[member_id] = _Replacement(session, declarers, declarations, member_id)
+        replacement = replacements.of(member_id)
         member = session.member(member_id)
         rejections: dict[str, tuple[Rejection, ...]] = {}
         attack_kinds: dict[str, Literal["melee", "missile"]] = {}
@@ -2704,19 +2720,17 @@ def _judge_candidates(
     return tuple(judgements)
 
 
-def _could_hide(session, declarers, declarations: Sequence[BattleDeclaration], member) -> bool:
-    """Whether the round would accept a `hide` by `member` in place of their own declaration in `declarations`.
+def _could_hide(session, replacements: _Replacements, member) -> bool:
+    """Whether the round would accept a `hide` by `member` in place of their own planned declaration.
 
-    It judges the plan with the member's declaration replaced by a `hide`, with `_judge_round`, so the
-    `hide` is judged where the other members' planned moves would leave the party, without the member's
-    own planned declaration. The member could hide when that judgement gives them no rejection, neither on
-    the `hide` nor on a trade of marching-order places. The call reads state and takes no draw.
+    It judges the `hide` with `_judge_declaration` against the projection of the plan with the member's
+    declaration replaced (see `_Replacement`), so the `hide` is judged where the other members' planned moves
+    would leave the party, without the member's own planned declaration. A `hide` makes no move and plans no
+    trade of marching-order places, so it gets no trade rejection, and the member could hide when the
+    judgement gives them no rejection. The call reads state and takes no draw.
     """
     hide = BattleDeclaration(character_id=member.id, action="hide")
-    plan = [*(declaration for declaration in declarations if declaration.character_id != member.id), hide]
-    judgement = _judge_round(session, declarers, plan)
-    traded = any(rejection.params.get("character") == member.id for rejection in judgement.trade_rejections)
-    return not judgement.rejections[member.id] and not traded
+    return not _judge_declaration(session, hide, member, replacements.of(member.id).placement(hide)).rejections
 
 
 def _back_stabbers(session, declarers) -> tuple[str, ...]:
@@ -4126,9 +4140,9 @@ def _judge_declaration(session, declaration: BattleDeclaration, member, projecte
 
     It chooses an `attack`'s default weapon at the member's distance in `projected` (see `_with_default_weapon`),
     runs `_check_declaration`, adds the mirror check of `gaze_defense`, and names the declaring member as the
-    `character` param of every rejection. `_judge_round` judges each planned declaration with it, and
-    `_judge_candidates` each candidate entry. It reads nothing about the other declarations except what
-    `projected` holds. The call reads state, changes nothing, and takes no draw.
+    `character` param of every rejection. `_judge_round` judges each planned declaration with it,
+    `_judge_candidates` each candidate entry, and `_could_hide` each declarer's `hide`. It reads nothing about
+    the other declarations except what `projected` holds. The call reads state, changes nothing, and takes no draw.
     """
     # Choose the default weapon once, here, so the round plays out as if the player had named it.
     # The command log still records the declaration as it was sent.

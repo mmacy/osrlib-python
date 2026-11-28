@@ -275,6 +275,10 @@ def test_each_entry_is_the_preview_of_the_plan_with_the_declaration_replaced(sce
     for label, plan in _plans(game).items():
         preview = _assert_agrees(game, plan, candidates)
         assert len(preview.candidates) == len(candidates), label
+        for member_id in pf.able(game):
+            hide = pf.declare(member_id, "hide")
+            accepted = not preview_battle_round(game, _replaced(plan, hide)).rejections[member_id]
+            assert (member_id in preview.can_hide) is accepted, (label, member_id)
 
     assert pf.state_without_logs(game) == before
 
