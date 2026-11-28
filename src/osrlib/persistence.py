@@ -425,17 +425,12 @@ def save_game(session: GameSession, *, include_event_log: bool = True) -> dict:
     return stamp_document("save", session_state(session, include_event_log=include_event_log))
 
 
-def _migrate(
-    payload: dict, from_version: int, *, migrations: Mapping[int, Callable[[dict], dict]] | None = None
-) -> dict:
-    """Run the ordered migration chain from `from_version` to the current schema.
+def _migrate(payload: dict, from_version: int) -> dict:
+    """Run the steps of [`MIGRATIONS`][osrlib.persistence.MIGRATIONS] from `from_version` to the current schema.
 
     Args:
         payload: The save payload at `from_version`.
         from_version: The document's recorded schema version.
-        migrations: The chain to apply. Defaults to
-            [`MIGRATIONS`][osrlib.persistence.MIGRATIONS] (tests inject synthetic
-            chains here).
 
     Returns:
         The payload at the current schema version.
@@ -443,13 +438,27 @@ def _migrate(
     Raises:
         ContentValidationError: If a required migration step is missing.
     """
-    chain = MIGRATIONS if migrations is None else migrations
     for version in range(from_version, SCHEMA_VERSION):
-        step = chain.get(version)
+        step = MIGRATIONS.get(version)
         if step is None:
             raise ContentValidationError(f"no migration from schema version {version} to {version + 1}")
         payload = step(payload)
     return payload
+
+
+def _open_state_problems(session: GameSession) -> list[str]:
+    """Return a message for each encounter or battle that the session's mode says is open and the save lacks.
+
+    The session opens an encounter whenever it enters `encounter` mode, and an encounter and a battle whenever it
+    enters `battle` mode, so these come from a hand-edited or damaged save. In such a session, the encounter and
+    battle commands refuse with `encounter.none_active` or `battle.none_active`, and play can't go on.
+    """
+    problems = []
+    if session.mode in (SessionMode.ENCOUNTER, SessionMode.BATTLE) and session.encounter is None:
+        problems.append(f"mode is {session.mode.value!r}, and the save has no open encounter")
+    if session.mode is SessionMode.BATTLE and session.battle is None:
+        problems.append("mode is 'battle', and the save has no open battle")
+    return problems
 
 
 def load_game(document: Mapping[str, object]) -> GameSession:
@@ -497,8 +506,9 @@ def load_game(document: Mapping[str, object]) -> GameSession:
             adventure doesn't have: a party location on a missing dungeon, level, or cell, a generated
             cache whose `cell_ref` names no cell, a generated cache whose `lair_area_ref` doesn't fit
             its `origin` and its cell, or a drop pile keyed by a cell reference that names no cell. The
-            message identifies each such entry and its reference. A retry with the same document fails
-            the same way.
+            message identifies each such entry and its reference. It's raised too for a save whose
+            `mode` is `encounter` with no open encounter, or `battle` without both an open encounter
+            and an open battle. A retry with the same document fails the same way.
         osrlib.errors.SaveVersionError: If the document's schema version is newer than this osrlib
             reads. Tell the player to upgrade osrlib. The file itself is fine.
 
@@ -604,6 +614,9 @@ def load_game(document: Mapping[str, object]) -> GameSession:
             EncounterState.model_validate(payload["encounter"]) if payload.get("encounter") is not None else None
         )
         session.battle = BattleState.model_validate(payload["battle"]) if payload.get("battle") is not None else None
+        problems = _open_state_problems(session)
+        if problems:
+            raise ContentValidationError("save mode failed validation:\n" + "\n".join(problems))
         session.streams.restore_states(
             {key: RngStreamState.model_validate(value) for key, value in payload["rng_streams"].items()}
         )

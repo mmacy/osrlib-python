@@ -5,10 +5,12 @@ import json
 import pytest
 
 from crawl_fixtures import build_adventure, build_party
+from osrlib import persistence
 from osrlib.core.character import party_to_document
 from osrlib.core.ruleset import Ruleset
 from osrlib.crawl.commands import (
     AwardXP,
+    EngageBattle,
     EnterDungeon,
     ForceDoor,
     GrantItem,
@@ -16,12 +18,14 @@ from osrlib.crawl.commands import (
     LightSource,
     MoveParty,
     RollDice,
+    SessionMode,
     SetFlag,
+    SpawnMonsters,
 )
 from osrlib.crawl.dungeon import Direction
 from osrlib.crawl.session import GameSession
 from osrlib.errors import ContentValidationError, ReplayVersionError, SaveVersionError
-from osrlib.persistence import MIGRATIONS, _migrate, load_game, replay_game, save_game, session_state
+from osrlib.persistence import MIGRATIONS, load_game, replay_game, save_game, session_state
 from osrlib.versioning import SCHEMA_VERSION, engine_version
 
 SEED = 424_242
@@ -236,12 +240,73 @@ class TestMigrations:
         assert chest.trap.trigger == "open"
         assert save_game(restored)["schema_version"] == SCHEMA_VERSION
 
-    def test_missing_migration_step_raises(self):
-        with pytest.raises(ContentValidationError):
-            _migrate({"seed": 1}, 0, migrations={})
+    def test_every_old_schema_version_has_a_migration_step(self):
+        assert sorted(MIGRATIONS) == list(range(1, SCHEMA_VERSION))
 
-    def test_current_version_needs_no_migration(self):
-        assert _migrate({"seed": 1}, SCHEMA_VERSION, migrations={}) == {"seed": 1}
+    def test_missing_migration_step_raises(self, monkeypatch):
+        session, _ = drive_session()
+        document = save_game(session)
+        document["schema_version"] = SCHEMA_VERSION - 1
+        monkeypatch.setattr(persistence, "MIGRATIONS", {})
+        with pytest.raises(ContentValidationError, match=f"no migration from schema version {SCHEMA_VERSION - 1}"):
+            load_game(document)
+
+    def test_current_version_needs_no_migration(self, monkeypatch):
+        session, _ = drive_session()
+        document = save_game(session)
+        monkeypatch.setattr(persistence, "MIGRATIONS", {})
+        assert save_game(load_game(document)) == document
+
+
+class TestModeNeedsWhatItSaysIsOpen:
+    """A save whose mode says an encounter or a battle is open must have it (#257)."""
+
+    @staticmethod
+    def _in_encounter() -> GameSession:
+        session = GameSession.new(build_party(), build_adventure(wandering_chance=0), seed=7)
+        assert session.execute(EnterDungeon(dungeon_id="delve")).accepted
+        assert session.execute(SpawnMonsters(template_id="goblin", count_fixed=2, distance_feet=60)).accepted
+        assert session.encounter is not None
+        return session
+
+    def test_a_save_taken_mid_encounter_loads(self):
+        session = self._in_encounter()
+        document = save_game(session)
+        assert save_game(load_game(document)) == document
+
+    def test_a_save_taken_mid_battle_loads(self):
+        session = self._in_encounter()
+        if session.battle is None:
+            assert session.execute(EngageBattle()).accepted
+        assert session.mode is SessionMode.BATTLE
+        document = save_game(session)
+        assert save_game(load_game(document)) == document
+
+    def test_encounter_mode_with_no_encounter_is_refused(self):
+        session, _ = drive_session()
+        document = save_game(session)
+        document["payload"]["mode"] = "encounter"
+        with pytest.raises(ContentValidationError, match="mode is 'encounter', and the save has no open encounter"):
+            load_game(document)
+
+    def test_battle_mode_with_no_battle_is_refused(self):
+        session = self._in_encounter()
+        assert session.battle is None  # this seed's goblins don't attack at once
+        document = save_game(session)
+        document["payload"]["mode"] = "battle"
+        with pytest.raises(ContentValidationError, match="mode is 'battle', and the save has no open battle"):
+            load_game(document)
+
+    def test_battle_mode_with_nothing_open_reports_both(self):
+        session, _ = drive_session()
+        document = save_game(session)
+        document["payload"]["mode"] = "battle"
+        with pytest.raises(ContentValidationError) as caught:
+            load_game(document)
+        assert str(caught.value).splitlines()[1:] == [
+            "mode is 'battle', and the save has no open encounter",
+            "mode is 'battle', and the save has no open battle",
+        ]
 
 
 class TestUnknownEventPreservation:

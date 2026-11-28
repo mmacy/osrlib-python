@@ -337,8 +337,9 @@ def _relocate(
 
     `via` and `transition_ref` describe the crossing. For `UseStairs` and for a passage,
     they're the kind of the transition taken and the cell it stands on. For a slide,
-    `via` is `"trap"`, and for the way in, `"entrance"`. Every caller passes both, so a
-    consumer never has to work out the crossing from where the party ended up. Both go
+    `via` is `"trap"`, and for the way in, `"entrance"`, with no `transition_ref`, because the
+    party took no transition that stands on a cell. Every caller passes `via`, so a consumer
+    never has to work out the crossing from where the party ended up. Both go
     on the same `LocationEnteredEvent` as `narrative`, so a relocation within one level
     drops them.
 
@@ -405,7 +406,7 @@ def _relocate(
     state.mark_explored(dungeon_id, level_number, position)
     events.extend(_boundary_events(session, old_area, position))
     if walked and same_level:
-        events.extend(_swing_shut(session, previous=old_location.position))
+        events.extend(_swing_shut(session))
     events.extend(_enter_hooks(session))
     events.extend(_area_treasure_check(session))
     events.extend(_room_trap_check(session))
@@ -473,7 +474,7 @@ def _keyed_encounter_check(session) -> list[Event]:
     return events
 
 
-def _swing_shut(session, *, previous, leaving_level: bool = False) -> list[Event]:
+def _swing_shut(session, *, leaving_level: bool = False) -> list[Event]:
     """Doors the party opened swing shut behind it unless wedged.
 
     With `leaving_level` (a transition or the trip to town), every party-opened
@@ -499,4 +500,4 @@ def _swing_shut(session, *, previous, leaving_level: bool = False) -> list[Event
 
 def _swing_shut_on_leave(session) -> list[Event]:
     """Close every party-opened unwedged door on the level being left."""
-    return _swing_shut(session, previous=None, leaving_level=True)
+    return _swing_shut(session, leaving_level=True)

@@ -3113,8 +3113,10 @@ def _handle_end_encounter(session: GameSession, command: EndEncounter) -> tuple[
     from osrlib.crawl import encounter as encounter_module
 
     state = session.encounter
-    if state is None:  # unreachable: the mode gate admits only encounter and battle, which have one open
-        raise ValueError("EndEncounter reached the handler with no open encounter")
+    if state is None:
+        # Play never reaches this, because the session opens an encounter whenever it enters encounter or battle
+        # mode, and load_game refuses a save that says otherwise. A client that sets `mode` itself can reach it.
+        return [Rejection(code="encounter.none_active")], []
     area_ref = state.area_ref
     events = encounter_module.end_encounter(session, command.outcome)
     if command.resolve_area and area_ref is not None and area_ref not in session.dungeon_state.resolved_encounters:

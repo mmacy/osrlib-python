@@ -4217,7 +4217,7 @@ class EndEncounter(Command):
         `encounter`, `battle`
 
     Rejections:
-        - `session.command.wrong_mode` - no encounter is open.
+        - `session.command.wrong_mode` or `encounter.none_active` - no encounter is open.
 
     Events:
         A [`MonsterDefeatedEvent`][osrlib.crawl.events.MonsterDefeatedEvent] for each monster

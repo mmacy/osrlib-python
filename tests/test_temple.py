@@ -12,7 +12,7 @@ from pydantic import ValidationError
 
 from crawl_fixtures import build_party
 from osrlib.core.clock import TimeUnit
-from osrlib.core.effects import Condition, has_condition, kill
+from osrlib.core.effects import Condition, EffectDefinition, grant_condition, has_condition, kill
 from osrlib.core.events import Visibility
 from osrlib.core.items import Coins
 from osrlib.crawl.adventure import Adventure, TownSpec
@@ -212,3 +212,47 @@ def test_the_player_view_lists_what_this_town_charges():
     assert session().view(Visibility.PLAYER).town_healing_prices == STANDARD
     view = session(healing_prices={"raise_dead": 1000, "cure_light_wounds": 0}).view(Visibility.PLAYER)
     assert view.town_healing_prices == {**STANDARD, "raise_dead": 1000, "cure_light_wounds": 0}
+
+
+@pytest.mark.parametrize(
+    ("service", "condition"), [("cure_disease", Condition.DISEASED), ("neutralize_poison", Condition.POISONED)]
+)
+def test_a_cure_lifts_its_condition_with_no_effect_behind_it(service, condition):
+    # The spell lifts the condition however it was put on (#257). Before, the temple sold the service and the cast
+    # left a condition granted with no ledger effect in place.
+    game = session()
+    patient = game.party.members[1]
+    grant_condition(patient, condition, None)
+    gold = party_gold(game)
+    result = game.execute(PurchaseHealing(character_id=patient.id, service=service))
+    assert result.accepted
+    assert party_gold(game) == gold - STANDARD[service]
+    assert not has_condition(patient, condition)
+
+
+def test_the_temple_heals_a_member_after_it_cures_a_bare_disease():
+    game = session()
+    patient = game.party.members[1]
+    patient.current_hp = 1
+    grant_condition(patient, Condition.DISEASED, None)
+    blocked = game.execute(PurchaseHealing(character_id=patient.id, service="cure_light_wounds"))
+    assert [rejection.params["reason"] for rejection in blocked.rejections] == ["diseased"]
+    assert game.execute(PurchaseHealing(character_id=patient.id, service="cure_disease")).accepted
+    assert game.execute(PurchaseHealing(character_id=patient.id, service="cure_light_wounds")).accepted
+    assert patient.current_hp > 1
+
+
+@pytest.mark.parametrize(
+    ("service", "condition"), [("cure_disease", Condition.DISEASED), ("neutralize_poison", Condition.POISONED)]
+)
+def test_a_cure_lifts_the_ledger_effect_behind_its_condition(service, condition):
+    game = session()
+    patient = game.party.members[1]
+    definition = EffectDefinition(kind="ailment", permanent=True, condition=condition)
+    effect, _ = game.ledger.attach(
+        definition, patient.id, clock=game.clock, allocator=game.allocator, registry=game.registry()
+    )
+    assert effect is not None
+    result = game.execute(PurchaseHealing(character_id=patient.id, service=service))
+    assert result.accepted
+    assert not has_condition(patient, condition)

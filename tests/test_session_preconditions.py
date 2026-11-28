@@ -20,6 +20,7 @@ from osrlib.crawl.battle import start_battle
 from osrlib.crawl.commands import (
     AnyCommand,
     DropItems,
+    EndEncounter,
     EngageBattle,
     EnterDungeon,
     GiveItems,
@@ -240,6 +241,45 @@ def test_start_encounter_refuses_to_replace_an_open_encounter():
         start_encounter(game, groups=[("orc", newcomers)], kind="wandering")
     assert game.encounter is first
     assert [group.label for group in first.groups] == ["goblin"]
+    assert stream.export_state() == before
+
+
+def test_start_encounter_refuses_a_party_in_town():
+    # Before #257, the encounter opened in town, and closing it left the session exploring in
+    # town, where EnterDungeon was refused and MoveParty raised.
+    game = session(enter=False)
+    goblins = game.spawn("goblin", 2)
+    stream = game.streams.get(ENCOUNTER_STREAM)
+    before = stream.export_state()
+    with pytest.raises(ValueError, match="dungeon"):
+        start_encounter(game, groups=[("goblin", goblins)], kind="spawned", pinned_stance=ReactionResult.ATTACKS)
+    assert game.mode is SessionMode.TOWN
+    assert game.encounter is None
+    assert game.battle is None
+    assert stream.export_state() == before
+    assert game.execute(EnterDungeon(dungeon_id="crypt")).accepted
+
+
+def test_start_encounter_refuses_a_session_that_has_ended():
+    game = session()
+    game.mode = SessionMode.GAME_OVER
+    goblins = game.spawn("goblin", 1)
+    with pytest.raises(ValueError, match="ended"):
+        start_encounter(game, groups=[("goblin", goblins)], kind="spawned")
+    assert game.mode is SessionMode.GAME_OVER
+    assert game.encounter is None
+
+
+@pytest.mark.parametrize("mode", [SessionMode.ENCOUNTER, SessionMode.BATTLE])
+def test_end_encounter_with_no_open_encounter_is_refused(mode):
+    # Before #257 the handler raised ValueError for a session whose mode says an encounter is open and that has none.
+    game = session()
+    game.mode = mode
+    stream = game.streams.get(ENCOUNTER_STREAM)
+    before = stream.export_state()
+    result = game.execute(EndEncounter(outcome="departed"))
+    assert [rejection.code for rejection in result.rejections] == ["encounter.none_active"]
+    assert game.mode is mode
     assert stream.export_state() == before
 
 
