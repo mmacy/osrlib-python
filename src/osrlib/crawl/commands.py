@@ -2661,7 +2661,10 @@ class BattleDeclaration(_Model):
       light wounds*.
 
     To check one member's choice against the choices already made for the round, call
-    [`preview_battle_round`][osrlib.crawl.battle.preview_battle_round] with them.
+    [`preview_battle_round`][osrlib.crawl.battle.preview_battle_round] with them. To check
+    every target of each choice on a member's menu in the same call, pass the choices in its
+    `candidates` argument, each a [`BattleCandidate`][osrlib.crawl.battle.BattleCandidate]
+    with the target ids to try.
 
     `action` decides which other fields apply. Leave the others at their defaults.
 

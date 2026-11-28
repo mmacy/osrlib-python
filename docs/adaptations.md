@@ -1137,6 +1137,7 @@ The Combat page says "Movement and attacking may be combined in the same round."
 - Before the round starts, the session works out where every declared move would put each member, with the same arithmetic the movement step uses, and judges every declaration there. The member's distance after their close decides whether the attack is a melee or a missile attack, and which weapon the session chooses when the declaration sets no `weapon_id`. A melee attack is judged against the front rank that every declared move and trade would produce, so a member who steps into the place another member leaves can strike in the same round. `combat.attack.out_of_reach` reports the distance the close would leave.
 - That projection leaves out what the monsters do, because the session decides that after it rolls initiative. When the monsters act first, a member's close can fall short, and their melee attack then fizzles (see [A melee attack that position stops fizzles](#a-melee-attack-that-position-stops-fizzles)).
 - To judge a plan before you send it, call `preview_battle_round` with the declarations planned so far. It runs the same checks over the same projection, takes no draw, and changes nothing.
+- To judge the actions a member could still choose, pass them to `preview_battle_round` as `candidates`, each with the targets to try. Each candidate is judged in place of the member's own planned declaration, after every other member's planned move. The result gives every rejection at each target, with the codes the plan's own rejections use, and says whether an attack would be a melee or a missile attack there, as the session decides it at the projected distance.
 
 Some actions can't combine with a move:
 
@@ -1226,7 +1227,7 @@ Reach:
 - Outside a battle, the party stands together, so any member reaches any other.
 - In a battle, two members reach each other when they stand within 5' of each other on the range track. That's the Combat page's distance for melee, which is "possible when opponents are 5' or less from each other". The session judges it where the two members will stand once the round's declared moves are made, with the projection it uses for an attack that closes. So a member who closes 20' toward a group this round is out of reach of a member who stays on the line.
 - The session refuses an action on a member out of reach with `battle.declaration.member_out_of_reach`. Its `character` param is the member who acts, and its `target` param is the other member.
-- `EncounterView.advance_feet` gives each member's place on the track, so a front end can tell who reaches whom before the round. `preview_battle_round` reports the refusal for a planned round, after the moves planned so far.
+- `EncounterView.advance_feet` gives each member's place on the track, so a front end can tell who reaches whom before the round. `preview_battle_round` reports the refusal for a planned round, after the moves planned so far, and for each target of a candidate you pass it in `candidates`.
 
 A potion for someone else:
 

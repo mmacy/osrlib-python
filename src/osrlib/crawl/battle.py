@@ -323,7 +323,7 @@ assert "combat.initiative.rolled" in [event.code for event in result.events]
 
 import math
 from collections.abc import Collection, Iterable, Mapping, Sequence
-from typing import Any, NamedTuple, Protocol, cast
+from typing import Any, Literal, NamedTuple, Protocol, cast
 
 from pydantic import ConfigDict
 
@@ -413,6 +413,8 @@ from osrlib.crawl.party import _anyone_standing, _stands
 
 __all__ = [
     "ActionPolicy",
+    "BattleCandidate",
+    "BattleCandidateJudgement",
     "BattleRoundPreview",
     "BattleState",
     "FIGHTER_FRONTAGE_FEET",
@@ -2270,6 +2272,138 @@ def group_front_rank(session, group_id: str) -> tuple[str, ...]:
     return tuple(_reachable_front_rank(group, _placement(session)))
 
 
+class BattleCandidate(_Model):
+    """One action a member could declare, to be judged at each of several targets before the player picks one.
+
+    Pass these to [`preview_battle_round`][osrlib.crawl.battle.preview_battle_round] in `candidates` to
+    learn which targets each action on a battle screen's menu reaches, in one call. The preview judges
+    the candidate once for each id in `target_ids`, with that id set in `target_field`, and returns a
+    [`BattleCandidateJudgement`][osrlib.crawl.battle.BattleCandidateJudgement] for it. You list the
+    candidates from the player view, and the session decides whether each one works, so the answers
+    reveal nothing the view masks.
+
+    Build one candidate for each choice on the menu:
+
+    - A melee attack is an `attack` with `weapon_id`, at group ids in `target_group_id`.
+    - A close and attack is the same `attack` with `move="close"`.
+    - Each missile weapon the member wields is an `attack` of its own with that `weapon_id`.
+    - A spell is a `cast` with `spell_id`, `spell_mode`, and `reversed`. Use `target_group_id` for a
+      spell aimed at a group, and `targets` for one aimed at a member, a monster, or an NPC.
+    - A potion given to another member, or a touch with an item such as a staff of healing, is a
+      `use_item` with `item_id`, at member ids in `targets`.
+    - Handing over an item is a `give_item` with `item_id`, at member ids in `targets`.
+
+    Name `weapon_id` in every `attack` candidate. When you leave it out, the session picks the
+    weapon at the member's projected distance to each group, so an accepted answer doesn't say
+    which weapon it judged. The judgement's `attack_kinds` still says whether that attack is a
+    melee or a missile attack.
+
+    A `fighting_withdrawal` or a `retreat` can't be a candidate, because it takes no target and can
+    turn the plan into a formation move. Judge one as a planned declaration in `declarations`
+    instead.
+
+    The model is frozen.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    declaration: BattleDeclaration
+    """The declaration to judge, complete except for its target.
+
+    Leave the field that `target_field` names at its default: `target_group_id` at `None`, or
+    `targets` empty. Its `character_id` names the member, who has to be in
+    [`EncounterView.declarers`][osrlib.crawl.views.EncounterView.declarers]. The member doesn't need
+    a declaration in the plan. When they have one, the candidate takes its place.
+
+    The field that `target_field` doesn't name keeps the value you give it, and the session judges
+    the declaration with both. So a `cast` candidate with `target_field="targets"` whose
+    declaration also sets `target_group_id` is judged with both set, as the same declaration in the
+    plan would be."""
+    target_field: Literal["target_group_id", "targets"]
+    """Which field of the declaration each target id goes in. With `"target_group_id"`, the id is
+    the declaration's `target_group_id`. With `"targets"`, the declaration's `targets` contains
+    only that id."""
+    target_ids: tuple[str, ...]
+    """The ids to judge the declaration at, with no id repeated: group ids from
+    [`EncounterView.groups`][osrlib.crawl.views.EncounterView.groups], or the ids of members,
+    monsters, or NPCs from the player view.
+
+    An id that names nothing gets the rejection the session would give the same declaration in the
+    plan, such as `battle.declaration.unknown_group`. An empty tuple is allowed, and its judgement
+    has no entries."""
+
+    def declaration_for(self, target_id: str) -> BattleDeclaration:
+        """Return the declaration this candidate makes at one target.
+
+        It's `declaration` with `target_group_id` set to `target_id`, or with `targets` set to a tuple
+        that contains only `target_id`, as `target_field` says. Every other field keeps its value. The
+        preview judges exactly this declaration for each entry, and you can send it in the plan once
+        the player picks that target.
+
+        Args:
+            target_id: The id to aim at. It doesn't have to be in `target_ids`.
+
+        Returns:
+            A new [`BattleDeclaration`][osrlib.crawl.commands.BattleDeclaration]. The candidate
+                doesn't change.
+        """
+        if self.target_field == "target_group_id":
+            return self.declaration.model_copy(update={"target_group_id": target_id})
+        return self.declaration.model_copy(update={"targets": (target_id,)})
+
+
+class BattleCandidateJudgement(_Model):
+    """The session's answer for one [`BattleCandidate`][osrlib.crawl.battle.BattleCandidate] at each of its targets.
+
+    [`BattleRoundPreview.candidates`][osrlib.crawl.battle.BattleRoundPreview.candidates] holds one for
+    each candidate you passed to [`preview_battle_round`][osrlib.crawl.battle.preview_battle_round].
+    Read `rejections` to enable or disable each target of the action, and show the rejection codes
+    as the reason a target is disabled. Read `attack_kinds` to label an attack by how the member
+    would make it. The model is frozen.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    candidate: BattleCandidate
+    """The candidate, as you passed it."""
+    rejections: dict[str, tuple[Rejection, ...]]
+    """Every reason the session would refuse the candidate at each target, keyed by target id.
+
+    There's one entry for each id in the candidate's `target_ids`, in that order. An empty tuple
+    means the session would accept that declaration. Each tuple is exactly what
+    [`BattleRoundPreview.rejections`][osrlib.crawl.battle.BattleRoundPreview.rejections] would hold
+    for the member if you previewed the plan with their declaration replaced by
+    `candidate.declaration_for(target_id)`. It has the same codes and params, and every rejection has
+    the member's id as its `character` param. A rejection that doesn't depend on the target, such as
+    `battle.declaration.weapon_not_wielded`, appears under every target."""
+    attack_kinds: dict[str, Literal["melee", "missile"]] = {}
+    """Whether an `attack` candidate would be a melee or a missile attack at each target, keyed by
+    target id, in the order of `target_ids`.
+
+    It's the decision the session makes when it accepts the round, at the same projected distance
+    the rejections are judged at. A weapon with only the `missile` quality, such as a bow, always
+    makes a missile attack, and one with only the `melee` quality, such as a sword, always makes a
+    melee attack. A weapon with both, such as a dagger, makes a melee attack within 5' of the group
+    and a missile attack beyond. So a close and attack with a dagger that stops short of the group
+    is a missile attack: the member closes part way, then throws. With no `weapon_id`, it's the kind
+    of attack the session makes with the weapon it picks.
+
+    A target has an entry when the session's checks get as far as that decision. Every target the
+    session would accept has one. A target refused for reach, for the front rank, for range, or for
+    ammunition has one too. A target has no entry when the session refuses the attack before it
+    decides, because the group is unknown or has fled, the group has no monster to strike, the
+    weapon isn't wielded or can't attack, the member can't move for a close, or a check of
+    `back_stab` or `move` that comes before the group check refuses it. A candidate that isn't an
+    `attack` has no entries.
+
+    The decision can change when the monsters act first. A group that moves before the attack
+    comes up changes the distance. So a dagger judged as a throw can resolve as a melee attack, and
+    a dagger judged as a melee attack can resolve as a throw. An attack that closes from beyond
+    5' into reach stays a melee attack wherever the member ends up.
+
+    A judgement without `attack_kinds` parses with it empty."""
+
+
 class BattleRoundPreview(_Model):
     """What a battle round would do with the declarations planned so far, worked out without playing it.
 
@@ -2277,8 +2411,10 @@ class BattleRoundPreview(_Model):
     to grey out a choice the session would refuse, and read `advance_feet` and `front_rank` to show
     where the members would stand once their declared moves are made. Read `can_hide` and
     `can_back_stab` to offer a member a `hide` or a back-stab the session would accept beside the
-    choices already made. The model is frozen. A preview without `can_hide` or `can_back_stab`,
-    like one built by osrlib 2.7.0, parses with each of them empty.
+    choices already made, and read `candidates` for the answers to the candidates you passed. The
+    model is frozen. A preview without `can_hide` or `can_back_stab`, like one built by osrlib
+    2.7.0, parses with each of them empty, and a preview without `candidates`, like one built by
+    osrlib 2.10.0, parses with it empty.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -2333,9 +2469,23 @@ class BattleRoundPreview(_Model):
     always the view's `can_back_stab`. A member whose planned declaration is a `hide` hasn't hidden
     yet, so outside the party's free round they're here only when they were already hiding. A
     hiding member whose planned move will end the attempt when it comes up is still here."""
+    candidates: tuple[BattleCandidateJudgement, ...] = ()
+    """The session's answer for each candidate you passed to
+    [`preview_battle_round`][osrlib.crawl.battle.preview_battle_round], in the order you passed them.
+    It's empty when you passed none.
+
+    A member declares one action in a round, so each candidate is judged as `can_hide` judges a
+    `hide`: as if it took the place of the member's own planned declaration, where the other
+    members' planned moves would leave the party. The member's own planned move is never made
+    first, so a candidate that closes is judged from where the member stands now. For each
+    candidate and each of its targets, the entry matches what this function returns for the same
+    plan with that member's declaration replaced by `candidate.declaration_for(target_id)`: the
+    judgement's `rejections` entry is that preview's `rejections` for the member."""
 
 
-def preview_battle_round(session, declarations: Sequence[BattleDeclaration]) -> BattleRoundPreview:
+def preview_battle_round(
+    session, declarations: Sequence[BattleDeclaration], candidates: Sequence[BattleCandidate] = ()
+) -> BattleRoundPreview:
     """Judge the declarations planned so far for this battle round, and show where they'd leave the party.
 
     A battle screen builds a round one member at a time. Call this after each choice, with every
@@ -2375,6 +2525,33 @@ def preview_battle_round(session, declarations: Sequence[BattleDeclaration]) -> 
     withdrawal would put them in the front rank. Offer the choice to the members in the list, and
     call this function again once the player picks it.
 
+    To learn which targets each action on a member's menu reaches before the player picks one, pass
+    the actions in `candidates`, one [`BattleCandidate`][osrlib.crawl.battle.BattleCandidate] for
+    each action, with the ids to judge it at. The result's `candidates` holds a
+    [`BattleCandidateJudgement`][osrlib.crawl.battle.BattleCandidateJudgement] for each one, in the
+    order you passed them. Its `rejections` gives every reason the session would refuse the action
+    at each target, with the codes and params the plan's own `rejections` use, so you can show them
+    as the reason a target is disabled. Its `attack_kinds` says whether an attack would be a melee
+    or a missile attack at each target.
+
+    Each candidate is judged as if it took the place of the member's own planned declaration, and
+    every other member's planned declaration stands, with its move made. The member's own planned
+    move isn't made first, so a candidate that closes is judged from where the member stands now.
+    You can pass several candidates for one member, and a candidate for a member who has no
+    declaration in the plan. The entries agree exactly with the preview of the plan with the
+    member's declaration replaced: for each candidate and target, the entry is what this function
+    returns in `rejections` for the member when you pass that plan with
+    `candidate.declaration_for(target_id)` in place of the member's declaration.
+
+    Each entry reports only the candidate's own rejections. A candidate that changes the ranks can
+    still be accepted when it would refuse another member's planned declaration. For example, a
+    close by a member earlier in marching order can take the last place in the front rank toward
+    the goblins, which pushes a later member's planned close and attack out of it. The candidate's
+    entry is accepted, and the other member's rejection shows in the next preview, once the player
+    picks the close. As for the plan, the projection doesn't include anything the monsters do, so
+    when the monsters act first, a candidate's `close` can fall short of where the preview put the
+    member.
+
     The call reads the session and changes nothing. It takes no random number and no game time, so
     calling it after every choice costs the game nothing.
 
@@ -2382,16 +2559,24 @@ def preview_battle_round(session, declarations: Sequence[BattleDeclaration]) -> 
         session (osrlib.crawl.session.GameSession): A session in `battle` mode.
         declarations: The declarations planned so far, at most one for each member. Each one names a
             member in `EncounterView.declarers`. Any subset of the declarers works, including none.
+        candidates: The actions to judge at each of their targets, in the order you want the
+            answers. Each one names a member in `EncounterView.declarers`. The default, no
+            candidates, gives a result with `candidates` empty and everything else unchanged.
 
     Returns:
         A [`BattleRoundPreview`][osrlib.crawl.battle.BattleRoundPreview] with each declaration's
             rejections, each living member's projected advance, each group's projected front rank,
-            and who could hide or back-stab beside the plan.
+            who could hide or back-stab beside the plan, and the answer for each candidate.
 
     Raises:
         ValueError: If no battle is running, a declaration names a member who isn't in
-            `EncounterView.declarers`, or two declarations name the same member. Fix the call. Nothing in
-            the session changes.
+            `EncounterView.declarers`, or two declarations name the same member. Also if a
+            candidate's member isn't in `EncounterView.declarers`, its declaration already sets the
+            field that `target_field` names (a `target_group_id` that isn't `None`, or a non-empty
+            `targets`), its `target_ids` repeats an id, or its declaration is a `move` action with
+            a `fighting_withdrawal` or a `retreat`. The message for a candidate says that it's a
+            candidate and gives its zero-based position in `candidates`, the member's id, and the
+            reason. Fix the call. Nothing in the session changes.
     """
     if session.battle is None:
         raise ValueError("preview_battle_round needs a running battle")
@@ -2404,6 +2589,7 @@ def preview_battle_round(session, declarations: Sequence[BattleDeclaration]) -> 
         if declaration.character_id in seen:
             raise ValueError(f"two declarations name {declaration.character_id!r}")
         seen.add(declaration.character_id)
+    _check_candidates(candidates, declarer_ids)
     judgement = _judge_round(session, declarers, declarations)
     # Keyed in marching order, so the order of the plan never shows in the result.
     rejections = {member_id: list(judgement.rejections[member_id]) for member_id in declarer_ids if member_id in seen}
@@ -2420,7 +2606,102 @@ def preview_battle_round(session, declarations: Sequence[BattleDeclaration]) -> 
         },
         can_hide=tuple(member.id for member in declarers if _could_hide(session, declarers, declarations, member)),
         can_back_stab=_back_stabbers(session, declarers),
+        candidates=_judge_candidates(session, declarers, declarations, candidates),
     )
+
+
+def _check_candidates(candidates: Sequence[BattleCandidate], declarer_ids: Sequence[str]) -> None:
+    """Raise `ValueError` for the first candidate that `preview_battle_round` can't judge, before anything else.
+
+    Each message names the candidate's zero-based position in `candidates` and its member's id, so a caller that
+    passes the message on can tell a bad candidate from a bad declaration. The call reads nothing in the session.
+    """
+    for index, candidate in enumerate(candidates):
+        declaration = candidate.declaration
+        member_id = declaration.character_id
+        prefix = f"candidate {index} for {member_id!r}"
+        if member_id not in declarer_ids:
+            raise ValueError(f"{prefix} names a member who isn't one of this round's declarers")
+        if candidate.target_field == "target_group_id" and declaration.target_group_id is not None:
+            raise ValueError(f"{prefix} already sets target_group_id")
+        if candidate.target_field == "targets" and declaration.targets:
+            raise ValueError(f"{prefix} already sets targets")
+        repeated = next(
+            (target_id for target_id in candidate.target_ids if candidate.target_ids.count(target_id) > 1), None
+        )
+        if repeated is not None:
+            raise ValueError(f"{prefix} repeats the target id {repeated!r}")
+        move = _declared_move(declaration)
+        if move in _DEFENSIVE_MOVES:
+            raise ValueError(f"{prefix} makes a {move}, which can't be a candidate")
+
+
+class _Replacement:
+    """The projections of a plan with one member's declaration replaced by a declaration of your choice.
+
+    The replacement may make a `close` or no move, never a `fighting_withdrawal` or a `retreat`. Such a declaration
+    changes neither the formation move, which needs every declarer to make the same defensive move, nor the trades
+    of marching-order places, which only defensive moves plan and only a defensive move refuses to take part in
+    (see `_formation_move` and `_plan_trades`). So the plan with the replacement has no formation move and the same
+    trades as the plan without the member. `_plan_member_moves` reads the replacement only for whether it closes
+    and on which group, so every replacement that makes no move has one projection, and every replacement that
+    closes on the same group has one. This builds each of them once, from the code `_judge_round` uses, and
+    `placement` returns the one for a declaration. The call reads state and takes no draw.
+    """
+
+    def __init__(self, session, declarers, declarations: Sequence[BattleDeclaration], member_id: str) -> None:
+        self._session = session
+        self._member_id = member_id
+        self._others = {
+            declaration.character_id: declaration
+            for declaration in declarations
+            if declaration.character_id != member_id
+        }
+        self._trades = _plan_trades(declarers, list(self._others.values()), None)[1]
+        self._projections: dict[str | None, _Placement] = {}
+
+    def placement(self, declaration: BattleDeclaration) -> _Placement:
+        """Where the members would stand with `declaration` in place of the member's own declaration."""
+        closes = _declared_move(declaration) == "close"
+        key = declaration.target_group_id if closes else None
+        projected = self._projections.get(key)
+        if projected is None:
+            declared = {**self._others, self._member_id: declaration} if closes else self._others
+            projected = _projected_placement(self._session, declared, self._trades, None)
+            self._projections[key] = projected
+        return projected
+
+
+def _judge_candidates(
+    session, declarers, declarations: Sequence[BattleDeclaration], candidates: Sequence[BattleCandidate]
+) -> tuple[BattleCandidateJudgement, ...]:
+    """Judge each candidate at each of its targets, in place of its member's planned declaration.
+
+    Each entry is judged with `_judge_declaration`, the code `_judge_round` judges a planned declaration with,
+    against the projection `_Replacement` gives for it. So each entry is what `_judge_round` would give the member
+    for the plan with their declaration replaced by the entry's declaration. Such a declaration plans no trade, so
+    it gets no trade rejection. The call reads state and takes no draw.
+    """
+    replacements: dict[str, _Replacement] = {}
+    judgements = []
+    for candidate in candidates:
+        member_id = candidate.declaration.character_id
+        replacement = replacements.get(member_id)
+        if replacement is None:
+            replacement = replacements[member_id] = _Replacement(session, declarers, declarations, member_id)
+        member = session.member(member_id)
+        rejections: dict[str, tuple[Rejection, ...]] = {}
+        attack_kinds: dict[str, Literal["melee", "missile"]] = {}
+        for target_id in candidate.target_ids:
+            declaration = candidate.declaration_for(target_id)
+            judged = _judge_declaration(session, declaration, member, replacement.placement(declaration))
+            rejections[target_id] = tuple(judged.rejections)
+            if judged.missile is not None:
+                attack_kinds[target_id] = "missile" if judged.missile else "melee"
+        judgements.append(
+            BattleCandidateJudgement(candidate=candidate, rejections=rejections, attack_kinds=attack_kinds)
+        )
+    return tuple(judgements)
 
 
 def _could_hide(session, declarers, declarations: Sequence[BattleDeclaration], member) -> bool:
@@ -3007,10 +3288,75 @@ def _validate_declaration(
     A `hide` takes the checks of `_hide_rejection` against `placement`, after the back-stab checks and the
     check of `move`.
     """
-    state = session.battle
+    return _check_declaration(session, declaration, member, placement=placement)[0]
+
+
+def _check_declaration(
+    session, declaration: BattleDeclaration, member, *, placement: _Placement | None = None
+) -> tuple[list[Rejection], bool | None]:
+    """Judge one declaration as `_validate_declaration` does, and say whether an `attack` is a missile attack.
+
+    The second item is the pre-phase's decision between a missile and a melee attack (see `_check_attack`), or
+    None when the checks refuse the declaration before they make it, or when the declaration isn't an `attack`.
+    """
     refused = _back_stab_rejection(session, declaration, member) or _combination_rejection(declaration)
     if refused is not None:
-        return [refused]
+        return [refused], None
+    if declaration.action == "attack":
+        return _check_attack(session, declaration, member, placement or _placement(session))
+    return _check_action(session, declaration, member, placement), None
+
+
+def _check_attack(
+    session, declaration: BattleDeclaration, member, placement: _Placement
+) -> tuple[list[Rejection], bool | None]:
+    """Run an `attack`'s own checks against `placement`, and say whether it's a missile attack.
+
+    The checks come in this order: the group, a monster in its reachable rank, the weapon, whether a member who
+    closes can move, then the decision between a missile and a melee attack, then the checks of that kind. The
+    decision is `_is_missile_declaration` for the weapon at the member's distance to the group in `placement`.
+    The second item is that decision, or None when an earlier check refuses the attack. The call reads state and
+    takes no draw.
+    """
+    state = session.battle
+    group = _group_by_id(session, declaration.target_group_id)
+    if group is None or group.fled:
+        return [Rejection(code="battle.declaration.unknown_group", params={"character": member.id})], None
+    pool = _monster_pool(session, group)
+    if not pool:
+        return [Rejection(code="battle.declaration.no_target", params={"group": group.id})], None
+    weapon = _find_wielded(member, declaration.weapon_id)
+    if declaration.weapon_id is not None:
+        if weapon is None:
+            return [
+                Rejection(code="battle.declaration.weapon_not_wielded", params={"item": declaration.weapon_id})
+            ], None
+        if _declaration_facet(weapon) is None:
+            # A wielded wand, or another magic item with no base weapon, has no damage to roll. Every
+            # magic staff has a base, so a player can't tell one unidentified staff from another by it.
+            return [Rejection(code="battle.declaration.item_unusable", params={"item": declaration.weapon_id})], None
+    if declaration.move == "close" and cannot_move(member):
+        return [Rejection(code="battle.declaration.cannot_move", params={"character": member.id})], None
+    distance = placement.distance(member.id, group)
+    missile = _is_missile_declaration(weapon, distance)
+    if declaration.back_stab and missile:
+        return [Rejection(code="battle.declaration.back_stab_not_melee", params={"character": member.id})], missile
+    if not missile:
+        front_rank = not _stabs_from_hiding(session, declaration, member.id)
+        out_of_place = _melee_rejection(member.id, group, placement, front_rank=front_rank)
+        if out_of_place is not None:
+            return [out_of_place], missile
+    context = AttackContext(
+        distance_feet=distance if missile else MELEE_RANGE_FEET,
+        fired_last_round=member.id in state.fired_last_round,
+    )
+    combat_facet = getattr(weapon, "combat", None)
+    attack = combat_facet if combat_facet is not None else weapon
+    return validate_attack(member, pool[0], attack, context, ruleset=session.ruleset), missile
+
+
+def _check_action(session, declaration: BattleDeclaration, member, placement: _Placement | None) -> list[Rejection]:
+    """Run the own checks of a declaration that isn't an `attack`, as `_validate_declaration` describes them."""
     if declaration.action == "hold":
         return []
     if declaration.action == "hide":
@@ -3026,40 +3372,6 @@ def _validate_declaration(
         if cannot_move(member):
             return [Rejection(code="battle.declaration.cannot_move", params={"character": member.id})]
         return []
-    if declaration.action == "attack":
-        group = _group_by_id(session, declaration.target_group_id)
-        if group is None or group.fled:
-            return [Rejection(code="battle.declaration.unknown_group", params={"character": member.id})]
-        pool = _monster_pool(session, group)
-        if not pool:
-            return [Rejection(code="battle.declaration.no_target", params={"group": group.id})]
-        weapon = _find_wielded(member, declaration.weapon_id)
-        if declaration.weapon_id is not None:
-            if weapon is None:
-                return [Rejection(code="battle.declaration.weapon_not_wielded", params={"item": declaration.weapon_id})]
-            if _declaration_facet(weapon) is None:
-                # A wielded wand, or another magic item with no base weapon, has no damage to roll. Every
-                # magic staff has a base, so a player can't tell one unidentified staff from another by it.
-                return [Rejection(code="battle.declaration.item_unusable", params={"item": declaration.weapon_id})]
-        if declaration.move == "close" and cannot_move(member):
-            return [Rejection(code="battle.declaration.cannot_move", params={"character": member.id})]
-        placement = placement or _placement(session)
-        distance = placement.distance(member.id, group)
-        missile = _is_missile_declaration(weapon, distance)
-        if declaration.back_stab and missile:
-            return [Rejection(code="battle.declaration.back_stab_not_melee", params={"character": member.id})]
-        if not missile:
-            front_rank = not _stabs_from_hiding(session, declaration, member.id)
-            out_of_place = _melee_rejection(member.id, group, placement, front_rank=front_rank)
-            if out_of_place is not None:
-                return [out_of_place]
-        context = AttackContext(
-            distance_feet=distance if missile else MELEE_RANGE_FEET,
-            fired_last_round=member.id in state.fired_last_round,
-        )
-        combat_facet = getattr(weapon, "combat", None)
-        attack = combat_facet if combat_facet is not None else weapon
-        return validate_attack(member, pool[0], attack, context, ruleset=session.ruleset)
     if declaration.action == "use_item":
         magic = member.inventory.magic_item(declaration.item_id) if declaration.item_id else None
         if magic is not None:
@@ -3798,6 +4110,44 @@ class _Judgement(NamedTuple):
     """Where the members would stand once the declared moves are made (see `_projected_placement`)."""
 
 
+class _Judged(NamedTuple):
+    """One declaration's verdict against a projection, which `_judge_declaration` returns."""
+
+    declaration: BattleDeclaration
+    """The declaration with its default weapon chosen."""
+    rejections: list[Rejection]
+    """Every reason the pre-phase refuses it, each with the declaring member's id as `character`."""
+    missile: bool | None
+    """Whether an `attack` is a missile attack, or None when the checks refuse it first or it isn't an `attack`."""
+
+
+def _judge_declaration(session, declaration: BattleDeclaration, member, projected: _Placement) -> _Judged:
+    """Judge one declaration against a projection of the round's moves, as the pre-phase judges it.
+
+    It chooses an `attack`'s default weapon at the member's distance in `projected` (see `_with_default_weapon`),
+    runs `_check_declaration`, adds the mirror check of `gaze_defense`, and names the declaring member as the
+    `character` param of every rejection. `_judge_round` judges each planned declaration with it, and
+    `_judge_candidates` each candidate entry. It reads nothing about the other declarations except what
+    `projected` holds. The call reads state, changes nothing, and takes no draw.
+    """
+    # Choose the default weapon once, here, so the round plays out as if the player had named it.
+    # The command log still records the declaration as it was sent.
+    chosen = _with_default_weapon(session, declaration, member, projected)
+    checked, missile = _check_declaration(session, chosen, member, placement=projected)
+    found = list(checked)
+    if chosen.gaze_defense == "mirror" and member.inventory.carried_item(_MIRROR_ITEM_ID) is None:
+        found.append(Rejection(code="battle.declaration.no_mirror", params={"character": member.id}))
+    # The kernel's checks that `_check_declaration` passes through don't know who declared,
+    # so the declaring member is named here, and every rejection says whose declaration it was.
+    named = [
+        rejection
+        if "character" in rejection.params
+        else rejection.model_copy(update={"params": {**rejection.params, "character": member.id}})
+        for rejection in found
+    ]
+    return _Judged(declaration=chosen, rejections=named, missile=missile)
+
+
 def _judge_round(session, declarers, declarations: Sequence[BattleDeclaration]) -> _Judgement:
     """Run the validation pre-phase's checks on a round's declarations, without the roster check.
 
@@ -3828,21 +4178,9 @@ def _judge_round(session, declarers, declarations: Sequence[BattleDeclaration]) 
     rejections: dict[str, list[Rejection]] = {}
     for declaration in declarations:
         member = session.member(declaration.character_id)
-        # Choose the default weapon once, here, so the round plays out as if the player had named it.
-        # The command log still records the declaration as it was sent.
-        chosen = _with_default_weapon(session, declaration, member, projected)
-        by_member[member.id] = (member, chosen)
-        found = list(_validate_declaration(session, chosen, member, placement=projected))
-        if chosen.gaze_defense == "mirror" and member.inventory.carried_item(_MIRROR_ITEM_ID) is None:
-            found.append(Rejection(code="battle.declaration.no_mirror", params={"character": member.id}))
-        # The kernel's checks that `_validate_declaration` passes through don't know who declared,
-        # so the declaring member is named here, and every rejection says whose declaration it was.
-        rejections[member.id] = [
-            rejection
-            if "character" in rejection.params
-            else rejection.model_copy(update={"params": {**rejection.params, "character": member.id}})
-            for rejection in found
-        ]
+        judged = _judge_declaration(session, declaration, member, projected)
+        by_member[member.id] = (member, judged.declaration)
+        rejections[member.id] = judged.rejections
     # A move that sets `back_stab` gets `back_stab_not_attack` in place of its own trade checks.
     back_stabbers = {
         member.id
