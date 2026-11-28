@@ -93,16 +93,17 @@ print(template.xp, template.ability("regeneration").params["per_round"])
 from collections.abc import Mapping
 from typing import Annotated, Literal
 
-from pydantic import ConfigDict, Field, ValidationInfo, field_validator, model_validator
+from pydantic import ConfigDict, Field, ValidationError, ValidationInfo, field_validator, model_validator
 
 from osrlib.core._descriptions import _StrEnum
 from osrlib.core.alignment import Alignment
 from osrlib.core.classes import SavingThrows
 from osrlib.core.creature import _assign_or_restore
 from osrlib.core.dice import parse
-from osrlib.core.effects import ActiveCondition, ActiveModifier, Condition
+from osrlib.core.effects import ActiveCondition, ActiveModifier, Condition, regeneration_definition
 from osrlib.core.frozen import FrozenMap, _Model
 from osrlib.core.rng import RngStream, StreamName
+from osrlib.errors import ContentValidationError
 
 __all__ = [
     "MONSTER_SPAWN_STREAM",
@@ -752,7 +753,26 @@ class MonsterAbility(_Model):
 
     A troll's regeneration has `delay_rounds` 3 and `per_round` 3, and a wight's energy drain has
     `levels` 1. The keys differ by tag. Empty when the SRD gives no numbers.
+
+    A `regeneration` ability's params become an effect when an encounter starts, through
+    [`regeneration_definition`][osrlib.core.effects.regeneration_definition]. Constructing the ability raises
+    `pydantic.ValidationError` when the params can't build that effect, such as a `per_round` of `"three"` or a
+    `revive` of `"lots"`, which isn't a dice expression.
     """
+
+    @model_validator(mode="after")
+    def _regeneration_can_run(self) -> MonsterAbility:
+        if self.tag == "regeneration":
+            # Both errors become a ValueError, so constructing the ability always raises pydantic's ValidationError.
+            try:
+                regeneration_definition(self.params)
+            except ValidationError as error:
+                raise ValueError(
+                    f"the regeneration params can't build its effect: {error.errors()[0]['msg']}"
+                ) from None
+            except ContentValidationError as error:
+                raise ValueError(f"the regeneration params can't build its effect: {error}") from None
+        return self
 
 
 class AcAlternate(_Model):

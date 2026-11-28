@@ -1126,6 +1126,10 @@ class EffectDefinition(_Model):
     - For [`natural_healing`][osrlib.core.combat.natural_healing]: `healing_rest_days`, the number of rest days
       for each natural heal.
 
+    Constructing a definition raises `pydantic.ValidationError` when one of these integer params is present and
+    isn't a whole number: `per_round` and `delay_rounds` on a regeneration tick, which can't be negative either,
+    `strength_set` on a `weakness_strength_set` expiry, and `healing_rest_days`, which has to be at least 1.
+
     osrlib ignores any key it doesn't read, so you can store your own values here."""
 
     @field_validator("duration_dice")
@@ -1149,9 +1153,29 @@ class EffectDefinition(_Model):
             if "dice" not in self.params:
                 raise ValueError("the splash_damage expiry needs a dice param")
             parse(str(self.params["dice"]))
-        if self.tick == "regeneration" and "revive" in self.params:
-            parse(str(self.params["revive"]))
+        if self.tick == "regeneration":
+            if "revive" in self.params:
+                parse(str(self.params["revive"]))
+            _check_int_param(self.params, "per_round", minimum=0)
+            _check_int_param(self.params, "delay_rounds", minimum=0)
+        if self.expiry == "weakness_strength_set":
+            _check_int_param(self.params, "strength_set")
+        # natural_healing divides the rest days by this, so it has to be a whole number of at least 1.
+        _check_int_param(self.params, "healing_rest_days", minimum=1)
         return self
+
+
+def _check_int_param(params: Mapping[str, Any], key: str, *, minimum: int | None = None) -> None:
+    """Raise `ValueError` when the param is present and isn't a whole number, or is below `minimum`."""
+    if key not in params:
+        return
+    value = params[key]
+    try:
+        number = int(value)
+    except TypeError, ValueError:
+        raise ValueError(f"the {key} param has to be a whole number, got {value!r}") from None
+    if minimum is not None and number < minimum:
+        raise ValueError(f"the {key} param has to be at least {minimum}, got {number}")
 
 
 class ActiveEffect(_Model):

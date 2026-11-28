@@ -213,6 +213,17 @@ def test_release_without_a_registry_is_fine_when_the_effect_granted_nothing():
         {"tick": "regenerate"},
         {"expiry": "explode"},
         {"permanent": True, "duration_unit": TimeUnit.TURN, "duration_amount": 3},
+        {"tick": "regeneration", "params": {"per_round": "three"}},
+        {"tick": "regeneration", "params": {"delay_rounds": "soon"}},
+        {"tick": "regeneration", "params": {"per_round": -1}},
+        {
+            "duration_unit": TimeUnit.ROUND,
+            "duration_amount": 2,
+            "expiry": "weakness_strength_set",
+            "params": {"strength_set": "weak"},
+        },
+        {"params": {"healing_rest_days": "two"}},
+        {"params": {"healing_rest_days": 0}},
     ],
     ids=[
         "an amount and dice together",
@@ -222,6 +233,12 @@ def test_release_without_a_registry_is_fine_when_the_effect_granted_nothing():
         "a tick osrlib doesn't define",
         "an expiry osrlib doesn't define",
         "permanent with a duration",
+        "a regeneration rate that isn't a number",
+        "a regeneration delay that isn't a number",
+        "a negative regeneration rate",
+        "a strength score that isn't a number",
+        "a rest cadence that isn't a number",
+        "a rest cadence of 0",
     ],
 )
 def test_a_definition_that_could_never_work_is_refused(fields):
@@ -238,8 +255,19 @@ def test_a_definition_that_could_never_work_is_refused(fields):
         {"duration_unit": TimeUnit.ROUND, "duration_dice": "2d6"},
         {"tick": "regeneration", "tick_interval_rounds": 1},
         {"duration_unit": TimeUnit.ROUND, "duration_amount": 2, "expiry": "weakness_strength_set"},
+        {"tick": "regeneration", "params": {"per_round": 3, "delay_rounds": "3"}},
+        {"params": {"healing_rest_days": 2}},
     ],
-    ids=["no duration", "permanent", "an amount and a unit", "dice and a unit", "a tick osrlib defines", "an expiry"],
+    ids=[
+        "no duration",
+        "permanent",
+        "an amount and a unit",
+        "dice and a unit",
+        "a tick osrlib defines",
+        "an expiry",
+        "regeneration numbers",
+        "a rest cadence",
+    ],
 )
 def test_a_definition_that_works_is_accepted(fields):
     assert EffectDefinition(kind="fine", **fields).kind == "fine"
@@ -251,3 +279,14 @@ def test_every_definition_in_the_data_still_builds():
 
     assert load_spells().spells
     assert load_magic_items().items
+
+
+@pytest.mark.parametrize(("param", "value"), [("per_round", "three"), ("revive", "lots")])
+def test_a_monster_whose_regeneration_could_never_run_is_refused(param, value):
+    """A bundled monster's regeneration becomes an effect when an encounter starts, so its numbers are checked first."""
+    troll = load_monsters().get("troll").model_dump()
+    for ability in troll["abilities"]:
+        if ability["tag"] == "regeneration":
+            ability["params"] = {**ability["params"], param: value}
+    with pytest.raises(ValidationError, match=value):
+        type(load_monsters().get("troll")).model_validate({**troll, "id": "bog_troll"})
